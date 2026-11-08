@@ -71,7 +71,7 @@ class ScratchRegisterAllocatorTest {
         val result = edit.commit() as MethodEditCommitResult.Rejected
         owner.discard()
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidInstructionTemplate)
+        assertEquals(MethodEditRejectionReason.ForeignLogicalRegister, result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 
@@ -93,7 +93,7 @@ class ScratchRegisterAllocatorTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidInstructionTemplate)
+        assertEquals(MethodEditRejectionReason.WideScratchPairOutsideReservation(1), result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 

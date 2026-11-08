@@ -11,54 +11,47 @@ import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 data class ParameterSlot(val register: Int, val type: VirtualType)
 
 /**
- * A method's **static** structure, built without executing anything (spec §5.4): which addresses
- * exist, what instruction is at each, how control falls through, where try blocks are, and how
- * registers are laid out. The old engine had no such type -- address→op required a VM-global
- * template map joined with a per-graph address→location map, so the shape of a method was only
- * observable through an execution. `MethodView` is also the baseline the debugger lists (Plan 10)
- * and the editor rewrites (Plan 13).
- *
- * The view exposes immutable dexlib instruction interfaces. Initial import owns all mutable class-model access.
+ * A method's static structure, built from its [MethodBody] without executing anything: which addresses exist, what
+ * instruction is at each, how control falls through, where try blocks are, and how registers are laid out. The view
+ * exposes immutable dexlib instruction interfaces.
  */
-class MethodView internal constructor(
+class MethodView private constructor(
     val signature: String,
     val definingClass: VirtualType,
     val returnType: VirtualType,
     val isStatic: Boolean,
-    val registerCount: Int,
     parameters: List<ParameterSlot>,
-    tryBlocks: List<TryBlock>,
-    private val addressToInstruction: Map<Int, Instruction>,
-    internal val methodBody: MethodBody? = null,
-    internal val frameworkMethodIdentity: FrameworkMethodIdentity? = null,
+    internal val methodBody: MethodBody,
+    internal val frameworkMethodIdentity: FrameworkMethodIdentity?,
     val programRevision: ProgramRevision,
     val methodRevision: ApplicationMethodRevision?,
-    val methodAccessFlags: Int = 0,
+    val methodAccessFlags: Int,
 ) {
-    private data class HandlerInput(
-        val blocks: List<TryBlock>,
-        val failure: RuntimeException?,
-    )
-
-    private val handlerInput: HandlerInput = snapshotHandlers(tryBlocks)
+    val registerCount: Int = methodBody.registerCount
+    private val addressToInstruction: Map<Int, Instruction> = methodBody.instructionsByCodeAddress
     val isSynchronized: Boolean = java.lang.reflect.Modifier.isSynchronized(methodAccessFlags) ||
         AccessFlags.DECLARED_SYNCHRONIZED.isSet(methodAccessFlags)
     val parameters: List<ParameterSlot> = java.util.Collections.unmodifiableList(parameters.toList())
-    val tryBlocks: List<TryBlock> = java.util.Collections.unmodifiableList(handlerInput.blocks)
+    val tryBlocks: List<TryBlock> = java.util.Collections.unmodifiableList(
+        methodBody.implementation.tryBlocks.map { block ->
+            val handlers = block.exceptionHandlers
+            TryBlock(
+                block.startCodeAddress,
+                block.startCodeAddress + block.codeUnitCount,
+                handlers.filter { it.exceptionType != null }.map {
+                    CatchClause(VirtualType.of(requireNotNull(it.exceptionType)), it.handlerCodeAddress)
+                },
+                handlers.firstOrNull { it.exceptionType == null }?.handlerCodeAddress,
+            )
+        },
+    )
 
     private sealed interface CanonicalHandlerMetadata {
         data class Valid(val tables: PersistentList<HandlerTable>) : CanonicalHandlerMetadata
         data object MalformedOverlap : CanonicalHandlerMetadata
-        data class Failed(val failure: RuntimeException) : CanonicalHandlerMetadata
     }
 
-    private val canonicalHandlers: CanonicalHandlerMetadata = handlerInput.failure?.let {
-        CanonicalHandlerMetadata.Failed(it)
-    } ?: try {
-        canonicalizeHandlers(this.tryBlocks)
-    } catch (failure: RuntimeException) {
-        CanonicalHandlerMetadata.Failed(failure)
-    }
+    private val canonicalHandlers: CanonicalHandlerMetadata = canonicalizeHandlers(tryBlocks)
 
     private val storedInstructionAddresses: IntArray = addressToInstruction
         .filterValues { it.opcode !in OpcodeGroups.PAYLOAD }
@@ -126,9 +119,9 @@ class MethodView internal constructor(
         return requireNotNull(addressToInstruction[address]) { "No payload at address $address in $signature" }
     }
 
-    internal fun controlTargetAt(address: Int): Int? = methodBody?.controlTargetAt(address)
+    internal fun controlTargetAt(address: Int): Int? = methodBody.controlTargetAt(address)
 
-    internal fun switchCasesAt(address: Int): List<Pair<Int, Int>> = methodBody?.switchCasesAt(address).orEmpty()
+    internal fun switchCasesAt(address: Int): List<Pair<Int, Int>> = methodBody.switchCasesAt(address)
 
     fun opcodeAt(address: Int): Opcode = instructionAt(address).opcode
 
@@ -142,7 +135,6 @@ class MethodView internal constructor(
 
     internal fun handlerTableAt(address: Int): HandlerTableLookup = when (val metadata = canonicalHandlers) {
         CanonicalHandlerMetadata.MalformedOverlap -> HandlerTableLookup.MalformedMetadata
-        is CanonicalHandlerMetadata.Failed -> throw metadata.failure
         is CanonicalHandlerMetadata.Valid -> {
             val table = metadata.tables.firstOrNull { it.covers(address) }
             if (table == null) HandlerTableLookup.None else HandlerTableLookup.Found(table)
@@ -176,16 +168,6 @@ class MethodView internal constructor(
         private val TERMINATING_OPCODES = OpcodeGroups.RETURN + Opcode.THROW
 
         private data class HandlerRange(val startAddress: Int, val endAddress: Int)
-
-        private fun snapshotHandlers(source: List<TryBlock>): HandlerInput {
-            val snapshot = ArrayList<TryBlock>(source.size)
-            return try {
-                for (block in source) snapshot += block
-                HandlerInput(snapshot, failure = null)
-            } catch (failure: RuntimeException) {
-                HandlerInput(emptyList(), failure)
-            }
-        }
 
         private fun canonicalizeHandlers(tryBlocks: List<TryBlock>): CanonicalHandlerMetadata {
             val clausesByRange = LinkedHashMap<HandlerRange, PersistentList.Builder<HandlerClause>>()
@@ -263,33 +245,18 @@ class MethodView internal constructor(
             val parameters = types.map { type ->
                 ParameterSlot(register, type).also { register += if (type.isWide) 2 else 1 }
             }
-            val tryBlocks = body.implementation.tryBlocks.map { block ->
-                val handlers = block.exceptionHandlers
-                TryBlock(
-                    block.startCodeAddress,
-                    block.startCodeAddress + block.codeUnitCount,
-                    handlers.filter { it.exceptionType != null }.map {
-                        CatchClause(VirtualType.of(requireNotNull(it.exceptionType)), it.handlerCodeAddress)
-                    },
-                    handlers.firstOrNull { it.exceptionType == null }?.handlerCodeAddress,
-                )
-            }
             return MethodView(
                 signature,
                 VirtualType.of(definingClass),
                 VirtualType.of(returnType),
                 isStatic,
-                body.registerCount,
                 parameters,
-                tryBlocks,
-                body.instructionsByCodeAddress,
                 body,
                 frameworkMethodIdentity,
                 programRevision,
-                methodRevision = methodRevision,
-                methodAccessFlags = accessFlags,
+                methodRevision,
+                accessFlags,
             )
         }
-
     }
 }

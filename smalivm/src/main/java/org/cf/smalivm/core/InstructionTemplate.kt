@@ -1,179 +1,92 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-import com.android.tools.smali.dexlib2.iface.instruction.DualReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.PayloadInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.formats.Instruction31t
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction
 
 /** Detached pre-layout instruction specification. */
-sealed class InstructionTemplate private constructor() {
-    private data class Snapshot(
-        val instruction: Instruction?,
-        val failureMessage: String?,
-        val logicalRegisters: List<LogicalRegister>?,
-        val referenceOperands: List<DexReferenceOperand>,
-    )
+sealed class InstructionTemplate private constructor(
+    source: Instruction,
+    logicalRegisters: List<LogicalRegister>?,
+    referenceOperands: List<DexReferenceOperand>?,
+) {
+    internal val opcode: Opcode = source.opcode
+
+    /** An immutable copy of the submitted instruction, or null when dexlib2 cannot encode it. */
+    internal val instruction: Instruction? = try {
+        ImmutableInstruction.of(source)
+    } catch (unencodable: RuntimeException) {
+        null
+    }
+
+    internal val logicalRegisters: List<LogicalRegister>? = logicalRegisters?.toList()
+    internal val referenceOperands: List<DexReferenceOperand> = referenceOperands?.toList()
+        ?: instruction?.referenceOperands().orEmpty().map(DexReferenceOperand::Existing)
+
+    /** The transaction-bound code position this instruction's offset names. */
+    internal open val target: PendingCodeAnchor? get() = null
 
     /** A detached encoded instruction with no transaction-relative control operand. */
-    class Encoded private constructor(private val snapshot: Snapshot) : InstructionTemplate() {
-        constructor(instruction: Instruction) : this(snapshot(instruction, logicalRegisters = null))
+    class Encoded : InstructionTemplate {
+        constructor(instruction: Instruction) : super(instruction, null, null)
 
         constructor(instruction: Instruction, logicalRegisters: List<LogicalRegister>) :
-            this(snapshot(instruction, logicalRegisters))
+            super(instruction, logicalRegisters, null)
 
         constructor(instruction: Instruction, reference: DexReferenceOperand) :
-            this(snapshot(instruction, logicalRegisters = null, referenceOperands = listOf(reference)))
+            super(instruction, null, listOf(reference))
 
         constructor(
             instruction: Instruction,
             reference: DexReferenceOperand,
             logicalRegisters: List<LogicalRegister>,
-        ) : this(snapshot(instruction, logicalRegisters, listOf(reference)))
+        ) : super(instruction, logicalRegisters, listOf(reference))
 
         constructor(
             instruction: Instruction,
             reference: DexReferenceOperand,
             reference2: DexReferenceOperand,
-        ) : this(snapshot(instruction, logicalRegisters = null, referenceOperands = listOf(reference, reference2)))
+        ) : super(instruction, null, listOf(reference, reference2))
 
         constructor(
             instruction: Instruction,
             reference: DexReferenceOperand,
             reference2: DexReferenceOperand,
             logicalRegisters: List<LogicalRegister>,
-        ) : this(snapshot(instruction, logicalRegisters, listOf(reference, reference2)))
-
-        internal val instruction: Instruction? get() = snapshot.instruction
-        internal val failureMessage: String? get() = snapshot.failureMessage
-        internal val logicalRegisters: List<LogicalRegister>? get() = snapshot.logicalRegisters
-        internal val referenceOperands: List<DexReferenceOperand> get() = snapshot.referenceOperands
-
-        internal fun detachedCopy(): Encoded = Encoded(snapshot)
-
+        ) : super(instruction, logicalRegisters, listOf(reference, reference2))
     }
 
     /** A detached conditional or `goto` whose target belongs to this transaction. */
-    class Branch private constructor(
-        private val snapshot: Snapshot,
-        internal val target: PendingCodeAnchor,
-    ) : InstructionTemplate() {
-        constructor(instruction: OffsetInstruction, target: PendingCodeAnchor) :
-            this(snapshot(instruction, logicalRegisters = null), target)
-
-        constructor(
-            instruction: OffsetInstruction,
-            target: PendingCodeAnchor,
-            logicalRegisters: List<LogicalRegister>,
-        ) : this(snapshot(instruction, logicalRegisters), target)
-
-        internal val instruction: Instruction? get() = snapshot.instruction
-        internal val failureMessage: String? get() = snapshot.failureMessage
-        internal val logicalRegisters: List<LogicalRegister>? get() = snapshot.logicalRegisters
-        internal val referenceOperands: List<DexReferenceOperand> get() = snapshot.referenceOperands
-
-        internal fun detachedCopy(): Branch = Branch(snapshot, target)
-
-    }
+    class Branch(
+        instruction: OffsetInstruction,
+        override val target: PendingCodeAnchor,
+        logicalRegisters: List<LogicalRegister>? = null,
+    ) : InstructionTemplate(instruction, logicalRegisters, null)
 
     /** A detached `fill-array-data` instruction with a logical payload target. */
-    class FillArrayData private constructor(
-        private val snapshot: Snapshot,
-        internal val target: PendingCodeAnchor,
-    ) : InstructionTemplate() {
-        constructor(instruction: Instruction31t, target: PendingCodeAnchor) :
-            this(snapshot(instruction, logicalRegisters = null), target)
+    class FillArrayData(
+        instruction: Instruction31t,
+        override val target: PendingCodeAnchor,
+        logicalRegisters: List<LogicalRegister>? = null,
+    ) : InstructionTemplate(instruction, logicalRegisters, null)
 
-        constructor(
-            instruction: Instruction31t,
-            target: PendingCodeAnchor,
-            logicalRegisters: List<LogicalRegister>,
-        ) : this(snapshot(instruction, logicalRegisters), target)
-
-        internal val instruction: Instruction? get() = snapshot.instruction
-        internal val failureMessage: String? get() = snapshot.failureMessage
-        internal val logicalRegisters: List<LogicalRegister>? get() = snapshot.logicalRegisters
-        internal val referenceOperands: List<DexReferenceOperand> get() = snapshot.referenceOperands
-
-        internal fun detachedCopy(): FillArrayData = FillArrayData(snapshot, target)
-
-    }
-
-    /** A detached switch owner with owner-relative cases expressed as logical targets. */
-    class Switch private constructor(
-        private val snapshot: Snapshot,
-        internal val payloadTarget: PendingCodeAnchor,
+    /** A detached switch owner whose payload and owner-relative cases are logical targets. */
+    class Switch(
+        instruction: Instruction31t,
+        payloadTarget: PendingCodeAnchor,
         switchCases: List<Case>,
-    ) : InstructionTemplate() {
-        constructor(
-            instruction: Instruction31t,
-            payloadTarget: PendingCodeAnchor,
-            switchCases: List<Case>,
-        ) : this(snapshot(instruction, logicalRegisters = null), payloadTarget, switchCases.toList())
-
-        constructor(
-            instruction: Instruction31t,
-            payloadTarget: PendingCodeAnchor,
-            switchCases: List<Case>,
-            logicalRegisters: List<LogicalRegister>,
-        ) : this(snapshot(instruction, logicalRegisters), payloadTarget, switchCases.toList())
-
+        logicalRegisters: List<LogicalRegister>? = null,
+    ) : InstructionTemplate(instruction, logicalRegisters, null) {
         /** One switch key and its transaction-bound logical target. */
         data class Case(val key: Int, val target: PendingCodeAnchor)
 
-        internal val instruction: Instruction? get() = snapshot.instruction
-        internal val failureMessage: String? get() = snapshot.failureMessage
-        internal val logicalRegisters: List<LogicalRegister>? get() = snapshot.logicalRegisters
-        internal val referenceOperands: List<DexReferenceOperand> get() = snapshot.referenceOperands
+        override val target: PendingCodeAnchor = payloadTarget
         internal val switchCases: List<Case> = switchCases.toList()
-
-        internal fun detachedCopy(): Switch = Switch(snapshot, payloadTarget, switchCases)
-
     }
 
     /** Detached array or switch payload data. Owner instructions keep all logical targets. */
-    class Payload private constructor(private val snapshot: Snapshot) : InstructionTemplate() {
-        constructor(instruction: PayloadInstruction) : this(snapshot(instruction, logicalRegisters = null))
-
-        internal val instruction: Instruction? get() = snapshot.instruction
-        internal val failureMessage: String? get() = snapshot.failureMessage
-        internal val referenceOperands: List<DexReferenceOperand> get() = snapshot.referenceOperands
-
-        internal fun detachedCopy(): Payload = Payload(snapshot)
-
-    }
-
-    private companion object {
-        fun snapshot(
-            instruction: Instruction,
-            logicalRegisters: List<LogicalRegister>?,
-            referenceOperands: List<DexReferenceOperand>? = null,
-        ): Snapshot = try {
-            val detachedInstruction = ImmutableInstruction.of(instruction)
-            Snapshot(
-                detachedInstruction,
-                null,
-                logicalRegisters?.toList(),
-                referenceOperands?.toList() ?: operandsOf(detachedInstruction),
-            )
-        } catch (failure: RuntimeException) {
-            Snapshot(
-                null,
-                failure.message ?: failure.javaClass.simpleName,
-                logicalRegisters?.toList(),
-                referenceOperands?.toList().orEmpty(),
-            )
-        }
-
-        fun operandsOf(instruction: Instruction): List<DexReferenceOperand> = when (instruction) {
-            is DualReferenceInstruction -> listOf(
-                DexReferenceOperand.Existing(instruction.reference),
-                DexReferenceOperand.Existing(instruction.reference2),
-            )
-            is ReferenceInstruction -> listOf(DexReferenceOperand.Existing(instruction.reference))
-            else -> emptyList()
-        }
-    }
+    class Payload(instruction: PayloadInstruction) : InstructionTemplate(instruction, null, null)
 }

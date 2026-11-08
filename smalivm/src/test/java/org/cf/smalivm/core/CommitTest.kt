@@ -67,28 +67,10 @@ class CommitTest {
         }
     }
 
-    /**
-     * A real fixture method's [MethodView] with FORGED try blocks, so a handler address can be one no
-     * instruction lives at -- no smali can express that, because the assembler resolves handler labels.
-     * Same device as `ThrowRoutingTest.forgedTryBlocks`; duplicated rather than shared because the two
-     * suites build their [ClassIndex] differently and sharing it would couple their fixtures.
-     */
-    private fun forgedTryBlocks(methodDescriptor: String, tryBlocks: List<TryBlock>): MethodView {
+    /** A fixture method with try blocks built from its view; a handler at [MethodView.endAddress] names no instruction. */
+    private fun withTryBlocks(methodDescriptor: String, tryBlocks: (MethodView) -> List<TryBlock>): MethodView {
         val real = CoreTester.classIndex.requireMethodView(spine, methodDescriptor)
-        return MethodView(
-            signature = real.signature,
-            definingClass = real.definingClass,
-            returnType = real.returnType,
-            isStatic = real.isStatic,
-            registerCount = real.registerCount,
-            parameters = real.parameters,
-            tryBlocks = tryBlocks,
-            addressToInstruction = real.addresses.associateWith {
-                if (real.isPayload(it)) real.payloadAt(it) else real.instructionAt(it)
-            },
-            programRevision = real.programRevision,
-            methodRevision = real.methodRevision,
-        )
+        return CoreTester.classIndex.rebuiltView(real, tryBlocks(real))
     }
 
     /**
@@ -118,7 +100,7 @@ class CommitTest {
      * every clause in **that table** suspect -- and nothing else. The fall-through target of a sibling
      * `Continue` is not a clause in that table, so it is a fully resolved normal-execution path that
      * never consults the table at all, and discarding it is a precision loss against spec §2.2's "more
-     * forks never fewer" in exactly the shape Task 8's `div-int` inside a try block has.
+     * forks never fewer", as for a `div-int` inside a try block.
      *
      * Bug class: building every transition's successors into ONE flat list, so ALL_OR_NOTHING has to
      * abort out of `commit` and takes already-built successors of other transitions with it. Oracle:
@@ -137,10 +119,9 @@ class CommitTest {
         // A KNOWN thrown type, so handler search is definite: the one clause matches and its handler
         // address is the only successor the throw contributes -- and it is not an instruction.
         val exception = Value.Known(RuntimeException("boom"), runtimeException)
-        val view = forgedTryBlocks(
-            "nopThenConst()I",
-            listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, 9999)), null)),
-        )
+        val view = withTryBlocks("nopThenConst()I") {
+            listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, it.endAddress)), null))
+        }
         val graph = sessionOver(view, at = 0, listOf(Transition.Continue, Transition.Throw(exception))).run()
 
         assertTrue(
@@ -161,7 +142,7 @@ class CommitTest {
      * throw's handler fork is still ALL_OR_NOTHING **within itself**, no matter what sibling transitions
      * exist. One malformed clause means NONE of that table's handlers are routed and its escape
      * conclusion is dropped too -- `escapesUnhandled` reads the same table, so "escapes unhandled" is
-     * exactly as suspect as "caught at 9999".
+     * exactly as suspect as "caught at the method end".
      *
      * The good handler's address must be one the NORMAL path cannot reach, or "the good handler was
      * committed" and "the normal branch was committed" are the same observation. `gotoSkip()I` is the
@@ -178,19 +159,18 @@ class CommitTest {
         val objectType = VirtualType.of("Ljava/lang/Object;")
         // Unknown thrown type -> ambiguous, so EVERY covering handler plus the escape is feasible and
         // the table's good clause at address 2 would be routed if the policy were per-clause.
-        val view = forgedTryBlocks(
-            "gotoSkip()I",
+        val view = withTryBlocks("gotoSkip()I") {
             listOf(
                 TryBlock(
                     0, 1,
                     listOf(
                         CatchClause(VirtualType.of("Ljava/lang/RuntimeException;"), 2), // the skipped const
-                        CatchClause(VirtualType.of("Ljava/io/IOException;"), 9999),     // malformed
+                        CatchClause(VirtualType.of("Ljava/io/IOException;"), it.endAddress), // malformed
                     ),
                     null,
                 ),
-            ),
-        )
+            )
+        }
         val graph = sessionOver(
             view, at = 0,
             listOf(Transition.Continue, Transition.Throw(Value.Unknown(objectType))),

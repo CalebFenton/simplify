@@ -247,19 +247,7 @@ class OpArmStateTest {
     private data class LargeForkFrame(val view: MethodView, val frame: Frame, val objectRef: HeapRef)
 
     private fun largeForkFrame(): LargeForkFrame {
-        val realView = view("Lspine/spine;", "returnWide()J")
-        val view = MethodView(
-            realView.signature,
-            realView.definingClass,
-            realView.returnType,
-            realView.isStatic,
-            10_000,
-            realView.parameters,
-            realView.tryBlocks,
-            realView.addresses.associateWith(realView::instructionAt),
-            programRevision = realView.programRevision,
-            methodRevision = realView.methodRevision,
-        )
+        val view = CoreTester.classIndex.rebuiltView(view("Lspine/spine;", "returnWide()J"), registerCount = 10_000)
         val fields = (0 until 1_000).associate { "field$it:I" to Value.Known(it, INT) }
         val frame = Frame.entryFrame(view).also { large ->
             repeat(10_000) { large.assign(it, Value.Known(it, INT)) }

@@ -272,10 +272,10 @@ class MethodEditControlMetadataTest {
             operation(edit)
 
             val committed = edit.commit() as MethodEditCommitResult.Committed
-            assertDebugItemsAtStart(requireNotNull(committed.editedMethodView.methodBody))
+            assertDebugItemsAtStart(committed.editedMethodView.methodBody)
 
             val reloaded = reload(classIndex)
-            assertDebugItemsAtStart(requireNotNull(requireNotNull(reloaded.methodView(DEBUG_METHOD)).methodBody))
+            assertDebugItemsAtStart(requireNotNull(reloaded.methodView(DEBUG_METHOD)).methodBody)
         }
     }
 
@@ -338,7 +338,9 @@ class MethodEditControlMetadataTest {
             ),
         )
 
-        for (implementation in malformedImplementations) {
+        // dexlib2 try blocks are (start, code-unit count): [0, 2) and [1, 2) overlap; equal ranges merge handlers.
+        val expectedReasons = listOf(MethodEditRejectionReason.OverlappingTryRanges, MethodEditRejectionReason.CatchAllNotLast)
+        for ((implementation, expected) in malformedImplementations.zip(expectedReasons)) {
             val index = index(MALFORMED_BASE_SOURCE)
             installBody(index, MALFORMED_TRY, MethodBody.import(implementation))
             val snapshot = index.currentSnapshot
@@ -350,7 +352,7 @@ class MethodEditControlMetadataTest {
 
             val result = edit.commit() as MethodEditCommitResult.Rejected
 
-            assertTrue(result.reason is MethodEditRejectionReason.InvalidTryRegion)
+            assertEquals(expected, result.reason)
             assertSame(snapshot, index.currentSnapshot)
         }
     }
@@ -377,7 +379,8 @@ class MethodEditControlMetadataTest {
                 ),
             ),
         ).anchors.single()
-        val caseTarget = flowEdit.pendingAnchorForCodeAddress(returnAddress)
+        // The case loops back to the switch, so the only fault is the nop falling into the payload.
+        val caseTarget = flowEdit.pendingAnchorForCodeAddress(0)
         flowEdit.insertInstructionsBefore(
             0,
             listOf(
@@ -390,7 +393,8 @@ class MethodEditControlMetadataTest {
         )
 
         val rejected = flowEdit.commit() as MethodEditCommitResult.Rejected
-        assertTrue(rejected.reason is MethodEditRejectionReason.InvalidControlTarget)
+        // packed-switch occupies 3 code units and nop 1, so the payload starts at logical address 4.
+        assertEquals(MethodEditRejectionReason.FallsIntoPayload(4), rejected.reason)
     }
 
     @Test
@@ -415,7 +419,7 @@ class MethodEditControlMetadataTest {
 
         val payloadResult = payloadEntry.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(payloadResult.reason is MethodEditRejectionReason.InvalidControlTarget)
+        assertEquals(MethodEditRejectionReason.PayloadAtMethodEntry, payloadResult.reason)
 
         val branchView = requireNotNull(index.methodView(TEMPLATE_PACKED))
         val selfBranch = editor.beginEdit(branchView)
@@ -432,7 +436,7 @@ class MethodEditControlMetadataTest {
 
         val branchResult = selfBranch.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(branchResult.reason is MethodEditRejectionReason.InvalidControlTarget)
+        assertEquals(MethodEditRejectionReason.ZeroBranchOffset(0), branchResult.reason)
     }
 
     @Test
@@ -496,7 +500,7 @@ class MethodEditControlMetadataTest {
 
         val rejected = invalidEdit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(rejected.reason is MethodEditRejectionReason.StructuralValidationFailure)
+        assertEquals(MethodEditRejectionReason.ReadBeforeAssignment(codeAddress = 0, register = 0), rejected.reason)
         assertSame(snapshot, invalidIndex.currentSnapshot)
     }
 
@@ -587,7 +591,7 @@ class MethodEditControlMetadataTest {
 
         val result = second.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidControlTarget)
+        assertEquals(MethodEditRejectionReason.ForeignAnchor, result.reason)
         first.discard()
     }
 

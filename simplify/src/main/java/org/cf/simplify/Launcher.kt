@@ -188,7 +188,10 @@ class Launcher(
             failure.printStackTrace(error)
         }
         fun rejectedEdit(signature: String, rejection: Optimizer.Rejection) {
-            error.println("${rejection.strategy} produced an edit of $signature that the method editor rejected: ${rejection.reason}")
+            error.println(
+                "${rejection.strategy} produced an edit of $signature that the method editor rejected: " +
+                    rejection.reason.describe(),
+            )
         }
     }
 

@@ -50,7 +50,7 @@ class Optimizer(
                     strategy.perform(input)
                     transaction.commit()
                 } finally {
-                    if (transaction.state == MethodEditTransactionState.OPEN) transaction.discard()
+                    if (transaction.isOpen) transaction.discard()
                 }
                 when (commitResult) {
                     is MethodEditCommitResult.Committed -> {

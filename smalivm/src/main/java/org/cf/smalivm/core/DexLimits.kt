@@ -33,10 +33,10 @@ internal object DexLimits {
         closure: DexReferenceClosure,
         applicationClasses: Collection<ApplicationClassDefinition>,
     ): MethodEditRejectionReason.DexReferenceLimit? {
-        validateIndexedSection("type_ids", closure.types.size)?.let { return it }
-        validateIndexedSection("proto_ids", closure.prototypes.size)?.let { return it }
-        validateIndexedSection("field_ids", closure.fields.size)?.let { return it }
-        validateIndexedSection("method_ids", closure.methods.size)?.let { return it }
+        validateIndexedSection(DexSection.TYPE_IDS, closure.types.size)?.let { return it }
+        validateIndexedSection(DexSection.PROTO_IDS, closure.prototypes.size)?.let { return it }
+        validateIndexedSection(DexSection.FIELD_IDS, closure.fields.size)?.let { return it }
+        validateIndexedSection(DexSection.METHOD_IDS, closure.methods.size)?.let { return it }
 
         val typeLists = buildSet<List<String>> {
             closure.prototypes.mapTo(this) { it.parameterTypes }
@@ -47,7 +47,7 @@ internal object DexLimits {
     }
 
     internal fun validateIndexedSection(
-        section: String,
+        section: DexSection,
         itemCount: Int,
     ): MethodEditRejectionReason.DexReferenceLimit? =
         MethodEditRejectionReason.DexReferenceLimit(section).takeIf { itemCount > MAX_INDEXED_ITEMS }
@@ -63,7 +63,7 @@ internal object DexLimits {
     }
 
     internal fun validateTypeListDataSize(bytes: Long): MethodEditRejectionReason.DexReferenceLimit? =
-        MethodEditRejectionReason.DexReferenceLimit("type_list").takeIf { bytes > MAX_UNSIGNED_INT }
+        MethodEditRejectionReason.DexReferenceLimit(DexSection.TYPE_LIST).takeIf { bytes > MAX_UNSIGNED_INT }
 
     private fun alignToFour(value: Long): Long = (value + 3L) and -4L
 }

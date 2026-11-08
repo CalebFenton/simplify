@@ -7,18 +7,18 @@ import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodRefere
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DexLimitsTest {
     @Test
     fun indexedSectionsAccept65536ItemsAndReject65537() {
-        for (section in listOf("type_ids", "proto_ids", "field_ids", "method_ids")) {
+        for (section in listOf(DexSection.TYPE_IDS, DexSection.PROTO_IDS, DexSection.FIELD_IDS, DexSection.METHOD_IDS)) {
             assertNull(DexLimits.validateIndexedSection(section, 65_535))
             assertNull(DexLimits.validateIndexedSection(section, 65_536))
-            val rejected = DexLimits.validateIndexedSection(section, 65_537)
-            assertTrue(rejected is MethodEditRejectionReason.DexReferenceLimit)
-            assertEquals(section, rejected?.section)
+            assertEquals(
+                MethodEditRejectionReason.DexReferenceLimit(section),
+                DexLimits.validateIndexedSection(section, 65_537),
+            )
         }
     }
 
@@ -34,25 +34,22 @@ class DexLimitsTest {
             DexLimits.encodedTypeListDataSize(listOf(2_147_483_645)),
         )
         assertNull(DexLimits.validateTypeListDataSize(0xffff_ffffL))
-        assertEquals(
-            "type_list",
-            DexLimits.validateTypeListDataSize(0x1_0000_0000L)?.section,
-        )
+        assertEquals(DexSection.TYPE_LIST, DexLimits.validateTypeListDataSize(0x1_0000_0000L)?.section)
     }
 
     @Test
     fun transitiveClosuresRejectEachOverflowingIndexedSection() {
         val cases = listOf(
-            "type_ids" to references {
+            DexSection.TYPE_IDS to references {
                 ImmutableTypeReference("Loverflow/T$it;")
             },
-            "field_ids" to references {
+            DexSection.FIELD_IDS to references {
                 ImmutableFieldReference("Loverflow/Owner;", "field$it", "I")
             },
-            "method_ids" to references {
+            DexSection.METHOD_IDS to references {
                 ImmutableMethodReference("Loverflow/Owner;", "method$it", emptyList(), "V")
             },
-            "proto_ids" to references { value ->
+            DexSection.PROTO_IDS to references { value ->
                 val parameters = List(17) { bit -> if (value and (1 shl bit) == 0) "I" else "J" }
                 ImmutableMethodProtoReference(parameters, "V")
             },

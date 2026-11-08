@@ -9,48 +9,36 @@ import com.android.tools.smali.dexlib2.immutable.reference.ImmutableStringRefere
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
 
 /** A transaction-bound DEX reference that is not part of the current snapshot yet. */
-sealed class StagedDexReference protected constructor(
-    private val transactionIdentity: Any,
-) {
-    internal fun belongsTo(identity: Any): Boolean = transactionIdentity === identity
-
+sealed class StagedDexReference {
     internal abstract fun asReference(): Reference
 
     /** A DEX type reference staged for a typed exception handler or instruction. */
-    class Type internal constructor(
-        transactionIdentity: Any,
-        val descriptor: kotlin.String,
-    ) : StagedDexReference(transactionIdentity) {
+    class Type internal constructor(val descriptor: String) : StagedDexReference() {
         override fun asReference(): Reference = ImmutableTypeReference(descriptor)
     }
 
     /** A string staged for an instruction reference. */
-    class String internal constructor(
-        transactionIdentity: Any,
-        val value: kotlin.String,
-    ) : StagedDexReference(transactionIdentity) {
+    class StringLiteral internal constructor(val value: String) : StagedDexReference() {
         override fun asReference(): Reference = ImmutableStringReference(value)
     }
 
     /** A field reference staged for an instruction reference. */
     class Field internal constructor(
-        transactionIdentity: Any,
-        val definingClass: kotlin.String,
-        val name: kotlin.String,
-        val type: kotlin.String,
-    ) : StagedDexReference(transactionIdentity) {
+        val definingClass: String,
+        val name: String,
+        val type: String,
+    ) : StagedDexReference() {
         override fun asReference(): Reference = ImmutableFieldReference(definingClass, name, type)
     }
 
     /** A method reference staged for an instruction reference. */
     class Method internal constructor(
-        transactionIdentity: Any,
-        val definingClass: kotlin.String,
-        val name: kotlin.String,
-        parameterTypes: List<kotlin.String>,
-        val returnType: kotlin.String,
-    ) : StagedDexReference(transactionIdentity) {
-        val parameterTypes: List<kotlin.String> = Collections.unmodifiableList(parameterTypes.toList())
+        val definingClass: String,
+        val name: String,
+        parameterTypes: List<String>,
+        val returnType: String,
+    ) : StagedDexReference() {
+        val parameterTypes: List<String> = Collections.unmodifiableList(parameterTypes.toList())
 
         override fun asReference(): Reference =
             ImmutableMethodReference(definingClass, name, parameterTypes, returnType)
@@ -58,11 +46,10 @@ sealed class StagedDexReference protected constructor(
 
     /** A method prototype staged for an instruction reference. */
     class Prototype internal constructor(
-        transactionIdentity: Any,
-        parameterTypes: List<kotlin.String>,
-        val returnType: kotlin.String,
-    ) : StagedDexReference(transactionIdentity) {
-        val parameterTypes: List<kotlin.String> = Collections.unmodifiableList(parameterTypes.toList())
+        parameterTypes: List<String>,
+        val returnType: String,
+    ) : StagedDexReference() {
+        val parameterTypes: List<String> = Collections.unmodifiableList(parameterTypes.toList())
 
         override fun asReference(): Reference = ImmutableMethodProtoReference(parameterTypes, returnType)
     }
