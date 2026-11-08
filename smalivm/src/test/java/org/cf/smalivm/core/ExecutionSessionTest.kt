@@ -187,6 +187,74 @@ class ExecutionSessionTest {
     }
 
     @Test
+    fun confirmedHeapPressureDuringARunAbortsTheWholeRunAtItsNextStep() {
+        // Bug class: a run that keeps allocating after the collector reported the heap nearly full, until an
+        // OutOfMemoryError ends the process instead of this one method. `returnsOrThrows(I)I` forks at its first
+        // op, so two paths are scheduled when the pressure arrives and both must end.
+        val pressure = ScriptedHeapPressure(collections = 3, liveDataOver = true)
+        val s = sessionUnder(pressure, "returnsOrThrows(I)I")
+        assertEquals(0, s.step()!!.address)
+
+        pressure.collections++
+        val stopped = s.step()!!
+
+        assertEquals(OpProgress.Pending, stopped.progress, "the limit fires before the next op runs")
+        assertNull(s.step(), "nothing stays scheduled")
+        assertEquals(CompletionStatus.Partial(setOf(AbortReason.MEMORY_LIMIT)), s.completion())
+        assertEquals(List(2) { Outcome.Aborted(AbortReason.MEMORY_LIMIT) }, s.outcomes)
+        assertNull(s.graph().trusted())
+    }
+
+    @Test
+    fun pressureThatAWholeHeapCollectionDisprovesDoesNotStopTheRun() {
+        // A tenured collection can report pressure while counting garbage, such as an earlier run's graph. The
+        // whole-heap confirmation decides, and it runs once per report, not once per later step.
+        val pressure = ScriptedHeapPressure(collections = 0, liveDataOver = false)
+        val s = sessionUnder(pressure, "nopThenConst()I")
+        s.step()
+
+        pressure.collections++
+        while (s.step() != null) Unit
+
+        assertEquals(CompletionStatus.Complete, s.completion())
+        assertEquals(listOf(Outcome.Returned(Value.Known(42, int))), s.outcomes)
+        assertEquals(1, pressure.confirmations)
+    }
+
+    @Test
+    fun theRunAfterAMemoryAbortStartsWithoutTheReportThatStoppedItsPredecessor() {
+        // The collection that stopped one method's run happened while that run's graph was live; the next
+        // method's run starts after it and runs to completion until a new collection reports pressure.
+        val pressure = ScriptedHeapPressure(collections = 0, liveDataOver = true)
+        val stopped = sessionUnder(pressure, "returnsOrThrows(I)I")
+        stopped.step()
+        pressure.collections++
+        assertEquals(CompletionStatus.Partial(setOf(AbortReason.MEMORY_LIMIT)), stopped.run().completion())
+
+        val graph = sessionUnder(pressure, "nopThenConst()I").run()
+
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf(Outcome.Returned(Value.Known(42, int))), graph.outcomes)
+        assertEquals(1, pressure.confirmations)
+    }
+
+    private fun sessionUnder(pressure: HeapPressure, descriptor: String) =
+        vm.newSession(viewOf(descriptor), Limits(), null, heapPressure = pressure, decode = OpBuilder::build)
+
+    /** Reports [collections] and answers every confirmation with [liveDataOver]. */
+    private class ScriptedHeapPressure(var collections: Long, private val liveDataOver: Boolean) : HeapPressure {
+        var confirmations = 0
+            private set
+
+        override fun collectionsOverThreshold(): Long = collections
+
+        override fun liveDataOverThreshold(): Boolean {
+            confirmations++
+            return liveDataOver
+        }
+    }
+
+    @Test
     fun aDrainedFrontierNodeIsStillPiledEvenThoughItNeverRan() {
         // When a METHOD_LIMIT fires, abortRun ends every scheduled node without running its op; each must
         // still be piled at its own address or its Aborted outcome is unattributable.

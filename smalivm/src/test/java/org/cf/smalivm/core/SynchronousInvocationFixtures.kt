@@ -30,7 +30,8 @@ internal object SynchronousInvocationFixtures {
         backends: List<Backend>,
         limits: Limits = Limits(),
     ): ExecutionSession =
-        VmServices(classIndex).newSession(view(className, descriptor), limits, null, backends, OpBuilder::build)
+        VmServices(classIndex)
+            .newSession(view(className, descriptor), limits, null, backends, decode = OpBuilder::build)
 
     fun nativeCallSession(
         backend: Backend,

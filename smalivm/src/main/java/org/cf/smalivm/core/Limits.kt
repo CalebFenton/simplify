@@ -7,7 +7,9 @@ package org.cf.smalivm.core
  * [CompletionStatus.Partial]; an ordinary nested callee abort becomes a conservative `STRONG` opaque caller
  * continuation. [maxExecutionTimeMillis] is disabled by default because a wall-clock bound makes results
  * non-reproducible; with it disabled the session never reads the clock. [maxAddressVisits] permits exactly that
- * many visits of one address on one path and aborts the next one.
+ * many visits of one address on one path and aborts the next one. Independently of these bounds, a run stops as
+ * [AbortReason.MEMORY_LIMIT] when live data on the JVM heap nears the heap's maximum ([TenuredHeapPressure]);
+ * that bound is a property of the JVM, not of one run, so it has no field here.
  */
 public data class Limits(
     val maxAddressVisits: Int = 500,
