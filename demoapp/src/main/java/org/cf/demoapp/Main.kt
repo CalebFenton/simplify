@@ -74,7 +74,6 @@ object Main {
 
     private fun execute(services: VmServices, method: MethodView, frame: Frame, label: String): ExecutionGraph {
         val graph = services.newSession(method, entryFrame = frame).run()
-        // A returned void main does not imply every nested operation produced a known value.
         println("$label: ${graph.completion()}")
         graph.outcomes.filterNot { it is Outcome.Returned }.forEach { println("  $it") }
         return graph
@@ -85,7 +84,6 @@ object Main {
             println("$label: return consensus unavailable (incomplete exploration)")
             return
         }
-        // Join actual normal-return outcomes, not a hard-coded physical return register.
         val returns = graph.outcomes.filterIsInstance<Outcome.Returned>().mapNotNull { it.value }
         val consensus = joinAll(returns, services.classIndex)
         println("$label: return consensus = ${consensus ?: "no normal return"}")

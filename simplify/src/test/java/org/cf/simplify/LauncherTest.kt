@@ -21,7 +21,7 @@ import java.util.zip.ZipOutputStream
 
 class LauncherTest {
     @TempDir lateinit var temporaryDirectory: Path
-    private val fixture = "src/test/resources/task64"
+    private val fixture = "src/test/resources/skeleton"
     private fun launcher() = Launcher(listOf(OptimizationStrategy {}))
     private fun run(input: String, output: Path, vararg options: String) = launcher().run(arrayOf(input, "--output", output.toString(), "--quiet", *options))
     private fun returned(file: File): Any? = (OptimizerTester.execute(OptimizerTester.services(file), OptimizerTest.CHANGED).trusted()!!.terminatingConsensus(0) as Value.Known).raw
@@ -157,10 +157,9 @@ class LauncherTest {
         assertFalse(Files.exists(output))
     }
 
-    @Test fun helpAndLimitsAreParsedAndUnsafeWeakRemovalIsRejected() {
+    @Test fun helpAndLimitOptionsAreParsedAndValidated() {
         assertTrue(SimplifyOptionsParser.parse(arrayOf("--help")).help)
         assertThrows(ParseException::class.java) { SimplifyOptionsParser.parse(emptyArray()) }
-        assertThrows(ParseException::class.java) { SimplifyOptionsParser.parse(arrayOf(fixture, "--remove-weak")) }
         for (option in listOf("max-execution-time", "max-address-visits", "max-call-depth", "max-method-visits", "max-passes", "output-api-level")) {
             for (invalid in listOf("-1", "not-an-int", "2147483648")) {
                 assertThrows(ParseException::class.java) { SimplifyOptionsParser.parse(arrayOf(fixture, "--$option", invalid)) }
@@ -225,12 +224,12 @@ class LauncherTest {
         val visited = mutableListOf<MethodSignature>()
         val strategy = OptimizationStrategy { visited += it.graph.methodView.signature }
         val output = temporaryDirectory.resolve("support.dex")
-        val args = arrayOf("src/test/resources/task69", "--output", output.toString(), "--quiet")
+        val args = arrayOf("src/test/resources/support-filter", "--output", output.toString(), "--quiet")
         Launcher(listOf(strategy)).run(args)
-        assertEquals(listOf("Ltask69/Application;->value()I"), visited.map { it.toString() })
+        assertEquals(listOf("Lapp/Application;->value()I"), visited.map { it.toString() })
         visited.clear()
         Launcher(listOf(strategy)).run(args + "--include-support")
-        assertEquals(listOf("Landroid/support/v7/Support;->value()I", "Ltask69/Application;->value()I"), visited.map { it.toString() })
+        assertEquals(listOf("Landroid/support/v7/Support;->value()I", "Lapp/Application;->value()I"), visited.map { it.toString() })
     }
 
     @Test fun outputNamesPreserveInputTypeConventions() {

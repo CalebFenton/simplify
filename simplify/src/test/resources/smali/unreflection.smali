@@ -1,4 +1,4 @@
-.class public Lunreflection_kotlin_regression;
+.class public Lunreflection;
 .super Ljava/lang/Object;
 
 .field public static number:I = 0x29
@@ -8,7 +8,7 @@
 
 .method public static readFlag()Ljava/lang/Object;
     .registers 3
-    const-class v0, Lunreflection_kotlin_regression;
+    const-class v0, Lunreflection;
     const-string v1, "flag"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0
@@ -28,7 +28,7 @@
 
 .method public static readNumber()Ljava/lang/Object;
     .registers 3
-    const-class v0, Lunreflection_kotlin_regression;
+    const-class v0, Lunreflection;
     const-string v1, "number"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0
@@ -40,7 +40,7 @@
 
 .method public static readText()Ljava/lang/Object;
     .registers 3
-    const-class v0, Lunreflection_kotlin_regression;
+    const-class v0, Lunreflection;
     const-string v1, "text"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0
@@ -52,7 +52,7 @@
 
 .method public static readNumberIgnored()V
     .registers 2
-    const-class v0, Lunreflection_kotlin_regression;
+    const-class v0, Lunreflection;
     const-string v1, "number"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0
@@ -63,7 +63,7 @@
 
 .method public static readInstance()Ljava/lang/Object;
     .registers 3
-    const-class v0, Lunreflection_kotlin_regression;
+    const-class v0, Lunreflection;
     const-string v1, "instance"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0

@@ -1,4 +1,4 @@
-.class public Lorg/cf/obfuscated/Plan14Witness;
+.class public Lorg/cf/obfuscated/OptimizationWitness;
 .super Ljava/lang/Object;
 
 .field private static message:Ljava/lang/String; = "field value"
@@ -51,7 +51,7 @@
 
 .method public static invokeReflective()Ljava/lang/Object;
     .locals 8
-    const-class v0, Lorg/cf/obfuscated/Plan14Witness;
+    const-class v0, Lorg/cf/obfuscated/OptimizationWitness;
     const-string v1, "addFour"
     const/4 v2, 0x4
     new-array v2, v2, [Ljava/lang/Class;
@@ -96,7 +96,7 @@
 
 .method public static getReflectiveField()Ljava/lang/Object;
     .locals 4
-    const-class v0, Lorg/cf/obfuscated/Plan14Witness;
+    const-class v0, Lorg/cf/obfuscated/OptimizationWitness;
     const-string v1, "message"
     invoke-virtual {v0, v1}, Ljava/lang/Class;->getDeclaredField(Ljava/lang/String;)Ljava/lang/reflect/Field;
     move-result-object v0

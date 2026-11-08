@@ -19,7 +19,7 @@ import org.cf.simplify.optimize
 
 class PeepholeStrategyTest {
     private fun optimize(method: String) = OptimizerTester.optimize(
-        "Lpeephole_kotlin_regression;", method, PeepholeStrategy())
+        "Lpeephole;", method, PeepholeStrategy())
 
     @Test fun constantPredicatesPreserveBothOutcomesThroughDexRoundTrip() {
         for ((name, expected) in listOf("taken" to 0, "fallthrough" to 2)) {
@@ -44,7 +44,7 @@ class PeepholeStrategyTest {
         val address = optimized.method.instructionAddresses.single { optimized.method.opcodeAt(it) == Opcode.CONST_CLASS }
         val instruction = optimized.method.instructionAt(address)
         assertEquals(1, (instruction as OneRegisterInstruction).registerA)
-        assertEquals("Lpeephole_kotlin_regression;", ((instruction as ReferenceInstruction).reference as TypeReference).type)
+        assertEquals("Lpeephole;", ((instruction as ReferenceInstruction).reference as TypeReference).type)
         assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion())
     }
 

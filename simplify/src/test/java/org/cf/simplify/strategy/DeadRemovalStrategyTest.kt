@@ -2,12 +2,12 @@ package org.cf.simplify.strategy
 
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardCopyOption
 import java.io.File
 import org.cf.simplify.Optimizer
 import org.cf.smalivm.core.*
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
@@ -50,15 +50,45 @@ class DeadRemovalStrategyTest {
 
     @Test fun unusedMoveResultsThenPureCallsDisappearOnSuccessivePasses() {
         val services = services()
-        for ((name, opcode) in listOf("unusedMoveResult()I" to Opcode.INVOKE_STATIC,
-            "unusedMoveResultRange()I" to Opcode.INVOKE_STATIC_RANGE)) {
+        for ((name, call, result, expected) in listOf(
+            UnusedResult("unusedMoveResult()I", Opcode.INVOKE_STATIC, Opcode.MOVE_RESULT, 4),
+            UnusedResult("unusedMoveResultRange()I", Opcode.INVOKE_STATIC_RANGE, Opcode.MOVE_RESULT, 4),
+            UnusedResult("unusedObjectResults()Ljava/lang/String;", Opcode.INVOKE_STATIC, Opcode.MOVE_RESULT_OBJECT, "other stringy"),
+        )) {
             val method = OWNER + name
-            assertEquals(4, returned(services, method, 0).raw)
+            assertEquals(expected, returned(services, method, 0).raw, name)
             optimize(services, method)
-            assertFalse(has(view(services, method), Opcode.MOVE_RESULT))
-            assertFalse(has(view(services, method), opcode))
-            assertEquals(4, returned(services, method, 0).raw)
+            assertFalse(has(view(services, method), result), name)
+            assertFalse(has(view(services, method), call), name)
+            assertEquals(expected, returned(services, method, 0).raw, name)
         }
+    }
+
+    @Test fun unreachableInstructionsAndAGotoToTheNextInstructionAreRemoved() {
+        val services = services()
+        val unreachable = OWNER + "unreachableArithmeticAndNops()V"
+        val goto = OWNER + "gotoNextInstruction()V"
+        optimize(services, unreachable)
+        optimize(services, goto)
+        assertFalse(has(view(services, unreachable), Opcode.ADD_INT_2ADDR))
+        assertFalse(has(view(services, unreachable), Opcode.NOP))
+        assertFalse(has(view(services, goto), Opcode.GOTO))
+    }
+
+    @Test fun payloadAlignmentNopAndAMoveFeedingAnEffectfulCallRemain() {
+        val services = services()
+        val padded = OWNER + "payloadAlignmentNop()V"
+        val moves = OWNER + "liveMoveFeedsCallDeadMoveDoesNot(I)V"
+        optimize(services, padded)
+        optimize(services, moves)
+        // The nop after return-void puts the fill-array-data payload on the four-byte boundary it requires.
+        assertEquals(1, count(view(services, padded), Opcode.NOP))
+        // p0 is v30, which invoke-static's four-bit operands cannot name: the move into v0 feeds the call,
+        // and the move back into p0 writes a register nothing reads.
+        val edited = view(services, moves)
+        val kept = edited.instructionAddresses.filter { edited.opcodeAt(it) == Opcode.MOVE_FROM16 }
+        assertEquals(listOf(0), kept.map { (edited.instructionAt(it) as OneRegisterInstruction).registerA })
+        assertTrue(has(edited, Opcode.INVOKE_STATIC))
     }
 
     @Test fun callsThatCanThrowRemainEvenWithNoExternalSideEffect() {
@@ -125,9 +155,8 @@ class DeadRemovalStrategyTest {
         optimize(services, mutable)
         assertFalse(has(view(services, structural), Opcode.INVOKE_STATIC))
         assertTrue(has(view(services, mutable), Opcode.INVOKE_STATIC))
-        // The unseen branch's register uses are unavailable in this engine. Liveness must refuse,
-        // rather than interpreting an empty graph read-set as static proof that p0 is dead.
-        val definition = "LFx_DeadRemovalRemediation;->reachedDefinitionUsedOnlyByMutableBranch(I)I"
+        // The branch that returns p0 never ran, so liveness has no read evidence for it and keeps the definition.
+        val definition = GUARDS + "reachedDefinitionUsedOnlyByMutableBranch(I)I"
         optimize(services, definition)
         val edited = view(services, definition)
         assertTrue(edited.instructionAddresses.any {
@@ -142,11 +171,25 @@ class DeadRemovalStrategyTest {
             "mixedCallMustRemain(I)I" to Opcode.INVOKE_STATIC,
             "unusedClassForNameResultMustRemain()I" to Opcode.INVOKE_STATIC,
         )) {
-            val method = "LFx_DeadRemovalRemediation;->$name"
+            val method = GUARDS + name
             optimize(services, method)
             assertTrue(has(view(services, method), opcode), name)
         }
-        assertEquals(3, returned(services, "LFx_DeadRemovalRemediation;->mixedCallMustRemain(I)I", 0).raw)
+        assertEquals(3, returned(services, GUARDS + "mixedCallMustRemain(I)I", 0).raw)
+    }
+
+    @Test fun guardedCalleesKeepEveryCallersNormalAndThrowingOutcome() {
+        val services = services()
+        val run = GUARDS + "run()Ljava/lang/Object;"
+        // Hand-traced from the fixture: every check passes, so run() boxes 3342.
+        assertEquals(3342, returned(services, run, 0).raw)
+        for (name in listOf("mixedCallMustRemain(I)I", "deadArrayReadMustRemain([II)I",
+            "reachedDefinitionUsedOnlyByMutableBranch(I)I", "mixedCallReturns()I", "mixedCallThrowCaught()I",
+            "arrayReadReturns()I", "arrayReadThrowCaught()I", "branchOnZero()I", "branchOnOne()I")) {
+            optimize(services, GUARDS + name)
+        }
+        assertEquals(3342, returned(services, run, 0).raw)
+        assertEquals(3342, returned(reload(services), run, 0).raw)
     }
 
     @Test fun payloadTargetsCatchHandlersAndTerminalsSurviveCommitAndDexReload() {
@@ -155,8 +198,12 @@ class DeadRemovalStrategyTest {
         val array = OWNER + "arrayPayload()[B"
         val handler = OWNER + "catchesThrowingNone()I"
         val unreachable = OWNER + "unreachablePayloadOwner()V"
-        for (method in listOf(switch, array, handler, unreachable)) optimize(services, method)
+        val unreachableShapes = listOf(OWNER + "unreachableTargetAndHandler()V", OWNER + "unreachableLoopGraph()V")
+        for (method in listOf(switch, array, handler, unreachable) + unreachableShapes) optimize(services, method)
         val reloaded = reload(services)
+        for (method in unreachableShapes) {
+            assertTrue(execute(reloaded, method).outcomes.single() is Outcome.Returned, method)
+        }
         assertTrue(has(view(reloaded, switch), Opcode.SPARSE_SWITCH))
         assertTrue(view(reloaded, switch).payloadAddresses.isNotEmpty())
         assertTrue(has(view(reloaded, array), Opcode.FILL_ARRAY_DATA))
@@ -183,33 +230,6 @@ class DeadRemovalStrategyTest {
         assertEquals(0, result.committedEditCount)
         assertSame(snapshot, services.currentSnapshot)
         assertTrue(has(view(services, method), Opcode.INVOKE_STATIC))
-    }
-
-    @Test fun originalLegacyScenariosUseCommittedSnapshotsInsteadOfManipulatorInternals() {
-        val root = temporaryDirectory.resolve("legacy")
-        Files.createDirectories(root)
-        Files.copy(Path.of("src/test/resources/smali/dead_removal_strategy_test.smali"),
-            root.resolve("dead_removal_strategy_test.smali"), StandardCopyOption.REPLACE_EXISTING)
-        val services = services(root.toString())
-        val owner = "Ldead_removal_strategy_test;->"
-        for (name in listOf("unusedAssignment()I", "unusedResultNoSideEffects()I", "moveResult()Ljava/lang/String;",
-            "deadCode()V", "deadCodeWithStrongSideEffect()V", "uselessGoto()V", "hasNopPadding()V",
-            "reassignedInOnlyOneMultiverse(I)I", "moveP0IntoV0With30Locals(I)V", "unusedResultWithSideEffects()I")) {
-            optimize(services, owner + name)
-        }
-        assertEquals(2, returned(services, owner + "unusedAssignment()I", 0).raw)
-        assertEquals(2, returned(services, owner + "unusedResultNoSideEffects()I", 0).raw)
-        assertEquals("other stringy", returned(services, owner + "moveResult()Ljava/lang/String;", 0).raw)
-        assertFalse(has(view(services, owner + "unusedResultNoSideEffects()I"), Opcode.INVOKE_STATIC))
-        assertFalse(has(view(services, owner + "moveResult()Ljava/lang/String;"), Opcode.MOVE_RESULT))
-        assertFalse(has(view(services, owner + "deadCode()V"), Opcode.ADD_INT_2ADDR))
-        assertFalse(has(view(services, owner + "deadCode()V"), Opcode.NOP))
-        assertFalse(has(view(services, owner + "deadCodeWithStrongSideEffect()V"), Opcode.INVOKE_STATIC))
-        assertFalse(has(view(services, owner + "uselessGoto()V"), Opcode.GOTO))
-        assertEquals(1, count(view(services, owner + "hasNopPadding()V"), Opcode.NOP))
-        assertEquals(3, count(view(services, owner + "reassignedInOnlyOneMultiverse(I)I"), Opcode.CONST_4))
-        assertTrue(has(view(services, owner + "moveP0IntoV0With30Locals(I)V"), Opcode.MOVE_OBJECT_FROM16))
-        assertTrue(has(view(services, owner + "unusedResultWithSideEffects()I"), Opcode.INVOKE_STATIC))
     }
 
     @Test fun highRegisterWorklistPreservesTheReturnValue() {
@@ -257,9 +277,10 @@ class DeadRemovalStrategyTest {
         assertTrue(performNanos < 30_000_000_000L, "liveness took ${performNanos / 1_000_000} ms")
     }
 
+    private data class UnusedResult(val name: String, val call: Opcode, val result: Opcode, val expected: Any)
     private fun optimize(services: VmServices, method: String) =
         Optimizer(services, LIMITS, 10, listOf(DeadRemovalStrategy())).optimize(method)
-    private fun services(root: String = "src/test/resources/task66") = VmServices(ClassIndex.open(File(root), 20))
+    private fun services(root: String = "src/test/resources/dead-code") = VmServices(ClassIndex.open(File(root), 20))
     private fun view(services: VmServices, method: String) = requireNotNull(services.classIndex.methodView(method))
     private fun execute(services: VmServices, method: String) = services.newSession(view(services, method), LIMITS).run()
     private fun returned(services: VmServices, method: String, register: Int): Value.Known {
@@ -284,7 +305,8 @@ class DeadRemovalStrategyTest {
         return VmServices(ClassIndex.open(dex, 20))
     }
     companion object {
-        private const val OWNER = "Ltask66/DeadCode;->"
+        private const val OWNER = "Ldeadcode/DeadCode;->"
+        private const val GUARDS = "LDeadRemovalGuards;->"
         private val LIMITS = Limits(500, 1_000_000, 0, 20)
     }
 }

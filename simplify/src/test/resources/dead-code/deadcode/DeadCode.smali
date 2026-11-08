@@ -1,4 +1,4 @@
-.class public Ltask66/DeadCode;
+.class public Ldeadcode/DeadCode;
 .super Ljava/lang/Object;
 
 .field public static visible:I
@@ -51,7 +51,7 @@
 .method public static unusedMoveResult()I
     .locals 2
     const/4 v0, 0x4
-    invoke-static {v0}, Ltask66/DeadCode;->pureInt(I)I
+    invoke-static {v0}, Ldeadcode/DeadCode;->pureInt(I)I
     move-result v1
     return v0
 .end method
@@ -59,7 +59,7 @@
 .method public static unusedMoveResultRange()I
     .locals 6
     const/4 v0, 0x4
-    invoke-static/range {v0 .. v0}, Ltask66/DeadCode;->pureInt(I)I
+    invoke-static/range {v0 .. v0}, Ldeadcode/DeadCode;->pureInt(I)I
     move-result v1
     return v0
 .end method
@@ -76,7 +76,7 @@
 
 .method public static mixedCallMustRemain(I)I
     .locals 1
-    invoke-static {p0}, Ltask66/DeadCode;->mixedReturnOrThrow(I)I
+    invoke-static {p0}, Ldeadcode/DeadCode;->mixedReturnOrThrow(I)I
     move-result v0
     const/4 v0, 0x3
     return v0
@@ -91,7 +91,7 @@
 .method public static catchesThrowingNone()I
     .locals 1
     :try_start
-    invoke-static {}, Ltask66/DeadCode;->alwaysThrows()I
+    invoke-static {}, Ldeadcode/DeadCode;->alwaysThrows()I
     move-result v0
     :try_end
     .catch Ljava/lang/Throwable; {:try_start .. :try_end} :handler
@@ -104,14 +104,14 @@
 
 .method public static escapingThrowingNone()I
     .locals 1
-    invoke-static {}, Ltask66/DeadCode;->alwaysThrows()I
+    invoke-static {}, Ldeadcode/DeadCode;->alwaysThrows()I
     move-result v0
     return v0
 .end method
 
 .method private static visibleWrite(I)V
     .locals 0
-    sput p0, Ltask66/DeadCode;->visible:I
+    sput p0, Ldeadcode/DeadCode;->visible:I
     return-void
 .end method
 
@@ -127,7 +127,7 @@
     .locals 3
     const/4 v0, 0x1
     new-array v1, v0, [I
-    invoke-static {v1}, Ltask66/DeadCode;->mutateArgument([I)V
+    invoke-static {v1}, Ldeadcode/DeadCode;->mutateArgument([I)V
     return-object v1
 .end method
 
@@ -145,7 +145,7 @@
 
 .method public static synchronizedCallMustRemain()I
     .locals 1
-    invoke-static {}, Ltask66/DeadCode;->synchronizedPure()I
+    invoke-static {}, Ldeadcode/DeadCode;->synchronizedPure()I
     move-result v0
     const/4 v0, 0x2
     return v0
@@ -153,13 +153,13 @@
 
 .method private static readVolatile()I
     .locals 1
-    sget v0, Ltask66/DeadCode;->volatileVisible:I
+    sget v0, Ldeadcode/DeadCode;->volatileVisible:I
     return v0
 .end method
 
 .method public static volatileReadCallMustRemain()I
     .locals 1
-    invoke-static {}, Ltask66/DeadCode;->readVolatile()I
+    invoke-static {}, Ldeadcode/DeadCode;->readVolatile()I
     move-result v0
     const/4 v0, 0x3
     return v0
@@ -167,14 +167,14 @@
 
 .method public static reachedStrongCall()V
     .locals 0
-    invoke-static {}, Ltask66/DeadCode;->strongNoArgs()V
+    invoke-static {}, Ldeadcode/DeadCode;->strongNoArgs()V
     return-void
 .end method
 
 .method public static sideEffectingCall()I
     .locals 1
     const/4 v0, 0x6
-    invoke-static {v0}, Ltask66/DeadCode;->visibleWrite(I)V
+    invoke-static {v0}, Ldeadcode/DeadCode;->visibleWrite(I)V
     return v0
 .end method
 
@@ -194,7 +194,7 @@
 
 .method public static classInitializingCall()I
     .locals 1
-    invoke-static {}, Ltask66/Initializer;->pure()I
+    invoke-static {}, Ldeadcode/Initializer;->pure()I
     move-result v0
     const/4 v0, 0x4
     return v0
@@ -202,10 +202,10 @@
 
 .method public static staticRootMutation()I
     .locals 1
-    invoke-static {}, Ltask66/Initializer;->rootArray()[I
+    invoke-static {}, Ldeadcode/Initializer;->rootArray()[I
     move-result-object v0
-    invoke-static {}, Ltask66/Initializer;->mutateRoot()V
-    invoke-static {}, Ltask66/Initializer;->readRoot()I
+    invoke-static {}, Ldeadcode/Initializer;->mutateRoot()V
+    invoke-static {}, Ldeadcode/Initializer;->readRoot()I
     move-result v0
     return v0
 .end method
@@ -235,7 +235,7 @@
 
 .method public static mutableStaticMakesOneBranchLookDead()V
     .locals 1
-    sget v0, Ltask66/DeadCode;->mutableBranch:I
+    sget v0, Ldeadcode/DeadCode;->mutableBranch:I
     if-eqz v0, :return
     invoke-static {}, Ljava/lang/System;->gc()V
     :return
@@ -318,4 +318,61 @@
     if-eqz v0, :loop
     :return
     return-void
+.end method
+
+.method public static unreachableArithmeticAndNops()V
+    .locals 1
+    const/4 v0, 0x1
+    goto :return
+    add-int/2addr v0, v0
+    nop
+    nop
+    nop
+    :return
+    return-void
+.end method
+
+.method public static gotoNextInstruction()V
+    .locals 0
+    goto :return
+    :return
+    return-void
+.end method
+
+.method public static payloadAlignmentNop()V
+    .locals 1
+    const/16 v0, 0x1
+    new-array v0, v0, [B
+    fill-array-data v0, :array_data
+    fill-array-data v0, :array_data
+    return-void
+    nop
+    :array_data
+    .array-data 1
+        0x1t
+    .end array-data
+.end method
+
+.method public static liveMoveFeedsCallDeadMoveDoesNot(I)V
+    .locals 30
+    move/from16 v0, p0
+    invoke-static {v0}, Ldeadcode/DeadCode;->visibleWrite(I)V
+    move/from16 p0, v0
+    return-void
+.end method
+
+.method private static literal()Ljava/lang/String;
+    .locals 1
+    const-string v0, "stringy"
+    return-object v0
+.end method
+
+.method public static unusedObjectResults()Ljava/lang/String;
+    .locals 1
+    invoke-static {}, Ldeadcode/DeadCode;->literal()Ljava/lang/String;
+    move-result-object v0
+    invoke-static {}, Ldeadcode/DeadCode;->literal()Ljava/lang/String;
+    move-result-object v0
+    const-string v0, "other stringy"
+    return-object v0
 .end method

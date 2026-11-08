@@ -1,4 +1,4 @@
-.class public Ltask65/ConstantIdentity;
+.class public Lconstants/ConstantIdentity;
 .super Ljava/lang/Object;
 
 .method private static distinctString()Ljava/lang/String;
@@ -11,7 +11,7 @@
 
 .method public static run()I
     .locals 2
-    invoke-static {}, Ltask65/ConstantIdentity;->distinctString()Ljava/lang/String;
+    invoke-static {}, Lconstants/ConstantIdentity;->distinctString()Ljava/lang/String;
     move-result-object v0
     const-string v1, "identity witness"
     if-eq v0, v1, :aliased
