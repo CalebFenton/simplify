@@ -165,14 +165,14 @@ class NewCoreDifferentialTest {
                 "invoke-missing-class",
                 "missingClass()V",
                 "Ljava/lang/NoClassDefFoundError;",
-                "java.lang.NoClassDefFoundError:differential.absent",
+                "java.lang.NoClassDefFoundError:Failed resolution of: Ldifferential/absent;",
             ),
 
             Row(
                 "invoke-missing-method",
                 "missingMethod()V",
                 "Ljava/lang/NoSuchMethodError;",
-                "java.lang.NoSuchMethodError:missing()V",
+                "java.lang.NoSuchMethodError:No static method missing()V in class Ldifferential/invocation_target; or its super classes",
             ),
         )
 
