@@ -17,9 +17,8 @@
     return-void
 .end method
 
-# These move the built array into a real register with `move-result-object`; the result slot alone is
-# not exposed by any ExecutionGraph query. The register-count variants cover the 1/2/4/5-register
-# Instruction35c decode shapes behaviorally.
+# The first two methods leave the array in the result slot, which no graph query exposes; the methods
+# below move it into a register. The register-count variants cover every Instruction35c shape (1 to 5).
 .method public static filledNewArrayThenMoveResult()V
     .locals 4
 
@@ -74,8 +73,7 @@
     return-void
 .end method
 
-# The range form with exactly five registers. `A` is 8 bits for 3rc, so {v0 .. v4} is legal, and the
-# rendering must follow the opcode, not the register count.
+# The range form with five registers: `A` is 8 bits for 3rc, so {v0 .. v4} is legal and renders as a range.
 .method public static filledNewArrayRangeFive()V
     .locals 6
 
@@ -85,8 +83,7 @@
     return-void
 .end method
 
-# Component types beyond `[I`: [BC] accepts reference types, and ART throws `InternalError` for
-# single-word primitive components other than int (DALVIK-SEMANTICS.md, filled-new-array).
+# [BC] accepts reference components; ART implements no single-word primitive component except int.
 .method public static filledNewArrayOfStrings()V
     .locals 3
 
@@ -105,9 +102,8 @@
     return-void
 .end method
 
-# Two decode-time refusals, both `UnsupportedOp`. `[J` is forbidden by [BC] ("no arrays of long or
-# double") and fails ART verification; a non-array type operand violates "The type must be an array
-# type". Pinned by OpBuilderTest.aFilledNewArrayWithNoFillableComponentTypeIsUnsupportedRatherThanAHostFailure.
+# Both refused at decode time: `[J` is forbidden ([BC]: "no arrays of long or double"), and a non-array type
+# operand has no component to fill ([BC]: "The type must be an array type").
 .method public static filledNewArrayOfLongs()V
     .locals 3
 
@@ -126,10 +122,8 @@
     return-void
 .end method
 
-# An absent component class: the op throws `NoClassDefFoundError` and exercises its `!loadable`
-# branch. Shaped like `new_array_test.smali`'s createNonExistentArrayClass()V without the try block:
-# an `Error` escapes a `catch (Exception)` anyway, and `CoreTester.testThrows` needs a handler-free
-# method.
+# An absent component class. NoClassDefFoundError is an Error, which `catch (Exception)` cannot catch, so the
+# method has no handler.
 .method public static filledNewArrayOfMissingClass()V
     .locals 3
 

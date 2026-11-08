@@ -160,9 +160,8 @@
     return-void
 .end method
 
-# Same-address fork: an unprovable predicate whose branch target is the fall-through, an ordinary
-# opaque-predicate emission. `commit` builds two nodes at that one address with independent frames.
-# The offset is +2 (one 21t instruction), not 0: [BC] forbids a zero branch offset.
+# An unprovable branch whose target is the next instruction: both transitions name one address, and each
+# gets its own node and frame copy there. The offset is +2, not 0, because [BC] forbids a zero `if` offset.
 .method public static ifEqualZeroToFallThrough(I)V
     .registers 2
 
@@ -172,8 +171,8 @@
     return-void
 .end method
 
-# Path explosion without a loop: nine sequential diamonds over one unprovable parameter send 2^9 paths
-# to the final address. Address visits are path-local, so loop-free siblings do not exhaust the budget.
+# Nine sequential diamonds over one unknown parameter, no loop: 2^9 = 512 paths reach the final address.
+# Address visits are counted per path, so sibling paths do not exhaust the visit limit.
 .method public static nineUnknownDiamonds(I)V
     .registers 2
 
@@ -207,8 +206,8 @@
     return-void
 .end method
 
-# Two `const-class` instructions on one class yield the same reference ([VER], monitor-verification
-# section), so this `if-eq` has one successor and forking it would explore a branch no device takes.
+# [VER], on monitor verification: "the result values from two const-class instructions on the same class
+# will be the same reference, but the verifier doesn't recognize this". So this `if-eq` has one successor.
 .method public static ifEqualTwoConstClassesOfOneClass()V
     .registers 2
 
@@ -223,8 +222,8 @@
     return-void
 .end method
 
-# Reconciliation, disagreeing half: one arm assigns v0 and the other does not, so per-address
-# consensus at the join is their join (Top) rather than either arm's value.
+# One arm assigns v0 and the other does not, so the two nodes at the join hold different values and
+# per-address consensus is their join (Top).
 .method public static ifEqualZeroSkippingAnAssignment(I)V
     .registers 2
 
@@ -236,8 +235,8 @@
     return-void
 .end method
 
-# Reconciliation, agreeing half: both arms assign the same value, so consensus at the join is that
-# value and a consumer can fold it even though the predicate was never decided.
+# Both arms assign the same value, so consensus at the join is that value even though the predicate is
+# undecided.
 .method public static ifEqualZeroAssigningOneOnBothArms(I)V
     .registers 2
 
@@ -254,10 +253,8 @@
     return-void
 .end method
 
-# Room for two wide pairs: `ifEqual()V` has `.locals 2`, so a `J`/`D` seed in v1 has no register for
-# its high half. Same three addresses as `ifEqual()V`; only the operand registers differ. The operand
-# types are not verifier-valid (`if-eq` wants both refs or both integral), so these answers are
-# engine choices rather than fidelity targets.
+# `ifEqual()V` with room for `J`/`D` operands: a wide seed occupies its register and the next, so the
+# operands are v0 and v2. Same addresses as `ifEqual()V`: the `22t` at 0, `nop` at 2, `return-void` at 3.
 .method public static ifEqualWithRoomForWidePairs()V
     .locals 4
 
@@ -269,12 +266,11 @@
     return-void
 .end method
 
-# Both fixtures below are true diamonds: the branch target is reachable only by the jump, so a fork
-# shows up as one extra reached address, and both arms leave the observed register v0 untouched.
-# A pointer's magnitude is not something the lattice holds, so both comparisons fork.
+# Core regressions in `differential/Fixtures.kt`: true diamonds whose taken arm is reachable only by the
+# jump, so a fork shows as one extra reached address. Both inputs are verifier-rejected engine choices.
 
-# `if-lt` over two distinct live references. Different literals on purpose: equal literals intern to
-# one object, which makes the comparison provable.
+# `if-lt` over two distinct live references; distinct literals, because one interned literal would make
+# the pointers identical and the comparison provable. A fork reaches the taken arm at 9.
 .method public static branchOnOrderingOverTwoDistinctReferences()V
     .locals 3
 
@@ -297,9 +293,8 @@
     return-void
 .end method
 
-# `if-eq` between a live reference and a non-zero integer. A pointer is provably non-zero, which
-# decides a comparison against 0 and nothing else, so this forks. The `*z` row against zero is
-# definite (`IfOpTest.testIfObjectNotEqualZero`).
+# `if-eq` between a live reference and the integer 5. A pointer is provably non-zero, which decides a
+# comparison against 0 only, so this forks and reaches the taken arm at 8.
 .method public static branchOnEqualityBetweenAReferenceAndANonZeroInt()V
     .locals 3
 

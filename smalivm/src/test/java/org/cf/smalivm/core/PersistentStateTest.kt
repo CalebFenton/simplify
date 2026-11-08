@@ -206,7 +206,7 @@ class PersistentStateTest {
     }
 
     @Test
-    fun debuggerConsensusClassAndStaticReadsChangeNoState() {
+    fun observerReadsRecordNoLivenessAndCreateNoObjectVersions() {
         // Observers read through the ExecutionState facade, which records no liveness and creates no versions.
         val frame = frame().also {
             it.assign(0, Value.Known(1, int))
@@ -540,7 +540,7 @@ class PersistentStateTest {
     }
 
     @Test
-    fun compatibilityHashAndGroupingDoNotTraverseTenThousandEntryMaps() {
+    fun compatibilityKeyHashAndEqualityDoNotWalkTheMaps() {
         // Bug class: CallCompatibilityKey equality/hash walks both compatibility maps at every group lookup.
         // Oracle: a million lookups by a shared-root key over two 10,000-entry maps walk 2 * 10^10 entries if
         // hashing or equality traverses; cached hashes and the shared-root equality fast path finish in the bound.
@@ -595,10 +595,10 @@ class PersistentStateTest {
     }
 
     @Test
-    fun selectedCompactionCostIgnoresDeadGuestOnlyHeapObjects() {
-        // Bug class: every selected call scans and sorts all historical HeapObjects before host execution.
-        // Oracle: work starts from live guest refs and the graph-backed ref index. With 300,000 dead objects,
-        // 3,000 selected calls that scan the heap visit about 10^9 records; live-root work finishes in the bound.
+    fun hostCallSelectionCostIgnoresDeadHeapObjects() {
+        // Bug class: every selected call scans the whole heap before host execution. Oracle: selection starts from
+        // the call's receiver and arguments; 3,000 calls that each scanned 300,000 dead objects visit about 10^9
+        // records.
         val frame = frame()
         val raw = intArrayOf(0)
         val arrayType = VirtualType.of("[I")

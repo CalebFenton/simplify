@@ -49,10 +49,10 @@
   return-void
 .end method
 
-
-# A primitive type operand. [BC]: "this will always result in 0 being stored if C refers to a
-# primitive type." That spec row beats the unknown-source row, so the test drives this with both a
-# known and an unknown source. ART's verifier rejects the class; obfuscated input is in scope.
+# A primitive type operand. [BC]: "Since B must always be a reference (and not a primitive value), this
+# will always result in 0 being stored if C refers to a primitive type." That row must beat the
+# unknown-source row, so tests drive this method with an unknown source as well as a known one.
+# ART's verifier rejects the class, so only unverified input reaches it.
 .method public static instanceOfPrimitiveInt()V
     .locals 2
 
@@ -61,8 +61,8 @@
     return-void
 .end method
 
-# `Ljava/io/Serializable;`, one of the two interfaces every array implements (JLS §4.10.3), so an
-# `int[]` answers 1. See `ClassIndex.isInstanceOf`.
+# `Ljava/io/Serializable;` is one of the two interfaces every array implements (JLS §4.10.3), so an `int[]`
+# answers 1.
 .method public static instanceOfSerializable()V
     .locals 2
 
@@ -71,11 +71,10 @@
     return-void
 .end method
 
-# A type operand this input does not ship. [ART] resolves the type operand before reading the
-# register, so an unresolvable operand throws `NoClassDefFoundError` even for a null register, the
-# opposite of the [JVMS] ordering (measured, `Fx_InstanceOfAbsentType.smali`). The source register is
-# left unset so a test can seed it; `InstanceOfOpTest.anAbsentTargetTypeThrowsNoClassDefFoundErrorEvenOnANullSource`
-# covers the execute half and `OpBuilderTest.anInstanceOfAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal` the decode half.
+# A type operand this input does not ship. ART resolves the type operand before reading the register, so
+# an unresolvable operand throws `NoClassDefFoundError` even for a null register, the opposite of the
+# [JVMS] order (measured on device by `Fx_InstanceOfAbsentType.smali`). The source register is left unset
+# so a test can seed it: `Value.Top`, a definite null, and a real instance all throw.
 .method public static instanceOfAbsentClass()V
     .locals 2
 

@@ -16,58 +16,17 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 /**
- * `fill-array-data` (op 26, format **31t** = THREE code units, so the successor of an op at 0 is address
- * **3** and addresses 1 and 2 do not exist). Migrated from `org.cf.smalivm.opcode.FillArrayDataOpTest` --
- * all ten of its tests, ported verbatim; that file is deleted by this commit, and the engine it drove is
- * described in the past tense everywhere below.
- *
- * **The payload address is DATA, not code -- design decision 3, and it is SPEC-backed rather than merely
- * convenient.** The engine being replaced jumped to the `.array-data` pseudo-instruction and let a second op
- * run there, which then read its own return address and its target register off its PARENT node's state
- * (`opcode/FillArrayDataPayloadOp.kt`'s `getPsuedoInstructionReturnAddress()` /
- * `parent.registersAssigned.toList()[0]`) -- the hidden control state spec §5.2 says must stop. This core
- * decodes the payload at BUILD time and does the whole fill in one step, returning `Continue`.
- * [BC]'s "General design" is the grounding: pseudo-instructions holding payloads *"must never be
- * encountered during the normal flow of execution"*, and **[CON] B22** makes it a verifier constraint --
- * *"The **packed-switch-data, sparse-switch-data**, and fill-array-data pseudo-instructions must not be
- * reachable by control flow."* Quotes and tiers: `docs/DALVIK-SEMANTICS.md#fill-array-data-op-26-31t-and-the-array-data-payload`.
- * Pinned by [thePayloadAddressIsDataAndIsNeverExecuted].
- *
- * **NEITHER exception here is INHERITED, and that is unusual for this plan.** Every other array opcode's
- * NPE / AIOOBE / `ArrayStoreException` comes from [JVMS] §6.5 by way of [VER], because `aget`/`aput`/
- * `new-array`/`array-length` all have JVM counterparts. **`fill-array-data` has none** -- the JVM has no
- * payload pseudo-instruction at all, since `tableswitch`/`lookupswitch` carry their data inline -- so there
- * is nothing to inherit and the tiers are:
- *
- *  - **null array -> `NullPointerException`: [ART] ONLY, genuinely unspecified.** ART's message is
- *    *"null array in FILL_ARRAY_DATA"* and its null check precedes its length check. The zero-idiom half of
- *    the row IS **SPEC** ([BC]: *"In terms of bitwise representation, `(Object) null == (int) 0`"*), which is
- *    why `const/4 v0, 0` then `fill-array-data` is a definite NPE here
- *    ([aDalvikZeroArrayThrowsTheSameDefiniteNullPointerException]).
- *  - **payload longer than the array -> `ArrayIndexOutOfBoundsException`: the REQUIREMENT is SPEC**
- *    ([BC]: the table *"must contain no more elements than will fit in the array"*), **the failure mode is
- *    [ART] ONLY** (message *"failed FILL_ARRAY_DATA; length=%d, index=%d"*, whose second number is the
- *    element COUNT rather than a failing index -- because ART length-checks and then does a single `memcpy`,
- *    so the store is all-or-nothing). [aPayloadLongerThanTheArrayThrowsWithoutStoringAnything].
- *
- * **`Opcode.canThrow()` is WRONG for this opcode and must never be consulted.** dexlib2 2.5.2 declares
- * `FILL_ARRAY_DATA.flags == 0x0004` -- `CAN_CONTINUE` only, no `CAN_THROW`, so `canThrow()` answers
- * **false** -- while ART throws the two exceptions above from it. Throw edges here are decided from the
- * op's own semantics; `canContinue()` is the only flag the core reads for it, and that one IS correct.
- *
- * Both exceptions carry ART's `FillArrayData` messages (`entrypoint_utils.cc`); a speculative bounds
- * exception on an unprovable array carries none, because ART's text names the array's length.
- *
- * **The element conversion is normalized by payload WIDTH first and then by component type**, with every
- * case named -- see [FillArrayDataOp]'s KDoc for the table and for why that is simpler and more total than
- * the two-stage version it replaces (which had no `Byte` branch and got `[B` right only through its
- * `else`). The ten migrated fixtures cover all four widths and all eight primitive components.
+ * `fill-array-data` (op 26, format 31t: three code units, so the successor of an op at 0 is address 3). Expected
+ * values follow `docs/DALVIK-SEMANTICS.md#fill-array-data-op-26-31t-and-the-array-data-payload`: the payload is
+ * data decoded at build time, and both exceptions are ART's `FillArrayData` with its messages. dexlib2's
+ * `Opcode.canThrow()` is false for this opcode although ART throws from it, so the engine never consults it.
  */
 class FillArrayDataOpTest {
-    private lateinit var expected: CoreState
     private lateinit var initial: CoreState
 
     companion object {
@@ -77,25 +36,11 @@ class FillArrayDataOpTest {
 
     @BeforeEach
     fun setUp() {
-        expected = CoreState()
         initial = CoreState()
     }
 
-    // ----------------------------------------------------------------------------------------------
-    // The ten migrated tests. Values byte-identical to the corpus; the only changes are
-    // TestState -> CoreState and Tester.test -> CoreTester.test.
-    // ----------------------------------------------------------------------------------------------
-
-    @Test
-    fun canFillArrayDataBoolean() {
-        initial.setRegisters(0, BooleanArray(4), "[Z")
-        expected.setRegisters(0, booleanArrayOf(true, true, false, true), "[Z")
-        CoreTester.test(CLASS_NAME, "fillArrayDataBoolean()V", initial, expected)
-    }
-
     /**
-     * ART copies the payload's bytes into the array (`FillArrayData`'s `memcpy`,
-     * `runtime/entrypoints/entrypoint_utils.cc`), so a payload byte `2` sits in a boolean element as `2`. A
+     * ART copies the payload's bytes into the array, so a payload byte `2` sits in a boolean element as `2`. A
      * `Boolean` raw cannot hold that byte, so the element is unknown rather than a confident `false`.
      */
     @Test
@@ -110,79 +55,37 @@ class FillArrayDataOpTest {
         assertEquals(listOf(Value.Unknown(boolean), Value.Known(true, boolean)), listOf(array.element(0), array.element(1)))
     }
 
-    @Test
-    fun canFillArrayDataByte() {
-        initial.setRegisters(0, ByteArray(4), "[B")
-        expected.setRegisters(0, byteArrayOf(0xa, 0xb, 0xc, 0xd), "[B")
-        CoreTester.test(CLASS_NAME, "fillArrayDataByte()V", initial, expected)
-    }
+    /**
+     * Every payload width and primitive component. [BC] requires the table to fit and leaves an array's tail
+     * alone when the array is longer than the table, so the `[I` of length 7 keeps its two trailing zeros.
+     */
+    @TestFactory
+    fun theFillStoresEachPayloadElementInTheArray(): List<DynamicTest> = listOf(
+        fill("fillArrayDataBoolean()V", BooleanArray(4), booleanArrayOf(true, true, false, true), "[Z"),
+        fill("fillArrayDataByte()V", ByteArray(4), byteArrayOf(0xa, 0xb, 0xc, 0xd), "[B"),
+        fill("fillArrayDataChar()V", CharArray(3), charArrayOf('a', 'b', 'c'), "[C"),
+        fill("fillArrayDataDouble()V", DoubleArray(2), doubleArrayOf(0.1, 1.5), "[D"),
+        fill("fillArrayDataFloat()V", FloatArray(2), floatArrayOf(1f, 2f), "[F"),
+        fill("fillArrayDataInt()V", IntArray(5), intArrayOf(1, 2, 3, 4, 5), "[I"),
+        fill("fillArrayDataInt()V", IntArray(7), intArrayOf(1, 2, 3, 4, 5, 0, 0), "[I"),
+        fill("fillArrayDataLongWithLongs()V", LongArray(3), longArrayOf(0x1000000000L, 0x2000000000L, 0x3L), "[J"),
+        fill("fillArrayDataLongWithInts()V", LongArray(3), longArrayOf(0x10, 0x20, 0x30), "[J"),
+        fill("fillArrayDataShortWithShorts()V", ShortArray(3), shortArrayOf(100, 200, 5), "[S"),
+        fill("fillArrayDataShortWithInts()V", ShortArray(3), shortArrayOf(0x10, 0x20, 0x30), "[S"),
+    )
 
-    @Test
-    fun canFillArrayDataChar() {
-        initial.setRegisters(0, CharArray(3), "[C")
-        expected.setRegisters(0, charArrayOf('a', 'b', 'c'), "[C")
-        CoreTester.test(CLASS_NAME, "fillArrayDataChar()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataDouble() {
-        initial.setRegisters(0, DoubleArray(2), "[D")
-        expected.setRegisters(0, doubleArrayOf(0.1, 1.5), "[D")
-        CoreTester.test(CLASS_NAME, "fillArrayDataDouble()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataFloat() {
-        initial.setRegisters(0, FloatArray(2), "[F")
-        expected.setRegisters(0, floatArrayOf(1f, 2f), "[F")
-        CoreTester.test(CLASS_NAME, "fillArrayDataFloat()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataInt() {
-        initial.setRegisters(0, IntArray(5), "[I")
-        expected.setRegisters(0, intArrayOf(1, 2, 3, 4, 5), "[I")
-        CoreTester.test(CLASS_NAME, "fillArrayDataInt()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataLongWithLongs() {
-        initial.setRegisters(0, LongArray(3), "[J")
-        expected.setRegisters(0, longArrayOf(0x1000000000L, 0x2000000000L, 0x3L), "[J")
-        CoreTester.test(CLASS_NAME, "fillArrayDataLongWithLongs()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataLongWithInts() {
-        initial.setRegisters(0, LongArray(3), "[J")
-        expected.setRegisters(0, longArrayOf(0x10, 0x20, 0x30), "[J")
-        CoreTester.test(CLASS_NAME, "fillArrayDataLongWithInts()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataShortWithShorts() {
-        initial.setRegisters(0, ShortArray(3), "[S")
-        expected.setRegisters(0, shortArrayOf(100, 200, 5), "[S")
-        CoreTester.test(CLASS_NAME, "fillArrayDataShortWithShorts()V", initial, expected)
-    }
-
-    @Test
-    fun canFillArrayDataShortWithInts() {
-        initial.setRegisters(0, ShortArray(3), "[S")
-        expected.setRegisters(0, shortArrayOf(0x10, 0x20, 0x30), "[S")
-        CoreTester.test(CLASS_NAME, "fillArrayDataShortWithInts()V", initial, expected)
-    }
-
-    // ----------------------------------------------------------------------------------------------
-    // New coverage: the payload as data, and the rows the corpus never exercised.
-    // ----------------------------------------------------------------------------------------------
+    private fun fill(method: String, seed: Any, filled: Any, type: String): DynamicTest =
+        DynamicTest.dynamicTest("$method into $type of ${java.lang.reflect.Array.getLength(seed)}") {
+            CoreTester.test(
+                CLASS_NAME, method,
+                CoreState().apply { setRegisters(0, seed, type) },
+                CoreState().apply { setRegisters(0, filled, type) },
+            )
+        }
 
     /**
-     * Bug class: the payload address executing as code. The core decodes the payload at build time and
-     * returns Continue, so the pseudo-instruction is never reached -- which is the whole of design decision
-     * 3 and is also why `reachedAddresses` needs a projection convention (Task 10 Step 5). Asserted
-     * positively (the fill happened) AND negatively (the payload did not run), with the completion gate
-     * written out, because an absent address is a dead-code claim.
+     * The payload is data: the fill happens at the op and the payload address is never reached. The completion
+     * check matters because an absent address is a dead-code claim.
      */
     @Test
     fun thePayloadAddressIsDataAndIsNeverExecuted() {
@@ -196,11 +99,8 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * A payload longer than the array: [BC] requires the table to fit, and [ART]'s `FillArrayData`
-     * (`entrypoint_utils.cc`) length-checks before a single `memcpy`, so it throws
-     * `"failed FILL_ARRAY_DATA; length=%d, index=%d"` (the second number is the element count) and stores
-     * nothing. Caught by the fixture's `Ljava/lang/Exception;` handler, so the escape set is asserted
-     * outright as well.
+     * A payload longer than the array: ART length-checks before a single `memcpy`, so it stores nothing, and
+     * the message's second number is the element count. The fixture catches the exception.
      */
     @Test
     fun aPayloadLongerThanTheArrayThrowsWithoutStoringAnything() {
@@ -212,16 +112,12 @@ class FillArrayDataOpTest {
             caughtInRegister = 1,     // `move-exception v1` -- v0 must keep the array; see the fixture
             unreachedAddress = 3,     // 31t is three code units
         )
-        // The second half of the name. Without these two lines the test is one assertion short of what it
-        // claims, and a fill that stored the first two elements and THEN threw would pass it.
         val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataIntWithCatch()V", seed())
-        assertEquals(3, graph.methodView.nextAddress(0), "fill-array-data is 31t = THREE code units")
+        assertEquals(3, graph.methodView.nextAddress(0), "fill-array-data is 31t, three code units")
         assertTrue(
             CoreTester.escapingTypes(graph).isEmpty(),
-            "NOTHING escaped, of any type -- said outright rather than left to testCaught's type-filtered half",
+            "nothing escapes, of any type",
         )
-        // Row 4's effect level, pinned here because this test already has the graph. A definite throw stores
-        // nothing, so there is no effect to account for -- the same reasoning as row 1's.
         assertEquals(
             SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "a definite bounds exception stores nothing, so it declares no effect",
@@ -235,25 +131,9 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * **Bug class: the mirror defect -- forking a provably INFEASIBLE throw, which invents a reachable
-     * handler and tells a deobfuscator a dead `catch` is live.** This is the one test that makes
-     * [FillArrayDataOp]'s `payloadElements.isNotEmpty()` guard load-bearing; without it the guard could be
-     * deleted with 858 of 858 tests still green (measured in review as MX), and that guard is the *only*
-     * thing standing between the three-way fork on the unprovable-array row and the defect this plan has
-     * already shipped twice.
-     *
-     * **Why a zero-element payload is the input that proves it.** [BC]'s requirement is that the table
-     * *"must contain no more elements than will fit in the array"*. An empty table satisfies that for EVERY
-     * array length -- including 0 -- so the bounds exception is infeasible for this payload no matter what
-     * the array register turns out to hold. Every other payload in this fixture has 2-5 elements, so for
-     * each of them an unknown array might genuinely be too short and the fork is correct.
-     *
-     * Both halves are asserted, because the guard has to hold on the ambiguous row AND not accidentally
-     * suppress a real fill:
-     *  - unseeded (v0 is `Value.Top`, row 2's worst case) -> exactly `[NPE]` escapes, no bounds exception;
-     *  - seeded with a ZERO-LENGTH tracked array -> row 5, the fill loop no-ops, nothing throws at all.
-     *    That second half is the direct demonstration of "cannot overrun any array, including a length-0
-     *    one", which is the guard's whole justification rather than a restatement of it.
+     * An empty table fits every array, including a zero-length one, so the bounds exception is infeasible
+     * whatever the array register holds. Forking it would make a dead `catch` look live. Unseeded, only the NPE
+     * escapes; seeded with a zero-length tracked array, nothing throws.
      */
     @Test
     fun aZeroElementPayloadCannotOverrunAnyArraySoNoBoundsExceptionIsForked() {
@@ -261,11 +141,11 @@ class FillArrayDataOpTest {
         assertEquals(CompletionStatus.Complete, unprovable.completion())
         assertEquals(
             listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(unprovable),
-            "an empty table fits every array, so the bounds throw is INFEASIBLE and must not be forked",
+            "an empty table fits every array, so the bounds throw is infeasible",
         )
         assertEquals(
             1, unprovable.nodePile(0).first().children.size,
-            "one successor -- the fall-through; the NPE is a terminal, not a child",
+            "one successor, the fall-through; the NPE is a terminal, not a child",
         )
 
         val emptyArray = CoreTester.execute(CLASS_NAME, "fillArrayDataEmptyPayload()V", CoreState().apply {
@@ -274,7 +154,7 @@ class FillArrayDataOpTest {
         assertEquals(CompletionStatus.Complete, emptyArray.completion())
         assertTrue(
             CoreTester.escapingTypes(emptyArray).isEmpty(),
-            "zero elements fit a zero-length array exactly, so nothing throws -- not even bounds",
+            "zero elements fit a zero-length array, so nothing throws",
         )
         assertEquals(
             SideEffectLevel.NONE, emptyArray.explored.sideEffectLevel(0),
@@ -283,14 +163,8 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * **Row 5's effect level.** The heap models a tracked fill exactly, but aliases make a non-empty fill
-     * observable, so it is `WEAK`. `STRONG` remains reserved for writes whose target cannot be named.
-     *
-     * Both queries are asserted: the per-address one, and the whole-method one a strategy actually reads. The
-     * unreached payload address contributes `NONE` rather than poisoning the method maximum, which is worth
-     * pinning too -- an `UnsupportedOp` at a payload address would answer `STRONG`
-     * (`ExecutionGraph.sideEffectLevel`'s unsupported rule), so this assertion also fails if the payload ever
-     * starts being executed.
+     * Aliases can observe a non-empty fill of a tracked array, so it is `WEAK`. The unreached payload address
+     * contributes `NONE` to the method maximum; an executed payload would contribute `STRONG` as an unsupported op.
      */
     @Test
     fun aFillIntoATrackedArrayDeclaresAnObservableWeakEffect() {
@@ -306,29 +180,9 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * **The SPEC row no corpus fixture covers**, added rather than left unpinned: an array LONGER than the
-     * payload is legal, only the leading elements are set, and *"the remainder is left alone"* -- **SPEC**
-     * ([BC]). All ten migrated fixtures size their array exactly to their payload, so a fill that zeroed or
-     * `Unknown`-ed the tail would pass every one of them.
-     */
-    @Test
-    fun anArrayLongerThanThePayloadKeepsItsTrailingElements() {
-        initial.setRegisters(0, IntArray(7), "[I")
-        expected.setRegisters(0, intArrayOf(1, 2, 3, 4, 5, 0, 0), "[I")
-        CoreTester.test(CLASS_NAME, "fillArrayDataInt()V", initial, expected)
-    }
-
-    /**
-     * **The ordering claim, asserted as an EXCLUSION rather than an existence.** ART's null check precedes
-     * its length check ([ART]), so a null array throws the NPE and the bounds exception is **not also
-     * forked** -- even though this seed's five-element payload would not fit the `[I` a non-null array of
-     * length 0 or 1 might be, because a null array has no length to compare against at all.
-     *
-     * `escapingTypes` and the child count are the only two queries that can see that. `testThrows` cannot:
-     * its assertion is `matching.isNotEmpty()`, so "NPE before AIOOBE" written as `testThrows(NPE)` passes
-     * whether or not the op also forks the AIOOBE -- the defect class that cost Plan 7 Task 9 a Critical
-     * finding (appending a spurious fork killed **0 of 844** tests). Both mutations that would break the
-     * order here ADD a fork, and both kill this test.
+     * ART's null check precedes its length check, so a null array throws only the NPE even though the
+     * five-element payload might not fit. `testThrows` passes whenever the NPE is among the throws, so the
+     * escape list and child count assert that no bounds exception is also forked.
      */
     @Test
     fun aNullArrayThrowsNullPointerExceptionBeforeAnyBoundsExceptionAndStoresNothing() {
@@ -342,10 +196,10 @@ class FillArrayDataOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion(), "a guest throw is an outcome, not a truncation")
         assertEquals(
             listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph),
-            "the NPE strictly PRECEDES the length check, so no bounds exception is forked",
+            "the NPE precedes the length check, so no bounds exception is forked",
         )
         assertEquals(0, graph.nodePile(0).first().children.size, "a definite throw has no successor to explore")
-        assertEquals(3, graph.methodView.nextAddress(0), "fill-array-data is 31t = THREE code units")
+        assertEquals(3, graph.methodView.nextAddress(0), "fill-array-data is 31t, three code units")
         assertFalse(graph.wasReached(3), "and no fall-through")
         assertEquals(
             SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
@@ -354,90 +208,29 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * The other spelling of Dalvik's null, which `Value.isNull` cannot see: **SPEC** -- [BC], *"In terms of
-     * bitwise representation, `(Object) null == (int) 0`"*. `const/4 v0, 0x0` then `fill-array-data` is the
-     * cheapest hostile input in the whole plan: it passes ART's verifier (the verifier skips its checks when
-     * the register holds the null constant), throws NPE at runtime, and dexlib2 reports
-     * `canThrow() == false` for the instruction.
+     * A primitive-typed array register reads as a null reference whatever its value ([BC]: `(Object) null ==
+     * (int) 0`; ART's switch interpreter clears the reference slot on every primitive write), so both seeds
+     * throw a definite NPE. See `docs/DALVIK-SEMANTICS.md` on the two interpreter tiers for the non-zero case.
      */
-    @Test
-    fun aDalvikZeroArrayThrowsTheSameDefiniteNullPointerException() {
-        initial.setRegisters(0, 0, "I")
-        val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataInt()V", initial)
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
-        assertEquals(0, graph.nodePile(0).first().children.size)
+    @TestFactory
+    fun aPrimitiveArrayRegisterThrowsADefiniteNullPointerException(): List<DynamicTest> = listOf(0, 5).map { raw ->
+        DynamicTest.dynamicTest("const $raw") {
+            val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataInt()V", CoreState().apply { setRegisters(0, raw, "I") })
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
+            assertEquals(0, graph.nodePile(0).first().children.size, "no fall-through: the throw is definite")
+            assertEquals(
+                SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
+                "nothing was stored, so there is no effect to account for",
+            )
+        }
     }
 
     /**
-     * The SAME definite NPE for a NON-zero primitive array register -- the half the zero-only predicate
-     * dropped.
-     *
-     * **The reason a primitive-typed register is null has nothing to do with its VALUE**, which is what the
-     * `isDalvikNull`-only predicate got wrong until Plan 7 Task 12's fix round. ART fetches an object operand
-     * with `GetVRegReference`, `ShadowFrame` keeps a PARALLEL reference array, and every primitive write
-     * clears the matching slot -- `SetVReg`/`SetVRegFloat`/`SetVRegLong`/`SetVRegDouble` all end in
-     * `References()[i].Clear()` (`shadow_frame.h:190-228`), and ART states the invariant in its own prose at
-     * `:401-408`: *"when a primitive is stored in vX, the second (reference) part of the array will be
-     * null"*. **[ART]'s SWITCH interpreter**, and stable across releases (`android14-release` is identical).
-     * So `const/4 v0, 0x5`
-     * is exactly as null as `const/4 v0, 0x0`, and testing only for zero DROPPED a definite NPE -- an
-     * unexplored feasible path on a `Complete` run, spec §2.2's worst outcome. See
-     * [org.cf.smalivm.core.readsAsNullReference] for the full chain.
-     *
-     * **TIER, corrected 2026-08-04: this row is VERIFIER, not [ART].** ART's *default* interpreter is
-     * `nterp`, which reads this operand out of the RAW dex-register array (`mterp/x86_64ng/array.S:125-132`)
-     * and hands a non-zero value to `art_quick_handle_fill_data` as though it were an array pointer -- so the
-     * two tiers CONTRADICT each other on exactly the value this test seeds. The **zero** spellings are
-     * corroborated by BOTH tiers (`art::FillArrayData`'s own null check catches them either way), which is a
-     * strengthening. **This expectation does not change**: a definite NPE is the sound direction and matches
-     * the switch tier exactly. Only the citation changes. See `docs/DALVIK-SEMANTICS.md`'s *ART has TWO
-     * interpreter tiers*.
-     */
-    @Test
-    fun aNonZeroPrimitiveArrayThrowsTheSameDefiniteNullPointerException() {
-        initial.setRegisters(0, 5, "I")
-        val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataInt()V", initial)
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
-        assertEquals(0, graph.nodePile(0).first().children.size, "no fall-through: the throw is definite")
-        assertEquals(
-            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
-            "nothing was stored, so there is no effect to account for",
-        )
-    }
-
-    /**
-     * **Bug class: an unexplored feasible path on a run reporting `Complete`** -- spec §2.2's worst outcome.
-     * With the array register `Unknown`/`Top`, THREE outcomes are feasible and all three are explored: the
-     * array may be null (NPE), it may be non-null but shorter than the five-element payload (AIOOBE), or it
-     * may be long enough (the fall-through). Dropping either throw would hide a path a real device takes.
-     *
-     * **This corrects the brief, which prescribed `[Continue, Throw(NPE)]` and omitted the AIOOBE.** The
-     * omission is inconsistent with `APutOp`'s own unprovable-array row, which forks both for exactly this
-     * reason, and it is the unsound direction: the AIOOBE is not provably infeasible here, so refusing to
-     * explore it would leave a live `catch (ArrayIndexOutOfBoundsException)` looking dead.
-     *
-     * **`SideEffectLevel.STRONG`, and it is load-bearing rather than decorative.** `Frame.entryFrame` seeds
-     * every parameter `Unknown` and no opcode in this build turns a parameter into a tracked array, so
-     * `void f(int[] a) { … fill-array-data a, … }` -- the ordinary shape of a static initializer's array
-     * fill in real code -- arrives HERE. Without the declaration such a method reports `Complete` *and*
-     * `methodSideEffectLevel() == NONE`, the pair `AnalysisContracts`' KDoc says would let a strategy delete
-     * a method whose whole observable behaviour is a write its caller can see. While the opcode was an
-     * `UnsupportedOp` the engine answered `STRONG` and refused trust altogether, so landing it without this
-     * would have replaced a sound refusal with an unsound answer.
-     *
-     * Unseeded rather than parameter-seeded on purpose: `fillArrayDataInt()V` is `.locals 1` with no
-     * parameters, so v0 is genuinely unassigned and `frame.read(0)` is `Value.Top` -- the weakest thing the
-     * lattice has, and the row's real worst case.
-     *
-     * **The ORDER in the list assertion below is INCIDENTAL and is NOT a semantic claim** -- unlike
-     * [aNullArrayThrowsNullPointerExceptionBeforeAnyBoundsExceptionAndStoresNothing], where null-before-length
-     * is a grounded [ART] fact. On an unprovable array neither exception is "first": both are speculative and
-     * neither has been decided yet. List equality is used anyway because it is the shape that catches a
-     * DROPPED or an ADDED fork, which set equality and `isNotEmpty()` both miss; if a later change reorders
-     * the transition list for a good reason, update this expectation rather than reading it as a
-     * fidelity regression.
+     * An unseeded array register is `Value.Top`, so null, too short, and long enough are all feasible and all
+     * three outcomes are explored. The fill lands in an object the engine cannot name, so it is `STRONG`; this is
+     * the path a parameter array takes. The order of the two escapes is incidental; list equality catches a
+     * dropped or extra fork.
      */
     @Test
     fun anUnprovableArrayForksBothFeasibleExceptionsAndDeclaresAStrongEffect() {
@@ -446,35 +239,24 @@ class FillArrayDataOpTest {
         assertEquals(
             listOf("Ljava/lang/NullPointerException;", "Ljava/lang/ArrayIndexOutOfBoundsException;"),
             CoreTester.escapingTypes(graph),
-            "both throws are feasible when nothing is known about the array, and both escape this fixture " +
-                "(the ORDER is incidental -- see the KDoc; list equality is what catches a dropped or extra fork)",
+            "both throws are feasible when nothing is known about the array",
         )
         assertEquals(
             1, graph.nodePile(0).first().children.size,
-            "one SUCCESSOR -- the fall-through; the two escaping throws are terminals, not children",
+            "one successor, the fall-through; the two escaping throws are terminals, not children",
         )
         assertTrue(graph.wasReached(3), "the fall-through is feasible too and must be explored")
         assertEquals(
             SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
-            "the fill landed in an object the engine cannot name, so no heap state records it",
+            "the fill goes to an object the engine cannot name, so no heap state records it",
         )
     }
 
     /**
-     * **Bug class: collapsing "not a tracked array" into "may be null"** and forking exceptions for a value
-     * the engine just PROVED non-null. A `Known` non-zero raw with no tracked array behind it is
-     * verifier-rejected input ([CON] B1) and therefore **VERIFIER -> the engine's choice**; the choice is
-     * the same one `AGetOp`, `APutOp` and `ArrayLengthOp` make, and the four must stay consistent: NO NPE
-     * (provably non-null) and NO AIOOBE (a bounds exception needs a length this input does not have).
-     * A single `tracked == null` fork in any of the four invents a reachable handler.
-     *
-     * `STRONG` all the same: ART would `memcpy` the payload over whatever those bytes are, so the write
-     * happened somewhere unmodellable. That is an EFFECT, not a value.
-     *
-     * **The array register is NOT degraded, and this is the falsifiable half.** `fill-array-data` writes
-     * into the array OBJECT, never into the register, so v0's `Known` is provably unchanged; rewriting it
-     * `Unknown` would discard a provable constant and account for nothing -- the ruling Task 9 made for
-     * `aput` row 3, applied here.
+     * A `Known` non-null raw with no tracked array behind it is verifier-rejected input ([CON] B1), so the engine
+     * chooses, consistently with `aget`, `aput`, and `array-length`: no NPE (provably non-null) and no bounds
+     * exception (no length). ART would still copy the payload somewhere, so the effect is `STRONG`, and the
+     * register keeps its `Known` value because the fill writes memory, not v0.
      */
     @Test
     fun aProvablyNonNullNonArrayFillsNothingForksNothingAndDeclaresAStrongEffect() {
@@ -483,7 +265,7 @@ class FillArrayDataOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertTrue(
             CoreTester.escapingTypes(graph).isEmpty(),
-            "a Known REFERENCE with a non-null raw is provably non-null and has no length, so both throws are infeasible",
+            "a Known reference with a non-null raw is provably non-null and has no length",
         )
         assertEquals(1, graph.nodePile(0).first().children.size, "exactly one successor: the fall-through")
         assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
@@ -491,23 +273,11 @@ class FillArrayDataOpTest {
         assertNotNull(trusted, "nothing threw, so the single path returns")
         assertEquals(
             Value.Known("not an array", STRING), trusted!!.terminatingConsensus(0),
-            "the register is provably unchanged -- the fill goes to memory, not to v0",
+            "the fill goes to memory, not to v0",
         )
     }
 
-    /**
-     * The op's static liveness declaration, on its own terms. `fill-array-data` **reads** the array
-     * register and **assigns nothing**: the fill goes into the array object, so [FillArrayDataOp.execute]
-     * calls `frame.assign` nowhere.
-     *
-     * **This corrects the brief, which prescribed `registersAssigned = setOf(arrayRegister)` plus a
-     * reassignment on two rows.** It is the same claim Task 9 adjudicated for `aput` and rejected as a
-     * maintainer ruling: on the unprovable row `Unknown(array.type)` reconstructs the identical lattice
-     * point (and is not even constructible for `Value.Top`, which carries no type), and on the
-     * non-tracked-array row it discards a provable constant. The engine being replaced *did* assign the
-     * register, but only as the channel its payload op used to find its target -- the hidden control state
-     * design decision 3 deletes, so mirroring it would copy the syntax and drop the reason.
-     */
+    /** The fill reads the array register and writes the array object, never a register. */
     @Test
     fun theFillReadsTheArrayRegisterAndAssignsNothing() {
         assertEquals(setOf(0), graph("fillArrayDataInt()V").registersRead(0))

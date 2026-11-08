@@ -1,5 +1,5 @@
-# Receivers are `new-instance` allocations with no `<init>` call; the engine does not enforce the
-# verifier's uninitialized-use rule.
+# Receivers are `new-instance` allocations with no `<init>` call; the engine does not enforce the verifier's
+# uninitialized-use rule.
 .class public Liput_test;
 .super Ljava/lang/Object;
 
@@ -17,7 +17,7 @@
 .end method
 
 # A definitely-null receiver: const/4 @0 (1 unit), const/16 @1 (2), iput @3 (2), return-void @5.
-# The NPE is definite and the store must not happen -- the fall-through at 5 must stay unreached.
+# The NPE is definite and the store must not happen, so the fall-through at 5 stays unreached.
 .method public static putIntoNullReceiver()V
     .locals 2
     const/4 v0, 0x0
@@ -26,7 +26,7 @@
     return-void
 .end method
 
-# The verifier-tier receiver row: a non-zero primitive under a reference read. Same addresses.
+# A non-zero primitive read as a reference receiver (verifier-excluded input). Same addresses.
 .method public static putIntoPrimitiveTaggedReceiver()V
     .locals 2
     const/4 v0, 0x5
@@ -62,7 +62,7 @@
     return-void
 .end method
 
-# An unprovable receiver: the write's target cannot be identified (strong), and the NPE is feasible
+# An unprovable receiver: the write's target cannot be identified (STRONG), and the NPE is feasible
 # alongside the fall-through. iput @0, return-void @2.
 .method public static putThroughUnknownReceiver(Liput_test;I)V
     .locals 0
@@ -98,8 +98,9 @@
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :catch_npe
 .end method
 
-# Verifier-tier malformed input: the receiver is a known, non-null host value rather than a tracked
-# object. No guest exception is invented, and the unmodelled target makes the write strong.
+# Verifier-excluded input: the receiver is a known, non-null host value rather than a tracked object.
+# No guest exception is invented and the unmodelled target is STRONG (DALVIK-SEMANTICS.md
+# "Engine choices for verifier-excluded input").
 .method public static putThroughKnownNonHeapRefReceiver()I
     .locals 2
     const-string v0, "known but not tracked"
@@ -108,8 +109,8 @@
     return v1
 .end method
 
-# Verifier-tier malformed input: the receiver is tracked, but its layout has no Liput_test cell. Its
-# own Liget_test cell must stay at the default, and the unmodelled target makes the write strong.
+# Verifier-excluded input: the receiver is tracked, but its object layout has no Liput_test cell. Its own
+# Liget_test cell must stay at the default, and the unmodelled target is STRONG.
 .method public static putThroughTrackedObjectWithoutResolvedCell()Liget_test;
     .locals 2
     new-instance v0, Liget_test;
@@ -118,8 +119,8 @@
     return-object v0
 .end method
 
-# `iput-object` reads its value register as a reference, so a primitive-tagged 5 stores null --
-# sput-object's rule at iput's own call site. Read back through iget-object.
+# `iput-object` reads its value register as a reference, so a primitive-tagged 5 stores null. Read back
+# through iget-object.
 .method public static putObjectWithPrimitiveTaggedValue()Ljava/lang/String;
     .locals 3
     new-instance v0, Liput_test;
@@ -139,7 +140,7 @@
     return-object v0
 .end method
 
-# Two arms write different constants into ONE object's cell; the read after the join must see them
+# Two arms write different constants into one object's cell; the read after the join must see them
 # disagree (per-path heap isolation observed through the ops).
 .method public static putIntBranched(I)I
     .locals 3
@@ -168,7 +169,7 @@
     return v3
 .end method
 
-# Two objects of one type: two distinct cells, because identity is the heap id, never the type.
+# Two objects of one type have two distinct cells: identity is the heap id, never the type.
 .method public static putIntoTwoObjectsKeepsCellsDistinct()V
     .locals 5
     new-instance v0, Liput_test;

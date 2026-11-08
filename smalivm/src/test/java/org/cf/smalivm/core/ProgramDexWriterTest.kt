@@ -51,9 +51,9 @@ class ProgramDexWriterTest {
         val bytes = ProgramDexWriter().writeToBytes(snapshot)
         val dex = DexBackedDexFile(snapshot.outputApiPolicy.opcodes(), bytes)
 
-        assertEquals(setOf("Ltask53/Output;"), dex.classes.mapTo(linkedSetOf()) { it.type })
+        assertEquals(setOf("Lwriter/Output;"), dex.classes.mapTo(linkedSetOf()) { it.type })
         val output = dex.classes.single()
-        assertEquals("task53-output.smali", output.sourceFile)
+        assertEquals("output.smali", output.sourceFile)
         assertEquals(1, output.annotations.size)
         val field = output.staticFields.single()
         assertEquals(11, (field.initialValue as IntEncodedValue).value)
@@ -80,7 +80,7 @@ class ProgramDexWriterTest {
         java.nio.file.Files.writeString(
             root.resolve("unvisited.smali"),
             """
-                .class public abstract Ltask53/Unvisited;
+                .class public abstract Lwriter/Unvisited;
                 .super Ljava/lang/Object;
                 .field public static final marker:I = 0x17
                 .method public abstract untouched()I
@@ -96,7 +96,7 @@ class ProgramDexWriterTest {
         val snapshotA = index.currentSnapshot
         val before = ProgramDexWriter().writeToBytes(snapshotA)
         val services = VmServices(index)
-        val edit = services.methodEditor.beginEdit(requireNotNull(index.methodView("Ltask53/Output;->value()I")))
+        val edit = services.methodEditor.beginEdit(requireNotNull(index.methodView("Lwriter/Output;->value()I")))
         edit.replaceInstruction(
             0,
             listOf(
@@ -114,13 +114,13 @@ class ProgramDexWriterTest {
         val output = root.resolve("output.dex").toFile()
         ProgramDexWriter().write(index.currentSnapshot, output)
         val dex = DexBackedDexFile(Opcodes.forApi(20), output.readBytes())
-        assertEquals(setOf("Ltask53/Output;", "Ltask53/Unvisited;"), dex.classes.map { it.type }.toSet())
-        val unvisited = dex.classes.single { it.type == "Ltask53/Unvisited;" }
+        assertEquals(setOf("Lwriter/Output;", "Lwriter/Unvisited;"), dex.classes.map { it.type }.toSet())
+        val unvisited = dex.classes.single { it.type == "Lwriter/Unvisited;" }
         assertEquals(23, (unvisited.staticFields.single().initialValue as IntEncodedValue).value)
         assertEquals("untouched", unvisited.methods.single().name)
         assertNull(unvisited.methods.single().implementation)
         val reloaded = ClassIndex.open(output, 20)
-        val view = requireNotNull(reloaded.methodView("Ltask53/Output;->value()I"))
+        val view = requireNotNull(reloaded.methodView("Lwriter/Output;->value()I"))
         assertEquals(
             Value.Known(6, VirtualType.of("I")),
             VmServices(reloaded).newSession(view).run().trusted()!!.terminatingConsensus(0),
@@ -134,7 +134,7 @@ class ProgramDexWriterTest {
         val initial = index.currentSnapshot
         val writer = ProgramDexWriter()
         writer.writeToBytes(initial)
-        val original = requireNotNull(initial.applicationClass("Ltask53/Output;"))
+        val original = requireNotNull(initial.applicationClass("Lwriter/Output;"))
         val obsolete = original.methods.single { it.declaration.name == "obsolete" }
         val replacementBody = MethodBody.import(
             ImmutableMethodImplementation(
@@ -186,7 +186,7 @@ class ProgramDexWriterTest {
             emptyList(),
         )
         val method = ImmutableMethod(
-            "Ltask53/Polymorphic;",
+            "Lwriter/Polymorphic;",
             "call",
             emptyList(),
             "V",
@@ -196,7 +196,7 @@ class ProgramDexWriterTest {
             implementation,
         )
         val definition = ImmutableClassDef(
-            "Ltask53/Polymorphic;",
+            "Lwriter/Polymorphic;",
             Modifier.PUBLIC,
             "Ljava/lang/Object;",
             emptyList(),
@@ -222,7 +222,7 @@ class ProgramDexWriterTest {
         val baseline = classIndexFromSource(root, SOURCE).currentSnapshot
         val annotation = ImmutableAnnotation(
             AnnotationVisibility.RUNTIME,
-            "Ltask53/ManyStrings;",
+            "Lwriter/ManyStrings;",
             listOf(
                 ImmutableAnnotationElement(
                     "values",
@@ -233,7 +233,7 @@ class ProgramDexWriterTest {
             ),
         )
         val definition = ApplicationClassDefinition(
-            "Ltask53/TooManyStrings;",
+            "Lwriter/TooManyStrings;",
             Modifier.PUBLIC,
             "Ljava/lang/Object;",
             emptyList(),
@@ -268,7 +268,7 @@ class ProgramDexWriterTest {
     @Test
     fun callSiteDisplayNameDoesNotEnterTheDexStringPool() {
         val dexFile = root.resolve("call-site.dex")
-        val bootstrap = ImmutableMethodReference("Ltask53/Bootstrap;", "bootstrap", emptyList(), "V")
+        val bootstrap = ImmutableMethodReference("Lwriter/Bootstrap;", "bootstrap", emptyList(), "V")
         val handle: MethodHandleReference = ImmutableMethodHandleReference(MethodHandleType.INVOKE_STATIC, bootstrap)
         val callSite = ImmutableCallSiteReference(
             "dexlib-display-name",
@@ -287,7 +287,7 @@ class ProgramDexWriterTest {
             emptyList(),
         )
         val method = ImmutableMethod(
-            "Ltask53/CallSite;",
+            "Lwriter/CallSite;",
             "call",
             emptyList(),
             "V",
@@ -297,7 +297,7 @@ class ProgramDexWriterTest {
             implementation,
         )
         val definition = ImmutableClassDef(
-            "Ltask53/CallSite;",
+            "Lwriter/CallSite;",
             Modifier.PUBLIC,
             "Ljava/lang/Object;",
             emptyList(),
@@ -328,15 +328,15 @@ class ProgramDexWriterTest {
 
     private companion object {
         const val SOURCE = """
-            .class public abstract Ltask53/Output;
+            .class public abstract Lwriter/Output;
             .super Ljava/lang/Object;
-            .source "task53-output.smali"
+            .source "output.smali"
 
             .annotation runtime Ljava/lang/Deprecated;
             .end annotation
 
             .field public static final number:I = 0xb
-                .annotation runtime Ltask53/FieldMark;
+                .annotation runtime Lwriter/FieldMark;
                     value = "field-only"
                 .end annotation
             .end field
@@ -367,7 +367,7 @@ class ProgramDexWriterTest {
         """
 
         const val TYPED_CATCH_SOURCE = """
-            .class public Ltask53/TypedCatch;
+            .class public Lwriter/TypedCatch;
             .super Ljava/lang/Object;
 
             .method public static run()V

@@ -1,7 +1,6 @@
 .class public Linvoke_virtual_test;
 .super Ljava/lang/Object;
 
-# direct methods
 .method public constructor <init>()V
     .locals 0
 
@@ -72,7 +71,7 @@
 .method public static invokeObjectClone()V
   .locals 2
 
-  # Arrays may be referenced as Ljava/lang/Object; !
+  # An array may be referenced as Ljava/lang/Object;.
   invoke-virtual {v0}, Ljava/lang/Object;->clone()Ljava/lang/Object;
   move-result-object v1
 

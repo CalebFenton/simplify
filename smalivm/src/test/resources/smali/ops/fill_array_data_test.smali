@@ -18,11 +18,8 @@
     .end array-data
 .end method
 
-# A zero-element payload. [BC] requires the table to "contain no more elements than will fit in the
-# array", which an empty table satisfies for every length, so the bounds exception is infeasible even
-# for an unknown array. This is the only fixture that exercises `FillArrayDataOp`'s
-# `payloadElements.isNotEmpty()` guard
-# (`FillArrayDataOpTest.aZeroElementPayloadCannotOverrunAnyArraySoNoBoundsExceptionIsForked`).
+# An empty payload fits every array, including a zero-length one, so the bounds exception is infeasible even
+# for an unknown array register. It is the only fixture that exercises FillArrayDataOp's empty-payload guard.
 .method public static fillArrayDataEmptyPayload()V
     .locals 1
 
@@ -35,9 +32,8 @@
     .end array-data
 .end method
 
-# A malformed payload target: the offset points at an ordinary instruction, not an `.array-data`
-# table, as obfuscated output can. The decoder answers UNSUPPORTED_OP rather than HOST_FAILURE
-# (`OpBuilderTest.aFillArrayDataWhoseTargetIsNotAnArrayPayloadIsUnsupportedRatherThanAHostFailure`).
+# The payload label points at an ordinary instruction rather than an `.array-data` table. smali assembles it,
+# and the decoder must refuse it as unsupported rather than fail on the host.
 .method public static fillArrayDataWithMalformedPayloadTarget()V
     .locals 1
 
@@ -47,12 +43,9 @@
     return-void
 .end method
 
-# The five-element payload of fillArrayDataInt()V inside a try with a Ljava/lang/Exception; handler,
-# so the ArrayIndexOutOfBoundsException from a too-short array is caught
-# (`FillArrayDataOpTest.aPayloadLongerThanTheArrayThrowsWithoutStoringAnything`).
-#
-# `.locals 2` and `move-exception v1` keep the array in v0, so the test can read it back after the
-# catch and show that the failed fill stored nothing.
+# fillArrayDataInt()V's five-element payload inside a Ljava/lang/Exception; handler, so an over-long payload's
+# ArrayIndexOutOfBoundsException is caught. `move-exception v1` keeps the array in v0 so a test can read it
+# back after the catch.
 .method public static fillArrayDataIntWithCatch()V
     .locals 2
 
