@@ -1,13 +1,18 @@
 package org.cf.smalivm.core
 
-/** Per-class initialization lifecycle (spec §4.2): partial and failed init are representable. */
-enum class ClassInitState { UNINITIALIZED, INITIALIZING, INITIALIZED, FAILED }
+/**
+ * Per-class initialization lifecycle (spec §4.2): partial and failed init are representable. [UNKNOWN] is a class
+ * the path has not triggered in a session that starts at an arbitrary entry ([EntryClassState.ARBITRARY]): it may
+ * be initialized, with any value in each non-final static, or not yet initialized.
+ */
+enum class ClassInitState { UNKNOWN, UNINITIALIZED, INITIALIZING, INITIALIZED, FAILED }
 
 /** One path's class state (spec §4.2): lifecycle and statics, implemented by `ClassInit.kt`'s `ClassStore`. */
 interface ClassState {
     /**
      * Where [type] sits in the lifecycle **on this path** (resolved decision 9), and total: a class this
-     * path never triggered is [ClassInitState.UNINITIALIZED] rather than an error.
+     * path never triggered is [ClassInitState.UNKNOWN] or [ClassInitState.UNINITIALIZED], by the session's
+     * [EntryClassState], rather than an error.
      *
      * Read this rather than [ExecutionState.isClassInitialized] when the difference between "not yet"
      * and "in progress" or "failed" matters — which is most of the time, since only
