@@ -115,9 +115,10 @@
     return-wide v0
 .end method
 
-# The const forms below give every const opcode OpBuilder dispatches a real decode test (OpBuilderTest's
-# type-tag parity test). Addresses are method-local: whole-method insertions are address-safe, editing
-# instructions inside a method is not, and tests pin exact addresses.
+# The const forms below give every const opcode OpBuilder dispatches a real decode test
+# (OpBuilderTest.constantFormsDecodeTheirLiteralUnderTheirWidthTag). Addresses are method-local:
+# whole-method insertions are address-safe, editing instructions inside a method is not, and tests
+# pin exact addresses.
 
 # const-wide/16: a sized wide form. The engine tags plain `const-wide` as D and every sized form
 # as J, so this pins the sized side of that split.
@@ -268,11 +269,12 @@
     return-object v0
 .end method
 
-# The same method with 0x5 instead of 0x0; the outcome does not depend on that nibble. Both are a
-# definite, message-less NullPointerException: ART's `THROW()` reads its operand with `GetVRegReference`,
-# and every primitive write clears the register's reference slot, so a primitive-typed register reads as
-# null whatever its value (DALVIK-SEMANTICS.md, Coercion and register bits). This is the only non-zero
-# primitive throw driven from real bytecode. Same addresses as above (handlers at 2 and 5).
+# The same method with 0x5 instead of 0x0; the engine's outcome does not depend on that nibble. Both are a
+# definite, message-less NullPointerException: the switch interpreter's `THROW()` reads its operand with
+# `GetVRegReference`, and every primitive write clears the register's reference slot. nterp instead
+# dereferences a non-zero value, which the verifier rejects (DALVIK-SEMANTICS.md, "Reading a register as a
+# reference"). This is the only non-zero primitive throw driven from real bytecode. Same addresses as above
+# (handlers at 2 and 5).
 .method public static throwNonZeroConstTwoHandlers()Ljava/lang/Object;
     .registers 1
     const/4 v0, 0x5

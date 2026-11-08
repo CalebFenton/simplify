@@ -33,7 +33,7 @@
     return-void
 .end method
 
-# Trigger for StaticFieldAccessTest.canGetFieldsWhileInitializing: the sget itself initializes the
+# Trigger for StaticFieldAccessTest.anInitializerReadsItsOwnPreparedStaticsBeforeWritingOthers: the sget itself initializes the
 # class, and the `<clinit>` reads its own statics mid-initialization.
 .method public static getTestInt2()I
     .locals 1
@@ -51,7 +51,7 @@
     return v0
 .end method
 
-# Carrier for StaticFieldAccessTest.canAccessFieldAfterCollapsingMultiverse: a tracked array is
+# Carrier for StaticFieldAccessTest.aStaticHoldsAReferenceSoAMutationThroughTheRegisterIsVisibleThroughTheField: a tracked array is
 # stored into a static, this class's `<clinit>` runs as the sput's prelude, the array is mutated
 # through the register, and the field is read back. The field holds a reference, never a copy.
 .method public static storeThenMutateThenGetArray()[Ljava/lang/String;

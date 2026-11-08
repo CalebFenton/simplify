@@ -697,10 +697,10 @@ public class ExecutionSession internal constructor(
     /**
      * The one place a node's successors and ending are committed, in two phases:
      *
-     *  1. **Build, mutating no frame and ending no path.** Every successor's frame is copied from [node]'s post-op
+     *  1. Build, mutating no frame and ending no path. Every successor's frame is copied from [node]'s post-op
      *     state before any terminal slot write, so the normal child of a `[Continue, Throw]` fork never carries
      *     `thrown`.
-     *  2. **Commit.** Children attached, frontier pushed, node ended at most once. The first requested ending is
+     *  2. Commit. Children attached, frontier pushed, node ended at most once. The first requested ending is
      *     stamped on the node; every ending goes to the activation's [PathSink] with the lost paths.
      *
      * An [OnUnbuildable] policy applies only within the [Committable] that declared it: an abandoned group
