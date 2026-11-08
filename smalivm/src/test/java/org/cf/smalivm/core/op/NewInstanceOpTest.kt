@@ -156,9 +156,8 @@ class NewInstanceOpTest {
      * `new-instance` of a class absent from the loaded set throws a guest `NoClassDefFoundError` --
      * `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)` cross-validated
      * `[DEVICE](Tier B, nterp default, API 36)`, fixture `Fx_NewInstanceAbsentType` (Task 16 Step 0).
-     * Task 15's resolution-failure family, which the plan's Task 15 Step 4 explicitly deferred
-     * `new-instance` into this task; the message is the binary base name, `NewArrayOp`'s shape (an
-     * exception message is never evidence of fidelity -- asserted only so it cannot drift silently).
+     * The message is ART's `DoResolveType` text, `"Failed resolution of: %s"` over the descriptor, as the
+     * Tier-A recording shows for `Fx_NewInstanceAbsentType`.
      *
      * The resolution failure must come BEFORE the class-init trigger, and that ordering is what the
      * completion gate below actually discriminates: an op that asked to initialize `Ldoes/not/exist;`
@@ -170,7 +169,7 @@ class NewInstanceOpTest {
         CoreTester.testThrows(
             CLASS_NAME, "newAbsentClassInstance()V",
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
-            message = "does.not.exist",
+            message = "Failed resolution of: Ldoes/not/exist;",
         )
         // The negative halves, NewArrayOpTest.nonExistentClassNameThrowsException's shape: the
         // fall-through is only provably unexplored on a run that explored everything, and a throwing

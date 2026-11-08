@@ -1903,7 +1903,7 @@ class DirectHostObjectTest {
             1,
             2,
             true,
-            CoreTester.classIndex,
+            CoreTester.classIndex.currentSnapshot.hierarchy,
             CoreTester.classIndex,
         )
 
@@ -1931,7 +1931,7 @@ class DirectHostObjectTest {
             1,
             2,
             true,
-            CoreTester.classIndex,
+            CoreTester.classIndex.currentSnapshot.hierarchy,
             CoreTester.classIndex,
         )
 

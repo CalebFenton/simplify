@@ -8,6 +8,7 @@ import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
+import org.cf.smalivm.core.ReflectionPolicy
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.noSuchFieldFailure
@@ -21,7 +22,11 @@ private fun resolutionPreamble(field: InstanceFieldLookup): OpExecution? = when 
     is InstanceFieldLookup.Resolved -> null
 }
 
-private fun throwingNullReceiver(): OpArm.Throw = GuestThrowables.throwing(GuestThrowables.nullPointer())
+/** ART's `ThrowNullPointerExceptionForFieldAccess`, which names the field and the running method. */
+private fun throwingNullReceiver(field: InstanceFieldLookup.Resolved, frame: Frame, isRead: Boolean): OpArm.Throw =
+    GuestThrowables.throwing(
+        GuestThrowables.nullFieldAccess(field, ReflectionPolicy.parseMethod(frame.view.signature), isRead),
+    )
 
 /** Heap-backed instance-field read for all `iget*` forms. */
 internal class IGetOp(
@@ -41,11 +46,11 @@ internal class IGetOp(
         resolutionPreamble(field)?.let { return it }
         val resolved = field as InstanceFieldLookup.Resolved
         val receiver = frame.read(receiverRegister)
-        if (receiver.readsAsNullReference) return OpExecution.single(throwingNullReceiver())
+        if (receiver.readsAsNullReference) return OpExecution.single(throwingNullReceiver(resolved, frame, isRead = true))
         if (receiver !is Value.Known) {
             return OpExecution.of(
                 OpArm.Continue(fieldRead(destRegister, Value.Unknown(resolved.type), resolved.type, resolved.isVolatile)),
-                throwingNullReceiver(),
+                throwingNullReceiver(resolved, frame, isRead = true),
             )
         }
         // `getField` answers `Top` for an object with no such cell.
@@ -78,9 +83,12 @@ internal class IPutOp(
         val resolved = field as InstanceFieldLookup.Resolved
         val value = frame.read(valueRegister)
         val receiver = frame.read(receiverRegister)
-        if (receiver.readsAsNullReference) return OpExecution.single(throwingNullReceiver())
+        if (receiver.readsAsNullReference) return OpExecution.single(throwingNullReceiver(resolved, frame, isRead = false))
         if (receiver !is Value.Known) {
-            return OpExecution.of(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)), throwingNullReceiver())
+            return OpExecution.of(
+                OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)),
+                throwingNullReceiver(resolved, frame, isRead = false),
+            )
         }
         val stored = slotWrite(value, resolved.type, storesAReference)
         val ref = receiver.raw as? HeapRef

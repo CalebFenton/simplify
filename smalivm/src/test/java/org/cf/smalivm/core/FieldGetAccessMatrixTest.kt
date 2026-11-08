@@ -41,7 +41,31 @@ class FieldGetAccessMatrixTest {
         val graph = CoreTester.execute(UNRELATED.descriptor, "readPublicInstance()I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(Value.Known(0x20, INT), graph.outcomes.single().returnedValue())
+        assertEquals(Value.Known(0x20, INTEGER), graph.outcomes.single().returnedValue())
+    }
+
+    /**
+     * `Field.get` returns a wide static boxed in its wrapper (`java.lang.reflect.Field.get`), one reference
+     * that fits the last register of the frame, whether the value is a literal, a default, or set by `<clinit>`.
+     */
+    @Test
+    fun realStaticGetOfAWideFieldReturnsItsBoxedValue() {
+        val cases = listOf(
+            "readLong()" to 0x1122334455667788L,
+            "readDouble()" to 2.5,
+            "readDefaultLong()" to 0L,
+            "readClinitLong()" to 7L,
+        )
+        for ((method, expected) in cases) {
+            val graph = CoreTester.execute(WIDE_STATIC.descriptor, "${method}Ljava/lang/Object;")
+
+            assertEquals(CompletionStatus.Complete, graph.completion(), method)
+            assertEquals(
+                Value.Known(expected, virtualTypeOfHostClass(expected.javaClass)),
+                graph.outcomes.single().returnedValue(),
+                method,
+            )
+        }
     }
 
     @Test
@@ -57,7 +81,7 @@ class FieldGetAccessMatrixTest {
         val graph = CoreTester.execute(UNRELATED.descriptor, "readPrivateInstanceWithAliasOverride()I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(Value.Known(0x22, INT), graph.outcomes.single().returnedValue())
+        assertEquals(Value.Known(0x22, INTEGER), graph.outcomes.single().returnedValue())
     }
 
     @Test
@@ -73,7 +97,7 @@ class FieldGetAccessMatrixTest {
             .filter { it.invocationTarget() == FIELD_GET }
             .map { it.frame.initState(STATIC_INIT_FIELD) }
 
-        assertEquals(Value.Known(0x55, INT), graph.outcomes.single().returnedValue())
+        assertEquals(Value.Known(0x55, INTEGER), graph.outcomes.single().returnedValue())
         assertEquals(listOf(ClassInitState.UNINITIALIZED, ClassInitState.INITIALIZED), getStates)
         assertEquals(ClassInitState.INITIALIZED, session.currentNode!!.frame.initState(STATIC_INIT_FIELD))
         assertTrue(allNodes(root).any { it.activation.classInitContext?.activeInitializer?.type == STATIC_INIT_FIELD })
@@ -92,7 +116,7 @@ class FieldGetAccessMatrixTest {
         val graph = CoreTester.execute(UNRELATED.descriptor, "branchOverride(I)I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf(Value.Known(0x13, INT)), graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value })
+        assertEquals(listOf(Value.Known(0x13, INTEGER)), graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value })
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
@@ -112,7 +136,7 @@ class FieldGetAccessMatrixTest {
         assertEquals(2, firstAttempts.size, "enabled and disabled callee returns must resume as separate callers")
         assertEquals(setOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN), accessibilities)
         assertTrue(FieldAccessibility.UNKNOWN !in accessibilities)
-        assertEquals(listOf(Value.Known(0x13, INT)), graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value })
+        assertEquals(listOf(Value.Known(0x13, INTEGER)), graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value })
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
     }
 
@@ -121,7 +145,7 @@ class FieldGetAccessMatrixTest {
         val graph = CoreTester.execute(SAME_PACKAGE.descriptor, "readProtectedInstance()I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(Value.Known(0x21, INT), graph.outcomes.single().returnedValue())
+        assertEquals(Value.Known(0x21, INTEGER), graph.outcomes.single().returnedValue())
     }
 
     @Test
@@ -241,7 +265,7 @@ class FieldGetAccessMatrixTest {
 
         assertEquals(SideEffectLevel.WEAK, registration.effect)
         assertEquals(SideEffectLevel.WEAK, setAccessibleNode.sideEffectLevel)
-        assertEquals(Value.Known(0x22, INT), graph.outcomes.single().returnedValue())
+        assertEquals(Value.Known(0x22, INTEGER), graph.outcomes.single().returnedValue())
     }
 
     @Test
@@ -364,10 +388,10 @@ class FieldGetAccessMatrixTest {
         val denied = hostStaticGet(metadata, unsafeInterface)
         val allowed = hostStaticGet(metadata, authorized)
 
-        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INT)), denied)
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INTEGER)), denied)
         // Integer.MAX_VALUE is 0x7fffffff (JLS 4.2.1).
         assertEquals(
-            SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(2147483647, INT))),
+            SynchronousCallResult.Returned(HostReturn.Value(HostValue.Reference(2147483647, INTEGER))),
             allowed,
         )
     }
@@ -414,7 +438,7 @@ class FieldGetAccessMatrixTest {
             ),
         )
 
-        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INT)), result)
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INTEGER)), result)
     }
 
     @Test
@@ -446,7 +470,7 @@ class FieldGetAccessMatrixTest {
         val graph = executeMatrixRead(case.caller, metadata, receiverType, expected)
 
         assertEquals(CompletionStatus.Complete, graph.completion(), case.authority)
-        assertEquals(Value.Known(expected, INT), graph.outcomes.single().returnedValue(), case.authority)
+        assertEquals(Value.Known(expected, INTEGER), graph.outcomes.single().returnedValue(), case.authority)
     }
 
     private fun assertDenied(case: AccessCase, variant: FieldVariant, receiverType: VirtualType) {
@@ -663,6 +687,8 @@ class FieldGetAccessMatrixTest {
 
     internal companion object {
         val INT = VirtualType.of("I")
+        /** `Field.get` wraps a primitive field's value in its wrapper class (`java.lang.reflect.Field.get`). */
+        val INTEGER = VirtualType.of("Ljava/lang/Integer;")
         val OBJECT = VirtualType.OBJECT
         val STRING = VirtualType.of("Ljava/lang/String;")
         val CLASS = VirtualType.of("Ljava/lang/Class;")
@@ -681,6 +707,7 @@ class FieldGetAccessMatrixTest {
         val INTERFACE_IMPL = VirtualType.of("Lorg/cf/smalivm/FieldInterfaceImpl;")
         val HOST_PACKAGE_CALLER = VirtualType.of("Lorg/cf/smalivm/core/HostPackageCaller;")
         val STATIC_INIT_FIELD = VirtualType.of("Lorg/cf/smalivm/StaticInitField;")
+        val WIDE_STATIC = VirtualType.of("Lorg/cf/smalivm/WideStaticField;")
         val SPINE = VirtualType.of("Lspine/spine;")
         val HOST_FIXTURE = virtualTypeOfHostClass(HostFieldFixture::class.java)
         val HOST_PACKAGE_FIXTURE = virtualTypeOfHostClass(FieldHostFixture::class.java)

@@ -1,6 +1,7 @@
 package org.cf.smalivm.core.op
 
 import org.cf.smalivm.core.CompletionStatus
+import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
@@ -37,6 +38,7 @@ class MonitorEnterOpTest {
         assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0))
     }
 
+    /** The message is ART's `MONITOR_ENTER` text from `ThrowNullPointerExceptionFromDexPC` (`common_throws.cc`). */
     @Test
     fun aDefiniteNullThrowsWithoutContinuingOrRecordingTheMonitorEffect() {
         val graph = execute(Value.Known(null, OBJECT))
@@ -45,6 +47,11 @@ class MonitorEnterOpTest {
         assertFalse(graph.wasReached(1), "a definite null has no feasible continuation")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
         assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        CoreTester.testThrows(
+            CLASS_NAME, METHOD, CoreState().apply { setRegister(REGISTER, Value.Known(null, OBJECT)) },
+            exceptionType = NPE,
+            message = "Attempt to do a synchronize operation on a null object",
+        )
     }
 
     @Test

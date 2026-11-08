@@ -34,8 +34,10 @@ internal sealed class MonitorOp(
 
     final override fun toString(): String = "$name r$receiverRegister"
 
-    private fun throwingNullReceiver(): OpArm.Throw =
-        OpArm.Throw(evidence = ThrowEvidence.Fresh(GuestThrowables.nullPointer()), lookupPc = exceptionPc)
+    private fun throwingNullReceiver(): OpArm.Throw = OpArm.Throw(
+        evidence = ThrowEvidence.Fresh(GuestThrowables.nullPointer(GuestThrowables.NullOperand.MONITOR)),
+        lookupPc = exceptionPc,
+    )
 }
 
 internal class MonitorEnterOp(address: Int, receiverRegister: Int) :

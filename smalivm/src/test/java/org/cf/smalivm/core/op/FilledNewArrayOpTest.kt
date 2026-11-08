@@ -423,7 +423,7 @@ class FilledNewArrayOpTest {
         CoreTester.testThrows(
             CLASS_NAME, "filledNewArrayOfMissingClass()V", initial,
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
-            message = "does.not.exist",
+            message = "Failed resolution of: [Ldoes/not/exist;", // ART `DoResolveType`; Tier-A `Fx_FilledNewArrayAbsentType`
         )
         val graph = CoreTester.execute(CLASS_NAME, "filledNewArrayOfMissingClass()V", initial)
         assertEquals(CompletionStatus.Complete, graph.completion())

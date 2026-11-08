@@ -132,6 +132,13 @@ class IGetOpTest {
     }
 
     private fun assertDefiniteNull(method: String) {
+        // ART's `ThrowNullPointerExceptionForFieldAccess` text over the resolved field and the running method.
+        CoreTester.testThrows(
+            CLASS_NAME, method,
+            exceptionType = "Ljava/lang/NullPointerException;",
+            message = "Attempt to read from field 'int iget_test.myInt' on a null object reference in method " +
+                "'int iget_test.${method.substringBefore('(')}()'",
+        )
         val graph = CoreTester.execute(CLASS_NAME, method)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(

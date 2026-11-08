@@ -4,6 +4,7 @@ import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.FrameValue
 import org.cf.smalivm.core.GuestThrowables
+import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.InstanceOfTest
 import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
@@ -17,6 +18,7 @@ import org.cf.smalivm.core.castOutcome
 import org.cf.smalivm.core.partitionThrowableDomain
 import org.cf.smalivm.core.readsAsNullReference
 import org.cf.smalivm.core.resolutionFailure
+import org.cf.smalivm.core.runtimeTypeOf
 
 /**
  * `check-cast`: throws `ClassCastException` when the register's reference is not an instance of the type
@@ -46,15 +48,16 @@ internal class CheckCastOp(
         val value = frameValue.value
         val narrowed = narrowedOrUnchanged(value, target)
         if (frameValue is FrameValue.RefinedThrowable) return castRefinedThrowable(frameValue, narrowed, target)
-        return when (castOutcome(value, target, types) { frame.heapObject(it)?.type }) {
+        val heapObjectTypeOf = { ref: HeapRef -> frame.heapObject(ref)?.type }
+        return when (castOutcome(value, target, types, heapObjectTypeOf)) {
             // Null passes every cast, and every content of a satisfying tag passes too.
             CastOutcome.ReadsAsNull, CastOutcome.Definitely, CastOutcome.NullOrInstance ->
                 OpExecution.single(OpArm.Continue(OpUpdate.assign(targetRegister, narrowed)))
-            CastOutcome.Never -> OpExecution.single(GuestThrowables.throwing(classCastException(value, target)))
+            CastOutcome.Never -> OpExecution.single(GuestThrowables.throwing(classCast(value, target, heapObjectTypeOf)))
             // The success arm carries the narrowing; the throw arm leaves the register as it was.
             CastOutcome.Unprovable -> OpExecution.of(
                 OpArm.Continue(OpUpdate.assign(targetRegister, narrowed)),
-                GuestThrowables.throwing(classCastException(value, target)),
+                GuestThrowables.throwing(classCast(value, target, heapObjectTypeOf)),
             )
         }
     }
@@ -63,7 +66,7 @@ internal class CheckCastOp(
     private fun castRefinedThrowable(source: FrameValue.RefinedThrowable, narrowed: Value, target: VirtualType): OpExecution {
         if (!target.isReference) {
             return OpExecution.single(
-                GuestThrowables.throwing(classCastException(source.value, target), OpUpdate.assign(targetRegister, source)),
+                GuestThrowables.throwing(classCast(source), OpUpdate.assign(targetRegister, source)),
             )
         }
         val partition = partitionThrowableDomain(source.domain, target, throwableHierarchy)
@@ -72,7 +75,7 @@ internal class CheckCastOp(
             partition.residual?.let {
                 add(
                     GuestThrowables.throwing(
-                        classCastException(source.value, target),
+                        classCast(source),
                         OpUpdate.assign(targetRegister, FrameValue.refined(source.value, it)),
                     ),
                 )
@@ -92,8 +95,12 @@ internal class CheckCastOp(
         return if (value.readsAsNullReference && !narrowed.readsAsNullReference) value else narrowed
     }
 
-    private fun classCastException(value: Value, target: VirtualType): ThrowableRecipe =
-        GuestThrowables.classCast(value.type, target)
+    /** ART names the object's runtime class, so a value whose class the engine cannot determine gets no message. */
+    private fun classCast(value: Value, target: VirtualType, heapObjectTypeOf: (HeapRef) -> VirtualType?): ThrowableRecipe =
+        GuestThrowables.classCast((value as? Value.Known)?.let { runtimeTypeOf(it, heapObjectTypeOf) }, target)
+
+    private fun classCast(source: FrameValue.RefinedThrowable): ThrowableRecipe =
+        GuestThrowables.classCast(source.domain.exactRuntimeType, castType.type)
 
     override fun toString(): String = "$name r$targetRegister, ${castType.type}"
 }

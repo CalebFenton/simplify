@@ -172,7 +172,7 @@ class NewArrayOpTest {
         CoreTester.testThrows(
             CLASS_NAME, "createNonExistentArrayClass()V", initial,
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
-            message = "does.not.exist",
+            message = "Failed resolution of: [Ldoes/not/exist;", // ART `DoResolveType`; Tier-A `Fx_NewArrayAbsentType`
         )
         // The negative half, written out by hand: `testThrows` deliberately says nothing about whether a
         // normal path also ran, and a `wasReached` negative is only a dead-code claim on a run that
@@ -309,7 +309,7 @@ class NewArrayOpTest {
         CoreTester.testThrows(
             CLASS_NAME, "createBothBadArrayClass()V", seed,
             exceptionType = "Ljava/lang/NoClassDefFoundError;",
-            message = "does.not.exist",
+            message = "Failed resolution of: [Ldoes/not/exist;",
         )
     }
 
