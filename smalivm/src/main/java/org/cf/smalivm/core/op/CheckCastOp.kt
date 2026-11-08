@@ -40,7 +40,7 @@ internal class CheckCastOp(
     override val registersAssigned: Set<Int> = destinationRegisters(targetRegister, isWide = false)
 
     override fun execute(frame: Frame): OpExecution {
-        if (castType is TypeOperand.Absent) return resolutionFailure(castType.type)
+        if (castType is TypeOperand.Absent) return resolutionFailure(castType.failure)
         val target = castType.type
         val frameValue = frame.readFrameValue(targetRegister)
         val value = frameValue.value

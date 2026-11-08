@@ -488,12 +488,62 @@ class ClassIndexTest {
         assertFalse(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/J;")))
         assertTrue(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/Caller;")))
         assertFalse(index.currentResolver().dispatchWorldIsComplete(t("Lcycle/Caller;")))
+    }
 
-        val graph = run(index, "Lcycle/Caller;", "call()V")
-        val escaping = CoreTester.escapingTypes(graph).single()
+    /**
+     * ART resolves a class on a longer cycle in `EnsureResolved`, which throws `ClassCircularityError` naming the
+     * class being resolved; `LoadSuperAndInterfaces` names a class that extends itself. A method, field or type
+     * reference reaches it. `Class.forName` wraps every lookup failure in `ClassNotFoundException`
+     * (`Class_classForName`).
+     */
+    @Test
+    fun usingAClassOnAnInheritanceCycleThrowsClassCircularityError(@TempDir temp: Path) {
+        val index = indexOf(temp, CYCLE_A, CYCLE_B, CYCLE_SELF, CYCLE_CALLER, INTERFACE_CYCLE_I, INTERFACE_CYCLE_J)
+
+        for ((method, message) in listOf(
+            "call()V" to "cycle.A",
+            "newInstance()V" to "cycle.A",
+            "readStatic()V" to "cycle.A",
+            "constInterface()V" to "cycle.I",
+            "newSelf()V" to "Class cycle.Self extends itself",
+        )) {
+            val graph = run(index, "Lcycle/Caller;", method)
+            assertEquals(listOf("Ljava/lang/ClassCircularityError;"), CoreTester.escapingTypes(graph), method)
+            assertEquals(message, escapingMessage(graph), method)
+        }
+        val forName = run(index, "Lcycle/Caller;", "forName()V")
+        assertEquals(listOf("Ljava/lang/ClassNotFoundException;"), CoreTester.escapingTypes(forName))
+        assertEquals("cycle.A", escapingMessage(forName))
+    }
+
+    /**
+     * Selection on the receiver's class that finds only an abstract method throws `AbstractMethodError` after the
+     * receiver null check (`ArtMethod::ThrowInvocationTimeError`, `ThrowAbstractMethodError`).
+     */
+    @Test
+    fun anAbstractSelectionThrowsAbstractMethodErrorOnInvocation(@TempDir temp: Path) {
+        val index = indexOf(temp, ABSTRACT_SIDE, ABSTRACT_ONLY, ABSTRACT_BASE, CONCRETE_WITHOUT_VALUE)
+
+        val interfaceCall = run(index, "Ldm/AbstractOnly;", "call()I")
+        assertEquals(listOf("Ljava/lang/AbstractMethodError;"), CoreTester.escapingTypes(interfaceCall))
+        assertEquals(
+            "abstract method \"int dm.AbstractSide.value()\" on receiver java.lang.Class<dm.AbstractOnly>",
+            escapingMessage(interfaceCall),
+        )
+        val virtualCall = run(index, "Ldm/ConcreteWithoutValue;", "call()I")
+        assertEquals(listOf("Ljava/lang/AbstractMethodError;"), CoreTester.escapingTypes(virtualCall))
+        assertEquals(
+            "abstract method \"int dm.AbstractBase.value()\" on receiver java.lang.Class<dm.ConcreteWithoutValue>",
+            escapingMessage(virtualCall),
+        )
+        assertEquals(
+            listOf("Ljava/lang/NullPointerException;"),
+            CoreTester.escapingTypes(run(index, "Ldm/AbstractOnly;", "callOnNull()I")),
+        )
+        val unknownReceiver = run(index, "Ldm/AbstractOnly;", "callUnknown(Ldm/AbstractSide;)I")
         assertTrue(
-            index.isSubtypeOf(t(escaping), t("Ljava/lang/LinkageError;")),
-            "invoking a method of a circular class is a linkage failure, not a call: $escaping",
+            CoreTester.escapingTypes(unknownReceiver).none { it == "Ljava/lang/AbstractMethodError;" },
+            "an unknown receiver may be any implementor, so resolution to the abstract method is not a selection",
         )
     }
 
@@ -609,6 +659,20 @@ class ClassIndexTest {
 
     private fun run(index: ClassIndex, className: String, descriptor: String): ExecutionGraph =
         VmServices(index).newSession(index.requireMethodView(className, descriptor)).run()
+
+    /** The message of the one throwable that escapes [graph], read from the heap of the node that threw it. */
+    private fun escapingMessage(graph: ExecutionGraph): String? {
+        val exception = graph.outcomes.filterIsInstance<Outcome.Threw>().single().exception as Value.Known
+        return when (val raw = exception.raw) {
+            is HeapRef -> graph.addresses().asSequence()
+                .flatMap { graph.nodePile(it).asSequence() }
+                .filter { it.outcome is Outcome.Threw }
+                .firstNotNullOf { (it.endingFrame ?: it.frame).hostObjectAt(raw) as? Throwable }
+                .message
+            is Throwable -> raw.message
+            else -> error("no throwable behind $raw")
+        }
+    }
 
     private fun loadKnownIndexedClassAcrossTwoSessions(index: ClassIndex): List<Class<*>> {
         val owner = VmServices(index)
@@ -777,6 +841,42 @@ class ClassIndexTest {
                 invoke-static {}, Lcycle/A;->f()V
                 return-void
             .end method
+
+            .method public static newInstance()V
+                .registers 1
+                new-instance v0, Lcycle/A;
+                return-void
+            .end method
+
+            .method public static readStatic()V
+                .registers 1
+                sget v0, Lcycle/A;->x:I
+                return-void
+            .end method
+
+            .method public static constInterface()V
+                .registers 1
+                const-class v0, Lcycle/I;
+                return-void
+            .end method
+
+            .method public static forName()V
+                .registers 1
+                const-string v0, "cycle.A"
+                invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+                return-void
+            .end method
+
+            .method public static newSelf()V
+                .registers 1
+                new-instance v0, Lcycle/Self;
+                return-void
+            .end method
+        """
+
+        const val CYCLE_SELF = """
+            .class public Lcycle/Self;
+            .super Lcycle/Self;
         """
 
         const val INTERFACE_CYCLE_I = """
@@ -878,6 +978,76 @@ class ClassIndexTest {
             .super Ljava/lang/Object;
 
             .method public abstract value()I
+            .end method
+        """
+
+        const val ABSTRACT_ONLY = """
+            .class public Ldm/AbstractOnly;
+            .super Ljava/lang/Object;
+            .implements Ldm/AbstractSide;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Ldm/AbstractOnly;
+                invoke-direct {v0}, Ldm/AbstractOnly;-><init>()V
+                invoke-interface {v0}, Ldm/AbstractSide;->value()I
+                move-result v0
+                return v0
+            .end method
+
+            .method public static callOnNull()I
+                .registers 1
+                const/4 v0, 0x0
+                invoke-interface {v0}, Ldm/AbstractSide;->value()I
+                move-result v0
+                return v0
+            .end method
+
+            .method public static callUnknown(Ldm/AbstractSide;)I
+                .registers 1
+                invoke-interface {p0}, Ldm/AbstractSide;->value()I
+                move-result v0
+                return v0
+            .end method
+        """
+
+        const val ABSTRACT_BASE = """
+            .class public abstract Ldm/AbstractBase;
+            .super Ljava/lang/Object;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public abstract value()I
+            .end method
+        """
+
+        const val CONCRETE_WITHOUT_VALUE = """
+            .class public Ldm/ConcreteWithoutValue;
+            .super Ldm/AbstractBase;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ldm/AbstractBase;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Ldm/ConcreteWithoutValue;
+                invoke-direct {v0}, Ldm/ConcreteWithoutValue;-><init>()V
+                invoke-virtual {v0}, Ldm/AbstractBase;->value()I
+                move-result v0
+                return v0
             .end method
         """
 

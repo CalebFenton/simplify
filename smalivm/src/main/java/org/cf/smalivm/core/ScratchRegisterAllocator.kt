@@ -102,6 +102,7 @@ internal object ScratchRegisterAllocator {
     /**
      * Operands from [RegisterEffects]. `if-eq`, `if-ne`, `if-eqz` and `if-nez` also compare references, so their
      * operands take the category the register holds there, which decides between `move` and `move-object` spills.
+     * A body with malformed control flow has no register states here; logical validation rejects it after allocation.
      */
     private fun operandModel(
         body: MethodBody,
@@ -109,14 +110,18 @@ internal object ScratchRegisterAllocator {
         scratchWordCount: Int,
     ): (EncodedInstruction) -> List<RegisterOperand> {
         val flow by lazy {
-            RegisterFlow.analyze(body, method, body.registerCount + scratchWordCount) { logicalRegisterNumbers(it, body) }
+            MethodControlFlow.of(body)?.let { controlFlow ->
+                RegisterFlow.analyze(controlFlow, method, body.registerCount, body.registerCount + scratchWordCount) {
+                    logicalRegisterNumbers(it, body)
+                }
+            }
         }
         return { record ->
             val operands = RegisterEffects.operands(record.instruction)
             if (record.instruction.opcode !in REFERENCE_COMPARING_BRANCHES) {
                 operands
             } else {
-                val state = flow.before(record.position)
+                val state = flow?.before(record.position)
                 val registers = logicalRegisterNumbers(record, body)
                 operands.mapIndexed { index, operand ->
                     val holdsReference = state?.get(registers[index]) == RegisterValue.REFERENCE
@@ -364,9 +369,6 @@ internal object ScratchRegisterAllocator {
                 is LogicalRegister.Allocation.Scratch -> body.registerCount + allocation.offset
             }
         } ?: record.instruction.registerOperands()
-
-    private fun Instruction.hasArgumentWords(): Boolean =
-        this is FiveRegisterInstruction || this is RegisterRangeInstruction
 
     private fun registersAreContiguous(registers: List<Int>): Boolean =
         registers.zipWithNext().all { (left, right) -> right == left + 1 }

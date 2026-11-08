@@ -50,6 +50,13 @@ interface TypeHierarchy {
 }
 
 /**
+ * How a class on an inheritance cycle reaches itself, in the order ART's `LoadSuperAndInterfaces` checks: a
+ * superclass naming the class itself, a superclass on the cycle, then each interface in declaration order. It
+ * decides the text of the `ClassCircularityError` that resolving the class throws.
+ */
+internal enum class ClassCircularity { EXTENDS_ITSELF, IMPLEMENTS_ITSELF, THROUGH_ANOTHER_CLASS }
+
+/**
  * Complete immutable hierarchy facts captured with a program snapshot, and the one implementation of every
  * hierarchy query. Built only by [from], which removes circular classes, so every ancestor walk terminates.
  */
@@ -57,6 +64,7 @@ internal class HierarchySnapshot private constructor(
     internal val declarations: PersistentMap<String, ClassHierarchyDeclaration>,
     /** Every class reachable from an application class's superclass and interfaces is in the program. */
     internal val applicationAncestryComplete: Boolean,
+    private val circularClasses: PersistentMap<String, ClassCircularity>,
 ) : TypeHierarchy, ThrowableHierarchy {
     private val throwableFacts = HashMap<VirtualType, ThrowableTypeFacts>()
 
@@ -131,6 +139,13 @@ internal class HierarchySnapshot private constructor(
         var base = type
         while (base.isArray) base = requireNotNull(base.componentType)
         return !base.isReference || contains(base.descriptor)
+    }
+
+    /** How [type]'s base class reaches itself, or null when it is on no inheritance cycle. */
+    internal fun circularityOf(type: VirtualType): ClassCircularity? {
+        var base = type
+        while (base.isArray) base = requireNotNull(base.componentType)
+        return circularClasses[base.descriptor]
     }
 
     /** Whether [type] is a bundled framework class rather than an application class; absent classes are neither. */
@@ -428,10 +443,12 @@ internal class HierarchySnapshot private constructor(
                 )
                 require(previous == null) { "Application class ${definition.type} is defined twice" }
             }
-            declarations.keys.removeAll(circularClasses(declarations))
+            val circular = circularClasses(declarations)
+            declarations.keys.removeAll(circular.keys)
             return HierarchySnapshot(
                 declarations.toPersistentMap(),
                 ancestryIsComplete(applicationClasses.map(ApplicationClassDefinition::type), declarations),
+                circular.toPersistentMap(),
             )
         }
 
@@ -453,12 +470,14 @@ internal class HierarchySnapshot private constructor(
         }
 
         /**
-         * Classes whose superclass or interface chain reaches themselves. ART's class linker rejects each one
-         * with `ClassCircularityError` while loading it, so none of them is in the loaded set. Computed as the
+         * Classes whose superclass or interface chain reaches themselves, and how. ART's class linker rejects each
+         * one with `ClassCircularityError` while loading it, so none of them is in the loaded set. Computed as the
          * strongly connected components of the declared-ancestor graph, iteratively so inheritance depth
          * cannot exhaust the host stack.
          */
-        private fun circularClasses(declarations: Map<String, ClassHierarchyDeclaration>): Set<String> {
+        private fun circularClasses(
+            declarations: Map<String, ClassHierarchyDeclaration>,
+        ): Map<String, ClassCircularity> {
             fun ancestors(descriptor: String): Iterator<String> {
                 val declaration = declarations.getValue(descriptor)
                 return (listOfNotNull(declaration.superclass) + declaration.interfaces)
@@ -471,7 +490,7 @@ internal class HierarchySnapshot private constructor(
             val open = ArrayDeque<String>()
             val isOpen = HashSet<String>()
             val frames = ArrayDeque<Pair<String, Iterator<String>>>()
-            val circular = HashSet<String>()
+            val circular = HashMap<String, ClassCircularity>()
 
             fun enter(descriptor: String) {
                 order[descriptor] = order.size
@@ -508,11 +527,30 @@ internal class HierarchySnapshot private constructor(
                     } while (member != descriptor)
                     val declaration = declarations.getValue(descriptor)
                     if (component.size > 1 || declaration.superclass == descriptor || descriptor in declaration.interfaces) {
-                        circular += component
+                        val members = component.toHashSet()
+                        for (member in component) {
+                            circular[member] = circularity(member, declarations.getValue(member), members)
+                        }
                     }
                 }
             }
             return circular
+        }
+
+        /** The first of [declaration]'s links that ART's `LoadSuperAndInterfaces` follows back into [cycle]. */
+        private fun circularity(
+            descriptor: String,
+            declaration: ClassHierarchyDeclaration,
+            cycle: Set<String>,
+        ): ClassCircularity {
+            if (declaration.superclass == descriptor) return ClassCircularity.EXTENDS_ITSELF
+            if (declaration.superclass in cycle) return ClassCircularity.THROUGH_ANOTHER_CLASS
+            val throughInterface = declaration.interfaces.first { it in cycle }
+            return if (throughInterface == descriptor) {
+                ClassCircularity.IMPLEMENTS_ITSELF
+            } else {
+                ClassCircularity.THROUGH_ANOTHER_CLASS
+            }
         }
     }
 }

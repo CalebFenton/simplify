@@ -26,9 +26,10 @@ internal enum class RegisterValue {
 }
 
 /**
- * Register values before each reachable executable instruction of one body: a forward fixpoint over branch,
- * switch, fall-through and exception edges, with the transfer function taken from [RegisterEffects].
- * Parameters occupy the top of the body's declared register count; every other register starts undefined.
+ * Register values before each reachable instruction of one body: a forward fixpoint over the edges of its
+ * [MethodControlFlow], with the transfer function taken from [RegisterEffects]. A handler entry receives the state
+ * from before the throwing instruction. Parameters occupy the top of the body's declared register count; every
+ * other register starts undefined.
  */
 internal class RegisterFlow private constructor(private val states: Map<LogicalCodePosition, ByteArray>) {
     /** The state before [position], or null when no path reaches it. */
@@ -44,19 +45,17 @@ internal class RegisterFlow private constructor(private val states: Map<LogicalC
     companion object {
         /**
          * [registerFileSize] covers every register [registersOf] can name; for a logical body that includes the
-         * scratch registers numbered after the baseline register count.
+         * scratch registers numbered after [registerCount], the baseline register count.
          */
         fun analyze(
-            body: MethodBody,
+            flow: MethodControlFlow,
             method: Method,
+            registerCount: Int,
             registerFileSize: Int,
             registersOf: (EncodedInstruction) -> List<Int>,
         ): RegisterFlow {
-            val records = body.instructions.filter { it.instruction.opcode !in OpcodeGroups.PAYLOAD }
-            if (records.isEmpty()) return RegisterFlow(emptyMap())
-            val indexByPosition = records.withIndex().associate { (index, record) -> record.position to index }
-            val handlers = exceptionHandlers(body, records)
-            val states = arrayOfNulls<ByteArray>(records.size)
+            if (flow.size == 0) return RegisterFlow(emptyMap())
+            val states = arrayOfNulls<ByteArray>(flow.size)
             val pending = ArrayDeque<Int>()
 
             fun flowInto(target: Int, incoming: ByteArray) {
@@ -77,43 +76,29 @@ internal class RegisterFlow private constructor(private val states: Map<LogicalC
                 if (changed) pending += target
             }
 
-            flowInto(0, entryState(body, method, registerFileSize))
+            val normal = Array(flow.size, flow::normalSuccessors)
+            val exceptional = Array(flow.size, flow::exceptionalSuccessors)
+            flowInto(0, entryState(method, registerCount, registerFileSize))
             while (pending.isNotEmpty()) {
                 val index = pending.removeFirst()
-                val record = records[index]
+                val record = flow.recordAt(index)
                 val before = requireNotNull(states[index])
                 val after = transfer(before, record, registersOf(record))
-                val opcode = record.instruction.opcode
-                val target = body.controlTargets[record.position]?.let(indexByPosition::get)
-                val next = (index + 1).takeIf { it < records.size }
-                when (opcode) {
-                    in OpcodeGroups.GOTO -> target?.let { flowInto(it, after) }
-                    in OpcodeGroups.CONDITIONAL_BRANCH -> {
-                        target?.let { flowInto(it, after) }
-                        next?.let { flowInto(it, after) }
-                    }
-                    in OpcodeGroups.SWITCH -> {
-                        body.switchCases[record.position].orEmpty().forEach { case ->
-                            indexByPosition[case.target]?.let { flowInto(it, after) }
-                        }
-                        next?.let { flowInto(it, after) }
-                    }
-                    else -> if (opcode.canContinue()) next?.let { flowInto(it, after) }
-                }
-                if (opcode.canThrow()) handlers[index]?.forEach { flowInto(it, before) }
+                for (successor in normal[index]) flowInto(successor, after)
+                for (handler in exceptional[index]) flowInto(handler, before)
             }
             return RegisterFlow(
-                records.indices.mapNotNull { index -> states[index]?.let { records[index].position to it } }.toMap(),
+                (0 until flow.size).mapNotNull { index -> states[index]?.let { flow.positionAt(index) to it } }.toMap(),
             )
         }
 
-        private fun entryState(body: MethodBody, method: Method, registerFileSize: Int): ByteArray {
+        private fun entryState(method: Method, registerCount: Int, registerFileSize: Int): ByteArray {
             val state = ByteArray(registerFileSize) { RegisterValue.UNDEFINED.ordinal.toByte() }
             val parameters = buildList {
                 if (!Modifier.isStatic(method.accessFlags)) add(ValueCategory.REFERENCE)
                 method.parameterTypes.mapTo(this, ValueCategory::ofDescriptor)
             }
-            var register = body.registerCount - parameters.sumOf(ValueCategory::width)
+            var register = registerCount - parameters.sumOf(ValueCategory::width)
             for (category in parameters) {
                 write(state, register, category)
                 register += category.width
@@ -155,26 +140,6 @@ internal class RegisterFlow private constructor(private val states: Map<LogicalC
                     set(register + 1, RegisterValue.WIDE_HIGH)
                 }
             }
-        }
-
-        /** Handler entry indexes for each record a try region covers; a region's end position is exclusive. */
-        private fun exceptionHandlers(body: MethodBody, records: List<EncodedInstruction>): Array<Set<Int>?> {
-            val result = arrayOfNulls<Set<Int>>(records.size)
-            if (body.tryRegions.isEmpty()) return result
-            val bodyIndex = body.instructions.withIndex().associate { (index, record) -> record.position to index }
-            val recordBodyIndexes = IntArray(records.size) { requireNotNull(bodyIndex[records[it].position]) }
-            val recordIndexByPosition = records.withIndex().associate { (index, record) -> record.position to index }
-            for (region in body.tryRegions) {
-                val start = bodyIndex[region.start] ?: body.instructions.size
-                val end = bodyIndex[region.end] ?: body.instructions.size
-                val targets = region.handlers.mapNotNullTo(LinkedHashSet()) { recordIndexByPosition[it.target] }
-                var index = recordBodyIndexes.binarySearch(start).let { if (it < 0) -it - 1 else it }
-                while (index < records.size && recordBodyIndexes[index] < end) {
-                    result[index] = result[index].orEmpty() + targets
-                    index++
-                }
-            }
-            return result
         }
 
         private val VALUES = RegisterValue.entries

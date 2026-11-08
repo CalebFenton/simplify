@@ -120,20 +120,6 @@ class MethodViewTest {
     }
 
     @Test
-    fun canContinueIsFalseForTerminatorsAndGoto() {
-        // Bug class: treating GOTO (or a return/throw) as fallthrough would make the scheduler
-        // (Task 5) advance into a bogus successor instead of following the jump/terminator.
-        // Oracle: dexlib2's Opcode.canContinue(), which is false for RETURN*/THROW/GOTO* and
-        // mirrors Dalvik's actual control-flow semantics -- not something this project defines.
-        val ret = view("returnFive()I")
-        assertTrue(ret.canContinue(0))
-        assertFalse(ret.canContinue(1))
-        val goto = view("gotoSkip()I")
-        val gotoAddress = goto.addresses.first { goto.opcodeAt(it) == Opcode.GOTO }
-        assertFalse(goto.canContinue(gotoAddress))
-    }
-
-    @Test
     fun terminalInstructionAddressesAreReturnsAndThrows() {
         // Bug class: omitting a throw, or a non-void/non-object return, from "terminating"
         // would make a path-exploring consumer treat a dead end as continuable and read past

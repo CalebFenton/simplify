@@ -26,7 +26,7 @@ internal class NewInstanceOp(
     override val registersAssigned: Set<Int> = destinationRegisters(destRegister, isWide = false)
 
     override fun execute(frame: Frame): OpExecution = when (instance) {
-        is TypeOperand.Absent -> resolutionFailure(instance.type)
+        is TypeOperand.Absent -> resolutionFailure(instance.failure)
         is TypeOperand.Present -> frame.classInitTrigger(instance.type)
             ?: OpExecution.single(OpArm.Continue(OpUpdate.allocateObject(destRegister, instance.type, instance.resolved)))
     }
