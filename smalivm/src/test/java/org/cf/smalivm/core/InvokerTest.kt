@@ -581,16 +581,10 @@ class InvokerTest {
      * 🔴 **AN ARRAY DEFINING CLASS MUST NOT HOST-CRASH THE LOOKUP** (Plan 9 Task 15, adjudication 7b's
      * array-pseudo-method sub-question; found while writing that adjudication, at source).
      *
-     * `[I->clone()Ljava/lang/Object;` is a real method on a device -- and the OLD engine resolves it, by
-     * synthesizing a `VirtualArrayMethod` (`type/VirtualArray.java:173-182`), which is how
-     * `opcode/InvokeOpTest.cloningArrayWithArrayCloneCloneWorksAsExpected` and
-     * `cloningNullWithArrayCloneThrowsException` work at all. `ClassIndex` has no array-method equivalent, and
-     * before this test the seam did not merely answer "no": `ClassManager.getVirtualMethod` routes through
-     * `getVirtualClass`, whose body is `getVirtualType(className) as VirtualClass`
-     * (`type/ClassManager.kt:132-134`), and `getVirtualType("[I")` returns a **`VirtualArray`** (`:154-156`),
-     * which is a sibling of `VirtualClass` under `VirtualType` and not a subtype. So the cast threw a HOST
-     * `ClassCastException` out of `lookupMethod` -- the same "hard host crash on ordinary input" failure mode
-     * adjudication 7 exists to remove, one layer up from the ops.
+     * `[I->clone()Ljava/lang/Object;` is a real method on a device, and an array type has no class def to
+     * look it up in, so a lookup that asked for one would throw a HOST exception out of `lookupMethod` --
+     * the same "hard host crash on ordinary input" failure mode adjudication 7 exists to remove, one layer up
+     * from the ops.
      *
      * **The ANSWER is [MethodLookup.NoBody], and it is a classification rather than a shrug**
      * (adjudication 7b, "array pseudo-methods"): the method *exists* -- so `NoSuchMethod`, which Task 20 will

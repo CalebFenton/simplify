@@ -8,7 +8,6 @@ import org.apache.commons.cli.help.TextHelpAppendable
 import org.apache.commons.cli.Options
 import org.cf.simplify.strategy.*
 import org.cf.smalivm.core.*
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.util.ConsoleUtil
 import java.io.IOException
 import java.io.PrintStream
@@ -78,7 +77,7 @@ class Launcher(
         val reporter = Reporter(options, output, error)
         reporter.verbose(1, "Options:\n$options")
         val start = System.currentTimeMillis()
-        val classIndex = ClassIndex(ClassManagerFactory().build(options.inFile, options.outputAPILevel))
+        val classIndex = ClassIndex.open(options.inFile, options.outputAPILevel)
         val services = VmServices(classIndex)
         val limits = Limits(options.maxAddressVisits, options.maxMethodVisits, options.maxExecutionTime * 1000L, options.maxCallDepth)
         val optimizer = Optimizer(services, limits, options.maxOptimizationPasses, strategies)

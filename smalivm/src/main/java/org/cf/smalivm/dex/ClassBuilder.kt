@@ -1,27 +1,25 @@
 package org.cf.smalivm.dex
 
 import com.google.common.primitives.Ints
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.formatter.DexFormatter
 import com.android.tools.smali.dexlib2.iface.Annotation
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Field
 import com.android.tools.smali.dexlib2.iface.Method
-import com.android.tools.smali.dexlib2.writer.builder.BuilderEncodedValues.*
+import com.android.tools.smali.dexlib2.iface.value.ArrayEncodedValue
+import com.android.tools.smali.dexlib2.iface.value.MethodEncodedValue
+import com.android.tools.smali.dexlib2.iface.value.StringEncodedValue
+import com.android.tools.smali.dexlib2.iface.value.TypeEncodedValue
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
 import org.slf4j.LoggerFactory
-import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import java.util.*
 import java.util.stream.Collectors
 
-class ClassBuilder internal constructor(private val classAccessFlags: (String) -> Int) {
-    constructor(classManager: ClassManager) : this({ type -> classManager.getVirtualClass(type).classDef.accessFlags })
+/** Builds JVM class files with [ClassDef] shapes and stub bodies; [classAccessFlags] answers for member classes. */
+internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
 
     fun build(classDef: ClassDef): ByteArray {
         log.debug("Building input class: {}", classDef)
@@ -37,24 +35,17 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
         return classWriter.toByteArray()
     }
 
+    /** The class's generic signature, or null when it has none or its annotation is not an array of strings. */
     private fun buildASMSignature(classDef: ClassDef): String? {
-        var signature: String? = null
-        outer@ for (annotation in classDef.annotations) {
-            if (annotation.type != "Ldalvik/annotation/Signature;") {
-                continue
+        val annotation = classDef.annotations.firstOrNull { it.type == "Ldalvik/annotation/Signature;" } ?: return null
+        val sb = StringBuilder()
+        for (e in annotation.elements) {
+            val parts = (e.value as? ArrayEncodedValue)?.value ?: return null
+            for (part in parts) {
+                sb.append((part as? StringEncodedValue)?.value ?: return null)
             }
-            val sb = StringBuilder()
-            for (e in annotation.elements) {
-                val ev = e.value as BuilderArrayEncodedValue
-                for (v in ev.value) {
-                    val value = v as BuilderStringEncodedValue
-                    sb.append(value.value)
-                }
-            }
-            signature = sb.toString()
-            break
         }
-        return signature
+        return sb.toString()
     }
 
     private fun buildDescriptor(method: Method): String {
@@ -66,21 +57,8 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
         return sb.toString()
     }
 
-    private fun buildExceptions(method: Method): Array<String>? {
-        if (method.implementation == null) {
-            return null
-        }
-        val exceptionTypes: MutableSet<String> = HashSet()
-        for (tryBlock in method.implementation!!.tryBlocks) {
-            for (handler in tryBlock.exceptionHandlers) {
-                val type = handler.exceptionType
-                    ?: // Type is null if it's a catchall
-                    continue
-                exceptionTypes.add(stripName(type))
-            }
-        }
-        return exceptionTypes.sorted().toTypedArray()
-    }
+    private fun hasBody(method: Method): Boolean =
+        method.accessFlags and (Opcodes.ACC_ABSTRACT or Opcodes.ACC_NATIVE) == 0
 
     private fun buildInterfaces(classDef: ClassDef): Array<String?> {
         val interfaces = classDef.interfaces
@@ -91,22 +69,30 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
         return internalName.substring(1, internalName.length - 1)
     }
 
-    private fun visitInnerClasses(value: BuilderTypeEncodedValue, classWriter: ClassWriter) {
-        // String name, String outerName, String innerName, int access
-        val internalName = value.value
-        val fullName = stripName(value.value)
-        val parts = fullName.split(Regex("\\$"), 2)
-        val outerName = parts[0]
-        var innerName: String? = parts[1]
-        val isAnonymous = innerName == "1" || Ints.tryParse(innerName!!) != null
-        if (isAnonymous) {
-            innerName = null
+    /**
+     * Records a member class. A name without `$` cannot be split into outer and simple names, so it is recorded
+     * as unnamed; a name that is not a class, or that names no declared class, is skipped.
+     */
+    private fun visitInnerClass(memberType: String, classWriter: ClassWriter) {
+        if (!memberType.startsWith('L') || !memberType.endsWith(';')) return
+        val innerAccess = classAccessFlags(memberType) ?: return
+        val fullName = stripName(memberType)
+        val separator = fullName.indexOf('$')
+        if (separator < 0) {
+            classWriter.visitInnerClass(fullName, null, null, innerAccess)
+            return
         }
-        val innerAccess = classAccessFlags(internalName)
-        classWriter.visitInnerClass(fullName, outerName, innerName, innerAccess)
+        val innerName = fullName.substring(separator + 1)
+        val isAnonymous = innerName.isEmpty() || Ints.tryParse(innerName) != null
+        classWriter.visitInnerClass(
+            fullName,
+            fullName.substring(0, separator),
+            innerName.takeUnless { isAnonymous },
+            innerAccess,
+        )
     }
 
-    private fun visitEnclosingMethod(value: BuilderMethodEncodedValue, classWriter: ClassWriter) {
+    private fun visitEnclosingMethod(value: MethodEncodedValue, classWriter: ClassWriter) {
         val methodRef = value.value
         val owner = stripName(methodRef.definingClass)
         val name = methodRef.name
@@ -115,21 +101,16 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
         classWriter.visitOuterClass(owner, name, desc)
     }
 
+    /** Annotation values of the wrong encoded kind are ignored: they come from the analysed input. */
     private fun visitClassAnnotations(annotations: Set<Annotation>, classWriter: ClassWriter) {
         for (annotation in annotations) {
             when (annotation.type) {
-                "Ldalvik/annotation/EnclosingMethod;" -> for (e in annotation.elements) {
-                    val v = e.value as BuilderMethodEncodedValue
-                    visitEnclosingMethod(v, classWriter)
-                    // There should only ever be one enclosing method.
-                    break
-                }
+                "Ldalvik/annotation/EnclosingMethod;" -> annotation.elements.firstNotNullOfOrNull {
+                    it.value as? MethodEncodedValue
+                }?.let { visitEnclosingMethod(it, classWriter) }
                 "Ldalvik/annotation/MemberClasses;" -> for (e in annotation.elements) {
-                    val ev = e.value as BuilderArrayEncodedValue
-                    for (v in ev.value) {
-                        val value = v as BuilderTypeEncodedValue
-                        visitInnerClasses(value, classWriter)
-                    }
+                    val members = (e.value as? ArrayEncodedValue)?.value ?: continue
+                    members.filterIsInstance<TypeEncodedValue>().forEach { visitInnerClass(it.value, classWriter) }
                 }
             }
         }
@@ -227,20 +208,20 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
             mv.visitTypeInsn(Opcodes.NEW, name)
             mv.visitInsn(Opcodes.DUP)
             mv.visitLdcInsn(fieldName)
-            mv.visitIntInsn(Opcodes.BIPUSH, i)
+            pushInt(mv, i)
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL, name, "<init>", "(Ljava/lang/String;I)V", false)
             mv.visitFieldInsn(Opcodes.PUTSTATIC, name, fieldName, classDef.type)
         }
 
         // Create array to hold values destined for $VALUES
-        mv.visitIntInsn(Opcodes.BIPUSH, fieldCount)
+        pushInt(mv, fieldCount)
         mv.visitTypeInsn(Opcodes.ANEWARRAY, name)
 
         // Set elements of $VALUES
         for (i in 0 until fieldCount) {
             val fieldName = fieldNames[i]
             mv.visitInsn(Opcodes.DUP)
-            mv.visitIntInsn(Opcodes.BIPUSH, i)
+            pushInt(mv, i)
             mv.visitFieldInsn(Opcodes.GETSTATIC, name, fieldName, classDef.type)
             mv.visitInsn(Opcodes.AASTORE)
         }
@@ -311,9 +292,8 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
             val name = method.name
             val desc = buildDescriptor(method)
             val signature: String? = null
-            val exceptions = buildExceptions(method)
-            val mv = classWriter.visitMethod(access, name, desc, signature, exceptions)
-            if (method.implementation != null) {
+            val mv = classWriter.visitMethod(access, name, desc, signature, null)
+            if (hasBody(method)) {
                 if (method.name == "<init>" && desc == "()V") {
                     hasDefaultConstructor = true
                 }
@@ -345,6 +325,15 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
         mv.visitInsn(Opcodes.IRETURN)
     }
 
+    /** `BIPUSH` and `SIPUSH` take signed operands, so larger values go through the constant pool. */
+    private fun pushInt(mv: MethodVisitor, value: Int) {
+        when (value) {
+            in Byte.MIN_VALUE..Byte.MAX_VALUE -> mv.visitIntInsn(Opcodes.BIPUSH, value)
+            in Short.MIN_VALUE..Short.MAX_VALUE -> mv.visitIntInsn(Opcodes.SIPUSH, value)
+            else -> mv.visitLdcInsn(value)
+        }
+    }
+
     private fun visitMethodStub(mv: MethodVisitor) {
         mv.visitTypeInsn(Opcodes.NEW, "java/lang/RuntimeException")
         mv.visitInsn(Opcodes.DUP)
@@ -358,20 +347,5 @@ class ClassBuilder internal constructor(private val classAccessFlags: (String) -
 
     companion object {
         private val log = LoggerFactory.getLogger(ClassBuilder::class.java.simpleName)
-
-        @Throws(IOException::class, ClassNotFoundException::class)
-        @JvmStatic
-        fun main(args: Array<String>) {
-            val smaliPath = args[0]
-            val className = args[1]
-            val classManager = ClassManagerFactory().build(smaliPath)
-            val virtualClass = classManager.getVirtualClass(className)
-            val builder = ClassBuilder(classManager)
-            val classBytes = builder.build(virtualClass.classDef)
-            FileOutputStream(File("temp.class")).write(classBytes)
-            println("Generated class bytes for " + virtualClass + ", size=" + classBytes.size)
-            val classLoader = SmaliClassLoader(classManager)
-            classLoader.loadClass(virtualClass.sourceName)
-        }
     }
 }

@@ -3,13 +3,12 @@ package org.cf.simplify
 import org.cf.simplify.strategy.OptimizationStrategy
 import org.cf.simplify.strategy.StrategyInput
 import org.cf.smalivm.core.*
-import org.cf.smalivm.type.ClassManagerFactory
 import java.io.File
 import java.nio.file.Files
 
 object OptimizerTester {
     fun services(path: File = File("src/test/resources/smali"), reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults()): VmServices =
-        VmServices(ClassIndex(ClassManagerFactory().build(path, 20)), reflectionPolicy)
+        VmServices(ClassIndex.open(path, 20), reflectionPolicy)
 
     fun execute(services: VmServices, signature: String, initial: Map<Int, Value> = emptyMap()): ExecutionGraph {
         val method = requireNotNull(services.classIndex.methodView(signature))

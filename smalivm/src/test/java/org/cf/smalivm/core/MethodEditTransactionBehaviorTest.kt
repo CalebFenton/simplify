@@ -2,7 +2,6 @@ package org.cf.smalivm.core
 
 import java.nio.file.Files
 import java.nio.file.Path
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
@@ -275,7 +274,7 @@ class MethodEditTransactionBehaviorTest {
         val snapshot = index.currentSnapshot
         val dexFile = root.resolve("round-trip-${fixtureSequence++}.dex")
         Files.write(dexFile, ProgramDexWriter().writeToBytes(snapshot))
-        return ClassIndex(ClassManagerFactory().build(dexFile.toFile(), snapshot.outputApiPolicy.apiLevel))
+        return ClassIndex.open(dexFile.toFile(), snapshot.outputApiPolicy.apiLevel)
     }
 
     private fun lineNumbers(snapshot: ProgramSnapshot, methodSignature: String): List<LineNumber> {

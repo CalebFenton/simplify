@@ -1,23 +1,15 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /** Compile and behavior coverage for the public execution path defined by Plan 12 Task 44. */
 class PublicExecutionApiTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build(
-            "src/test/resources/smali",
-            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-        )
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val vmServices = VmServices(classIndex)
 
     @Test

@@ -1,34 +1,36 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.configuration.Configuration
+import org.cf.util.ClassNameUtils
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotSame
 import org.junit.jupiter.api.Test
 
 class ReflectionPolicyTest {
     @Test
-    fun defaultPolicyLoadsItsResourcesWithoutTheConfigurationSingleton() {
-        val previous = Configuration.instance
-        try {
-            Configuration.instance = null
+    fun defaultPolicyLoadsFreshPolicyFromItsResources() {
+        val first = ReflectionPolicy.defaults()
+        val second = ReflectionPolicy.defaults()
 
-            val first = ReflectionPolicy.defaults()
-            Configuration.instance()
-            val second = ReflectionPolicy.defaults()
+        assertNotSame(first, second)
+        assertEquals(ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS), first.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
+        assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), first.decide(method("Ljava/lang/Class;", "getName", "()Ljava/lang/String;")))
+        assertEquals(ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE), first.decide(method("Ljava/lang/Math;", "random", "()D")))
+        assertEquals(
+            SideEffectLevel.NONE,
+            first.effectOf(method("Ljava/lang/StringBuilder;", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;")),
+        )
+        assertEquals(SideEffectLevel.STRONG, first.effectOf(method("Ljava/lang/StringBuilder;", "capacity", "()I")))
+        assertEquals(first.decide(method("Ljava/lang/Integer;", "intValue", "()I")), second.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
+    }
 
-            assertNotSame(first, second)
-            assertEquals(ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS), first.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
-            assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), first.decide(method("Ljava/lang/Class;", "getName", "()Ljava/lang/String;")))
-            assertEquals(ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE), first.decide(method("Ljava/lang/Math;", "random", "()D")))
-            assertEquals(
-                SideEffectLevel.NONE,
-                first.effectOf(method("Ljava/lang/StringBuilder;", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;")),
-            )
-            assertEquals(SideEffectLevel.STRONG, first.effectOf(method("Ljava/lang/StringBuilder;", "capacity", "()I")))
-            assertEquals(first.decide(method("Ljava/lang/Integer;", "intValue", "()I")), second.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
-        } finally {
-            Configuration.instance = previous
+    @Test
+    fun everyClassWideSafeClassExistsOnTheHost() {
+        val loader = ReflectionPolicy::class.java.classLoader
+        val missing = ReflectionPolicy.loadDefinitions(loader, "safe_classes.cfg").filter { descriptor ->
+            runCatching { Class.forName(ClassNameUtils.internalToBinary(descriptor), false, loader) }.isFailure
         }
+
+        assertEquals(emptyList<String>(), missing)
     }
 
     @Test

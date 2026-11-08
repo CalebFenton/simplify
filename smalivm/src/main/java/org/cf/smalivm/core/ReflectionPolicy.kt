@@ -83,7 +83,7 @@ class ReflectionPolicy(
                 methodEffects = loadDefinitions(classLoader, "method_effects.cfg").associate(::parseEffect),
             )
 
-        private fun loadDefinitions(classLoader: ClassLoader, resource: String): List<String> {
+        internal fun loadDefinitions(classLoader: ClassLoader, resource: String): List<String> {
             val stream = requireNotNull(classLoader.getResourceAsStream(resource)) {
                 "Missing reflection policy resource $resource"
             }

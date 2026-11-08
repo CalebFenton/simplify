@@ -183,6 +183,25 @@ class LauncherTest {
         assertTrue(errors.toString().startsWith("Error: "), errors.toString())
     }
 
+    @Test fun multiDexArchiveIsAnInputErrorNamingItsSecondaryDex() {
+        val dex = temporaryDirectory.resolve("classes.dex")
+        run(fixture, dex, "--include-types", "aNoOp")
+        val apk = temporaryDirectory.resolve("multidex.apk")
+        ZipOutputStream(Files.newOutputStream(apk)).use { zip ->
+            for (name in listOf("classes.dex", "classes2.dex")) {
+                zip.putNextEntry(ZipEntry(name)); Files.copy(dex, zip); zip.closeEntry()
+            }
+        }
+        val output = temporaryDirectory.resolve("multidex_simple.apk")
+        val errors = ByteArrayOutputStream()
+
+        assertEquals(1, Main.run(arrayOf(apk.toString(), "--output", output.toString()), launcher(), PrintStream(errors)))
+        val message = errors.toString()
+        assertTrue(message.startsWith("Error: Multi-DEX archives are not supported: $apk also has classes2.dex"), message)
+        assertFalse("\tat " in message, "an input error is reported without a stack trace: $message")
+        assertFalse(Files.exists(output))
+    }
+
     @Test fun verboseIsACountingFlagThatNeverConsumesTheInputPath() {
         val single = SimplifyOptionsParser.parse(arrayOf("-v", fixture))
         assertEquals(File(fixture), single.inFile)

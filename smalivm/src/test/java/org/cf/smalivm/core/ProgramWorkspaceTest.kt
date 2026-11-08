@@ -18,7 +18,7 @@ class ProgramWorkspaceTest {
     @Test
     fun workspaceOwnsOneProgramIdentityAndRejectsForeignPublication() {
         val first = task53ClassIndex(root, SOURCE)
-        val second = ClassIndex(task53ClassManager(root))
+        val second = ClassIndex.open(root.toFile())
 
         assertSame(first.programWorkspace, VmServices(first).classIndex.programWorkspace)
         assertThrows<IllegalArgumentException> {

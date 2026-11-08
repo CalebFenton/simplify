@@ -1,10 +1,7 @@
 package org.cf.smalivm.core
 
-import io.mockk.every
-import io.mockk.mockk
 import java.time.Duration
 import kotlinx.collections.immutable.persistentSetOf
-import org.cf.smalivm.type.ClassManager
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
@@ -268,22 +265,6 @@ class HandlerResolutionTest {
         assertEquals(TypeRelation.UNKNOWN, firstMissing.throwableRelation)
         assertTrue(!firstMissing.descriptorPresent)
         assertSame(firstMissing, secondMissing)
-    }
-
-    @Test
-    fun `present descriptor model failures escape during initial snapshot import`() {
-        val broken = type("Lpresent/Broken;")
-        val classManager = mockk<ClassManager>()
-        every { classManager.getApplicationClassNames() } returns setOf(broken.descriptor)
-        every { classManager.getInitialApplicationClassDefinitions() } returns null
-        every { classManager.getFrameworkClassNames() } returns emptySet()
-        every { classManager.getVirtualClass(broken.descriptor) } throws IllegalStateException("broken model")
-
-        val failure = assertThrows<IllegalStateException> {
-            ClassIndex(classManager, dynamicLoadingEvidence = false, hierarchyComplete = true)
-        }
-
-        assertEquals("broken model", failure.message)
     }
 
     @Test

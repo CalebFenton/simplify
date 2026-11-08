@@ -7,7 +7,6 @@ import org.cf.smalivm.core.Debugger
 import org.cf.smalivm.core.MethodLookup
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
-import org.cf.smalivm.type.ClassManagerFactory
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File
@@ -43,7 +42,7 @@ internal class Initialize : Callable<Int> {
     override fun call(): Int {
         setLogLevel(verbosity.size)
         println("Starting debugger for $methodSignature from $inputFile")
-        val services = VmServices(ClassIndex(ClassManagerFactory().build(inputFile.path)))
+        val services = VmServices(ClassIndex.open(inputFile))
         val lookup = services.classIndex.lookupMethod(
             VirtualType.of(methodSignature.substringBefore("->")), methodSignature.substringAfter("->"))
         val view = requireNotNull((lookup as? MethodLookup.Runnable)?.view) {

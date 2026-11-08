@@ -1,17 +1,19 @@
 package org.cf.smalivm.dex
 
 import android.util.Base64
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.ClassManagerFactory
+import org.cf.smalivm.core.ClassIndex
+import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.function.Executable
-import java.io.IOException
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
 import java.lang.reflect.Array
 import java.lang.reflect.Field
-import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.*
 import javax.crypto.CipherSpi
 import javax.crypto.interfaces.PBEKey
@@ -19,30 +21,24 @@ import javax.crypto.spec.PBEKeySpec
 
 class SmaliClassLoaderTest {
     private lateinit var classLoader: SmaliClassLoader
-    private lateinit var classManager: ClassManager
 
     companion object {
-        private val OBJECT_METHODS = arrayOf(
+        private val OBJECT_METHODS = listOf(
             "public boolean java.lang.Object.equals(java.lang.Object)",
             "public final native java.lang.Class java.lang.Object.getClass()",
             "public final native void java.lang.Object.notify()",
             "public final native void java.lang.Object.notifyAll()",
-            "public final native void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+            "public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
             "public final void java.lang.Object.wait() throws java.lang.InterruptedException",
             "public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
-            "public int java.lang.Object.hashCode()",
             "public java.lang.String java.lang.Object.toString()",
-            "public static void org.cf.test.SimpleClass.simpleLoop(int,java.lang.Object)",
         )
         private const val TEST_SMALI_PATH = "src/test/resources/smali/class_builder"
     }
 
     @BeforeEach
-    @Throws(IOException::class)
     fun setUp() {
-        val managerFactory = ClassManagerFactory()
-        classManager = managerFactory.build(TEST_SMALI_PATH)
-        classLoader = SmaliClassLoader(classManager)
+        classLoader = ClassIndex.open(File(TEST_SMALI_PATH)).classLoader
     }
 
     @Test
@@ -127,10 +123,12 @@ class SmaliClassLoaderTest {
     }
 
     @Test
-    @Throws(Exception::class)
-    fun canLoadClassWithIllegalFieldModifiers() {
-        val className = "org.cf.test.IllegalFieldModifiers"
-        val klazz = classLoader.loadClass(className)
+    fun interfacePrivateFieldsArePublicSoTheJvmLinksTheInterface() {
+        val klazz = classLoader.loadClass("org.cf.test.IllegalFieldModifiers")
+
+        val fields = getFilteredFields(klazz)
+        assertTrue(fields.isNotEmpty())
+        assertTrue(fields.all { Modifier.isPublic(it.modifiers) }, fields.toString())
     }
 
     @Test
@@ -160,19 +158,13 @@ class SmaliClassLoaderTest {
     }
 
     @Test
-    @Throws(ClassNotFoundException::class, NoSuchMethodException::class, InvocationTargetException::class, IllegalAccessException::class)
-    fun loadingNonProtectedFrameworkClassesWhichAreAlsoInJVMReturnsFrameworkJarClass() {
-        val expectedClassNames = arrayOf(
-            PBEKeySpec::class.java.name, PBEKey::class.java.name, CipherSpi::class.java.name
-        )
-        val expectedClasses = arrayOf(
-            PBEKeySpec::class.java, PBEKey::class.java, CipherSpi::class.java
-        )
-        for (expectedClassName in expectedClassNames) {
-            val actual = classLoader.loadClass(expectedClassName)
-            assertEquals(expectedClassName, actual.name)
-            val jvmClass = classLoader.parent.loadClass(expectedClassName)
+    fun frameworkClassesAlsoInTheJvmAreBuiltFromFrameworkSmali() {
+        val jvmClasses = listOf(PBEKeySpec::class.java, PBEKey::class.java, CipherSpi::class.java)
+        for (jvmClass in jvmClasses) {
+            val actual = classLoader.loadClass(jvmClass.name)
+            assertEquals(jvmClass.name, actual.name)
             assertNotEquals(jvmClass, actual)
+            assertSame(classLoader, actual.classLoader)
         }
     }
 
@@ -220,9 +212,99 @@ class SmaliClassLoaderTest {
         assertEquals(exception.message, nonExistentClassName)
     }
 
+    @Test
+    fun memberClassesWithoutADollarOrADeclarationStillLoadTheOuterClass(@TempDir temp: Path) {
+        val index = indexOf(
+            temp,
+            """
+                .class public Lhostile/Outer;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = {
+                        Lhostile/Member;,
+                        Lhostile/Outer${'$'}Missing;,
+                        Lhostile/Outer${'$'}Inner;
+                    }
+                .end annotation
+            """,
+            ".class public Lhostile/Member;\n.super Ljava/lang/Object;",
+            ".class public Lhostile/Outer\$Inner;\n.super Ljava/lang/Object;",
+        )
+
+        assertEquals("hostile.Outer", index.loadClassConstant("Lhostile/Outer;")?.name)
+    }
+
+    @Test
+    fun annotationValuesOfTheWrongKindAreIgnored(@TempDir temp: Path) {
+        val index = indexOf(
+            temp,
+            """
+                .class public Lhostile/Malformed;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = 0x5
+                .end annotation
+                .annotation system Ldalvik/annotation/Signature;
+                    value = 0x6
+                .end annotation
+                .annotation system Ldalvik/annotation/EnclosingMethod;
+                    value = "not-a-method"
+                .end annotation
+            """,
+            """
+                .class public Lhostile/MalformedMembers;
+                .super Ljava/lang/Object;
+                .annotation system Ldalvik/annotation/MemberClasses;
+                    value = { "not-a-type", 0x1 }
+                .end annotation
+            """,
+        )
+
+        assertEquals("hostile.Malformed", index.loadClassConstant("Lhostile/Malformed;")?.name)
+        assertEquals("hostile.MalformedMembers", index.loadClassConstant("Lhostile/MalformedMembers;")?.name)
+    }
+
+    @Test
+    fun enumWithMoreThanAByteOfConstantsKeepsEveryOrdinal(@TempDir temp: Path) {
+        val index = indexOf(temp, enumSource("Lhostile/Big;", 200))
+
+        @Suppress("UNCHECKED_CAST")
+        val klazz = requireNotNull(index.loadClassConstant("Lhostile/Big;")) as Class<out Enum<*>>
+
+        // Constant names are zero-padded so declaration order and name order agree.
+        assertEquals(150, java.lang.Enum.valueOf(klazz, "C150").ordinal)
+        assertEquals(199, java.lang.Enum.valueOf(klazz, "C199").ordinal)
+        assertEquals(201, klazz.enumConstants.size)
+    }
+
+    @Test
+    fun aClassTheHostCannotRepresentIsAbsentToConstClassRatherThanAHostFailure(@TempDir temp: Path) {
+        // Each constant costs the generated <clinit> sixteen bytes, so 5000 exceed the JVM's 64 KiB method limit.
+        val index = indexOf(temp, enumSource("Lhostile/Huge;", 5000))
+
+        assertNull(index.loadClassConstant("Lhostile/Huge;"))
+        assertTrue(index.isLoadable(VirtualType.of("Lhostile/Huge;")))
+    }
+
+    private fun indexOf(directory: Path, vararg sources: String): ClassIndex {
+        sources.forEachIndexed { i, source -> Files.writeString(directory.resolve("source$i.smali"), source.trimIndent()) }
+        return ClassIndex.open(directory.toFile())
+    }
+
+    private fun enumSource(type: String, constants: Int): String = buildString {
+        val width = (constants - 1).toString().length
+        appendLine(".class public final enum $type")
+        appendLine(".super Ljava/lang/Enum;")
+        appendLine(".field private static final synthetic \$VALUES:[$type")
+        for (i in 0 until constants) {
+            appendLine(".field public static final enum C${i.toString().padStart(width, '0')}:$type")
+        }
+    }
+
     private fun assertHasObjectMethods(klazz: Class<*>) {
         val methodDescriptors = klazz.methods.map { it.toString() }.toSet()
-        assertAll(OBJECT_METHODS.map { Executable { methodDescriptors.contains(it) } })
+        val missing = OBJECT_METHODS.filterNot(methodDescriptors::contains)
+        assertEquals(emptyList<String>(), missing)
     }
 
     private fun getFilteredFields(klazz: Class<*>): List<Field> {

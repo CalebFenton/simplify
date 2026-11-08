@@ -4,7 +4,6 @@ import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.Debugger
 import org.cf.smalivm.core.VmServices
-import org.cf.smalivm.type.ClassManagerFactory
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import java.io.File
@@ -74,7 +73,7 @@ class SmaliListingTest {
 
     private fun services(): VmServices {
         val input = File(requireNotNull(javaClass.getResource("/debugger")).toURI())
-        return VmServices(ClassIndex(ClassManagerFactory().build(input.path)))
+        return VmServices(ClassIndex.open(File(input.path)))
     }
 
     private companion object {

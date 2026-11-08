@@ -1,31 +1,21 @@
 package org.cf.smalivm.core
 
+import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
 /**
- * Bug class: the core algebra reaching directly into the oracle's class model, so deleting the
- * oracle (Plan 16) would break the core, and handler resolution having no real subtype oracle
- * (Plan 2 could only use fakes). Oracle: the real Android/JDK class hierarchy as loaded by
- * ClassManager -- NullPointerException IS-A RuntimeException IS-A Exception.
+ * Bug class: the core algebra reaching around [ClassIndex] into a second class model, and handler
+ * resolution having no real subtype oracle. Oracle: the real Android/JDK class hierarchy --
+ * NullPointerException IS-A RuntimeException IS-A Exception.
  */
 class ClassIndexTest {
-    // Held separately from `classIndex` so the array-supertype tests can measure the ORACLE's own answer
-    // through the same class model, in the same test, rather than describing it (Plan 8 Task 7: an
-    // inherited claim about the oracle is this project's recurring defect, and this divergence is
-    // invisible to the differential).
-    private val classManager =
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    private val classIndex = ClassIndex(classManager)
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
 
     private fun t(descriptor: String) = VirtualType.of(descriptor)
 
@@ -71,8 +61,7 @@ class ClassIndexTest {
         // conservatively (ExecutionSession's handler search forks on it, Task 7) is then forced to
         // swallow the second too, laundering a real bug into silent over-approximation on a run that
         // still reports Complete. Oracle: spec §7 -- classes absent from the virtual registry produce
-        // a conservative answer, never a host crash -- plus ClassManager.parseClass, which wraps every
-        // load failure in a bare RuntimeException. `Lspine/absent;` is a well-formed descriptor with no
+        // a conservative answer, never a host crash. `Lspine/absent;` is a well-formed descriptor with no
         // smali behind it, which is the normal case in a real obfuscated APK.
         val absent = t("Lspine/absent;")
         val failure = assertThrows(ClassLoadFailure::class.java) {
@@ -154,12 +143,7 @@ class ClassIndexTest {
     }
 
     @Test
-    fun everyArrayIsAnInstanceOfCloneableAndSerializableUnlikeTheOracle() {
-        // DELIBERATELY UNLIKE THE ORACLE, and the oracle's answer is asserted in the same test rather
-        // than described, because this divergence is invisible to the differential (nothing else in the
-        // engine asks the question yet) and an inherited claim about the oracle is this project's
-        // recurring defect.
-        //
+    fun everyArrayIsAnInstanceOfCloneableAndSerializable() {
         // INHERITED (JLS §4.10.3 via [JVMS] `checkcast`, quoted at
         // `DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`: arrays implement "exactly Cloneable
         // and java.io.Serializable", and that row is listed for PRIMITIVE components explicitly).
@@ -168,28 +152,11 @@ class ClassIndexTest {
         // about class hierarchy other than that the type Object is the supertype of all reference types
         // and all arrays are assignable to Serializable and Cloneable", and, in the array branch, "Other
         // than Object (handled above), array types are assignable only to Serializable and Cloneable".
-        //
-        // The oracle omits both: `VirtualArray.instanceOf` (`type/VirtualArray.java:129-141`) is
-        // `equals` plus `getAncestors()` membership, and `getImmediateAncestors()` (`:52-74`) adds only
-        // `[^(rank-1)Ljava/lang/Object;` for a primitive component and arrays-of-component-ancestors for a
-        // reference one -- NEITHER branch ever adds either interface (`type-and-dex.md:95`, `:203`).
-        // `type/VirtualArrayTest` ENCODES the omission, so an implementer looking for prior art finds
-        // confirmation rather than a warning: this must never be "fixed" toward the oracle.
         val cloneable = t("Ljava/lang/Cloneable;")
         val serializable = t("Ljava/io/Serializable;")
         for (array in listOf("[I", "[[I", "[Ljava/lang/String;", "[[Ljava/lang/String;")) {
             assertTrue(classIndex.isInstanceOf(t(array), cloneable), "$array is Cloneable")
             assertTrue(classIndex.isInstanceOf(t(array), serializable), "$array is Serializable")
-            // the oracle, measured through the same class model, for both interfaces
-            val oracleArray = classManager.getVirtualType(array)
-            assertFalse(
-                oracleArray.instanceOf(classManager.getVirtualType("Ljava/lang/Cloneable;")),
-                "$array: the oracle's omission is the premise of this divergence",
-            )
-            assertFalse(
-                oracleArray.instanceOf(classManager.getVirtualType("Ljava/io/Serializable;")),
-                "$array: the oracle's omission is the premise of this divergence",
-            )
         }
         // A non-array is NOT given the free pass: String really does implement Serializable (so `true`
         // here comes from the hierarchy) while StringBuilder does not implement Cloneable, and if the
@@ -326,19 +293,15 @@ class ClassIndexTest {
 
     @Test
     fun theSuperclassChainIsReadFromTheClassDefAndNeverFromTheAncestorSet() {
-        // This is the determinism fix at its source (`type-and-dex.md:93`: `getImmediateAncestors()`
-        // "places superclass and interfaces into a HashSet; its order is unspecified"). `superclassOf`
-        // reads `BuilderClassDef.getSuperclass()` -- ONE string, no set, no iteration order, and no
-        // ancestor cache to retain or reorder (`type-and-dex.md:161`, `:216`).
+        // `superclassOf` reads the declared superclass -- ONE string, no set, no iteration order.
         assertEquals(t("Lparent_class;"), classIndex.superclassOf(t("Lchild_class;")))
         assertEquals(t("Lgrandparent_class;"), classIndex.superclassOf(t("Lparent_class;")))
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
         assertNull(classIndex.superclassOf(t("Ljava/lang/Object;")), "the chain terminates at Object")
-        // `Lgrandparent_class;` implements `Lgrandparent_interface;`, so the interface IS in its flattened
-        // ancestor set -- asserted here, because the whole point of reading the class def is that the
-        // interface is reachable the other way and must not be on the chain.
-        val ancestors = classManager.getVirtualType("Lgrandparent_class;").ancestors.map { it.name }.toSet()
-        assertTrue("Lgrandparent_interface;" in ancestors, "the interface is in the ancestor set")
+        // `Lgrandparent_class;` implements `Lgrandparent_interface;`, so the interface IS a supertype --
+        // asserted here, because the whole point of reading the declared superclass is that the interface
+        // is reachable the other way and must not be on the chain.
+        assertTrue(classIndex.isSubtypeOf(t("Lgrandparent_class;"), t("Lgrandparent_interface;")))
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
     }
 
@@ -401,7 +364,7 @@ class ClassIndexTest {
             """,
         )
         sources.forEach { (name, source) -> Files.writeString(temp.resolve(name), source.trimIndent()) }
-        val index = ClassIndex(ClassManagerFactory().build(temp.toString()))
+        val index = ClassIndex.open(temp.toFile())
 
         val lookup = index.lookupMethod(VirtualType.of("Lresolution/C;"), "f()I") as MethodLookup.Runnable
 
@@ -646,11 +609,7 @@ class ClassIndexTest {
         sources.forEachIndexed { index, source ->
             Files.writeString(directory.resolve("source$index.smali"), source.trimIndent())
         }
-        val manager = ClassManagerFactory().build(
-            directory.toString(),
-            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-        )
-        return ClassIndex(manager)
+        return ClassIndex.open(directory.toFile())
     }
 
     private fun run(index: ClassIndex, className: String, descriptor: String): ExecutionGraph =
@@ -691,11 +650,7 @@ class ClassIndexTest {
         Files.writeString(temp.resolve("site.smali"), DYNAMIC_SITE_CLASS.replace("SITE_INSTRUCTION", siteInstruction))
         Files.writeString(temp.resolve("caller.smali"), DYNAMIC_CALLER_CLASS)
         extraClass?.let { Files.writeString(temp.resolve("extra.smali"), it) }
-        val manager = ClassManagerFactory().build(
-            temp.toString(),
-            DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-        )
-        return ClassIndex(manager)
+        return ClassIndex.open(temp.toFile())
     }
 
     private companion object {

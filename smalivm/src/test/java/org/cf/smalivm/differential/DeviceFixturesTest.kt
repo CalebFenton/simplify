@@ -1,17 +1,16 @@
 package org.cf.smalivm.differential
 
+import java.io.File
+import java.nio.file.Files
 import org.cf.smalivm.core.ClassIndex
+import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManager
-import org.cf.smalivm.type.ClassManagerFactory
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Test
-import java.nio.file.Files
 
 class DeviceFixturesTest {
 
@@ -48,7 +47,7 @@ class DeviceFixturesTest {
             "run-batch.sh only auto-invokes ${DeviceFixtures.INVOCABLE_PREFIX}*: $invocable",
         )
 
-        val engineSees = deviceClassManager.getApplicationClassNames()
+        val engineSees = deviceIndex.currentSnapshot.applicationClasses.keys
             .map { it.removePrefix("L").removeSuffix(";") }
         assertEquals(
             DeviceFixtures.allClassNames.toSet(),
@@ -99,7 +98,7 @@ class DeviceFixturesTest {
     fun theCoreParsesTheCorpusAndResolvesEveryFixtureEntryPoint() {
         val dexBuilder = DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL))
         val parsed = DeviceFixtures.files.map { file ->
-            val classDef = SmaliParser.parse(file, dexBuilder)
+            val classDef = file.inputStream().use { SmaliParser.parse(file.path, it, dexBuilder, SmaliParser.DEX_API_LEVEL) }
             classDef.type.removePrefix("L").removeSuffix(";")
         }
         assertEquals(
@@ -109,7 +108,7 @@ class DeviceFixturesTest {
                 "enumeration claims are in it",
         )
 
-        val coreIndex = ClassIndex(deviceClassManager)
+        val coreIndex = deviceIndex
         for (fixture in DeviceFixtures.fixtures) {
             assertEquals(
                 DeviceFixtures.ENTRY_POINT,
@@ -120,8 +119,8 @@ class DeviceFixturesTest {
             coreIndex.requireMethodView(fixture.className, fixture.methodDescriptor)
         }
         for (name in DeviceFixtures.supportClassNames) {
-            assertNotNull(
-                deviceClassManager.getVirtualClass("L$name;"),
+            assertTrue(
+                coreIndex.isLoadable(VirtualType.of("L$name;")),
                 "support class $name must be loadable -- the fixture that measures it needs it resolvable, " +
                     "just never invoked",
             )
@@ -153,11 +152,6 @@ class DeviceFixturesTest {
 
     private companion object {
 
-        private val deviceClassManager: ClassManager by lazy {
-            ClassManagerFactory().build(
-                DeviceFixtures.classPath,
-                DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
-            )
-        }
+        private val deviceIndex: ClassIndex by lazy { ClassIndex.open(File(DeviceFixtures.classPath)) }
     }
 }

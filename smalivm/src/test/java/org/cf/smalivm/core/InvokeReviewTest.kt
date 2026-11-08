@@ -157,7 +157,7 @@ class InvokeReviewTest {
 
     @Test
     fun incompleteDispatchWorldDegradesOneCandidateWithoutSampleSpecificPolicy() {
-        val index = ClassIndex(CoreTester.classManager, hierarchyComplete = false)
+        val index = ClassIndex(CoreTester.importFixtures(), hierarchyComplete = false)
         val view = index.requireMethodView(REVIEW, "incompleteWorld(Linvoke_unique_base;)I")
         val graph = ExecutionSession.of(view, index, Limits(), Frame.entryFrame(view)).run()
         assertEquals(CompletionStatus.Complete, graph.completion())

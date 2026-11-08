@@ -111,18 +111,6 @@ The framework Smali submodule supplies the selected Android 16 / API 36 corpus f
 Android API 36 separately from DEX version 039. Framework parsers derive the opcode table from
 the DEX version (Smali API 29), not the device API. Application input/output API selection is unchanged.
 
-`updateReferenceFramework` regenerates the tracked `framework_classes.cfg` and
-`framework/android-framework.jar` from that catalog and the selected sources:
-
-```sh
-./gradlew :smalivm:updateReferenceFramework
-```
-
-It parses one class at a time, builds JVM reference shapes with deterministic entry ordering/times,
-and replaces the tracked outputs only after all classes generate. It does not read the previous
-class index to determine its inputs. This is a mutating maintenance command, not part of ordinary
-`build`; commit its outputs when changing the selected corpus.
-
 The submodule's standalone `make_reflib` generator captures a booted emulator's framework separately.
 The tracked API 36 capture retains original JARs/DEX, manifests, image metadata and notices.
 `processResources` includes only `android-36/smali/**/*.smali` from the submodule as executable
@@ -139,9 +127,11 @@ The ART assembler uses the same resolved Smali dependency and explicit DEX API l
 It asks Gradle for its classpath each time rather than retaining a second dependency cache. Fresh
 runtime comparison remains separate from JVM tests; see `tools/art-runner/` and `tools/emulator/`.
 
-Simplify reads Smali, DEX, and APK inputs. APK output replaces the primary `classes.dex`, preserves
-other entry bytes/compression/timestamps/comments and the archive comment, and requires re-signing.
-It does not claim multi-DEX optimization or Android application installation.
+Simplify reads Smali, DEX, and APK inputs directly with dexlib2 and Smali; no input is disassembled to
+disk. An APK that has `classes2.dex` is rejected as an input error rather than read partially. APK output
+replaces the primary `classes.dex`, preserves other entry bytes/compression/timestamps/comments and the
+archive comment, and requires re-signing. It does not claim multi-DEX optimization or Android application
+installation.
 
 ## CI and release boundary
 

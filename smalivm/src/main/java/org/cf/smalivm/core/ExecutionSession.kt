@@ -873,8 +873,8 @@ class ExecutionSession internal constructor(
      * **Wrapped in [planContained], which is what plan design decision 5 requires here.** Two things inside
      * reach code this loop does not own and `planFor` runs OUTSIDE the host-failure boundary: reading the
      * argument registers (`Frame.read` range-checks and throws for a register the caller does not have,
-     * which an obfuscated call site can name), and resolving the target (`ClassIndex` -> `ClassManager` ->
-     * dexlib, which raises for input it cannot parse). Both must abort the path, not the run. The callee's
+     * which an obfuscated call site can name), and resolving the target against the snapshot, which raises
+     * for input it cannot answer. Both must abort the path, not the run. The callee's
      * ENTRY ADDRESS is handled by the other half of the same decision: [buildSuccessor] checks
      * `MethodView.hasAddress` before decoding, so a bodyless or truncated callee is `MALFORMED_INPUT`.
      *

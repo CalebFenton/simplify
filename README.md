@@ -51,7 +51,8 @@ to JDK 21 for the build. The wrapper pins Gradle 9.7.0 with a verified distribut
 the Kotlin compiler is 2.4.21.
 
 The next public release is **2.0.0-SNAPSHOT**. The Kotlin execution engine replaces the old VM API.
-Embedding applications must migrate to `VmServices`, immutable method snapshots, and execution sessions.
+Embedding applications must migrate to `VmServices`, immutable method snapshots, and execution sessions;
+`VmServices(ClassIndex.open(input))` loads a Smali file or directory, a DEX file, or an APK.
 This public release is distinct from the separate commercial product.
 
 The DEX toolchain now uses Google's maintained Smali 3.0.10 fork. Public DEX types use
@@ -88,7 +89,8 @@ The standalone jar is `simplify/build/libs/simplify.jar`. To simplify the provid
 java -jar simplify/build/libs/simplify.jar -it "org/cf/obfuscated" -et "MainActivity" simplify/obfuscated-app.apk
 ```
 
-Smali directories, DEX files, and APKs are supported. APK output replaces `classes.dex`.
+Smali directories, DEX files, and APKs are supported. APK output replaces `classes.dex`; an APK that also
+has `classes2.dex` is rejected, because multi-DEX optimization is not supported.
 Other entries retain their bytes, compression methods, timestamps, and comments; the archive comment
 also survives. Modified APKs must be signed again before installation.
 

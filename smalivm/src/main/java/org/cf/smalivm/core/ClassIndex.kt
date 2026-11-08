@@ -1,8 +1,9 @@
 package org.cf.smalivm.core
 
+import java.io.File
 import java.lang.reflect.Modifier
 import org.cf.smalivm.dex.SmaliClassLoader
-import org.cf.smalivm.type.ClassManager
+import org.cf.smalivm.dex.SmaliParser
 import org.cf.util.ClassNameUtils
 import com.android.tools.smali.dexlib2.ValueType
 import com.android.tools.smali.dexlib2.AccessFlags
@@ -24,14 +25,8 @@ import com.android.tools.smali.dexlib2.iface.value.TypeEncodedValue
  * The class model could not answer a question about a **well-formed** descriptor, because the class
  * behind it is not in the loaded set (or its own ancestors are not) -- the normal case in a real
  * obfuscated APK, where a catch clause or a field type routinely names a class the input never
- * shipped. This is a statement about the *input*, not about the engine.
- *
- * It exists so that callers can tell "the class model cannot answer" apart from "something in the
- * engine is broken". Without it, both arrive as a bare `RuntimeException` (`ClassManager.parseClass`
- * wraps every load failure in one) and a caller that wants to answer the first conservatively is
- * forced to swallow the second too -- turning a genuine bug into silent over-approximation with a
- * `Complete` completion status and nothing recording why precision was lost. [ExecutionSession]'s
- * handler search is the caller this was added for (Task 7's ambiguity decision).
+ * shipped. This is a statement about the *input*, not about the engine, so a caller can answer it
+ * conservatively while an engine bug still reaches it as itself.
  */
 class ClassLoadFailure internal constructor(message: String, cause: Throwable) : RuntimeException(message, cause)
 
@@ -233,7 +228,6 @@ internal data class FieldDeclaration(
  * [InstanceOfTest] serves [castOutcome]. Each capability states one question and its failure policy.
  */
 class ClassIndex private constructor(
-    private val classManager: ClassManager,
     private val dynamicLoadingEvidenceOverride: Boolean?,
     hierarchyComplete: Boolean?,
     internal val programWorkspace: ProgramWorkspace,
@@ -241,26 +235,11 @@ class ClassIndex private constructor(
     private val capturedClassLoader: SmaliClassLoader?,
 ) : TypeHierarchy, Superclasses, InstanceOfTest {
 
-    constructor(
-        classManager: ClassManager,
-        dynamicLoadingEvidence: Boolean? = null,
-        hierarchyComplete: Boolean? = null,
-    ) : this(
-        classManager,
-        dynamicLoadingEvidence,
-        hierarchyComplete,
-        InitialProgramImporter.import(classManager),
-        null,
-        null,
-    )
-
     internal constructor(
-        classManager: ClassManager,
         programWorkspace: ProgramWorkspace,
         dynamicLoadingEvidence: Boolean? = null,
         hierarchyComplete: Boolean? = null,
     ) : this(
-        classManager,
         dynamicLoadingEvidence,
         hierarchyComplete,
         programWorkspace,
@@ -489,25 +468,19 @@ class ClassIndex private constructor(
     }
 
     /**
-     * The single class loader for host-`Class` resolution. Today its one consumer is `const-class`
-     * (Plan 8 Task 10, through [loadClassConstant]); Plan 11's `ReflectBackend` -- which hands `Class`
-     * objects to host methods -- is the next. **Exposed so a test seeds or expects `Class` objects through
-     * the SAME loader the engine resolves through:** a second `SmaliClassLoader` instance would `defineClass`
-     * a *distinct* `Class` for one guest class, so identity comparisons (`const-class`'s value equality, and
-     * two `const-class` on one class yielding one reference) would spuriously fail. Lazy because most runs
-     * never touch a host class at all -- a tracked array or object needs a [VirtualType], not a `Class`.
+     * The one host class loader for this program, shared by every snapshot resolver: a second loader would define
+     * a distinct `Class` for one guest class, and `const-class` identity would differ between them. Class shapes
+     * come from the workspace's snapshot when the loader is first used; edits never change a class's structure.
      */
-    // `internal`, not `public`: its only `core/main` consumer is [loadClassConstant] below, and the test
-    // source set sees `internal` main declarations (so `CoreTester` and the differential adapter still reach
-    // it). Kept as narrow as the clean-core surface allows.
-    internal val classLoader: SmaliClassLoader by lazy { capturedClassLoader ?: SmaliClassLoader(classManager) }
+    internal val classLoader: SmaliClassLoader by lazy {
+        capturedClassLoader ?: SmaliClassLoader(programWorkspace.currentSnapshot)
+    }
 
     internal fun resolver(snapshot: ProgramSnapshot): ProgramSnapshotResolver {
         require(snapshot.programIdentity === programWorkspace.programIdentity) {
             "Cannot resolve a snapshot from another program workspace"
         }
         val capturedIndex = ClassIndex(
-            classManager,
             dynamicLoadingEvidenceOverride,
             hasCompleteHierarchy,
             programWorkspace,
@@ -934,28 +907,12 @@ class ClassIndex private constructor(
 
     /**
      * [type]'s **own declared** `<clinit>()V`, if it has one -- the class-init scheduler's lookup
-     * ([ClassInitPlanner]), and deliberately **not** [lookupMethod].
+     * ([ClassInitPlanner]), and deliberately **not** [lookupMethod]: a static initializer is not inherited, so a
+     * class that declares none must not resolve its superclass's.
      *
-     * **A static initializer is not inherited, and [lookupMethod] cannot express that.** It routes through
-     * `ClassManager.getVirtualMethod` -> `VirtualClass.getMethod`, which falls back to
-     * `ancestor.getMethod0(...)` for every ancestor (`type/VirtualClass.java:112-126`) -- so asking it for
-     * `<clinit>()V` on a class that declares none hands back its SUPERCLASS's initializer, and the caller
-     * would run the superclass's `<clinit>` believing it had run the subclass's. That is an oracle defect
-     * recorded in as many words: *"Because `VirtualClass.getMethod()` searches ancestors, a class with no
-     * **declared** `<clinit>` can instead resolve an ancestor initializer ... Static initializers are not
-     * inherited, so this lookup conflates ordinary method inheritance with class initialization"*
-     * (`docs/architecture/execution-engine.md:159`). `getMethods()` is built from `getClassDef().getMethods()`
-     * (`type/VirtualClass.java:219-227`), i.e. the class's own definition and nothing above it.
-     *
-     * The three failure members mean here what they mean for [lookupMethod], with one difference worth
-     * stating: [MethodLookup.NoSuchMethod] is the **common, expected** answer rather than a failure -- most
-     * classes declare no `<clinit>` at all, and design decision 1 has them transition
-     * `Uninitialized -> Initialized` with no nested run.
-     *
-     * An ARRAY (or a primitive) answers [MethodLookup.NoSuchMethod] without touching the class model: an
-     * array class has no initializer, and `getVirtualClass` would raise a host `ClassCastException` on one
-     * (`getVirtualType("[I")` returns a `VirtualArray`, a SIBLING of `VirtualClass`) -- the same sharp edge
-     * [lookupMethod]'s array row exists for.
+     * The failure members mean what they mean for [lookupMethod]; [MethodLookup.NoSuchMethod] is the common
+     * answer, because most classes declare no `<clinit>` and become initialized with no nested run. An array or a
+     * primitive has no initializer.
      */
     fun lookupClassInitializer(type: VirtualType): MethodLookup {
         if (!type.isReference || type.isArray) return MethodLookup.NoSuchMethod
@@ -987,21 +944,10 @@ class ClassIndex private constructor(
                 ?.let { SnapshotMethod.Framework(it) }
 
     /**
-     * Whether [type] is one of the bundled **framework** classes rather than an application class --
-     * resolved decision 7, and the ONE place that question is asked (the two-tier rule: `core/` outside this
-     * file may not name `org.cf.smalivm.type.*`, so no caller may reach for a live `type.*` handle to ask it).
-     *
-     * It matters because the framework smali is 21,088 ordinary loaded classes
-     * (`resources/framework_classes.cfg`, folded in at `dex/SmaliFileFactory.kt:83-98`), so nothing about
-     * *presence* distinguishes `Ljava/lang/Integer;` from an app class. The old engine keeps framework classes
-     * out of virtual execution by POLICY, not by absence: a `safe_classes.cfg` class runs as
-     * `ExecutionType.REFLECT` (`ExecutionGraph.kt:84-88`), which short-circuits `<clinit>` and simply marks
-     * the class initialized (`VirtualMachine.kt:196-203`). Plan 9 mirrors the shape of that short-circuit
-     * without needing reflection; the real `safe`/`unsafe` policy surface arrives with Plan 11's backends.
-     *
-     * Answered off `ClassManager.getFrameworkClassNames()`, a cached set of DESCRIPTORS, so this **loads no
-     * class**: it must be answerable for a class whose ancestors are missing, which is exactly the input this
-     * engine is for.
+     * Whether [type] is one of the bundled **framework** classes rather than an application class. Presence does
+     * not distinguish them, because the framework classes are ordinary loaded classes; framework initializers are
+     * kept out of virtual execution by policy. Answered from the hierarchy's declarations, so it loads no class
+     * and holds for a class whose ancestors are missing.
      */
     fun isFrameworkClass(type: VirtualType): Boolean =
         currentSnapshot.hierarchy.declarations[type.descriptor]?.framework == true
@@ -1206,7 +1152,16 @@ class ClassIndex private constructor(
     }
 
 
-    internal companion object {
+    companion object {
+        /**
+         * Imports the program at [input]: a Smali file, a directory of Smali files, a DEX file, or an archive whose
+         * only class path DEX is `classes.dex`. [outputApiLevel] selects the Smali opcode table and the output DEX.
+         *
+         * @throws ProgramInputException when [input] is missing, unreadable, malformed, or multi-DEX
+         */
+        fun open(input: File, outputApiLevel: Int = SmaliParser.DEX_API_LEVEL): ClassIndex =
+            ClassIndex(InitialProgramImporter.import(ProgramInput.read(input, outputApiLevel)))
+
         /**
          * A static initializer's member descriptor. `internal` so a test naming a `<clinit>`'s signature does
          * not hand-write the string a second time.

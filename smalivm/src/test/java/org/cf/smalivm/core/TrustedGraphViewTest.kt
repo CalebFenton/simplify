@@ -1,11 +1,8 @@
 package org.cf.smalivm.core
 
-import org.cf.smalivm.dex.SmaliParser
-import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.io.File
 
 /**
  * Bug class: **completion-gated trust documented but not enforced.** Spec §9 says a consumer may act
@@ -25,9 +22,7 @@ import org.junit.jupiter.api.Test
  * defined by that one predicate rather than a second `is Complete` test, so the two can never drift.
  */
 class TrustedGraphViewTest {
-    private val classIndex = ClassIndex(
-        ClassManagerFactory().build("src/test/resources/smali", DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)))
-    )
+    private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val int = VirtualType.of("I")
 
     private fun sessionOf(descriptor: String, limits: Limits = Limits()): ExecutionSession =
