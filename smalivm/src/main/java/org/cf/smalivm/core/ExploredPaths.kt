@@ -2,7 +2,7 @@ package org.cf.smalivm.core
 
 
 /**
- * Queries over the paths one run executed (spec §9). An answer describes only the paths the run walked, so it is
+ * Queries over the paths one run executed. An answer describes only the paths the run walked, so it is
  * sound to read and unsafe to act on until the run is `canTrustConsensus`; [TrustedGraphView] is the same queries
  * over a complete run. Every query is pure and total. The rules they follow are stated in
  * `docs/architecture/graph-optimizer-contract.md`.
@@ -15,8 +15,6 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
     /** Application method revision the run executed. */
     public val methodRevision: ApplicationMethodRevision? get() = graph.methodRevision
 
-    // --- structure ---
-
     /** Addresses whose op flows into [address] on some explored path. */
     public fun parentAddresses(address: Int): IntArray =
         graph.nodePile(address).mapNotNull { it.parent?.address }.distinct().sorted().toIntArray()
@@ -24,8 +22,6 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
     /** Addresses [address]'s op flows into on some explored path. */
     public fun children(address: Int): IntArray =
         graph.nodePile(address).flatMap { node -> node.children.map { it.address } }.distinct().sorted().toIntArray()
-
-    // --- values after one address ---
 
     /** Join of [register] after the op at [address] over every node whose op ran there; [Value.Top] when none ran. */
     public fun consensus(address: Int, register: Int): Value = consensus(intArrayOf(address), register)
@@ -92,8 +88,6 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
         }
     }
 
-    // --- what the run returned ---
-
     /** Join of [register] over the returning paths only; [Value.Top] when no path returned. */
     public fun terminatingConsensus(register: Int): Value {
         val returned = graph.returningNodes()
@@ -132,8 +126,6 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
         val sameGraph = frames.all { it.hostGraphVersionToken() === graphToken }
         return Agreement.Agreed(HeapStore.mergeObject(objects, graph.superclasses, sameGraph))
     }
-
-    // --- effects ---
 
     /**
      * The most any op at [address] declared, or `STRONG` when a path aborted there for a reason that
