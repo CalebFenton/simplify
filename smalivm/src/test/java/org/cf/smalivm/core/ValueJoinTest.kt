@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test
 /**
  * Bug class: unsound consensus — reporting a constant when explored paths disagree, or
  * resurrecting knowledge after it was lost (join going DOWN the lattice). Oracle: the
- * spec §4.1 join table plus lattice laws (commutative, idempotent, Top absorbing,
- * associative on the table's cases).
+ * spec §4.1 join table plus lattice laws (commutative, idempotent, associative, upper bound, Top
+ * absorbing), checked exhaustively over a representative value set.
  */
 class ValueJoinTest {
     private val int = VirtualType.of("I")
@@ -65,32 +65,12 @@ class ValueJoinTest {
     }
 
     @Test
-    fun joinIsCommutativeOnRepresentativeCases() {
-        val cases = listOf(
-            Value.Known(5, int) to Value.Known(6, int),
-            Value.Known(5, int) to Value.Unknown(int),
-            Value.Known(HeapRef(1), str) to Value.Known(HeapRef(2), sb),
-            Value.Known(5, int) to Value.Top,
-            Value.Unknown(int) to Value.Unknown(long),
-        )
-        for ((a, b) in cases) assertEquals(join(a, b, hierarchy), join(b, a, hierarchy), "join($a,$b) not commutative")
-    }
-
-    @Test
     fun joinAllFoldsToConsensus() {
         // The consensus read: one surviving Known means all paths agree (spec §6.3).
         assertEquals(Value.Known(5, int), joinAll(listOf(Value.Known(5, int), Value.Known(5, int)), hierarchy))
         assertEquals(Value.Unknown(int), joinAll(listOf(Value.Known(5, int), Value.Known(6, int), Value.Known(5, int)), hierarchy))
         assertEquals(Value.Top, joinAll(listOf(Value.Known(5, int), Value.Known(5L, long)), hierarchy))
         assertNull(joinAll(emptyList(), hierarchy))
-    }
-
-    @Test
-    fun sameTypeUnknownJoinIsIdempotent() {
-        // Bug class: a mutant collapsing the Unknown⊔Unknown case to "always Top" — a
-        // surviving mutant this pins down. Same-type Unknown must be a fixed point of
-        // join, not poison to Top.
-        assertEquals(Value.Unknown(int), join(Value.Unknown(int), Value.Unknown(int), hierarchy))
     }
 
     @Test
@@ -125,9 +105,8 @@ class ValueJoinTest {
         // THE PROPERTY CRITICAL B IS ACTUALLY ABOUT, and the one a 2-ary commutativity test cannot state.
         // `joinAll` is a LEFT FOLD (`ValueJoin.kt`) over a node pile whose order is a scheduling artefact
         // (`ExploredPaths.consensus` maps over `executedPile`), so a register's consensus
-        // must not depend on which arm the scheduler happened to run first. Every existing associativity
-        // test lands on `Value.Top` and therefore never reaches the hierarchy at all -- so with a
-        // hierarchy-aware join this was the one place the determinism story had no witness.
+        // must not depend on which arm the scheduler happened to run first. The exhaustive law tests below
+        // use one reference type, so they never engage the hierarchy; this test is the witness that does.
         //
         // Asserted over EVERY permutation, not a representative pair of groupings: with n operands there
         // are n! fold orders and the claim is about all of them.
@@ -173,23 +152,6 @@ class ValueJoinTest {
             listOf(child, parent, grandparent, string),
             expectedOrders = 24,
         )
-    }
-
-    @Test
-    fun joinIsAssociativeOnARepresentativeIncompatibleCase() {
-        // Law: associativity. Bug class: join going DOWN the lattice depending on
-        // grouping order, which would make a left-to-right joinAll fold order-sensitive.
-        // **This case lands on `Value.Top` and therefore never reaches the hierarchy** -- the n-ary,
-        // hierarchy-engaged property is pinned by
-        // `theFoldOverThreeOrMoreTypesIsInsensitiveToTheirORDERWithTheHierarchYEngaged` above, which is a
-        // different claim and not a duplicate of this one.
-        val a = Value.Known(HeapRef(1), str)
-        val b = Value.Known(HeapRef(2), sb)
-        val c = Value.Known(5, int)
-        val leftGrouped = join(join(a, b, hierarchy), c, hierarchy)
-        val rightGrouped = join(a, join(b, c, hierarchy), hierarchy)
-        assertEquals(leftGrouped, rightGrouped)
-        assertEquals(Value.Top, leftGrouped)
     }
 
     @Test
@@ -239,5 +201,57 @@ class ValueJoinTest {
             join(join(nullString, intZero, hierarchy), Value.Known(5, int), hierarchy),
             join(nullString, join(intZero, Value.Known(5, int), hierarchy), hierarchy),
         )
+    }
+
+    /**
+     * The lattice laws over every pair and triple of a set that reaches each row of the join table: Top,
+     * Unknown of a primitive and of a reference type, two distinct int constants (one of them the null
+     * idiom's zero), null, and a tracked object. A join that is not commutative or associative makes
+     * consensus depend on the order the scheduler explored paths in; one that is not idempotent or not an
+     * upper bound (absorption) changes a value that every path agreed on.
+     */
+    private val lawValues: List<Value> = listOf(
+        Value.Top,
+        Value.Unknown(int),
+        Value.Unknown(str),
+        Value.Known(0, int),
+        Value.Known(1, int),
+        Value.Known(null, str),
+        Value.Known(HeapRef(1), str),
+    )
+
+    @Test
+    fun joinIsCommutativeOverEveryPair() {
+        val pairs = lawValues.flatMap { a -> lawValues.map { b -> a to b } }
+        assertEquals(49, pairs.size)
+        val violations = pairs.filter { (a, b) -> join(a, b, hierarchy) != join(b, a, hierarchy) }
+        assertEquals(emptyList<Pair<Value, Value>>(), violations)
+    }
+
+    @Test
+    fun joinIsIdempotentOnEveryValue() {
+        assertEquals(7, lawValues.size)
+        assertEquals(emptyList<Value>(), lawValues.filter { join(it, it, hierarchy) != it })
+    }
+
+    @Test
+    fun joinIsAssociativeOverEveryTriple() {
+        val triples = lawValues.flatMap { a -> lawValues.flatMap { b -> lawValues.map { c -> Triple(a, b, c) } } }
+        assertEquals(343, triples.size)
+        val violations = triples.filter { (a, b, c) ->
+            join(join(a, b, hierarchy), c, hierarchy) != join(a, join(b, c, hierarchy), hierarchy)
+        }
+        assertEquals(emptyList<Triple<Value, Value, Value>>(), violations)
+    }
+
+    /** Absorption: `a ⊔ b` is an upper bound of `a`, so joining `a` into it again changes nothing. */
+    @Test
+    fun joinIsAnUpperBoundOfEachOperand() {
+        val pairs = lawValues.flatMap { a -> lawValues.map { b -> a to b } }
+        val violations = pairs.filter { (a, b) ->
+            val joined = join(a, b, hierarchy)
+            join(joined, a, hierarchy) != joined
+        }
+        assertEquals(emptyList<Pair<Value, Value>>(), violations)
     }
 }

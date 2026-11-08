@@ -23,8 +23,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.cf.smalivm.core.requireMethodView
 
 /**
@@ -219,6 +221,62 @@ class SwitchOpTest {
         val duplicate = viewOf("sparseSwitchWithDuplicateKeys()V")
         assertEquals(listOf(0, 1, 4, 5, 6, 7, 8), duplicate.addresses.toList())
         assertArrayEquals(intArrayOf(8), duplicate.payloadAddresses)
+
+        for (method in listOf("packedSwitchEndingAtIntMax()V", "packedSwitchWrappingPastIntMax()V")) {
+            val view = viewOf(method)
+            assertEquals(listOf(0, 1, 4, 5, 6, 7, 8), view.addresses.toList(), method)
+            assertArrayEquals(intArrayOf(8), view.payloadAddresses, method)
+        }
+        val negativeKeys = viewOf("sparseSwitchWithNegativeKeys()V")
+        assertEquals(listOf(0, 1, 4, 5, 6, 7, 8, 9, 10), negativeKeys.addresses.toList())
+        assertArrayEquals(intArrayOf(10), negativeKeys.payloadAddresses)
+    }
+
+    /**
+     * Packed keys next to `Int.MAX_VALUE`, against ART's `DoPackedSwitch` (`interpreter_common.h`)
+     * transcribed as [artPackedIndex]: `index = test_val - first_key` in wrapping 32-bit arithmetic, taken
+     * when `0 <= index < size`. On `packedSwitchEndingAtIntMax()V`, the verifier's limit, MIN_VALUE is out
+     * of range and falls through; on `packedSwitchWrappingPastIntMax()V` ART's index for MIN_VALUE wraps to 1
+     * and takes the second case, which a widened 64-bit index would miss.
+     */
+    @TestFactory
+    fun packedKeysNearIntMaxDispatchAsArtsWrappingIndexDoes(): List<DynamicTest> {
+        val selectors = listOf(Int.MAX_VALUE - 1, Int.MAX_VALUE, Int.MIN_VALUE, Int.MIN_VALUE + 1, -1, 0)
+        return listOf("packedSwitchEndingAtIntMax()V" to 0x7ffffffe, "packedSwitchWrappingPastIntMax()V" to 0x7fffffff)
+            .flatMap { (method, firstKey) ->
+                selectors.map { selector ->
+                    val taken = artPackedIndex(selector, firstKey, size = 2)?.let { 5 + it } ?: ADDRESS_FALL_THROUGH
+                    DynamicTest.dynamicTest("$method selector $selector -> $taken") {
+                        CoreTester.testVisitation(
+                            CLASS_NAME, method, CoreState().apply { setRegisters(0, selector, "I") },
+                            intArrayOf(0, ADDRESS_SWITCH, taken),
+                        )
+                    }
+                }
+            }
+    }
+
+    /**
+     * Sparse keys `MIN_VALUE, -2, -1, MAX_VALUE` at 5, 6, 7, 8. ART's sparse lookup is a binary search with
+     * SIGNED comparisons over the ascending keys, so each key finds its own case and every other selector
+     * falls through to 4. Unsigned, 0x7fffffff sorts below the negative keys, so an unsigned search misses it.
+     */
+    @TestFactory
+    fun negativeSparseKeysAreFoundBySignedOrder(): List<DynamicTest> = listOf(
+        Int.MIN_VALUE to 5, -2 to 6, -1 to 7, Int.MAX_VALUE to 8,
+        0 to ADDRESS_FALL_THROUGH, -3 to ADDRESS_FALL_THROUGH, Int.MIN_VALUE + 1 to ADDRESS_FALL_THROUGH,
+    ).map { (selector, taken) ->
+        DynamicTest.dynamicTest("selector $selector -> $taken") {
+            CoreTester.testVisitation(
+                CLASS_NAME, "sparseSwitchWithNegativeKeys()V", CoreState().apply { setRegisters(0, selector, "I") },
+                intArrayOf(0, ADDRESS_SWITCH, taken),
+            )
+        }
+    }
+
+    private fun artPackedIndex(selector: Int, firstKey: Int, size: Int): Int? {
+        val index = selector - firstKey
+        return if (index in 0 until size) index else null
     }
 
     /**

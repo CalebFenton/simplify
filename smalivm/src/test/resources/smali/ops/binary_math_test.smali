@@ -938,3 +938,56 @@
     move-exception v3               # @2 -- reached only via the ambiguous throw's handler successor
     div-int v2, v0, v1              # @3 -- same known-zero divisor; UNCOVERED, so this one definitely escapes
 .end method
+
+
+################ Literal operands at integral boundaries ################
+
+# The literal forms with a literal that only a boundary test needs: a divisor of -1 (the one divisor for
+# which `Integer.MIN_VALUE` overflows) and shift distances outside 0..31 (which the int rule masks).
+.method public static divIntLit8ByMinusOne()V
+    .locals 1
+
+    div-int/lit8 v0, v0, -0x1
+
+    return-void
+.end method
+
+.method public static remIntLit8ByMinusOne()V
+    .locals 1
+
+    rem-int/lit8 v0, v0, -0x1
+
+    return-void
+.end method
+
+.method public static divIntLit16ByMinusOne()V
+    .locals 1
+
+    div-int/lit16 v0, v0, -0x1
+
+    return-void
+.end method
+
+.method public static remIntLit16ByMinusOne()V
+    .locals 1
+
+    rem-int/lit16 v0, v0, -0x1
+
+    return-void
+.end method
+
+.method public static shlIntLit8By33()V
+    .locals 1
+
+    shl-int/lit8 v0, v0, 0x21
+
+    return-void
+.end method
+
+.method public static ushrIntLit8ByMinusOne()V
+    .locals 1
+
+    ushr-int/lit8 v0, v0, -0x1
+
+    return-void
+.end method
