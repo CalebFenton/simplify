@@ -3,7 +3,7 @@ import java.security.MessageDigest
 
 buildscript {
     dependencies {
-        classpath depends.proguard_gradle
+        classpath libs.proguard.gradle
     }
     repositories {
         mavenCentral()
@@ -95,24 +95,19 @@ tasks.named('processResources') {
 }
 
 dependencies {
-    api 'com.android.tools.smali:smali-dexlib2:3.0.10'
-    api 'com.android.tools.smali:smali:3.0.10'
-    api 'com.android.tools.smali:smali-baksmali:3.0.10'
-    api 'com.android.tools.smali:smali-util:3.0.10'
-    compileOnlyApi 'org.jetbrains:annotations:26.1.0'
-    implementation depends.commons_lang
-    implementation depends.guava
-    implementation depends.kotlinx_immutable
-    implementation depends.slf4j_api
-    implementation 'org.ow2.asm:asm:9.11.1'
+    api libs.bundles.smali
+    compileOnlyApi libs.jetbrains.annotations
+    implementation libs.commons.lang
+    implementation libs.guava
+    implementation libs.kotlinx.immutable
+    implementation libs.slf4j.api
+    implementation libs.asm
 
-    testImplementation depends.mockito
-    testImplementation depends.mockk
-    testImplementation depends.junit_compile
-    testImplementation depends.logback
+    testImplementation libs.junit.api
+    testImplementation libs.logback
 
-    testRuntimeOnly depends.junit_engine
-    testRuntimeOnly depends.junit_launcher
+    testRuntimeOnly libs.junit.engine
+    testRuntimeOnly libs.junit.launcher
 }
 
 
@@ -123,14 +118,8 @@ tasks.register('fatJar', Jar) {
     from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
 }
 
-// Tooling-only, and deliberately inert: it configures nothing, depends on nothing, and no
-// other task depends on it. `tools/art-runner/assemble.sh` resolves this classpath
-// for each invocation, so fixtures use the EXACT maintained Smali version that
-// this project parses fixtures with, rather than a separately-downloaded jar that could
-// drift. Nothing else may depend on this task -- if it ever needs to, that is a signal the
-// oracle has grown into a real source set and should get one.
 tasks.register('printSmaliAssemblerClasspath') {
-    description = 'Prints the resolved runtime classpath for tools/art-runner (see that directory\'s README).'
+    description = 'Prints the runtime classpath that tools/art-runner assembles fixtures with.'
     doLast {
         println configurations.runtimeClasspath.asPath
     }
