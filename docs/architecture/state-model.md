@@ -21,7 +21,7 @@ may conservatively forget a refinement and widen later handler routing:
 - opaque calls;
 - public APIs that project a `FrameValue` to `Value`.
 
-All six boundaries preserve the underlying `Value` and concrete `HeapRef` identity. They discard only the
+These boundaries preserve the underlying `Value` and concrete `HeapRef` identity. They discard only the
 internal residual-domain fact. No compatibility refinement map exists beside the atomic carrier.
 
 `VmServices.newSession` also sanitizes a caller-supplied public entry frame. It copies the frame and strips
