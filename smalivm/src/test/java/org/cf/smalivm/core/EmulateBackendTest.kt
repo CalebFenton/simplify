@@ -93,7 +93,7 @@ class EmulateBackendTest {
         )
 
         val unknown = identityIntSession(vm, Value.Unknown(intType)).run()
-        val objectView = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
+        val objectView = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_call_identity;")
         val objectFrame = Frame.entryFrame(objectView)
         val tracked = objectFrame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         objectFrame.assign(0, tracked)
@@ -137,7 +137,7 @@ class EmulateBackendTest {
                 SynchronousCallResult.Returned(HostReturn.Value(HostValue.TypedNull(objectType)))
             },
         )
-        val entry = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
+        val entry = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_call_identity;")
         val frame = Frame.entryFrame(entry)
         val tracked = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         frame.assign(0, tracked)
@@ -542,8 +542,8 @@ class EmulateBackendTest {
     private companion object {
         const val CALLER = "Lcalls/caller;"
         const val CALLEE = "Lcalls/callee;"
-        const val INVOKE_REVIEW = "Linvoke_review;"
-        const val INVOKE_REVIEW_CALLEE = "Linvoke_review_callee;"
+        const val INVOKE_REVIEW = "Linvoke_call;"
+        const val INVOKE_REVIEW_CALLEE = "Linvoke_call_callee;"
         const val INIT_TARGET = "Linvocation_class_init_target;"
     }
 }

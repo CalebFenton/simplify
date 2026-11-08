@@ -61,7 +61,7 @@ class InitialProgramImportTest {
 
     @Test
     fun initialImportOwnsCompleteApplicationDeclarationsAndBodies() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val snapshot = index.currentSnapshot
         val definition = requireNotNull(snapshot.applicationClass("Ltask53/Fixture;"))
 

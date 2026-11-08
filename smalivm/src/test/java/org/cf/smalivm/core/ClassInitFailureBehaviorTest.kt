@@ -229,7 +229,7 @@ class ClassInitFailureBehaviorTest {
 
     @Test
     fun unsupportedInitializerStaysPartialAndDoesNotBecomeGuestFailure() {
-        val graph = CoreTester.execute("Linvoke_review;", "readAbortedClinit()I")
+        val graph = CoreTester.execute("Linvoke_call;", "readAbortedClinit()I")
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), graph.completion())
         assertEquals(emptyList<Outcome.Threw>(), graph.outcomes.filterIsInstance<Outcome.Threw>())

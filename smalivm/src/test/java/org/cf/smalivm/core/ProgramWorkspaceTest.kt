@@ -17,7 +17,7 @@ class ProgramWorkspaceTest {
 
     @Test
     fun workspaceOwnsOneProgramIdentityAndRejectsForeignPublication() {
-        val first = task53ClassIndex(root, SOURCE)
+        val first = classIndexFromSource(root, SOURCE)
         val second = ClassIndex.open(root.toFile())
 
         assertSame(first.programWorkspace, VmServices(first).classIndex.programWorkspace)
@@ -29,7 +29,7 @@ class ProgramWorkspaceTest {
 
     @Test
     fun changedBodyRequiresANewSignatureBoundMethodRevision() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val snapshot = index.currentSnapshot
         val definition = requireNotNull(snapshot.applicationClass("Ltask53/Workspace;"))
         val method = definition.methods.single()
@@ -60,7 +60,7 @@ class ProgramWorkspaceTest {
 
     @Test
     fun methodBodyCandidateCannotChangeClassStructure() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val definition = requireNotNull(index.currentSnapshot.applicationClass("Ltask53/Workspace;"))
         val changed = ApplicationClassDefinition(
             definition.type,
@@ -85,7 +85,7 @@ class ProgramWorkspaceTest {
 
     @Test
     fun workspaceRejectsCandidateBuiltFromAStalePredecessor() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val current = index.currentSnapshot
         val first = ProgramSnapshot.candidate(
             current,

@@ -1,4 +1,4 @@
-.class public Linvoke_review_callee;
+.class public Linvoke_call_callee;
 .super Ljava/lang/Object;
 
 .method public static loopOrReturnDeclaredFirst(I)I
@@ -34,7 +34,7 @@
 .method public static conditionallyInitialize(I)V
     .locals 1
     if-eqz p0, :return
-    sget-object v0, Linvoke_review_init_target;->identity:Linvoke_review_identity;
+    sget-object v0, Linvoke_call_init_target;->identity:Linvoke_call_identity;
     :return
     return-void
 .end method
@@ -55,8 +55,8 @@
     return-void
 .end method
 
-.method public static native opaqueArrayResult()[Linvoke_review_identity;
+.method public static native opaqueArrayResult()[Linvoke_call_identity;
 .end method
 
-.method public static native opaqueClassResult()Linvoke_review_identity;
+.method public static native opaqueClassResult()Linvoke_call_identity;
 .end method

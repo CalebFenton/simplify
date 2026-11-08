@@ -107,7 +107,7 @@ class DebuggerTest {
         }
         collect(outerInvoke)
         assertTrue(nestedNodes.any { it.view.signature.toString() == "$INVOKE_REVIEW->innerWithTwoHandlers()I" })
-        assertTrue(nestedNodes.any { it.view.signature.toString() == "Linvoke_review_callee;->throwsNpe()V" })
+        assertTrue(nestedNodes.any { it.view.signature.toString() == "Linvoke_call_callee;->throwsNpe()V" })
         assertTrue(nestedNodes.filter { it.activation !== outerInvoke.activation }.all { it.progress is OpProgress.Executed })
         assertSame(outerInvoke.activation, continuation.activation)
         assertEquals(3, continuation.address)
@@ -1099,7 +1099,7 @@ class DebuggerTest {
         assertTrue(finalNodeFacts(observedOpaque).any { it.invocationDiagnostic != null })
 
         Files.writeString(root.resolve("orphan.smali"), ORPHAN_SOURCE.trimIndent())
-        val incompleteIndex = task53ClassIndex(root, INCOMPLETE_BASE_SOURCE)
+        val incompleteIndex = classIndexFromSource(root, INCOMPLETE_BASE_SOURCE)
         val incompleteVm = VmServices(incompleteIndex)
         val incompleteView = incompleteIndex.requireMethodView(INCOMPLETE_BASE, "incompleteWorld(Lincomplete/base;)I")
         val directDispatch = incompleteVm.newSession(incompleteView).run()
@@ -1327,7 +1327,7 @@ class DebuggerTest {
         const val EXCEPTION_PROPAGATION = "Lexception_propagation_test;"
         const val CALLER = "Lcalls/caller;"
         const val IF_TEST = "Lif_test;"
-        const val INVOKE_REVIEW = "Linvoke_review;"
+        const val INVOKE_REVIEW = "Linvoke_call;"
         const val CLASS_FOR_NAME = "Lbackend/class_for_name_test;"
         const val CLASS_INIT_TRIGGER = "Lclass_init/trigger;"
         const val CLASS_INIT_WITNESS = "Lclass_init/witness;-><clinit>()V"

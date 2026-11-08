@@ -330,7 +330,7 @@ class ScratchRegisterAllocatorTest {
 
     private fun index(source: String): ClassIndex {
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private companion object {

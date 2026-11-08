@@ -242,7 +242,7 @@
 .method public static sameRefWithDifferentClassState(ILjava/lang/Throwable;)V
     .locals 1
     if-eqz p0, :throw
-    sget-object v0, Linvoke_review_init_target;->identity:Linvoke_review_identity;
+    sget-object v0, Linvoke_call_init_target;->identity:Linvoke_call_identity;
     :throw
     throw p1
 .end method
@@ -266,7 +266,7 @@
     const/4 v0, 0x1
     sput v0, Lexception_propagation_test;->state:I
     iput v0, p1, Lexception_propagation_test;->value:I
-    sget-object v1, Linvoke_review_init_target;->identity:Linvoke_review_identity;
+    sget-object v1, Linvoke_call_init_target;->identity:Linvoke_call_identity;
     goto :throw
     :second
     const/4 v0, 0x2

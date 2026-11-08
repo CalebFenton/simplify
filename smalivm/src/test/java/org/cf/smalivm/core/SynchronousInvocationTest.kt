@@ -454,7 +454,7 @@ class SynchronousInvocationTest {
         val THROWS_UNCAUGHT = MethodSignature(VirtualType.of(CALLEE), "throwsUncaught", "()I")
         val NATIVE_CALLEE = MethodSignature(VirtualType.of(CALLEE), "nativeCallee", "()I")
         val IDENTITY_OBJECT = MethodSignature(
-            VirtualType.of("Linvoke_review_callee;"),
+            VirtualType.of("Linvoke_call_callee;"),
             "identityObject",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
         )

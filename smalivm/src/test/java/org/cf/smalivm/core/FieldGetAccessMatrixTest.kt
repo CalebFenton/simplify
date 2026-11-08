@@ -325,7 +325,7 @@ class FieldGetAccessMatrixTest {
         // Bug class: a member walk that reads an absent interface as "declares nothing" reports a definite
         // NoSuchFieldException, and one that lets the absence escape aborts the path as a host failure. The host
         // JVM defines the class because it has javax.management; the program lacks it, so the field may exist.
-        val index = task53ClassIndex(
+        val index = classIndexFromSource(
             root,
             """
             .class public abstract Lhost_only/Implementor;

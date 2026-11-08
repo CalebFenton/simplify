@@ -1,4 +1,4 @@
-.class public Linvoke_review_abort_clinit;
+.class public Linvoke_call_abort_clinit;
 .super Ljava/lang/Object;
 
 .field public static value:I = 0x5
