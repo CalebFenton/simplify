@@ -63,6 +63,14 @@ class TrustedGraphViewTest {
     }
 
     @Test
+    fun parentAddressesSkipCalleesAndAClassInitializationsFirstAttempt() {
+        fun driver(descriptor: String): TrustedGraphView =
+            vm.newSession(classIndex.requireMethodView("Linit_trigger/driver;", descriptor)).run().trusted()!!
+        assertArrayEquals(intArrayOf(0), driver("triggerAfterLiteral()V").parentAddresses(1))
+        assertArrayEquals(intArrayOf(0), driver("opAfterACall()V").parentAddresses(3))
+    }
+
+    @Test
     fun onlyAPolicyAuthorizedHostCallCountsAsAHostMethod() {
         val view = classIndex.requireMethodView("Lhost_calls/caller;", "calls()V")
         val trusted = vm.newSession(view).run().trusted()!!

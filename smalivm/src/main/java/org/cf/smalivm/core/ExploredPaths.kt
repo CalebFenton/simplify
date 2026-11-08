@@ -15,9 +15,27 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
     /** Application method revision the run executed. */
     public val methodRevision: ApplicationMethodRevision? get() = graph.methodRevision
 
-    /** Addresses whose op flows into [address] on some explored path. */
+    /**
+     * Addresses of this method whose op ran just before the op at [address] on some explored path. A callee's ops
+     * are skipped, so the op after a call reports the call; so is the attempt an op makes before the class
+     * initialization it triggered, so a retried op reports the op that ran before its first attempt.
+     */
     public fun parentAddresses(address: Int): IntArray =
-        graph.nodePile(address).mapNotNull { it.parent?.address }.distinct().sorted().toIntArray()
+        graph.nodePile(address).mapNotNull { precedingOp(it)?.address }.distinct().sorted().toIntArray()
+
+    private fun precedingOp(node: ExecutionNode): ExecutionNode? {
+        var current = node.parent
+        var leftActivation = false
+        while (current != null) {
+            if (current.activation !== node.activation) {
+                leftActivation = true
+            } else if (!leftActivation || current.address != node.address) {
+                return current
+            }
+            current = current.parent
+        }
+        return null
+    }
 
     /** Addresses [address]'s op flows into on some explored path. */
     public fun children(address: Int): IntArray =
