@@ -286,11 +286,49 @@ internal class SelectedSynchronousCall(
 
     fun finalize(frame: Frame): HostGraphComparison = call.finalize(frame)
 
-    fun sourceNodeId(raw: Any): HostGraphNodeId? = call.sourceNodeId(raw)
-    fun sourceHeapRef(raw: Any): HeapRef? = call.sourceHeapRef(raw)
-
     fun installConstructedHostObject(frame: Frame, ref: HeapRef, raw: Any) =
         call.installConstructedHostObject(frame, ref, raw)
+
+    /**
+     * [value], returned by this call, as a guest value on [frame]. A host object the call was selected with keeps
+     * its ref; a new mutable one is admitted. [comparison] is the call's finalized host-graph comparison.
+     */
+    fun importResult(frame: Frame, value: HostValue, comparison: HostGraphComparison): Value.Known {
+        if (value !is HostValue.Reference) return frame.importHostValue(value)
+        val raw = value.value
+        requireHostOwned(raw)
+        if (raw is Throwable) return importThrowable(frame, HostThrowable(value.type, raw), comparison)
+        if (raw.isDirectHostImmutable()) return Value.Known(raw, value.type)
+        trackedRef(frame, raw, value.type, comparison)?.let { return Value.Known(it, value.type) }
+        return if (raw.javaClass.isArray) frame.admitReturnedHostArray(raw, value.type)
+        else frame.admitReturnedHostValue(raw, value.type)
+    }
+
+    /** [throwable], thrown by this call, imported onto [frame] with the identity rules of [importResult]. */
+    fun importThrowable(frame: Frame, throwable: HostThrowable, comparison: HostGraphComparison): Value.Known =
+        frame.importHostThrowable(throwable) { raw, type -> trackedRef(frame, raw, type, comparison) }
+
+    /** The ref [raw] keeps on [frame] because this call was selected with it, or null for a new host object. */
+    private fun trackedRef(frame: Frame, raw: Any, type: VirtualType, comparison: HostGraphComparison): HeapRef? {
+        retainedSourceRef(frame, raw, comparison)?.let { return it }
+        if (comparison == HostGraphComparison.Equal) {
+            call.sourceNodeId(raw)?.let { source ->
+                return frame.heap.importHostNode(source, type, requireNotNull(frame.heap.hostObjectAt(source)))
+            }
+        }
+        val source = call.sourceNodeId(raw)?.takeIf { frame.heap.hostObjectAt(it) === raw }
+            ?: frame.heap.hostNodeId(raw)
+        return source?.let { frame.heap.importHostNode(it, type, raw) }
+    }
+
+    private fun retainedSourceRef(frame: Frame, raw: Any, comparison: HostGraphComparison): HeapRef? {
+        val sourceRef = call.sourceHeapRef(raw) ?: return null
+        val nodeId = (frame.heapObject(sourceRef) as? HostBacked)?.knownNodeId ?: return null
+        if (frame.heap.refForNode(nodeId) != sourceRef) return null
+        val currentRaw = frame.heap.hostObjectAt(nodeId) ?: return null
+        if (currentRaw === raw) return sourceRef
+        return if (comparison == HostGraphComparison.Equal && call.sourceNodeId(raw) == nodeId) sourceRef else null
+    }
 }
 
 internal class SelectedHostCallUnavailable(message: String, cause: Throwable? = null) :

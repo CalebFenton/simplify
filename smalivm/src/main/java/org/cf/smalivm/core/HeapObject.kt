@@ -114,7 +114,8 @@ sealed class HeapObject(val type: VirtualType) {
     /**
      * An ordinary tracked guest object, what `new-instance` allocates.
      *
-     * [uninitialized] is true from allocation until an `<init>` call whose receiver is this object's ref returns.
+     * [uninitialized] is true from allocation until the outermost `<init>` call on this object's ref returns
+     * ([Activation.initializedReceiver]).
      * Constructor completion creates a replacement version; it never mutates an object an earlier frame holds.
      *
      * [fields] are keyed by the fully-qualified descriptor of the class that declares each field. Identity is the

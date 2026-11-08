@@ -767,7 +767,7 @@ why `check-cast` and `instance-of` on a missing class throw at execution instead
 **SPEC** [BC]: "Throw the indicated exception."
 
 `ThrowOp` (`core/op/ThrowOp.kt`) carries the register's value as it is, so its identity survives to the
-handler, and the session normalizes it (`ExecutionSession`):
+handler, and the session normalizes it (`normalizeThrow`, `core/ThrowNormalization.kt`):
 
 | Thrown value | Engine | Tier |
 |---|---|---|

@@ -252,26 +252,6 @@ sealed interface BackendProbe {
     }
 }
 
-/** A scheduler operation requested without exposing heap identity or lattice values to its handler. */
-internal sealed interface IntrinsicOperation {
-    data class AllocateTrackedField(val metadata: TrackedFieldValue) : IntrinsicOperation
-    data object CloneArrayReceiver : IntrinsicOperation
-    data class InitializeEnumReceiver(
-        val name: EmulatorValue,
-        val ordinal: EmulatorValue,
-    ) : IntrinsicOperation
-    data class ReadVirtualField(val field: TrackedFieldValue) : IntrinsicOperation
-    data object ReadThrowableCause : IntrinsicOperation
-    data class SetTrackedFieldAccessible(
-        val metadata: TrackedFieldValue,
-        val accessibility: FieldAccessibility,
-    ) : IntrinsicOperation
-    data class ReturnUnknown(val type: VirtualType) : IntrinsicOperation
-}
-
-/** Internal result applied only by the scheduler. */
-internal data class IntrinsicCallResult(val operation: IntrinsicOperation) : SynchronousCallResult
-
 /** A host constructor completed. The scheduler installs [instance] at the existing receiver ref. */
 internal data class ConstructedHostObjectResult(val instance: Any) : SynchronousCallResult
 

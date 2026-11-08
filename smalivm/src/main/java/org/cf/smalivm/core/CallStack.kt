@@ -49,6 +49,8 @@ class Activation private constructor(
     internal val classInitContext: ClassInitContext?,
     /** Where this activation's ended paths go: the run's outcomes for the entry activation, its caller's otherwise. */
     internal val sink: PathSink,
+    /** The object this activation's `<init>` is constructing; null unless it runs a constructor on a tracked ref. */
+    private val constructing: HeapRef?,
 ) {
     /** A call from [caller], which resumes at [returnSite]. */
     internal constructor(
@@ -56,7 +58,8 @@ class Activation private constructor(
         caller: Activation,
         returnSite: ReturnSite,
         classInitContext: ClassInitContext? = null,
-    ) : this(view, caller, returnSite, classInitContext, CallCompletion())
+        constructing: HeapRef? = null,
+    ) : this(view, caller, returnSite, classInitContext, CallCompletion(), constructing)
 
     /**
      * Frames deep this activation sits, **0-based**: 0 for the entry activation. The same origin as
@@ -119,6 +122,40 @@ class Activation private constructor(
     }
 
     /**
+     * The object a call of [target] on [receiver] from this activation finishes constructing, or null. An `<init>`
+     * completes its receiver only when no constructor on the same object is still running here or in any caller:
+     * that outer constructor can still throw, so only its own return completes the object. The receiver's runtime
+     * type must be provably a subtype of [target]'s class.
+     */
+    internal fun initializedReceiver(
+        target: MethodDescriptor,
+        receiver: Value?,
+        frame: Frame,
+        hierarchy: TypeHierarchy,
+    ): HeapRef? {
+        if (target.name != "<init>") return null
+        val ref = (receiver as? Value.Known)?.raw as? HeapRef ?: return null
+        if (generateSequence(this) { it.caller }.any { it.constructing == ref }) return null
+        val runtimeType = frame.heapObject(ref)?.type ?: return null
+        val constructs = try {
+            hierarchy.isSubtypeOf(runtimeType, target.definingClass)
+        } catch (_: ClassLoadFailure) {
+            false
+        }
+        return ref.takeIf { constructs }
+    }
+
+    /** The guest roots of every suspended caller frame, innermost first; a host call must not detach them. */
+    internal fun suspendedCallerRoots(): List<Value> = buildList {
+        var current: Activation? = this@Activation
+        while (current != null) {
+            val returnSite = current.returnSite ?: break
+            addAll(returnSite.invokeNode.frame.guestRootValues())
+            current = current.caller
+        }
+    }
+
+    /**
      * Raises the level of the invoke node of **this** activation's call, and of every call enclosing it, to
      * at least [level].
      *
@@ -154,9 +191,9 @@ class Activation private constructor(
     override fun toString(): String = "Activation(${view.signature}, depth=$depth)"
 
     companion object {
-        /** The run's own outermost activation: no caller, and each of its ended paths is one of [outcomes]. */
-        internal fun entry(view: MethodView, outcomes: RunOutcomes): Activation =
-            Activation(view, caller = null, returnSite = null, classInitContext = null, sink = outcomes)
+        /** The run's outermost activation: no caller, and each of its ended paths is one of [outcomes]. */
+        internal fun entry(view: MethodView, outcomes: RunOutcomes, constructing: HeapRef? = null): Activation =
+            Activation(view, caller = null, returnSite = null, classInitContext = null, sink = outcomes, constructing)
     }
 }
 
@@ -279,16 +316,14 @@ internal class CallCompletion : PathSink {
 /**
  * Where a callee's `return` sends control: back to [invokeNode]'s method, at [resumeAddress].
  *
- * [resumeAddress] is computed **once**, in the caller's own method, from the caller's own node -- which is
- * the only shape plan design decision 5 permits, because `MethodView.nextAddress` delegates to
- * `instructionAt`'s `requireNotNull` and `planFor` runs outside the host-failure boundary. Whether the
- * address actually exists is then decided by `ExecutionSession.buildSuccessor`'s `hasAddress` check, which
- * reports a missing one as `MALFORMED_INPUT` rather than throwing (an `invoke` as a method's last
- * instruction is malformed but routine obfuscator output).
+ * [resumeAddress] is computed once, in the caller's own method, from the caller's own node. Whether the address
+ * exists is decided when the resumed successor is built, which reports a missing one as `MALFORMED_INPUT` (an
+ * `invoke` as a method's last instruction is malformed but routine obfuscator output).
  *
- * [invokeNode] is retained rather than its frame copied, because the caller's registers must be read at
- * RESUME time from the node's post-op frame -- and because a debugger walking the call stack wants the
- * node, not a snapshot of it.
+ * [invokeNode] is retained rather than its frame copied, because the caller's registers must be read at resume
+ * time from the node's post-op frame, and a debugger walking the call stack wants the node.
+ * [constructorReceiver] is the object a normal return completes ([Activation.initializedReceiver]); the fallback
+ * values describe the call for the opaque continuation an aborted callee path resumes through.
  */
 internal class ReturnSite(
     val invokeNode: ExecutionNode,
