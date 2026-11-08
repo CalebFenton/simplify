@@ -11,10 +11,6 @@ internal fun invokerOf(classIndex: ClassIndex, backends: List<Backend>): Invoker
 internal fun defaultInvoker(classIndex: ClassIndex): Invoker =
     Invoker(classIndex.currentResolver(), InvocationServices(classIndex))
 
-/** Plans [preparation] against [frame]'s heap, as the session plans a call made from that frame. */
-internal fun Invoker.planOn(preparation: InvocationPreparation.Ready, frame: Frame): InvocationPlan =
-    plan(preparation, frame::isHostMaterializable, frame::isTrackedReference)
-
 /**
  * The id the next allocation on [frame]'s path receives. Heap ids are run-wide, so the probe allocation on a
  * copy consumes that id: a second probe on the same run answers one higher when nothing else was allocated.

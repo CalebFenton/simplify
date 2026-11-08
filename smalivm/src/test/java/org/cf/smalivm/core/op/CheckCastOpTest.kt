@@ -12,6 +12,7 @@ import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
@@ -59,7 +60,7 @@ class CheckCastOpTest {
         private val STRING_TYPE = VirtualType.of(STRING)
         private val CCE_TYPE = VirtualType.of(CLASS_CAST_EXCEPTION)
 
-        /** The message the migration keeps byte-identical. **CORPUS** tier and nothing more -- see below. */
+        /** [ART]'s `ThrowClassCastException` text over the object's runtime class (`common_throws.cc`). */
         private const val CCE_MESSAGE = "java.lang.Integer cannot be cast to java.lang.String"
     }
 
@@ -171,10 +172,8 @@ class CheckCastOpTest {
          * `assertEquals(emptySet<Int>(), …)` could not pass. The liveness claim is made in the non-vacuous
          * three-line shape instead, by [aSuccessfulCastAssignsItsTargetRegisterAndReadsIt].
          *
-         * **The message is CORPUS tier.** It is reproduced byte-identically so the migration is a
-         * relocation, and for no other reason: [RT] records that runtimes deliberately changed exception
-         * text, so an asserted message is never evidence of Dalvik fidelity. It is built from the
-         * **declared** type rather than from `raw.javaClass`, matching `opcode/CheckCastOp.kt:32`.
+         * The message is [ART]'s `"%s cannot be cast to %s"` over `PrettyDescriptor` of the object's runtime
+         * class and the target (`ThrowClassCastException`, `common_throws.cc`).
          */
         @Test
         fun objectNotOfCastTypeThrowsClassCastException() {
@@ -256,10 +255,9 @@ class CheckCastOpTest {
         assertTrue(ref is HeapRef, "a synthesized guest throwable is a tracked heap object (spec §4.1), not $ref")
         val thrown = graph.nodePile(ADDRESS_HANDLER).single().frame.heapObject(ref as HeapRef)
         assertTrue(thrown is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $thrown")
-        assertEquals(
-            "java.lang.Object cannot be cast to java.lang.String",
+        assertNull(
             (graph.nodePile(ADDRESS_HANDLER).single().frame.hostObjectAt(ref) as Throwable).message,
-            "built from the DECLARED type, exactly as `opcode/CheckCastOp.kt:32` builds it",
+            "ART's text names the object's runtime class, which an Unknown does not have",
         )
     }
 
@@ -440,20 +438,16 @@ class CheckCastOpTest {
     }
 
     /**
-     * **A definite failing cast throws and explores NOTHING else** -- no fall-through, no second exception.
+     * **A definite failing cast throws and explores nothing else** -- no fall-through, no second exception.
+     * The escaping counterpart of `objectNotOfCastTypeThrowsClassCastException`: a spurious `Continue` would
+     * leave the caught test green.
      *
-     * The escaping counterpart of the migrated `objectNotOfCastTypeThrowsClassCastException`, on a fixture
-     * with no handler, so the same row is pinned through `Outcome.Threw` as well as through a caught value.
-     * That matters for the arity direction the migrated test cannot see: adding a spurious `Continue` to
-     * this row would leave the caught test green (it asserts the type did not escape and v0 holds the CCE,
-     * both still true) while inventing a path on which a definitely-failing cast fell through.
-     *
-     * **SPEC** [BC] for the exception itself; the message is CORPUS and is asserted only so it does not
-     * drift silently.
+     * The register is tagged `Ljava/lang/Object;` while it holds an `Integer`, so the message must name the
+     * runtime class, as ART's `ThrowClassCastException(dest, obj->GetClass())` does, not the tag.
      */
     @Test
     fun aDefinitelyFailingCastThrowsAndDoesNotAlsoContinue() {
-        val initial = CoreState().apply { setRegisters(0, 0x42, "Ljava/lang/Integer;") }
+        val initial = CoreState().apply { setRegisters(0, 0x42, OBJECT) }
         CoreTester.testThrows(
             CLASS_NAME, "castToString()V", initial,
             exceptionType = CLASS_CAST_EXCEPTION, message = CCE_MESSAGE,

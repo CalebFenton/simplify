@@ -338,7 +338,7 @@ class EmulateBackendTest {
             VirtualType.of(CALLER),
         ) as InvocationPreparation.Ready
         val frame = Frame.entryFrame(view(CALLER, "callsNativeCallee()I"))
-        val plan = invoker.planOn(preparation, frame) as InvocationPlan.Execute
+        val plan = invoker.plan(preparation, frame) as InvocationPlan.Execute
 
         registry.register(
             registration(target, handlesUnknownArguments = false, effect = SideEffectLevel.STRONG) {

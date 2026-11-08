@@ -265,7 +265,7 @@ class ReflectBackendTest {
             )
             val lookup = MethodLookup.NoBody(ResolvedMethod(target, intType, emptyList(), isSynchronized = false))
 
-            val plan = invoker.planOn(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
+            val plan = invoker.plan(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
 
             assertTrue(plan is InvocationPlan.Execute, kind.toString())
             assertEquals(1, later.probes, kind.toString())
@@ -402,11 +402,54 @@ class ReflectBackendTest {
 
             assertEquals(expectedMutations, ReflectionExternalSentinel.externalMutations, reflectedAuthorization.toString())
             if (expectedMutations == 0) {
-                assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
-                assertTrue(graph.nodePile(0).single().hostFailure is SecurityException)
+                // A denied reflected target is a policy denial like a denied direct call: opaque, not a host failure.
+                assertEquals(listOf(Outcome.Returned(Value.Unknown(objectType))), graph.outcomes)
+                assertTrue(
+                    graph.nodePile(0).single().invocationDiagnostic!!.contains("reflection policy denied $reflected"),
+                )
             } else {
                 assertEquals(listOf(Outcome.Returned(Value.Known(null, objectType))), graph.outcomes)
             }
+        }
+    }
+
+    /**
+     * `Method.invoke` runs what its receiver reflects, so the call's effect is that target's policy effect, not
+     * the entry point's. Each case configures `Method.invoke`'s own effect the opposite way.
+     */
+    @Test
+    fun aReflectiveInvocationTakesItsEffectFromTheReflectedTarget() {
+        val methodType = type("Ljava/lang/reflect/Method;")
+        val methodInvoke = method(methodType, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
+        val pureLength = method(stringType, "length", "()I")
+        val effectfulMutation = method(fixtureType, "mutateExternal", "()V")
+        val cases = listOf(
+            Triple(pureLength, String::class.java.getMethod("length"), Value.Known("abc", stringType)),
+            Triple(
+                effectfulMutation,
+                ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal"),
+                Value.Known(null, objectType),
+            ),
+        )
+        for ((reflected, hostMethod, receiver) in cases) {
+            val expected = if (reflected == pureLength) SideEffectLevel.NONE else SideEffectLevel.STRONG
+            val entryEffect = if (expected == SideEffectLevel.NONE) SideEffectLevel.STRONG else SideEffectLevel.NONE
+            val vm = VmServices(
+                classIndex,
+                ReflectionPolicy(
+                    exactSafeMethods = setOf(methodInvoke, reflected),
+                    methodEffects = mapOf(methodInvoke to entryEffect, pureLength to SideEffectLevel.NONE),
+                ),
+            )
+            val frame = Frame.entryFrame(callerView())
+            frame.assign(0, Value.Known(frame.allocateHostObject(methodType, hostMethod), methodType))
+            frame.assign(1, receiver)
+            frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
+
+            val graph = invoke(vm, methodInvoke, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1, 2)).run()
+
+            assertEquals(CompletionStatus.Complete, graph.completion(), reflected.toString())
+            assertEquals(expected, graph.explored.sideEffectLevel(0), reflected.toString())
         }
     }
 

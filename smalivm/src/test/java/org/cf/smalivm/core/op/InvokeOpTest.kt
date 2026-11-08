@@ -87,6 +87,7 @@ class InvokeOpTest {
         )
     }
 
+    /** ART's text is `ThrowNullPointerExceptionForMethodAccess` over the referenced method (`common_throws.cc`). */
     @Test
     fun definiteNullReceiverHasOnlyTheGuestNpeOutcome() {
         val graph = invokeRun("nullVirtual()I")
@@ -95,11 +96,12 @@ class InvokeOpTest {
             graph,
             expectedType = "Ljava/lang/NullPointerException;",
             expectedClass = NullPointerException::class.java,
-            expectedMessage = "invoke receiver is null",
+            expectedMessage = "Attempt to invoke virtual method 'int java.lang.String.length()' on a null object reference",
         )
         assertFalse(graph.wasReached(4), "a definite NPE must not also reach move-result")
     }
 
+    /** ART's `ThrowNoSuchMethodError` text, as the Tier-A recording shows for `Fx_InvokeMissingMethodNullReceiver`. */
     @Test
     fun resolutionFailurePrecedesReceiverNull() {
         val graph = invokeRun("missingBeforeNull()V")
@@ -108,23 +110,22 @@ class InvokeOpTest {
             graph,
             expectedType = "Ljava/lang/NoSuchMethodError;",
             expectedClass = NoSuchMethodError::class.java,
-            expectedMessage = "missing()V",
+            expectedMessage = "No virtual method missing()V in class Linvoke_task20; or its super classes",
         )
         assertTrue("Ljava/lang/NullPointerException;" !in CoreTester.escapingTypes(graph))
         assertFalse(graph.wasReached(4))
     }
 
+    /** ART's `DoResolveType` text, as the Tier-A recording shows for `Fx_InvokeAbsentType`. */
     @Test
     fun absentDefiningClassThrowsGuestNoClassDefFoundError() {
-        // ART raises one message for an absent class whichever opcode resolves it (`ClassLinker::DoResolveType`), so
-        // an invoke names it as `new-instance` and the other resolving ops do.
         val graph = invokeRun("absentClass()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFreshInvokeThrowable(
             graph,
             expectedType = "Ljava/lang/NoClassDefFoundError;",
             expectedClass = NoClassDefFoundError::class.java,
-            expectedMessage = "invoke_task20_absent",
+            expectedMessage = "Failed resolution of: Linvoke_task20_absent;",
         )
     }
 

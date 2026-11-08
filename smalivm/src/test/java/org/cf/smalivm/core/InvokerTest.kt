@@ -427,7 +427,7 @@ class InvokerTest {
             Invocation(descriptorOf(CALLEE, "identityInt", "(I)I"), InvokeKind.STATIC, listOf(Value.Known(4, int))),
             caller.definingClass,
         )
-        val plan = invoker.planOn(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))
+        val plan = invoker.plan(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))
         assertTrue(plan is InvocationPlan.RunGuest, "a present static method with a body is runnable: $plan")
         val guest = plan as InvocationPlan.RunGuest
         assertEquals("Lcalls/callee;->identityInt(I)I", guest.view.signature)

@@ -58,12 +58,8 @@ import org.junit.jupiter.api.Test
  * **false** -- while ART throws the two exceptions above from it. Throw edges here are decided from the
  * op's own semantics; `canContinue()` is the only flag the core reads for it, and that one IS correct.
  *
- * **Neither exception message is asserted, and neither is synthesized with one.** The corpus asserts no
- * message for this opcode (the engine being replaced never synthesized either exception at all -- it let a
- * host `ArrayIndexOutOfBoundsException` out of `java.lang.reflect.Array.set` kill the whole run), nothing
- * downstream reads a message, and [RT] records that runtimes deliberately changed their array-exception
- * text. ART's two strings are recorded in `docs/DALVIK-SEMANTICS.md` so a later plan may adopt them; that
- * would be an improvement, not a fix, and no expectation here blocks it.
+ * Both exceptions carry ART's `FillArrayData` messages (`entrypoint_utils.cc`); a speculative bounds
+ * exception on an unprovable array carries none, because ART's text names the array's length.
  *
  * **The element conversion is normalized by payload WIDTH first and then by component type**, with every
  * case named -- see [FillArrayDataOp]'s KDoc for the table and for why that is simpler and more total than
@@ -200,32 +196,11 @@ class FillArrayDataOpTest {
     }
 
     /**
-     * Bug class: a payload longer than the array. The engine being replaced did not check it -- `Array.set`
-     * raised ArrayIndexOutOfBoundsException and, since its payload op caught nothing, the throwable escaped
-     * and killed the engine rather than becoming a guest exception.
-     *
-     * Tiers, because the requirement and the failure mode come from different documents. The REQUIREMENT is
-     * SPEC: [BC]'s fill-array-data text says the table "must contain no more elements than will fit in the
-     * array". That it fails as an AIOOBE is [ART] ONLY -- `fill-array-data` has no JVM counterpart, so there
-     * is nothing to inherit, and ART's message is "failed FILL_ARRAY_DATA; length=%d, index=%d" (whose second
-     * number is the element COUNT, not a failing index). ART's own null check precedes its length check.
-     *
-     * "WITHOUT STORING ANYTHING" is the half the name claims and the first draft never checked, so it is
-     * asserted below. It is also groundable rather than assumed: ART's FillArrayData
-     * (runtime/entrypoints/entrypoint_utils.cc:175-194 -- fetched as raw source and base64-decoded during
-     * Task 10, not read through a summarizing tool) does the length check at :183-189 and then a single
-     * `memcpy` at :192, so the store is all-or-nothing -- [ART], and the reason its message can report a
-     * count instead of an index.
-     *
-     * `testCaught`, not `testThrows`: the fixture below declares a Ljava/lang/Exception; handler, so the
-     * AIOOBE is caught and there is no Outcome.Threw to find.
-     *
-     * **`testCaught`'s "nothing escaped" half is filtered to [exceptionType], so it is VACUOUSLY TRUE for an
-     * escape of any other type** (`CoreTester.testCaught`, the `escaped` filter). The reliance is benign here
-     * -- a spurious second fork would be caught by the same `Ljava/lang/Exception;` handler and would make
-     * `terminatingConsensus(1)` ambiguous, failing `testCaught`'s own type assertion -- but that is a chain of
-     * reasoning rather than an assertion, and the next author to copy this idiom onto a HANDLER-FREE fixture
-     * would silently lose the protection. So the escape set is asserted outright below (review Minor 9).
+     * A payload longer than the array: [BC] requires the table to fit, and [ART]'s `FillArrayData`
+     * (`entrypoint_utils.cc`) length-checks before a single `memcpy`, so it throws
+     * `"failed FILL_ARRAY_DATA; length=%d, index=%d"` (the second number is the element count) and stores
+     * nothing. Caught by the fixture's `Ljava/lang/Exception;` handler, so the escape set is asserted
+     * outright as well.
      */
     @Test
     fun aPayloadLongerThanTheArrayThrowsWithoutStoringAnything() {
@@ -233,10 +208,9 @@ class FillArrayDataOpTest {
         CoreTester.testCaught(
             CLASS_NAME, "fillArrayDataIntWithCatch()V", seed(),
             exceptionType = "Ljava/lang/ArrayIndexOutOfBoundsException;",
+            message = "failed FILL_ARRAY_DATA; length=2, index=5",
             caughtInRegister = 1,     // `move-exception v1` -- v0 must keep the array; see the fixture
-            // Added to the brief's call: the throw is DEFINITE, so the fall-through must be dead. Derived
-            // below rather than trusted -- 31t is THREE code units, so the successor of the op at 0 is 3.
-            unreachedAddress = 3,
+            unreachedAddress = 3,     // 31t is three code units
         )
         // The second half of the name. Without these two lines the test is one assertion short of what it
         // claims, and a fill that stored the first two elements and THEN threw would pass it.
@@ -359,6 +333,11 @@ class FillArrayDataOpTest {
     @Test
     fun aNullArrayThrowsNullPointerExceptionBeforeAnyBoundsExceptionAndStoresNothing() {
         initial.setRegisters(0, null, "[I")
+        CoreTester.testThrows(
+            CLASS_NAME, "fillArrayDataInt()V", initial,
+            exceptionType = "Ljava/lang/NullPointerException;",
+            message = "null array in FILL_ARRAY_DATA",
+        )
         val graph = CoreTester.execute(CLASS_NAME, "fillArrayDataInt()V", initial)
         assertEquals(CompletionStatus.Complete, graph.completion(), "a guest throw is an outcome, not a truncation")
         assertEquals(
