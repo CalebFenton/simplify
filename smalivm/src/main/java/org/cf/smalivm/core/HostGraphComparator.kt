@@ -29,28 +29,16 @@ internal class HostGraphComparator {
         val leftNodes = left.objectsById()
         val rightNodes = right.objectsById()
         if (left.nodeCount != right.nodeCount) return HostGraphComparison.Different
-        return guarded {
+        return hostBoundary({ HostGraphComparison.Unprovable }) {
             val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
             expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
             val walk = Walk(expectedByIdentity)
             for (id in 0 until left.nodeCount) {
                 val result = walk.compare(leftNodes.getValue(id), rightNodes.getValue(id))
-                if (result != HostGraphComparison.Equal) return@guarded result
+                if (result != HostGraphComparison.Equal) return result
             }
             HostGraphComparison.Equal
         }
-    }
-
-    fun compare(left: Any?, right: Any?): HostGraphComparison = guarded {
-        Walk(IdentityHashMap()).compare(left, right)
-    }
-
-    private fun guarded(block: () -> HostGraphComparison): HostGraphComparison = try {
-        block()
-    } catch (fatal: VirtualMachineError) {
-        throw fatal
-    } catch (_: Throwable) {
-        HostGraphComparison.Unprovable
     }
 
     private fun scalarComparison(left: Any, right: Any): HostGraphComparison? = when (left) {
@@ -174,7 +162,7 @@ internal class HostGraphComparator {
                     visitUnordered(left.entries.toList(), (right as Map<*, *>).entries.toList(), entries = true)
                 }
                 left is Collection<*> -> HostGraphComparison.Unprovable
-                left.javaClass.name.startsWith("java.") -> HostGraphComparison.Unprovable
+                JdkClasses.isJdk(left.javaClass) -> HostGraphComparison.Unprovable
                 else -> {
                     stack += FieldValues(left, right, instanceFields(left.javaClass))
                     HostGraphComparison.Equal

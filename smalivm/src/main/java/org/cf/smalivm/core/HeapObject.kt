@@ -226,20 +226,7 @@ private fun Method.fullDescriptor(): String = buildString {
     append("->")
     append(name)
     append('(')
-    parameterTypes.forEach { append(it.reflectedTypeDescriptor()) }
+    parameterTypes.forEach { append(virtualTypeOfHostClass(it).descriptor) }
     append(')')
-    append(returnType.reflectedTypeDescriptor())
-}
-
-private fun Class<*>.reflectedTypeDescriptor(): String = when (this) {
-    java.lang.Boolean.TYPE -> "Z"
-    java.lang.Byte.TYPE -> "B"
-    java.lang.Character.TYPE -> "C"
-    java.lang.Short.TYPE -> "S"
-    java.lang.Integer.TYPE -> "I"
-    java.lang.Long.TYPE -> "J"
-    java.lang.Float.TYPE -> "F"
-    java.lang.Double.TYPE -> "D"
-    java.lang.Void.TYPE -> "V"
-    else -> virtualTypeOfHostClass(this).descriptor
+    append(virtualTypeOfHostClass(returnType).descriptor)
 }

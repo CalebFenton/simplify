@@ -7,34 +7,30 @@ internal class FieldGetEmulator(
 ) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val field = call.receiver as? TrackedFieldEmulatorValue
-            ?: return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
+            ?: return returnUnknown(call.returnType)
         val argument = call.arguments.singleOrNull()
             ?: return SynchronousCallResult.InfrastructureFailure(
                 IllegalArgumentException("Field.get requires one receiver argument"),
             )
         val metadata = field.metadata
         if (metadata.storage == FieldStorage.INSTANCE && argument is EmulatorValue.Known && argument.javaValue == null) {
-            return targetThrow(NullPointerException())
+            return targetThrew(NullPointerException())
         }
-        if (metadata.domain is TrackedFieldDomain.Host && !hostReadIsAuthorized(metadata)) {
-            return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(metadata.fieldType))
+        if (metadata.domain is TrackedFieldDomain.Host && !hostFieldReadIsAuthorized(metadata, classIndex, reflectionPolicy)) {
+            return returnUnknown(metadata.fieldType)
         }
         val receiverType = receiverType(argument)
         val receiverClass = (argument as? EmulatorValue.Known)?.javaValue?.javaClass
-        val access = try {
+        val access = hostBoundary({ return SynchronousCallResult.InfrastructureFailure(it) }) {
             permitsAccess(metadata, field.accessibility, call.callerClass, receiverType, receiverClass)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return SynchronousCallResult.InfrastructureFailure(failure)
         }
-        if (!access) return targetThrow(IllegalAccessException())
+        if (!access) return targetThrew(IllegalAccessException())
         if (
             metadata.storage == FieldStorage.INSTANCE &&
             receiverType != null &&
             !isSubtype(receiverType, metadata.declaringType, metadata.domain, receiverClass)
         ) {
-            return targetThrow(IllegalArgumentException())
+            return targetThrew(IllegalArgumentException())
         }
         if (metadata.domain == TrackedFieldDomain.Virtual && metadata.storage == FieldStorage.STATIC) {
             when (call.classInitStatus.actionFor(metadata.declaringType)) {
@@ -49,10 +45,10 @@ internal class FieldGetEmulator(
         return when (metadata.domain) {
             TrackedFieldDomain.Virtual -> when {
                 metadata.storage == FieldStorage.INSTANCE && argument is EmulatorValue.Unknown ->
-                    IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(metadata.fieldType))
+                    returnUnknown(metadata.fieldType)
                 else -> IntrinsicCallResult(IntrinsicOperation.ReadVirtualField(metadata))
             }
-            is TrackedFieldDomain.Host -> readHostField(metadata, argument)
+            is TrackedFieldDomain.Host -> readAuthorizedHostField(metadata, argument)
         }
     }
 
@@ -119,66 +115,23 @@ internal class FieldGetEmulator(
         if (type == virtualTypeOfHostClass(domain.declaringClass)) domain.declaringClass
         else classIndex.loadClassConstant(type.descriptor)
 
-    private fun hostReadIsAuthorized(field: TrackedFieldValue): Boolean {
-        val domain = field.domain as TrackedFieldDomain.Host
-        if (!hostDeclaringClassMatchesVm(field, classIndex)) return false
-        val chain = if (field.storage == FieldStorage.STATIC) {
-            hostFieldInitializationChain(domain.declaringClass)
+    private fun readAuthorizedHostField(field: TrackedFieldValue, argument: EmulatorValue): SynchronousCallResult {
+        val receiver = if (field.storage == FieldStorage.STATIC) {
+            null
         } else {
-            emptyList()
+            (argument as? EmulatorValue.Known)?.javaValue ?: return returnUnknown(field.fieldType)
         }
-        return reflectionPolicy.decideFieldRead(field, chain) is ReflectionDecision.Allowed
-    }
-
-    private fun readHostField(
-        field: TrackedFieldValue,
-        argument: EmulatorValue,
-    ): SynchronousCallResult {
         val declaringClass = (field.domain as TrackedFieldDomain.Host).declaringClass
-        val reflected = try {
-            declaringClass.getDeclaredField(field.name)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return SynchronousCallResult.InfrastructureFailure(failure)
-        }
-        if (
-            reflected.modifiers != field.modifiers ||
-            virtualTypeOfHostFieldClass(reflected.type) != field.fieldType ||
-            !reflected.trySetAccessible()
+        return when (
+            val read = readHostField(declaringClass, field.name, field.fieldType, receiver) { it == field.modifiers }
         ) {
-            return SynchronousCallResult.InfrastructureFailure(
-                IllegalStateException("Authorized host field metadata changed for ${field.descriptor}"),
-            )
-        }
-        val rawReceiver = if (field.storage == FieldStorage.STATIC) null else (argument as? EmulatorValue.Known)?.javaValue
-            ?: return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(field.fieldType))
-        return try {
-            SynchronousCallResult.Returned(HostReturn.Value(reflected.get(rawReceiver).toHostValue(field.fieldType)))
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (target: IllegalAccessException) {
-            targetThrow(target)
-        } catch (target: IllegalArgumentException) {
-            targetThrow(target)
-        } catch (target: LinkageError) {
-            targetThrow(target)
-        } catch (failure: Throwable) {
-            SynchronousCallResult.InfrastructureFailure(failure)
+            is HostFieldRead.Returned -> SynchronousCallResult.Returned(HostReturn.Value(read.value))
+            is HostFieldRead.TargetThrew -> SynchronousCallResult.TargetThrew(read.throwable)
+            is HostFieldRead.Unsupported -> returnUnknown(field.fieldType)
+            is HostFieldRead.InfrastructureFailure -> SynchronousCallResult.InfrastructureFailure(read.cause)
         }
     }
-
-    private fun targetThrow(throwable: Throwable): SynchronousCallResult.TargetThrew =
-        SynchronousCallResult.TargetThrew(
-            HostThrowable(virtualTypeOfHostClass(throwable.javaClass), throwable),
-        )
 }
 
 private fun packageName(type: VirtualType): String =
     type.descriptor.substringBeforeLast('/', missingDelimiterValue = "")
-
-private fun Any?.toHostValue(declaredType: VirtualType): HostValue = when {
-    declaredType.isPrimitive -> HostValue.Primitive(requireNotNull(this), declaredType)
-    this == null -> HostValue.TypedNull(declaredType)
-    else -> HostValue.Reference(this, virtualTypeOfHostClass(javaClass))
-}

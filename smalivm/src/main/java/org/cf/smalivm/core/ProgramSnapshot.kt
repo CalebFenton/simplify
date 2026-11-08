@@ -141,22 +141,5 @@ class ProgramSnapshot private constructor(
                 predecessorRevision,
             )
         }
-
-        internal fun replacementForTest(
-            current: ProgramSnapshot,
-            programRevision: ProgramRevision,
-            applicationClasses: PersistentMap<String, ApplicationClassDefinition> = current.applicationClasses,
-            hierarchy: HierarchySnapshot = current.hierarchy,
-            frameworkCatalog: FrameworkCatalog = current.frameworkCatalog,
-        ): ProgramSnapshot = create(
-            current.programIdentity,
-            programRevision,
-            applicationClasses,
-            current.outputApiPolicy,
-            current.stringInstructionEncoding,
-            hierarchy,
-            frameworkCatalog,
-            current.programRevision,
-        )
     }
 }

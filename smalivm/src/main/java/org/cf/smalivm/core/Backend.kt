@@ -183,6 +183,33 @@ sealed interface SynchronousCallResult {
     data class InfrastructureFailure(val cause: Throwable) : SynchronousCallResult
 }
 
+/** A value the host produced for [declaredType]; a reference keeps its runtime class. */
+internal fun Any?.toHostValue(declaredType: VirtualType): HostValue = when {
+    declaredType.isPrimitive -> HostValue.Primitive(requireNotNull(this), declaredType)
+    this == null -> HostValue.TypedNull(declaredType)
+    else -> HostValue.Reference(this, virtualTypeOfHostClass(javaClass))
+}
+
+/** [throwable] reaches the guest as thrown by the target, tagged with its runtime class. */
+internal fun targetThrew(throwable: Throwable): SynchronousCallResult.TargetThrew =
+    SynchronousCallResult.TargetThrew(HostThrowable(virtualTypeOfHostClass(throwable.javaClass), throwable))
+
+/** The call completes with an unknown value of [type]. */
+internal fun returnUnknown(type: VirtualType): SynchronousCallResult =
+    IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(type))
+
+/**
+ * Runs host code at the analysis boundary. A [VirtualMachineError] means the analysing JVM itself is failing,
+ * so it escapes; every other throwable becomes [onFailure]'s answer.
+ */
+internal inline fun <T> hostBoundary(onFailure: (Throwable) -> T, block: () -> T): T = try {
+    block()
+} catch (fatal: VirtualMachineError) {
+    throw fatal
+} catch (failure: Throwable) {
+    onFailure(failure)
+}
+
 /** Pre-execution backend decision. Only [Declined] permits another backend. */
 sealed interface BackendProbe {
     data class Declined(val diagnostic: String) : BackendProbe
@@ -253,10 +280,8 @@ interface SynchronousBackend : Backend {
     fun execute(call: SelectedHostCall): SynchronousCallResult
 }
 
-/** Schedules runnable guest bytecode. Host backends are added in later Plan 11 tasks. */
+/** Schedules runnable application bytecode. */
 internal class ApplicationBytecodeBackend(private val resolver: ProgramSnapshotResolver) : Backend {
-    constructor(classIndex: ClassIndex) : this(classIndex.resolver(classIndex.currentSnapshot))
-
     override val name: String get() = "application-bytecode"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe = when (lookup) {
@@ -278,8 +303,6 @@ internal class ApplicationBytecodeBackend(private val resolver: ProgramSnapshotR
 
 /** Schedules a captured bundled-framework body after host policy declines execution. */
 internal class FrameworkBytecodeBackend(private val resolver: ProgramSnapshotResolver) : Backend {
-    constructor(classIndex: ClassIndex) : this(classIndex.resolver(classIndex.currentSnapshot))
-
     override val name: String get() = "framework-bytecode"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe = when (lookup) {

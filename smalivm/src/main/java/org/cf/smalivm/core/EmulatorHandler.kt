@@ -52,17 +52,6 @@ fun interface EmulatorHandler {
     fun execute(call: EmulatorInvocation): SynchronousCallResult
 }
 
-internal val DEFAULT_EMULATOR_FRAMEWORK_TYPES = setOf(
-    "Landroid/text/TextUtils;",
-    "Ljava/lang/Class;",
-    "Ljava/lang/Enum;",
-    "Ljava/lang/ExceptionInInitializerError;",
-    "Ljava/lang/Object;",
-    "Ljava/lang/Throwable;",
-    "Ljava/lang/reflect/AccessibleObject;",
-    "Ljava/lang/reflect/Field;",
-)
-
 internal fun defaultEmulatorRegistrations(
     classIndex: ClassIndex,
     reflectionPolicy: ReflectionPolicy,

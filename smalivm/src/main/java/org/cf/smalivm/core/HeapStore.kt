@@ -28,7 +28,6 @@ import kotlinx.collections.immutable.persistentListOf
 internal class HeapIds {
     private var next = 0
     fun allocate(): HeapRef = HeapRef(next++)
-    internal fun nextId(): Int = next
 }
 
 internal class HostSeed(
@@ -91,18 +90,16 @@ internal data class ArrayReplacement(val ref: HeapRef, val elements: List<Value>
 internal class HeapStore private constructor(
     private val ids: HeapIds,
     private var objects: PersistentMap<Int, HeapObject>,
-    private val hostObjectCloner: HostObjectCloner,
     private var hostGraph: HostGraphState,
     private var nodeRefs: PersistentMap<Int, HeapRef>,
     private var trackedFields: CompatibilityMapKey<Int, TrackedFieldCompatibility>,
     private var mirroredArrayRefs: PersistentSet<Int>,
     private var dirtyMirroredArrayRefs: PersistentSet<Int>,
 ) : Heap {
-    constructor(ids: HeapIds, hostObjectCloner: HostObjectCloner = HostObjectCloner()) :
+    constructor(ids: HeapIds) :
         this(
             ids,
             persistentMapOf(),
-            hostObjectCloner,
             HostGraphState.empty(),
             persistentMapOf(),
             CompatibilityMapKey.empty(),
@@ -874,9 +871,9 @@ internal class HeapStore private constructor(
             mirroredArrayRefs,
             dirtyMirroredArrayRefs,
         )
-        val clone = hostObjectCloner.cloneGraph(checkpoint.graph)
+        val clone = cloneHostGraph(checkpoint.graph)
         try {
-            hostGraph = clone.state
+            hostGraph = clone
             synchronizeDirtyMirrors()
         } catch (fatal: VirtualMachineError) {
             hostGraph = checkpoint.graph
@@ -1051,7 +1048,6 @@ internal class HeapStore private constructor(
     fun copy(): HeapStore = HeapStore(
         ids,
         objects,
-        hostObjectCloner,
         hostGraph,
         nodeRefs,
         trackedFields,
@@ -1060,8 +1056,6 @@ internal class HeapStore private constructor(
     )
 
     internal fun hostGraphVersionToken(): Any = hostGraph
-
-    internal fun nextHeapId(): Int = ids.nextId()
 
     internal fun trackedFieldCompatibilityKey(): CompatibilityMapKey<Int, TrackedFieldCompatibility> = trackedFields
 
@@ -1089,7 +1083,6 @@ internal class HeapStore private constructor(
                 return HeapStore(
                     first.ids,
                     merged,
-                    first.hostObjectCloner,
                     HostGraphState.empty(),
                     persistentMapOf(),
                     first.trackedFields,
@@ -1128,7 +1121,6 @@ internal class HeapStore private constructor(
             return HeapStore(
                 first.ids,
                 merged,
-                first.hostObjectCloner,
                 graph,
                 mergedNodeRefs,
                 mergedTrackedFields,

@@ -10,10 +10,10 @@ internal class FieldLookupEmulator(
 ) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val classToken = (call.receiver as? EmulatorValue.Known)?.javaValue as? Class<*>
-            ?: return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
+            ?: return returnUnknown(call.returnType)
         val nameValue = call.arguments.singleOrNull() as? EmulatorValue.Known
-            ?: return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
-        val name = nameValue.javaValue as? String ?: return targetThrow(NullPointerException())
+            ?: return returnUnknown(call.returnType)
+        val name = nameValue.javaValue as? String ?: return targetThrew(NullPointerException())
         val declaredOnly = call.target.name == "getDeclaredField"
         val requestedType = virtualTypeOfHostClass(classToken)
 
@@ -28,14 +28,15 @@ internal class FieldLookupEmulator(
             } else {
                 hostField(classToken, name, declaredOnly)
             }
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
         } catch (target: SecurityException) {
-            return targetThrow(target)
-        } ?: return targetThrow(NoSuchFieldException(name))
+            return targetThrew(target)
+        } ?: return targetThrew(NoSuchFieldException(name))
 
-        if (tracked.domain is TrackedFieldDomain.Host && !hostReadIsAuthorized(tracked)) {
-            return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
+        if (
+            tracked.domain is TrackedFieldDomain.Host &&
+            !hostFieldReadIsAuthorized(tracked, classIndex, reflectionPolicy)
+        ) {
+            return returnUnknown(call.returnType)
         }
         return IntrinsicCallResult(IntrinsicOperation.AllocateTrackedField(tracked))
     }
@@ -78,22 +79,6 @@ internal class FieldLookupEmulator(
         }
         return field.toTrackedField()
     }
-
-    private fun hostReadIsAuthorized(field: TrackedFieldValue): Boolean {
-        val domain = field.domain as TrackedFieldDomain.Host
-        if (!hostDeclaringClassMatchesVm(field, classIndex)) return false
-        val chain = if (field.storage == FieldStorage.STATIC) {
-            hostFieldInitializationChain(domain.declaringClass)
-        } else {
-            emptyList()
-        }
-        return reflectionPolicy.decideFieldRead(field, chain) is ReflectionDecision.Allowed
-    }
-
-    private fun targetThrow(throwable: Throwable): SynchronousCallResult.TargetThrew =
-        SynchronousCallResult.TargetThrew(
-            HostThrowable(virtualTypeOfHostClass(throwable.javaClass), throwable),
-        )
 }
 
 private fun FieldDeclaration.toTrackedField(): TrackedFieldValue = TrackedFieldValue(
@@ -109,7 +94,7 @@ private fun FieldDeclaration.toTrackedField(): TrackedFieldValue = TrackedFieldV
 
 private fun Field.toTrackedField(): TrackedFieldValue {
     val declaringType = virtualTypeOfHostClass(declaringClass)
-    val fieldType = virtualTypeOfHostFieldClass(type)
+    val fieldType = virtualTypeOfHostClass(type)
     return TrackedFieldValue(
         declaringType,
         name,

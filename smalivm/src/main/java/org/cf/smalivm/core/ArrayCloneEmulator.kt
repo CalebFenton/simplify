@@ -5,8 +5,7 @@ internal class ArrayCloneEmulator : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val receiver = requireNotNull(call.receiver) { "Array clone requires a receiver" }
         return when (receiver) {
-            is TrackedFieldEmulatorValue ->
-                IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
+            is TrackedFieldEmulatorValue -> returnUnknown(call.returnType)
             is EmulatorValue.TrackedReference -> {
                 require(receiver.type.isArray) { "Array clone receiver is ${receiver.type}" }
                 IntrinsicCallResult(IntrinsicOperation.CloneArrayReceiver)
@@ -17,7 +16,7 @@ internal class ArrayCloneEmulator : EmulatorHandler {
                     call.target.definingClass.isArray -> call.target.definingClass
                     else -> call.returnType
                 }
-                IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(type))
+                returnUnknown(type)
             }
             is EmulatorValue.Known -> error("Mutable arrays must remain scheduler-tracked")
         }

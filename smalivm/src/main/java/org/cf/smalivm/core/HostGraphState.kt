@@ -6,7 +6,6 @@ import java.lang.reflect.Modifier
 import java.util.IdentityHashMap
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
-import sun.misc.Unsafe
 
 /** Stable identity of one mutable Java object in a path-local host graph. */
 data class HostGraphNodeId(val id: Int)
@@ -100,7 +99,7 @@ internal class HostGraphState private constructor(
             if (leftRoot != rightRoot) parents[rightRoot] = leftRoot
         }
 
-        try {
+        val complete = hostBoundary({ false }) {
             for (id in 0 until nextNodeId) {
                 val raw = nodes[id] ?: return null
                 val children = graphChildren(raw)
@@ -111,41 +110,14 @@ internal class HostGraphState private constructor(
                     connect(id, childId.id)
                 }
             }
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (_: Throwable) {
-            return null
+            true
         }
+        if (!complete) return null
 
         val rootComponents = rootIds.mapTo(mutableSetOf(), ::rootOf)
         return (0 until nextNodeId)
             .filter { rootOf(it) in rootComponents }
             .map(::HostGraphNodeId)
-    }
-
-    internal fun forwardReachableNodeIds(roots: Iterable<HostGraphNodeId>): List<HostGraphNodeId>? {
-        if (!isComplete) return null
-        val pending = ArrayDeque<HostGraphNodeId>()
-        roots.forEach(pending::addLast)
-        val seen = linkedSetOf<Int>()
-        try {
-            while (pending.isNotEmpty()) {
-                val nodeId = pending.removeFirst()
-                if (!seen.add(nodeId.id)) continue
-                val raw = objectAt(nodeId) ?: return null
-                val children = graphChildren(raw)
-                if (!children.complete) return null
-                for (child in children.values) {
-                    if (child == null || child.isDirectHostImmutable()) continue
-                    pending.addLast(nodeIdOf(child) ?: return null)
-                }
-            }
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (_: Throwable) {
-            return null
-        }
-        return seen.map(::HostGraphNodeId)
     }
 
     internal fun objectsById(): Map<Int, Any> = nodes
@@ -171,8 +143,6 @@ internal class HostGraphState private constructor(
 
     companion object {
         fun empty(): HostGraphState = HostGraphState(persistentMapOf(), persistentMapOf(), 0, true)
-
-        fun fromRoots(roots: Iterable<Any>): HostGraphState = empty().addRoots(roots).state
 
         fun fromIdentityRoots(roots: Iterable<Any>): HostGraphState = empty().addIdentityRoots(roots).state
     }
@@ -260,111 +230,107 @@ private fun graphChildren(raw: Any): GraphChildren = when {
 
 private fun mapEntryChildren(raw: Map.Entry<*, *>): GraphChildren {
     val fields = referenceFieldValues(raw, customInstanceFields(raw.javaClass))
-    val complete = if (isJdkImplementation(raw.javaClass)) {
-        raw.javaClass.name in OWNING_JDK_MAP_ENTRY_CLASSES
-    } else {
-        true
-    }
+    val complete = if (JdkClasses.isJdk(raw.javaClass)) JdkClasses.ownsEntryState(raw.javaClass) else true
     return GraphChildren(listOf(raw.key, raw.value) + fields.values, complete && fields.complete)
 }
 
 private fun containerChildren(raw: Any, contents: () -> List<Any?>): GraphChildren {
     val fields = referenceFieldValues(raw, customInstanceFields(raw.javaClass))
-    val semanticContents = try {
-        contents()
-    } catch (fatal: VirtualMachineError) {
-        throw fatal
-    } catch (_: Throwable) {
-        return GraphChildren(fields.values, false)
-    }
+    val semanticContents = hostBoundary({ return GraphChildren(fields.values, false) }) { contents() }
     return GraphChildren(
         semanticContents + fields.values,
-        fields.complete && enumerableContainerOwnsItsBackingState(raw.javaClass),
+        fields.complete && JdkClasses.ownsEnumeratedState(raw.javaClass),
     )
 }
 
-private fun enumerableContainerOwnsItsBackingState(type: Class<*>): Boolean {
-    if (type.name in OWNING_JDK_CONTAINER_CLASSES) return true
-    val jdkAncestors = generateSequence(type.superclass) { it.superclass }
-        .takeWhile { it != Any::class.java }
-        .filter(::isJdkImplementation)
-        .toList()
-    if (jdkAncestors.any { it.name in OWNING_JDK_CONTAINER_CLASSES }) return true
-    return !isJdkImplementation(type) && jdkAncestors.isEmpty()
+/**
+ * Which host classes belong to the JDK and which JDK collections expose all their state through enumeration.
+ * Decided from class identity: a JDK class is one the boot or platform loader defined.
+ */
+internal object JdkClasses {
+    private val platformLoader: ClassLoader = ClassLoader.getPlatformClassLoader()
+
+    private val owningContainers: Set<Class<*>> = bootClasses(
+        "java.util.ArrayDeque",
+        "java.util.ArrayList",
+        "java.util.Collections\$EmptyList",
+        "java.util.Collections\$EmptyMap",
+        "java.util.Collections\$EmptySet",
+        "java.util.Collections\$SingletonList",
+        "java.util.Collections\$SingletonMap",
+        "java.util.Collections\$SingletonSet",
+        "java.util.EnumMap",
+        "java.util.EnumSet",
+        "java.util.HashMap",
+        "java.util.HashSet",
+        "java.util.Hashtable",
+        "java.util.IdentityHashMap",
+        "java.util.LinkedHashMap",
+        "java.util.LinkedHashSet",
+        "java.util.LinkedList",
+        "java.util.PriorityQueue",
+        "java.util.RegularEnumSet",
+        "java.util.JumboEnumSet",
+        "java.util.Stack",
+        "java.util.TreeMap",
+        "java.util.TreeSet",
+        "java.util.Vector",
+        "java.util.WeakHashMap",
+        "java.util.concurrent.ConcurrentHashMap",
+        "java.util.concurrent.ConcurrentLinkedDeque",
+        "java.util.concurrent.ConcurrentLinkedQueue",
+        "java.util.concurrent.ConcurrentSkipListMap",
+        "java.util.concurrent.ConcurrentSkipListSet",
+        "java.util.concurrent.CopyOnWriteArrayList",
+        "java.util.concurrent.CopyOnWriteArraySet",
+    )
+
+    private val owningMapEntries: Set<Class<*>> = bootClasses(
+        "java.util.AbstractMap\$SimpleEntry",
+        "java.util.AbstractMap\$SimpleImmutableEntry",
+        "java.util.HashMap\$Node",
+        "java.util.Hashtable\$Entry",
+        "java.util.LinkedHashMap\$Entry",
+        "java.util.TreeMap\$Entry",
+    )
+
+    fun isJdk(type: Class<*>): Boolean = type.classLoader.let { it == null || it === platformLoader }
+
+    fun ownsEntryState(type: Class<*>): Boolean = type in owningMapEntries
+
+    /** A JDK container owns its state when it or a JDK ancestor is listed; an application container always does. */
+    fun ownsEnumeratedState(type: Class<*>): Boolean {
+        if (type in owningContainers) return true
+        val jdkAncestors = generateSequence(type.superclass) { it.superclass }
+            .takeWhile { it != Any::class.java }
+            .filter(::isJdk)
+            .toList()
+        if (jdkAncestors.any { it in owningContainers }) return true
+        return !isJdk(type) && jdkAncestors.isEmpty()
+    }
+
+    /** Names a JDK release does not define are absent from the set rather than an error. */
+    private fun bootClasses(vararg names: String): Set<Class<*>> = names.mapNotNullTo(HashSet()) { name ->
+        try {
+            Class.forName(name, false, null)
+        } catch (_: ClassNotFoundException) {
+            null
+        }
+    }
 }
 
-private fun isJdkImplementation(type: Class<*>): Boolean =
-    type.name.startsWith("java.") || type.name.startsWith("jdk.") || type.name.startsWith("sun.")
-
-private val OWNING_JDK_CONTAINER_CLASSES = setOf(
-    "java.util.ArrayDeque",
-    "java.util.ArrayList",
-    "java.util.Collections\$EmptyList",
-    "java.util.Collections\$EmptyMap",
-    "java.util.Collections\$EmptySet",
-    "java.util.Collections\$SingletonList",
-    "java.util.Collections\$SingletonMap",
-    "java.util.Collections\$SingletonSet",
-    "java.util.EnumMap",
-    "java.util.EnumSet",
-    "java.util.HashMap",
-    "java.util.HashSet",
-    "java.util.Hashtable",
-    "java.util.IdentityHashMap",
-    "java.util.LinkedHashMap",
-    "java.util.LinkedHashSet",
-    "java.util.LinkedList",
-    "java.util.PriorityQueue",
-    "java.util.RegularEnumSet",
-    "java.util.JumboEnumSet",
-    "java.util.Stack",
-    "java.util.TreeMap",
-    "java.util.TreeSet",
-    "java.util.Vector",
-    "java.util.WeakHashMap",
-    "java.util.concurrent.ConcurrentHashMap",
-    "java.util.concurrent.ConcurrentLinkedDeque",
-    "java.util.concurrent.ConcurrentLinkedQueue",
-    "java.util.concurrent.ConcurrentSkipListMap",
-    "java.util.concurrent.ConcurrentSkipListSet",
-    "java.util.concurrent.CopyOnWriteArrayList",
-    "java.util.concurrent.CopyOnWriteArraySet",
-)
-
-private val OWNING_JDK_MAP_ENTRY_CLASSES = setOf(
-    "java.util.AbstractMap\$SimpleEntry",
-    "java.util.AbstractMap\$SimpleImmutableEntry",
-    "java.util.HashMap\$Node",
-    "java.util.Hashtable\$Entry",
-    "java.util.LinkedHashMap\$Entry",
-    "java.util.TreeMap\$Entry",
-)
-
+@Suppress("DEPRECATION")
 private fun referenceFieldValues(raw: Any, fields: List<Field>): GraphChildren {
+    val unsafe = HostUnsafe.unsafe
     val values = ArrayList<Any?>(fields.size)
     var complete = true
     for (field in fields) {
         if (field.type.isPrimitive) continue
-        try {
-            values += HostFieldReader.get(raw, field)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (_: Throwable) {
-            complete = false
+        hostBoundary({ complete = false }) {
+            values += unsafe.getObject(raw, unsafe.objectFieldOffset(field))
         }
     }
     return GraphChildren(values, complete)
-}
-
-private object HostFieldReader {
-    private val unsafe: Unsafe = run {
-        val field = Unsafe::class.java.getDeclaredField("theUnsafe")
-        field.isAccessible = true
-        field.get(null) as Unsafe
-    }
-
-    @Suppress("DEPRECATION")
-    fun get(raw: Any, field: Field): Any? = unsafe.getObject(raw, unsafe.objectFieldOffset(field))
 }
 
 internal fun requireHostOwned(raw: Any) {
@@ -388,7 +354,6 @@ internal fun instanceFields(type: Class<*>): List<Field> {
     return fields.sortedWith(compareBy({ it.declaringClass.name }, { it.name }))
 }
 
-internal fun customInstanceFields(type: Class<*>): List<Field> = instanceFields(type).filterNot {
-    val name = it.declaringClass.name
-    name.startsWith("java.") || name.startsWith("jdk.") || name.startsWith("sun.")
-}
+/** Instance fields an application class declares, which JDK enumeration cannot account for. */
+internal fun customInstanceFields(type: Class<*>): List<Field> =
+    instanceFields(type).filterNot { JdkClasses.isJdk(it.declaringClass) }

@@ -10,12 +10,10 @@ internal class ObjectGetClassEmulator(private val classIndex: ClassIndex) : Emul
             is EmulatorValue.Known -> virtualTypeOfHostClass(
                 requireNotNull(receiver.javaValue) { "Object.getClass receiver is null" }.javaClass,
             )
-            is EmulatorValue.Unknown -> return IntrinsicCallResult(
-                IntrinsicOperation.ReturnUnknown(call.returnType),
-            )
+            is EmulatorValue.Unknown -> return returnUnknown(call.returnType)
         }
         val classToken = classIndex.loadClassConstant(runtimeType.descriptor)
-            ?: return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
+            ?: return returnUnknown(call.returnType)
         return SynchronousCallResult.Returned(
             HostReturn.Value(HostValue.Reference(classToken, call.returnType)),
         )
