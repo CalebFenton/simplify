@@ -84,7 +84,7 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
 }
 
 /**
- * One path's class state (spec §4.2, the [ClassState] contract): each class's initialization lifecycle and every
+ * One path's class state (the [ClassState] contract): each class's initialization lifecycle and every
  * static field cell. Both are per class and per path, threaded across both call boundaries and shared per fork: a
  * class initialized on only some callee paths must stay uninitialized on the others, and a fork must not see its
  * sibling's static writes. [copy] shares immutable roots in constant time.
@@ -129,20 +129,10 @@ internal class ClassStore private constructor(
     }
 
     /**
-     * [fieldDescriptor]'s value on this path, or [Value.Top] when this path holds none.
-     *
-     * **A [Value.Top] here means this path has not triggered the field's class**,
-     * because [prepare] seeds EVERY declared static of a class at the moment it does (JVMS §5.4.2's
-     * preparation, which precedes initialization). So an op that consults [actionFor] first -- which
-     * every trigger must, or it re-executes forever -- never sees it, and a `Top` reaching a consumer is a
-     * scheduler bug rather than an imprecision. It stays `Top` rather than `Unknown(fieldType)` for the reason
-     * it always did: `Top` is *"this path knows nothing at all"*, while `Unknown(T)` would assert a declared
-     * type for a cell that does not exist.
-     *
-     * [type] is redundant with [fieldDescriptor], which already names the declaring class -- kept because
-     * [ClassState.getStaticField]'s contract is the class-keyed mirror of [ExecutionState.getField]'s ref-keyed one, and
-     * because a caller passing a type that disagrees with the descriptor has a resolution bug worth being able
-     * to see in a signature.
+     * [fieldDescriptor]'s value on this path, or [Value.Top] when this path has not triggered the field's class:
+     * [prepare] seeds every declared static when the class is triggered, so an op that consults [actionFor]
+     * first never reads `Top`. `Top` rather than `Unknown(T)`, because the cell does not exist and has no type.
+     * [type] repeats the declaring class in [fieldDescriptor] to mirror [ExecutionState.getField]'s ref-keyed form.
      */
     override fun getStaticField(type: VirtualType, fieldDescriptor: String): Value =
         statics[fieldDescriptor]?.value ?: Value.Top
@@ -150,13 +140,9 @@ internal class ClassStore private constructor(
     internal fun staticCell(fieldDescriptor: String): StaticCell? = statics[fieldDescriptor]
 
     /**
-     * Writes [value] into [fieldDescriptor] on this path -- `sput*`'s whole effect, and the test harness's
-     * field seeding.
-     *
-     * No merge, no join, no coercion: the cell holds what it was given and becomes guest-owned, exactly as a
-     * Dalvik static slot holds the bits written to it. Interpreting those bits under the field's declared type is the READ's business
-     * (`core/op/SGetOp`'s reference row), which is where ART puts it too -- the reference half of a frame is
-     * consulted by the fetch, not by the store.
+     * Writes [value] into [fieldDescriptor] on this path as a guest write, with no join or coercion, as a Dalvik
+     * static slot holds the bits written to it. Interpreting them under the field's declared type is the read's
+     * job, as in ART.
      */
     fun setStaticField(fieldDescriptor: String, value: Value) {
         setStaticCell(fieldDescriptor, StaticCell(value, StaticCellProvenance.GUEST_WRITE))
@@ -180,22 +166,12 @@ internal class ClassStore private constructor(
     }
 
     /**
-     * **JVMS §5.4.2 preparation**: gives every declared static of a class its pre-`<clinit>` value, at the
-     * moment this path first triggers the class, and records which of them are `final` ([finals]).
+     * JVMS §5.4.2 preparation: gives every declared static of a class its pre-`<clinit>` value when this path
+     * first triggers the class, and records which are `final`. [ClassInitPlanner] decides the values. It runs
+     * before the `<clinit>`, so an initializer reading a static of its own class reads the prepared value.
      *
-     * Separate from lifecycle transitions and called by [Frame.applyClassInit], because *what* the values
-     * are is a class-model question this file may not ask (the two-tier rule) -- [ClassInitPlanner] decides
-     * them and [ClassInitPlan.staticSeeds] carries them.
-     *
-     * **BEFORE the `<clinit>` runs, which is the ordering that matters.** Preparation precedes initialization,
-     * so a `<clinit>` reading a static of its own class reads the prepared value (typically the type default)
-     * and may then overwrite it -- which is exactly what `Lstatic_fields_test;-><clinit>()V` does
-     * (`sget alwaysZero` -> `sput testInt1`) and what the ported `canGetFieldsWhileInitializing` asserts. A
-     * build that seeded on COMPLETION instead would read `Top` inside the initializer and then clobber
-     * whatever it wrote.
-     *
-     * A prepared seed replaces a prior host projection. A guest write remains authoritative. This makes a
-     * retried guest initializer or explicit test seed unable to merge silently with host-owned static state.
+     * A prepared seed replaces a host projection; a guest write stays authoritative, so a retried guest
+     * initializer or an explicit seed never merges silently with host-owned state.
      */
     fun prepare(seeds: Map<String, StaticCell>, finals: Set<String>) {
         var updated = statics
@@ -365,23 +341,10 @@ internal enum class StaticCellProvenance {
 internal data class StaticCell(val value: Value, val provenance: StaticCellProvenance)
 
 /**
- * The value a field of [type] holds before anything assigns it -- **SPEC**, [JVMS] §2.3/§2.4's default values,
- * applied at §5.4.2 preparation: `0` for every integral type, `0.0` for the floating ones, `false` for
- * `boolean`, `'\u0000'` (NUL, not a space) for `char`, and the null reference for every class or array type.
- *
- * A **[Value.Known]**, not an [Value.Unknown], and that is the whole content of the deliverable's *"an
- * untouched static of an INITIALIZED class is its type default, which is a provable fact"*: after a class is
- * initialized, a static nothing assigned is definitely its default, and answering `Unknown` there would refuse
- * to fold a constant Dalvik guarantees. The oracle agrees for a class with no `<clinit>`
- * (`type/VirtualField.kt:43-54` is the same table), which is why the *Uninitialized* trio of migrated
- * `SGetOpTest` expectations (`false`, `0`, `'\u0000'`, `null`, ...) ports byte-identically.
- *
- * The raw's boxed runtime type matches the declared type exactly (`Byte` under `B`, `Short` under `S`), which
- * [Value.Known]'s own precondition asks for and which the migrated expectations assert -- `0.toByte()` is not
- * `0`, and `agreesWith` compares raws with host `equals`.
- *
- * `V` cannot reach here: `void` is not a field type, and [VirtualType]'s grammar forbids it as an array
- * component, so the `else` is a programming-error assertion rather than an input path.
+ * The value a field of [type] holds before anything assigns it: [JVMS] §2.3/§2.4's default values, applied at
+ * §5.4.2 preparation. A [Value.Known], because after initialization a static nothing assigned is definitely its
+ * default. The raw's boxed type matches the declared type exactly (`Byte` under `B`), as [Value.Known] requires.
+ * `V` is not a field type, so the `else` asserts a programming error rather than handling input.
  */
 internal fun defaultValueOf(type: VirtualType): Value.Known = Value.Known(
     when (type.descriptor) {
@@ -406,11 +369,8 @@ internal val PreparedInvocation.classInitTarget: VirtualType?
     get() = if (kind == InvokeKind.STATIC && target.name != "<clinit>") target.definingClass else null
 
 /**
- * The one class whose guest `<clinit>` a trigger must run **now**, as a nested activation.
- *
- * [view] and [entryAddress] are the same pair [BackendProbe.Schedule] carries, and for the same reason: the
- * address is a *claim about the callee's method*, checked by `MethodView.hasAddress` before anything is
- * decoded (plan design decision 5).
+ * The one class whose guest `<clinit>` a trigger must run now, as a nested activation. [entryAddress] is a claim
+ * about [view], checked by `MethodView.hasAddress` before anything is decoded, as for [BackendProbe.Schedule].
  */
 internal class GuestInitializer(
     val type: VirtualType,

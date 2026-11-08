@@ -14,25 +14,19 @@ internal data class CallCompatibilityKey(
 )
 
 /**
- * One method activation's state on one path: physical registers and the four special slots (spec §4.2), over the
- * path's [heap] and [classes].
+ * One method activation's state on one path: physical registers and the result, return, thrown and caught slots,
+ * over the path's [heap] and [classes].
  *
- * Three invariants this type exists to enforce:
- *  1. **Wide pairs.** A wide value (`J`/`D`) owns two consecutive registers. The high half is not
- *     an independent value: reading it yields [Value.Top], and writing either half invalidates the
- *     pair, so no half can ever be read as a whole.
- *  2. **Slot lifecycle.** `result` and `caught` are produced once, moved once, then dead
- *     ([takeResult]/[takeCaught] clear them).
- *  3. **Persistent isolation.** [copy] shares immutable roots in constant time. A later write replaces
- *     only the writing frame's root or heap object, so parents and siblings remain unchanged.
+ * Invariants:
+ *  - A wide value (`J`/`D`) owns two consecutive registers. Reading the high half yields [Value.Top], and
+ *    writing either half invalidates the pair, so no half can be read as a whole.
+ *  - `result` and `caught` are produced once and moved once ([takeResult]/[takeCaught] clear them).
+ *  - [copy] shares immutable roots in constant time; a later write replaces only the writing frame's root or
+ *    heap object, so parents and siblings stay unchanged.
  *
- * Reads are pure with respect to values; [read] additionally records liveness (which the graph
- * reports as `registersRead`), while [peek] never does -- an observer (debugger, consumer query)
- * must be able to look without perturbing anything. The [ExecutionState] facade (`peekRegister`/
- * `readRegister`) is that observer: neither of its accessors records liveness.
- *
- * Registers and slots hold [FrameValue]s, so a throwable's refinement survives moves within the method; the
- * [Value] accessors project it away.
+ * [read] records liveness (reported as `registersRead`); [peek] and the [ExecutionState] accessors do not, so an
+ * observer can look without perturbing anything. Registers and slots hold [FrameValue]s, so a throwable's
+ * refinement survives moves within the method; the [Value] accessors project it away.
  */
 public class Frame private constructor(
     internal val view: MethodView,
@@ -57,8 +51,6 @@ public class Frame private constructor(
     }
 
     override val registerCount: Int get() = view.registerCount
-
-    // --- registers ---
 
     /** Assigns [value] to [register], reserving the following register when the value is wide. */
     public fun assign(register: Int, value: Value): Unit = assign(register, FrameValue.plain(value))
@@ -139,8 +131,6 @@ public class Frame private constructor(
             "Register $register out of range [0, $registerCount) in ${view.signature}"
         }
 
-    // --- special slots (produced once, consumed once) ---
-
     internal fun setResult(value: Value) = setResult(FrameValue.plain(value))
     internal fun setResult(value: FrameValue) { result = value }
     internal fun takeResult(): FrameValue? = result.also { result = null }
@@ -152,8 +142,6 @@ public class Frame private constructor(
     internal fun setThrown(value: Value) { thrown = value }
 
     internal fun thrownOrNull(): Value? = thrown
-
-    // --- ExecutionState facade ---
 
     override fun peekRegister(register: Int): Value? = peek(register)
     override fun readRegister(register: Int): Value = peek(register) ?: Value.Top
@@ -171,7 +159,6 @@ public class Frame private constructor(
 
     override fun heapObject(ref: HeapRef): HeapObject? = heap.objectAt(ref)
 
-    // --- class initialization ---
     // The scheduler is the only thing that moves a class along the lifecycle. An op asks for a [ClassInitAction]
     // and returns the corresponding arm; it never marks anything itself.
 
@@ -228,7 +215,6 @@ public class Frame private constructor(
         failure.waitingDependents.forEach { classes.failDependency(it, outward) }
     }
 
-    // --- heap values ---
     // Heap cells store Value. Array elements, instance fields, and statics are conservative-forgetting
     // boundaries: a throwable's refinement does not survive a store.
 
@@ -354,8 +340,6 @@ public class Frame private constructor(
         classes.compatibilityKey(),
         heap.trackedFieldCompatibilityKey(),
     )
-
-    // --- forks and call boundaries ---
 
     /** This frame's registers, slots and history over [heap] and [classes]. */
     private fun derive(heap: HeapStore, classes: ClassStore): Frame = Frame(

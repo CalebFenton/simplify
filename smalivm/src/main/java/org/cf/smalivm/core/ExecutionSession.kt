@@ -263,7 +263,7 @@ public class ExecutionSession internal constructor(
         }
         prepared as PreparedOpArm.Ready
         return when (val arm = prepared.arm) {
-            // A slot move already landed on this arm's own frame in [prepareArm], so siblings never see it.
+            // [prepareArm] already applied the slot move to this arm's own frame, so siblings never see it.
             is OpArm.Continue, is OpArm.MoveFromSlot ->
                 continueAt(node, node.view.nextAddress(node.address)).also { node.observeNormalContinuation() }
             is OpArm.Jump -> continueAt(node, arm.address).also { node.observeNormalContinuation() }
@@ -428,8 +428,8 @@ public class ExecutionSession internal constructor(
     }
 
     /**
-     * Raises the triggering address to [SideEffectLevel.STRONG] when [plan] settled a class whose `<clinit>` this
-     * build declined to run. The activation chain is raised too, so a caller whose callee triggered an unmodelled
+     * Raises the triggering address to [SideEffectLevel.STRONG] when [plan] settled a class whose `<clinit>` the
+     * analysis does not run. The activation chain is raised too, so a caller whose callee triggered an unmodelled
      * initializer does not report `NONE` for its own addresses.
      */
     private fun declareSkippedInitializerEffect(node: ExecutionNode, plan: ClassInitPlan) {
@@ -719,7 +719,7 @@ public class ExecutionSession internal constructor(
             "A transition of the op at ${node.address} in ${node.view.signature} would go nowhere"
         }
 
-        // --- phase 1: build, one group at a time ---
+        // Phase 1: build, one group at a time.
         val built = ArrayList<ExecutionNode>(groups.sumOf { it.successors.size })
         val endings = ArrayList<ActivationExit>(1)
         val armFailures = ArrayList<ActivationExit>(0)
@@ -765,7 +765,7 @@ public class ExecutionSession internal constructor(
             return
         }
 
-        // --- phase 2: commit ---
+        // Phase 2: commit.
         schedule(node, built)
         // Slot writes happen after every successor frame was copied, so no sibling inherits `thrown`, and
         // `Frame.thrownOrNull() != null` means the node whose frame it is ended by throwing.
