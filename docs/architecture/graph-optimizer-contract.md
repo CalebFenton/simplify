@@ -30,8 +30,9 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   sessions execute. Output includes all application classes and methods, not only optimization targets,
   and excludes bundled framework classes. An older retained snapshot can still be serialized separately.
 - Simplify's Kotlin `Optimizer` runs constant propagation, dead code removal, peephole optimization,
-  and unreflection through `StrategyInput`. Each strategy receives complete evidence and a fresh
-  transaction. After a commit, the optimizer re-executes the published method before the next strategy.
+  and unreflection through `StrategyInput`. Each strategy receives the trusted graph of a complete run, the
+  method's `MethodControlFlow`, and a fresh transaction the optimizer opened. After a commit, the optimizer
+  re-executes the published method and restarts at the first strategy.
   Only committed changes contribute to optimization counts. Partial analysis authorizes no rewrite.
 - Effect and identity proofs remain conservative: volatile accesses, array writes, synchronization,
   and observable exceptions are retained; equal string contents alone do not authorize interning.

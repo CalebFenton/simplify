@@ -2,10 +2,10 @@ package org.cf.simplify.strategy
 
 import org.cf.smalivm.core.DexReferenceOperand
 import org.cf.smalivm.core.InstructionTemplate
-import org.cf.smalivm.core.MethodView
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.iface.instruction.*
-import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import com.android.tools.smali.dexlib2.iface.instruction.Instruction
+import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
@@ -18,15 +18,14 @@ class PeepholeStrategy : OptimizationStrategy {
     override val optimizationCategories = setOf(PEEPHOLE_OPTIMIZATIONS, CONSTANTIZED_IFS)
 
     override fun perform(input: StrategyInput) {
-        val method = input.graph.methodView
+        val method = input.method
         for (address in method.instructionAddresses) {
-            if (!input.structureGraph.wasReached(address)) continue
+            if (input.graph.isDead(address)) continue
             val instruction = method.instructionAt(address)
             when {
-                instruction.opcode == Opcode.INVOKE_STATIC || instruction.opcode == Opcode.INVOKE_STATIC_RANGE ->
-                    peepClassForName(input, method, address, instruction)
+                isClassForName(instruction) -> peepClassForName(input, address, instruction)
                 instruction.opcode in CONDITIONAL_BRANCHES -> {
-                    val children = input.structureGraph.children(address)
+                    val children = input.graph.children(address)
                     if (children.size != 1) continue
                     val replacement = if (children[0] == method.nextAddress(address)) {
                         InstructionTemplate.Encoded(ImmutableInstruction10x(Opcode.NOP))
@@ -40,7 +39,7 @@ class PeepholeStrategy : OptimizationStrategy {
                 instruction.opcode == Opcode.CHECK_CAST -> {
                     val register = (instruction as OneRegisterInstruction).registerA
                     val target = ((instruction as ReferenceInstruction).reference as TypeReference).type
-                    val parents = input.structureGraph.parentAddresses(address)
+                    val parents = input.graph.parentAddresses(address)
                     val matches = if (parents.isEmpty()) {
                         method.parameters.any { it.register == register && it.type.descriptor == target }
                     } else {
@@ -58,56 +57,29 @@ class PeepholeStrategy : OptimizationStrategy {
         }
     }
 
-    private fun peepClassForName(input: StrategyInput, method: MethodView, address: Int, instruction: Instruction) {
-        val reference = (instruction as? ReferenceInstruction)?.reference as? MethodReference ?: return
-        if (reference.definingClass != "Ljava/lang/Class;" || reference.name != "forName" ||
-            reference.parameterTypes.map { it.toString() } != listOf("Ljava/lang/String;") ||
-            reference.returnType != "Ljava/lang/Class;") return
-        val argument = when (instruction) {
-            is RegisterRangeInstruction -> instruction.startRegister.takeIf { instruction.registerCount == 1 }
-            is FiveRegisterInstruction -> instruction.registerC.takeIf { instruction.registerCount == 1 }
-            else -> null
-        } ?: return
-        val preceding = onlyPrecedingParent(method, address) ?: return
-        val literalInstruction = method.instructionAt(preceding)
+    /**
+     * `Class.forName` of the executing class's own name becomes `const-class`: that class is already initialized,
+     * so the call has no initialization effect to keep. The name must come from a `const-string` that is the only
+     * way into the call.
+     */
+    private fun peepClassForName(input: StrategyInput, address: Int, instruction: Instruction) {
+        val method = input.method
+        val argument = invokeRegisters(instruction).singleOrNull() ?: return
+        val flow = input.controlFlow ?: return
+        val index = flow.indexOf(address) ?: return
+        val literalInstruction = flow.fallthroughPredecessor(index)?.let(flow::instructionAt) ?: return
         if (literalInstruction.opcode != Opcode.CONST_STRING ||
             (literalInstruction as OneRegisterInstruction).registerA != argument) return
-        val literal = ((literalInstruction as ReferenceInstruction).reference as? StringReference)?.string ?: return
+        val literal = ((literalInstruction as ReferenceInstruction).reference as StringReference).string
         val descriptor = method.definingClass.descriptor
         if (literal != descriptor.substring(1, descriptor.length - 1).replace('/', '.')) return
-        val next = method.nextAddress(address)
-        if (!method.hasAddress(next) || method.opcodeAt(next) != Opcode.MOVE_RESULT_OBJECT) return
-        // The executing class is already initialized. Other Class.forName calls must retain initialization.
-        val destination = (method.instructionAt(next) as OneRegisterInstruction).registerA
+        val result = moveResultAfter(method, address) ?: return
         val replacement = InstructionTemplate.Encoded(
-            ImmutableInstruction21c(Opcode.CONST_CLASS, destination, ImmutableTypeReference(descriptor)),
+            ImmutableInstruction21c(Opcode.CONST_CLASS, result.destination, ImmutableTypeReference(descriptor)),
             DexReferenceOperand.Staged(input.transaction.stageType(descriptor)))
         input.transaction.replaceInstruction(address, listOf(replacement))
-        input.transaction.removeInstruction(next)
+        input.transaction.removeInstruction(result.address)
         input.recordOptimization(PEEPHOLE_OPTIMIZATIONS)
-    }
-
-    private fun onlyPrecedingParent(method: MethodView, address: Int): Int? {
-        val index = method.instructionIndexAtCodeAddress(address) ?: return null
-        if (index == 0) return null
-        val preceding = method.codeAddressAtInstructionIndex(index - 1)
-        if (!method.canContinue(preceding) || method.nextAddress(preceding) != address) return null
-        for (candidate in method.instructionAddresses) {
-            val instruction = method.instructionAt(candidate)
-            if (instruction is OffsetInstruction) {
-                if (candidate != preceding && candidate + instruction.codeOffset == address) return null
-                if (instruction.opcode == Opcode.PACKED_SWITCH || instruction.opcode == Opcode.SPARSE_SWITCH) {
-                    val payloadAddress = candidate + instruction.codeOffset
-                    if (method.isPayload(payloadAddress)) {
-                        val payload = method.payloadAt(payloadAddress) as? SwitchPayload
-                        if (payload?.switchElements?.any { candidate + it.offset == address } == true) return null
-                    }
-                }
-            }
-        }
-        if (method.tryBlocks.any { block -> block.catchAllAddress == address ||
-                block.catches.any { it.handlerAddress == address } }) return null
-        return preceding
     }
 
     companion object {

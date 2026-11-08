@@ -3,19 +3,18 @@ package org.cf.sdbg
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import org.cf.smalivm.core.ClassIndex
-import org.cf.smalivm.core.Debugger
 import org.cf.smalivm.core.MethodLookup
-import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
 import org.slf4j.LoggerFactory
 import picocli.CommandLine
 import java.io.File
 import java.util.concurrent.Callable
 
-@CommandLine.Command(mixinStandardHelpOptions = true, version = [Main.version],
+@CommandLine.Command(mixinStandardHelpOptions = true, versionProvider = ManifestVersion::class,
         description = ["Smali DeBuGger (SDBG)"])
 internal class Initialize : Callable<Int> {
-    var started: Boolean = false
+    /** The session this invocation started; null after `--help` or `--version`, which start none. */
+    var debugSession: DebugSession? = null
         private set
 
     @CommandLine.Parameters(index = "0", paramLabel = "input-path", arity = "1",
@@ -41,19 +40,18 @@ internal class Initialize : Callable<Int> {
 
     override fun call(): Int {
         setLogLevel(verbosity.size)
+        val method = SmaliReference.parse(methodSignature)
+        require(method is SmaliReference.Method && method.owner != null) {
+            "Expected a method signature Lpkg/Name;->name(params)return: $methodSignature"
+        }
         println("Starting debugger for $methodSignature from $inputFile")
         val services = VmServices(ClassIndex.open(inputFile))
-        val lookup = services.classIndex.lookupMethod(
-            VirtualType.of(methodSignature.substringBefore("->")), methodSignature.substringAfter("->"))
+        val lookup = services.classIndex.lookupMethod(method.owner, method.descriptor)
         val view = requireNotNull((lookup as? MethodLookup.Runnable)?.view) {
             "No concrete method: $methodSignature"
         }
         require(view.instructionCount > 0) { "Method has no executable instructions: $methodSignature" }
-        Main.services = services
-        Main.session = services.newSession(view)
-        Main.debugger = Debugger(Main.session)
-        Main.listing = SmaliListing(services)
-        started = true
+        debugSession = DebugSession(services, view)
         return 0
     }
 }

@@ -1,17 +1,14 @@
 package org.cf.simplify.strategy
 
 import org.cf.simplify.ConstantBuilder
-import org.cf.smalivm.core.MethodView
+import org.cf.smalivm.core.MethodControlFlow
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
-import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 
 /** Replaces only normally completed, effect-free assignments with proven literals. */
@@ -19,20 +16,17 @@ class ConstantPropagationStrategy : OptimizationStrategy {
     override val optimizationCategories: Set<String> = setOf(CONSTANTIZED_OPS)
 
     override fun perform(input: StrategyInput) {
-        val method = input.graph.methodView
-        val addresses = method.instructionAddresses
-        var linearEntries: BooleanArray? = null
+        val method = input.method
         var previous: Instruction? = null
-        for (index in addresses.indices) {
-            val address = addresses[index]
+        for (address in method.instructionAddresses) {
             val instruction = method.instructionAt(address)
             val classForNameResult = instruction.opcode == Opcode.MOVE_RESULT_OBJECT &&
-                previous?.let(::isOneArgumentClassForName) == true
+                previous?.let(::isClassForName) == true
             previous = instruction
-            if (!input.structureGraph.wasReached(address) || instruction.opcode !in ELIGIBLE_OPCODES ||
+            if (input.graph.isDead(address) || instruction.opcode !in ELIGIBLE_OPCODES ||
                 instruction !is OneRegisterInstruction || classForNameResult ||
                 !input.graph.didEveryExecutionContinueNormally(address) ||
-                input.structureGraph.sideEffectLevel(address) != SideEffectLevel.NONE) continue
+                input.graph.sideEffectLevel(address) != SideEffectLevel.NONE) continue
             val destination = instruction.registerA
             val value = input.graph.consensus(address, destination) as? Value.Known ?: continue
             val raw = value.raw
@@ -40,8 +34,9 @@ class ConstantPropagationStrategy : OptimizationStrategy {
                 // String consensus joins equal contents, not canonical identity. Prove the
                 // register's definition instead of inspecting the representative raw object.
                 if (instruction.opcode !in OBJECT_MOVES || instruction !is TwoRegisterInstruction) continue
-                val entries = linearEntries ?: buildLinearEntries(method, addresses).also { linearEntries = it }
-                if (!hasLiteralOrigin(method, addresses, entries, index, instruction.registerB, raw)) continue
+                val flow = input.controlFlow ?: continue
+                val index = flow.indexOf(address) ?: continue
+                if (!hasLiteralOrigin(flow, index, instruction.registerB, raw)) continue
                 ConstantBuilder.buildStringLiteral(raw, destination, input.transaction)
             } else ConstantBuilder.build(value, destination, input.transaction)
             if (replacement == null) continue
@@ -51,63 +46,22 @@ class ConstantPropagationStrategy : OptimizationStrategy {
     }
 
     /**
-     * Only physical fallthrough is admitted. Branch targets, handler entries and successors of
-     * control transfers cannot be crossed, even if a particular execution visited only one arm.
+     * Whether [sourceRegister], read at [useIndex], holds the `const-string` [value] on every path. The walk only
+     * crosses instructions whose fall-through is the sole way into the next one, so no other definition can merge in.
      */
-    private fun buildLinearEntries(method: MethodView, addresses: IntArray): BooleanArray {
-        val entries = BooleanArray(addresses.size) { index ->
-            if (index == 0) false else {
-                val previous = method.instructionAt(addresses[index - 1])
-                previous.opcode.canContinue() && previous !is OffsetInstruction &&
-                    method.nextAddress(addresses[index - 1]) == addresses[index]
-            }
-        }
-        fun block(address: Int) {
-            val index = addresses.binarySearch(address)
-            if (index >= 0) entries[index] = false
-        }
-        for (address in addresses) {
-            val instruction = method.instructionAt(address)
-            if (instruction !is OffsetInstruction || instruction.opcode == Opcode.FILL_ARRAY_DATA) continue
-            if (instruction.opcode == Opcode.PACKED_SWITCH || instruction.opcode == Opcode.SPARSE_SWITCH) {
-                val payloadAddress = address + instruction.codeOffset
-                if (!method.isPayload(payloadAddress)) return BooleanArray(addresses.size)
-                val payload = method.payloadAt(payloadAddress) as? SwitchPayload ?: return BooleanArray(addresses.size)
-                for (element in payload.switchElements) block(address + element.offset)
-            } else block(address + instruction.codeOffset)
-        }
-        for (tryBlock in method.tryBlocks) {
-            for (handler in tryBlock.catches) block(handler.handlerAddress)
-            tryBlock.catchAllAddress?.let(::block)
-        }
-        return entries
-    }
-
-    private fun hasLiteralOrigin(
-        method: MethodView,
-        addresses: IntArray,
-        linearEntries: BooleanArray,
-        useIndex: Int,
-        sourceRegister: Int,
-        value: String,
-    ): Boolean {
+    private fun hasLiteralOrigin(flow: MethodControlFlow, useIndex: Int, sourceRegister: Int, value: String): Boolean {
         var index = useIndex
         var register = sourceRegister
-        while (index > 0 && linearEntries[index]) {
-            val instruction = method.instructionAt(addresses[--index])
-            if (!instruction.opcode.setsRegister()) continue
-            if (instruction !is OneRegisterInstruction) return false
-            if (instruction.registerA != register) {
-                if (instruction.opcode.setsWideRegister() && instruction.registerA + 1 == register) return false
-                continue
-            }
+        while (true) {
+            index = flow.fallthroughPredecessor(index) ?: return false
+            if (register !in flow.registersWritten(index)) continue
+            val instruction = flow.instructionAt(index)
             if (instruction.opcode == Opcode.CONST_STRING || instruction.opcode == Opcode.CONST_STRING_JUMBO) {
                 return ((instruction as ReferenceInstruction).reference as StringReference).string == value
             }
             if (instruction.opcode !in OBJECT_MOVES || instruction !is TwoRegisterInstruction) return false
             register = instruction.registerB
         }
-        return false
     }
 
     companion object {
@@ -155,12 +109,4 @@ class ConstantPropagationStrategy : OptimizationStrategy {
             Opcode.SGET_BOOLEAN, Opcode.SGET_BYTE, Opcode.SGET_CHAR, Opcode.SGET_SHORT
         )
     }
-}
-
-/** Class.forName(String) includes initialization; neither its call nor its result is elided. */
-internal fun isOneArgumentClassForName(instruction: Instruction): Boolean {
-    val method = (instruction as? ReferenceInstruction)?.reference as? MethodReference ?: return false
-    return method.definingClass == "Ljava/lang/Class;" && method.name == "forName" &&
-        method.parameterTypes.size == 1 && method.parameterTypes[0].toString() == "Ljava/lang/String;" &&
-        method.returnType == "Ljava/lang/Class;"
 }

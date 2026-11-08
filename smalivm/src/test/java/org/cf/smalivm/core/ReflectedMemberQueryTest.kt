@@ -2,19 +2,22 @@ package org.cf.smalivm.core
 
 import java.lang.reflect.Modifier
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class ReflectedMemberQueryTest {
     private val classIndex = CoreTester.classIndex
+    private val STRING_LENGTH = ImmutableMethodReference("Ljava/lang/String;", "length", emptyList<String>(), "I")
 
     @Test
     fun reportsHeapBackedMethodByFullDescriptorAndModifiers() {
         val graph = graphOf("getStringLengthMethod()Ljava/lang/reflect/Method;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
         val expected = ReflectedMethodMetadata(
-            "Ljava/lang/String;->length()I",
+            STRING_LENGTH,
             String::class.java.getDeclaredMethod("length").modifiers,
             String::class.java.modifiers,
         )
@@ -28,7 +31,7 @@ class ReflectedMemberQueryTest {
         val graph = graphOf("getPublicInstanceField()Ljava/lang/reflect/Field;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
         val expected = ReflectedFieldMetadata(
-            "Lorg/cf/smalivm/DummyClass;->publicInstanceField:I",
+            ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "publicInstanceField", "I"),
             Modifier.PUBLIC or Modifier.FINAL,
         )
 
@@ -48,7 +51,7 @@ class ReflectedMemberQueryTest {
         assertEquals(Opcode.CONST_4, graph.methodView.opcodeAt(parents.single()))
         assertEquals(
             ReflectedMethodMetadata(
-                "Ljava/lang/String;->length()I",
+                STRING_LENGTH,
                 String::class.java.getDeclaredMethod("length").modifiers,
                 String::class.java.modifiers,
             ),
@@ -125,7 +128,7 @@ class ReflectedMemberQueryTest {
         assertEquals(
             "Lorg/cf/smalivm/core/ReflectedMethodDescriptorFixture;->" +
                 "allTypes(ZBCSIJFDLjava/lang/Object;[I[[Ljava/lang/String;)V",
-            method.toReflectedMethodMetadataOrNull()?.descriptor,
+            method.toReflectedMethodMetadataOrNull()?.method?.toString(),
         )
     }
 
@@ -216,7 +219,7 @@ class ReflectedMemberQueryTest {
         val leaf = execute(RECURSIVE_LOOKUP, 0 to int(0))
         assertEquals(
             ReflectedMethodMetadata(
-                "Ljava/lang/String;->isEmpty()Z",
+                ImmutableMethodReference("Ljava/lang/String;", "isEmpty", emptyList<String>(), "Z"),
                 String::class.java.getDeclaredMethod("isEmpty").modifiers,
                 String::class.java.modifiers,
             ),
@@ -225,7 +228,7 @@ class ReflectedMemberQueryTest {
         )
         assertEquals(
             ReflectedFieldMetadata(
-                "Lorg/cf/smalivm/DummyClass;->protectedInstanceField:I",
+                ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "protectedInstanceField", "I"),
                 Modifier.PROTECTED or Modifier.FINAL,
             ),
             leaf.reflectedFieldOverExploredPaths(fieldMoveResult, 3),
@@ -262,12 +265,12 @@ class ReflectedMemberQueryTest {
         const val RECURSIVE_LOOKUP = "recursiveLookup(I)V"
 
         val LENGTH = ReflectedMethodMetadata(
-            "Ljava/lang/String;->length()I",
+            ImmutableMethodReference("Ljava/lang/String;", "length", emptyList<String>(), "I"),
             String::class.java.getDeclaredMethod("length").modifiers,
             String::class.java.modifiers,
         )
         val PUBLIC_FIELD = ReflectedFieldMetadata(
-            "Lorg/cf/smalivm/DummyClass;->publicInstanceField:I",
+            ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "publicInstanceField", "I"),
             Modifier.PUBLIC or Modifier.FINAL,
         )
     }

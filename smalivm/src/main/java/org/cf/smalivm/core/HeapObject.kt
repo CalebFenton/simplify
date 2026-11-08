@@ -1,6 +1,7 @@
 package org.cf.smalivm.core
 
 import java.lang.reflect.Method
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.toPersistentList
@@ -214,19 +215,15 @@ sealed class HeapObject(val type: VirtualType) {
 }
 
 internal fun Method.toReflectedMethodMetadataOrNull(): ReflectedMethodMetadata? = try {
-    ReflectedMethodMetadata(fullDescriptor(), modifiers, declaringClass.modifiers)
+    val method = ImmutableMethodReference(
+        virtualTypeOfHostClass(declaringClass).descriptor,
+        name,
+        parameterTypes.map { virtualTypeOfHostClass(it).descriptor },
+        virtualTypeOfHostClass(returnType).descriptor,
+    )
+    ReflectedMethodMetadata(method, modifiers, declaringClass.modifiers)
 } catch (fatal: VirtualMachineError) {
     throw fatal
 } catch (_: Throwable) {
     null
-}
-
-private fun Method.fullDescriptor(): String = buildString {
-    append(virtualTypeOfHostClass(declaringClass).descriptor)
-    append("->")
-    append(name)
-    append('(')
-    parameterTypes.forEach { append(virtualTypeOfHostClass(it).descriptor) }
-    append(')')
-    append(virtualTypeOfHostClass(returnType).descriptor)
 }

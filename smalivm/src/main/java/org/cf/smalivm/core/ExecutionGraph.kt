@@ -1,5 +1,6 @@
 package org.cf.smalivm.core
 
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
@@ -205,20 +206,23 @@ class ExecutionGraph internal constructor(
     }
 
     override fun reflectedFieldOverExploredPaths(address: Int, register: Int): ReflectedFieldMetadata? =
-        unanimousValue(1, { address }) { reflectedFieldIn(it, register) }
-            ?.let { ReflectedFieldMetadata(it.descriptor, it.modifiers) }
+        unanimousValue(1, { address }) { reflectedFieldIn(it, register) }?.toReflectedFieldMetadata()
 
     override fun reflectedFieldOverExploredPaths(
         addresses: IntArray,
         register: Int,
     ): ReflectedFieldMetadata? =
-        unanimousValue(addresses.size, { addresses[it] }) { reflectedFieldIn(it, register) }
-            ?.let { ReflectedFieldMetadata(it.descriptor, it.modifiers) }
+        unanimousValue(addresses.size, { addresses[it] }) { reflectedFieldIn(it, register) }?.toReflectedFieldMetadata()
 
     private fun reflectedFieldIn(node: ExecutionNode, register: Int): TrackedFieldValue? {
         val ref = (valueIn(node, register) as? Value.Known)?.raw as? HeapRef ?: return null
         return node.frame.trackedFieldAt(ref)?.metadata
     }
+
+    private fun TrackedFieldValue.toReflectedFieldMetadata() = ReflectedFieldMetadata(
+        ImmutableFieldReference(declaringType.descriptor, name, fieldType.descriptor),
+        modifiers,
+    )
 
     private inline fun <T : Any> unanimousValue(
         addressCount: Int,
@@ -616,9 +620,9 @@ class ExecutionGraph internal constructor(
     override fun trusted(): TrustedGraphView? = if (completion.canTrustConsensus) trustedView else null
 
     /**
-     * Pure delegation to the `...OverExploredPaths` members, and it must stay that way: the gate
-     * decides WHO may act on an answer, never WHAT the answer is (spec §9's queries are pure reads of
-     * recorded nodes). Re-deriving anything here -- even "conservatively", e.g. collapsing to
+     * Pure delegation to the ungated members (`isDead` only combines `wasReached` and `isPayload`), and it
+     * must stay that way: the gate decides WHO may act on an answer, never WHAT the answer is (spec §9's
+     * queries are pure reads of recorded nodes). Re-deriving anything here -- even "conservatively", e.g. collapsing to
      * [Value.Top] -- would make the trusted path useless and push consumers back onto the ungated one,
      * reintroducing exactly the hole this gate closes.
      *
@@ -673,6 +677,15 @@ class ExecutionGraph internal constructor(
 
         override fun didEveryExecutionContinueNormally(address: Int): Boolean =
             didEveryExecutionContinueNormallyOverExploredPaths(address)
+
+        override fun isDead(address: Int): Boolean =
+            methodView.hasAddress(address) && !isPayload(address) && !wasReached(address)
+
+        override fun parentAddresses(address: Int): IntArray = this@ExecutionGraph.parentAddresses(address)
+
+        override fun children(address: Int): IntArray = this@ExecutionGraph.children(address)
+
+        override fun sideEffectLevel(address: Int): SideEffectLevel = this@ExecutionGraph.sideEffectLevel(address)
 
         override fun terminatingHeapObject(ref: HeapRef): HeapObject? =
             terminatingHeapObjectOverExploredPaths(ref)
