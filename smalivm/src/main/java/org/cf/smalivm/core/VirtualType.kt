@@ -34,8 +34,8 @@ class VirtualType private constructor(val descriptor: String) {
         val OBJECT: VirtualType = VirtualType("Ljava/lang/Object;")
 
         /**
-         * Parses and validates [descriptor]; throws [IllegalArgumentException] if malformed or deeper than
-         * [MAX_ARRAY_DIMENSIONS].
+         * Parses and validates [descriptor] against the dex format's TypeDescriptor grammar; throws
+         * [IllegalArgumentException] if malformed or deeper than [MAX_ARRAY_DIMENSIONS].
          */
         fun of(descriptor: String): VirtualType {
             require(isValid(descriptor)) { "Malformed type descriptor: '$descriptor'" }
@@ -51,10 +51,37 @@ class VirtualType private constructor(val descriptor: String) {
             return when (rest[0]) {
                 'V' -> rest == "V" && i == 0 // void is never an array component
                 in PRIMITIVE_CODES -> rest.length == 1
-                'L' -> rest.length > 2 && rest.endsWith(";") &&
-                    rest.substring(1, rest.length - 1).none { it == ';' || it == '.' } // dex: never '.'
+                'L' -> rest.length > 2 && rest.endsWith(";") && isFullClassName(rest, 1, rest.length - 1)
                 else -> false
             }
+        }
+
+        /** Dex format FullClassName: one or more non-empty SimpleNames separated by `/`. */
+        private fun isFullClassName(text: String, start: Int, end: Int): Boolean {
+            var segmentIsEmpty = true
+            var i = start
+            while (i < end) {
+                val codePoint = text.codePointAt(i)
+                when {
+                    codePoint == '/'.code -> if (segmentIsEmpty) return false else segmentIsEmpty = true
+                    isSimpleNameChar(codePoint) -> segmentIsEmpty = false
+                    else -> return false
+                }
+                i += Character.charCount(codePoint)
+            }
+            return !segmentIsEmpty
+        }
+
+        /**
+         * Dex format SimpleNameChar, admitting the DEX 040 additions (space, U+00A0, U+2000..U+200A, U+202F)
+         * whatever the input's version. A lone surrogate is in none of the ranges.
+         */
+        private fun isSimpleNameChar(codePoint: Int): Boolean = when (codePoint) {
+            in 'A'.code..'Z'.code, in 'a'.code..'z'.code, in '0'.code..'9'.code -> true
+            ' '.code, '$'.code, '-'.code, '_'.code -> true
+            in 0x00a0..0x1fff, in 0x2000..0x200a, in 0x2010..0x2027, 0x202f, in 0x2030..0xd7ff -> true
+            in 0xe000..0xffef, in 0x10000..0x10ffff -> true
+            else -> false
         }
     }
 }
