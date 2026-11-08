@@ -248,7 +248,7 @@ class ClassInitFailureBehaviorTest {
             ),
         )
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = vm.newSession(view("hostOnlyError()I")).run()
         val clauses = graph.methodView.tryBlocks.flatMap(TryBlock::catches)
         val wrapperHandler = clauses.single {
@@ -302,7 +302,7 @@ class ClassInitFailureBehaviorTest {
     }
 
     private fun transformFailureSession(failure: Throwable): ExecutionSession {
-        val delegate = CoreTester.classIndex.throwableHierarchy
+        val delegate = CoreTester.classIndex.currentSnapshot.hierarchy
         var wrapperValidations = 0
         val hierarchy = object : ThrowableHierarchy {
             override fun facts(type: VirtualType): ThrowableTypeFacts = delegate.facts(type)

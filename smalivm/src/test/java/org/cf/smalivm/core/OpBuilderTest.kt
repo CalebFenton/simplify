@@ -734,11 +734,11 @@ class OpBuilderTest {
     fun aConstClassOnAModelledButHostUnloadableClassIsUnsupportedRatherThanAResolutionFailure() {
         val hostUnloadable = "Ljava/lang/DexCache;"
         assertTrue(
-            classIndex.isLoadable(VirtualType.of(hostUnloadable)),
+            classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of(hostUnloadable)),
             "the first half: $hostUnloadable IS in the bundled class model, so it is NOT absent",
         )
         assertNull(
-            classIndex.loadClassConstant(hostUnloadable),
+            classIndex.currentResolver().loadClassConstant(hostUnloadable),
             "the second half: the host loader still cannot produce a Class for it (java.* is refused, and " +
                 "the JVM parent has no Android-only java.* class)",
         )

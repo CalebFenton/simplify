@@ -20,10 +20,17 @@ class TypeJoinTest {
     private fun t(d: String) = VirtualType.of(d)
 
     /** The real hierarchy, shared with every other core test. */
-    private val hierarchy: Superclasses = CoreTester.classIndex
+    private val hierarchy: TypeHierarchy = CoreTester.classIndex
 
-    /** No hierarchy at all: the pre-Task-7 rule, kept reachable because it is the sound fallback. */
-    private val noHierarchy = Superclasses { null }
+    /** No hierarchy at all: every chain is the type alone, the sound fallback. */
+    private val noHierarchy = superclasses { null }
+
+    /** A hierarchy that answers only [TypeHierarchy.superclassOf], the one question [joinTypes] asks. */
+    private fun superclasses(of: (VirtualType) -> VirtualType?) = object : TypeHierarchy {
+        override fun superclassOf(type: VirtualType): VirtualType? = of(type)
+        override fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean = error("joinTypes asks only for superclasses")
+        override fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean = error("joinTypes asks only for superclasses")
+    }
 
     /**
      * Whether both types are subtypes of [ancestor], asked through the subtype test rather than [joinTypes].
@@ -276,8 +283,8 @@ class TypeJoinTest {
         // pre-hierarchy answer (`Object` for two references) is still a true upper bound, so degrading
         // loses precision and nothing else. Propagating instead would turn an obfuscated APK's missing
         // superclass into a host exception out of every consensus query in the engine.
-        val raises = Superclasses { type ->
-            throw ClassLoadFailure("no class behind ${type.descriptor}", RuntimeException("absent"))
+        val raises = superclasses { type ->
+            throw ClassLoadFailure("no class behind ${type.descriptor}")
         }
         assertEquals(
             JoinedType.Joined(VirtualType.OBJECT),
@@ -299,11 +306,11 @@ class TypeJoinTest {
         // `Object`. Sound in the same direction as everything else here -- a missing ancestor can only
         // remove candidates from the common set, i.e. push the answer UP -- and it is what makes the
         // degradation a precision loss proportional to how much of the hierarchy is absent.
-        val truncating = Superclasses { type ->
+        val truncating = superclasses { type ->
             when (type.descriptor) {
                 "Lchild_class;" -> t("Lparent_class;")
-                "Lparent_class;" -> throw ClassLoadFailure("absent superclass", RuntimeException("absent"))
-                else -> throw ClassLoadFailure("absent", RuntimeException("absent"))
+                "Lparent_class;" -> throw ClassLoadFailure("absent superclass")
+                else -> throw ClassLoadFailure("absent")
             }
         }
         assertEquals(
@@ -332,7 +339,7 @@ class TypeJoinTest {
         // precisely the nondeterminism the superclass chain was chosen to remove, arriving through hostile
         // input instead of through a `HashSet`. This test failed with `Lchild_class;` before the refusal
         // landed, which is what "measured, not theorised" means here.
-        val cyclic = Superclasses { type ->
+        val cyclic = superclasses { type ->
             when (type.descriptor) {
                 "Lchild_class;" -> t("Lparent_class;")
                 "Lparent_class;" -> t("Lchild_class;")
@@ -350,7 +357,7 @@ class TypeJoinTest {
             joinTypes(t("Lchild_class;"), t("Ljava/lang/String;"), cyclic),
         )
         // A cycle further UP one chain is refused the same way, so the guard is not keyed on the operands.
-        val deepCycle = Superclasses { type ->
+        val deepCycle = superclasses { type ->
             when (type.descriptor) {
                 "Lchild_class;" -> t("Lparent_class;")
                 "Lparent_class;" -> t("Lgrandparent_class;")
@@ -369,7 +376,7 @@ class TypeJoinTest {
         // A malformed class def whose superclass descriptor is a primitive would otherwise let the join
         // answer a PRIMITIVE for two reference operands -- a narrower answer than any true upper bound,
         // i.e. the unsound direction, from input this tool is built to accept. The chain stops there.
-        val primitiveSuperclass = Superclasses { type ->
+        val primitiveSuperclass = superclasses { type ->
             if (type.isReference && !type.isArray) t("I") else null
         }
         assertEquals(

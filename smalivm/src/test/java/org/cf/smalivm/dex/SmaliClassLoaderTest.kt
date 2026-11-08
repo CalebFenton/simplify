@@ -2,6 +2,7 @@ package org.cf.smalivm.dex
 
 import android.util.Base64
 import org.cf.smalivm.core.ClassIndex
+import org.cf.smalivm.core.currentResolver
 import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -231,7 +232,7 @@ class SmaliClassLoaderTest {
             ".class public Lhostile/Outer\$Inner;\n.super Ljava/lang/Object;",
         )
 
-        assertEquals("hostile.Outer", index.loadClassConstant("Lhostile/Outer;")?.name)
+        assertEquals("hostile.Outer", index.currentResolver().loadClassConstant("Lhostile/Outer;")?.name)
     }
 
     @Test
@@ -260,8 +261,8 @@ class SmaliClassLoaderTest {
             """,
         )
 
-        assertEquals("hostile.Malformed", index.loadClassConstant("Lhostile/Malformed;")?.name)
-        assertEquals("hostile.MalformedMembers", index.loadClassConstant("Lhostile/MalformedMembers;")?.name)
+        assertEquals("hostile.Malformed", index.currentResolver().loadClassConstant("Lhostile/Malformed;")?.name)
+        assertEquals("hostile.MalformedMembers", index.currentResolver().loadClassConstant("Lhostile/MalformedMembers;")?.name)
     }
 
     @Test
@@ -269,7 +270,7 @@ class SmaliClassLoaderTest {
         val index = indexOf(temp, enumSource("Lhostile/Big;", 200))
 
         @Suppress("UNCHECKED_CAST")
-        val klazz = requireNotNull(index.loadClassConstant("Lhostile/Big;")) as Class<out Enum<*>>
+        val klazz = requireNotNull(index.currentResolver().loadClassConstant("Lhostile/Big;")) as Class<out Enum<*>>
 
         // Constant names are zero-padded so declaration order and name order agree.
         assertEquals(150, java.lang.Enum.valueOf(klazz, "C150").ordinal)
@@ -282,8 +283,8 @@ class SmaliClassLoaderTest {
         // Each constant costs the generated <clinit> sixteen bytes, so 5000 exceed the JVM's 64 KiB method limit.
         val index = indexOf(temp, enumSource("Lhostile/Huge;", 5000))
 
-        assertNull(index.loadClassConstant("Lhostile/Huge;"))
-        assertTrue(index.isLoadable(VirtualType.of("Lhostile/Huge;")))
+        assertNull(index.currentResolver().loadClassConstant("Lhostile/Huge;"))
+        assertTrue(index.currentSnapshot.hierarchy.isLoadable(VirtualType.of("Lhostile/Huge;")))
     }
 
     private fun indexOf(directory: Path, vararg sources: String): ClassIndex {

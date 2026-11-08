@@ -135,7 +135,7 @@ class HandlerResolutionTest {
 
     @Test
     fun `a class model failure becomes a host failure result carrying it`() {
-        val failure = ClassLoadFailure("unreadable ancestry", IllegalStateException("model"))
+        val failure = ClassLoadFailure("unreadable ancestry")
         val failing = object : ThrowableHierarchy by hierarchy {
             override fun facts(type: VirtualType): ThrowableTypeFacts =
                 if (type == runtime) throw failure else hierarchy.facts(type)
@@ -223,7 +223,7 @@ class HandlerResolutionTest {
         val frame = Frame.entryFrame(method)
         val allocated = frame.allocateThrowable(npe, NullPointerException("runtime witness"))
         val loose = Value.Known(allocated.raw, throwable)
-        val subject = ThrownSubject.fromHeap(loose, frame, CoreTester.classIndex.throwableHierarchy)
+        val subject = ThrownSubject.fromHeap(loose, frame, CoreTester.classIndex.currentSnapshot.hierarchy)
 
         val resolution = resolve(
             subject,
@@ -270,7 +270,7 @@ class HandlerResolutionTest {
 
     @Test
     fun `ClassIndex builds superclass facts and caches an absent descriptor`() {
-        val realHierarchy = CoreTester.classIndex.throwableHierarchy
+        val realHierarchy = CoreTester.classIndex.currentSnapshot.hierarchy
         val npeFacts = realHierarchy.facts(npe)
         val missingType = type("Lmissing/HierarchyFact;")
         val firstMissing = realHierarchy.facts(missingType)

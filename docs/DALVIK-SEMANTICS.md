@@ -3045,7 +3045,7 @@ or one this analysis never saw, makes the dispatched body the wrong one.
 > recorded). Known-incomplete means at least: a `DexClassLoader`/`PathClassLoader` construction reachable in
 > the analyzed set; a reflective-load site (`Class.forName`, `ClassLoader.loadClass`); a **missing referenced
 > class on the dispatch path** — the adjudication-7 shape, which is the cheapest of the four to detect
-> because `ClassIndex.isLoadable` already answers it; or multidex (spec §3 non-goal) leaving dexes unloaded.
+> because `HierarchySnapshot.isLoadable` already answers it; or multidex (spec §3 non-goal) leaving dexes unloaded.
 
 **Plan 9 does not implement the detection** — it has no reflection surface and multidex is a non-goal. It
 records the rule, so that the case-2 arm is written with the degradation hook rather than retrofitted, and so

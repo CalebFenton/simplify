@@ -1213,7 +1213,7 @@ class DirectHostObjectTest {
             "identityObject",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
         )
-        val opFactory: (Int, MethodView, ClassIndex) -> Op = { address, _, _ ->
+        val opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = { address, _, _ ->
             when (address) {
                 0 -> object : Op(address) {
                     override val name = "invoke-host"
@@ -1832,7 +1832,7 @@ class DirectHostObjectTest {
             objectArrayType,
             arrayOf(Value.Known("first", objectType), Value.Known("second", objectType)),
         ).raw as HeapRef
-        val opFactory: (Int, MethodView, ClassIndex) -> Op = { address, method, index ->
+        val opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = { address, method, index ->
             if (address == 0) object : Op(address) {
                 override val name = "seed-array"
                 override fun execute(frame: Frame): OpExecution = OpExecution.single(
@@ -2077,7 +2077,6 @@ class DirectHostObjectTest {
             2,
             true,
             CoreTester.classIndex,
-            CoreTester.classIndex,
         )
 
         val arm = op.execute(frame).arms.single() as OpArm.Continue
@@ -2104,7 +2103,6 @@ class DirectHostObjectTest {
             1,
             2,
             true,
-            CoreTester.classIndex,
             CoreTester.classIndex,
         )
 
@@ -2209,7 +2207,7 @@ class DirectHostObjectTest {
         vm: VmServices,
         frame: Frame,
         backends: List<Backend>,
-        opFactory: (Int, MethodView, ClassIndex) -> Op = OpBuilder::build,
+        opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = OpBuilder::build,
     ): ExecutionSession = ExecutionSession.of(
         view,
         vm,
@@ -2219,7 +2217,7 @@ class DirectHostObjectTest {
         invokerOf(CoreTester.classIndex, backends),
     )
 
-    private fun identityObjectOpFactory(): (Int, MethodView, ClassIndex) -> Op = { address, method, index ->
+    private fun identityObjectOpFactory(): (Int, MethodView, ProgramSnapshotResolver) -> Op = { address, method, index ->
         if (address == 0) {
             object : Op(address) {
                 override val name = "invoke-identity-object"

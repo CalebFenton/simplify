@@ -778,7 +778,7 @@ class ReflectBackendTest {
             values.forEachIndexed(seeded::assign)
         }
         val resume = entry.nextAddress(0)
-        val opFactory: (Int, MethodView, ClassIndex) -> Op = { address, view, index ->
+        val opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = { address, view, index ->
             when {
                 view.signature != entry.signature -> OpBuilder.build(address, view, index)
                 address == 0 -> invokeOp(address, target, registers, kind)
@@ -793,7 +793,7 @@ class ReflectBackendTest {
         }
     }
 
-    private fun realOrInjected(address: Int, view: MethodView, index: ClassIndex): Op =
+    private fun realOrInjected(address: Int, view: MethodView, index: ProgramSnapshotResolver): Op =
         if (view.signature == "Lcalls/caller;->callsThrowingCalleeWithCatch()I" && address == 0) {
             invokeOp(
                 address,

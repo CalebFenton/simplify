@@ -70,7 +70,7 @@ class FrameTest {
             value,
             ThrowableDomain.constrainedTo(
                 VirtualType.of("Ljava/lang/Exception;"),
-                classIndex.throwableHierarchy,
+                classIndex.currentSnapshot.hierarchy,
             ),
         )
 

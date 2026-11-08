@@ -244,8 +244,8 @@ class InvocationClassInitTest {
         assertEquals(Value.Top, frame.getStaticField(type(className), "$className->runs:I"))
     }
 
-    private fun observingOp(address: Int, view: MethodView, classIndex: ClassIndex, observe: (Frame) -> Unit): Op {
-        val delegate = OpBuilder.build(address, view, classIndex)
+    private fun observingOp(address: Int, view: MethodView, resolver: ProgramSnapshotResolver, observe: (Frame) -> Unit): Op {
+        val delegate = OpBuilder.build(address, view, resolver)
         return object : Op(address) {
             override val name = delegate.name
 

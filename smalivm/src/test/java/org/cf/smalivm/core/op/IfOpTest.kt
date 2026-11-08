@@ -1067,7 +1067,7 @@ class IfOpTest {
      * `Partial(UNSUPPORTED_OP)` shape (the honest statement while the opcode was unsupported) to the arity
      * assertion below. Identity-stability came free rather than needing an interned `VirtualType` or a
      * per-session cache: `ClassIndex.classLoader` (a `SmaliClassLoader`) caches each defined class, so both
-     * `const-class Lif_test;` resolve through `ClassIndex.loadClassConstant` to the SAME host `Class`
+     * `const-class Lif_test;` resolve through `ProgramSnapshotResolver.loadClassConstant` to the SAME host `Class`
      * object, and `Provable.sameReference` sees them equal by host `===`.
      *
      * Written as a fixture rather than inferred from `===` happening to work, because whether two

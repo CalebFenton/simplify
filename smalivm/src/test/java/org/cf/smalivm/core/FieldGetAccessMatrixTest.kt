@@ -10,10 +10,13 @@ import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import org.junit.jupiter.api.Assertions.assertFalse
 
 class FieldGetAccessMatrixTest {
     private val classIndex = CoreTester.classIndex
-    private val fieldGet = FieldGetEmulator(classIndex, ReflectionPolicy())
+    private val fieldGet = FieldGetEmulator(classIndex.currentResolver(), ReflectionPolicy())
 
     @TestFactory
     fun accessMatrix(): List<DynamicTest> = buildList {
@@ -260,7 +263,7 @@ class FieldGetAccessMatrixTest {
     @Test
     fun hostReadRechecksPolicyInsteadOfTrustingConstructedMetadata() {
         val metadata = hostMetadata(HostFieldFixture::class.java.getDeclaredField("mutable"))
-        val result = FieldGetEmulator(classIndex, ReflectionPolicy()).execute(
+        val result = FieldGetEmulator(classIndex.currentResolver(), ReflectionPolicy()).execute(
             emulatorCall(
                 receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.OVERRIDDEN),
                 argument = EmulatorValue.Known(HOST_FIXTURE, HostFieldFixture()),
@@ -272,10 +275,64 @@ class FieldGetAccessMatrixTest {
     }
 
     @Test
+    fun privateAccessDoesNotDependOnEnclosingAnnotationsAnObfuscatorCanStrip() {
+        // Bug class: deciding nestmates from EnclosingClass/EnclosingMethod roots, which an obfuscator strips.
+        // ART's Field.get grants a private member to its declaring class alone (reflection.cc VerifyAccess), so
+        // the annotated inner class and the same class with its annotations stripped are both denied.
+        for (storage in FieldStorage.entries) {
+            val field = TrackedFieldEmulatorValue(
+                virtualField(FieldVisibility.PRIVATE, storage),
+                FieldAccessibility.LANGUAGE_CHECKS,
+            )
+            for (caller in listOf(NEST, STRIPPED_NEST)) {
+                val result = fieldGet.execute(emulatorCall(field, EmulatorValue.TrackedReference(DECLARING), caller))
+                assertEquals(
+                    ILLEGAL_ACCESS,
+                    (result as? SynchronousCallResult.TargetThrew)?.throwable?.type,
+                    "caller=${caller.descriptor}, storage=$storage",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun publicFieldLookupReachingAnInterfaceTheProgramLacksAnswersUnknown(@TempDir root: Path) {
+        // Bug class: a member walk that reads an absent interface as "declares nothing" reports a definite
+        // NoSuchFieldException, and one that lets the absence escape aborts the path as a host failure. The host
+        // JVM defines the class because it has javax.management; the program lacks it, so the field may exist.
+        val index = task53ClassIndex(
+            root,
+            """
+            .class public abstract Lhost_only/Implementor;
+            .super Ljava/lang/Object;
+            .implements Ljavax/management/DynamicMBean;
+            """,
+        )
+        val resolver = index.currentResolver()
+        assertFalse(resolver.hierarchy.contains("Ljavax/management/DynamicMBean;"), "the program must lack it")
+        val token = requireNotNull(resolver.loadClassConstant("Lhost_only/Implementor;"))
+
+        val result = FieldLookupEmulator(resolver, ReflectionPolicy()).execute(
+            EmulatorInvocation(
+                CLASS_GET_FIELD,
+                UNRELATED,
+                InvokeKind.VIRTUAL,
+                FIELD,
+                listOf(STRING),
+                EmulatorValue.Known(CLASS, token),
+                listOf(EmulatorValue.Known(STRING, "ABSENT_OR_INHERITED")),
+                initializedSnapshot(),
+            ),
+        )
+
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(FIELD)), result)
+    }
+
+    @Test
     fun hostLookupRetainsTheOriginalDeclaringClassToken() {
         val hostType = virtualTypeOfHostClass(HostFieldFixture::class.java)
         val policy = ReflectionPolicy(safeClasses = setOf(hostType))
-        val lookup = FieldLookupEmulator(classIndex, policy)
+        val lookup = FieldLookupEmulator(classIndex.currentResolver(), policy)
         val result = lookup.execute(
             EmulatorInvocation(
                 MethodDescriptor(CLASS, "getDeclaredField", "(Ljava/lang/String;)Ljava/lang/reflect/Field;"),
@@ -298,7 +355,7 @@ class FieldGetAccessMatrixTest {
         val reflected = FieldHostFixture::class.java.getDeclaredField("packageValue")
         val metadata = hostMetadata(reflected)
         val policy = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
-        val result = FieldGetEmulator(classIndex, policy).execute(
+        val result = FieldGetEmulator(classIndex.currentResolver(), policy).execute(
             emulatorCall(
                 receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.LANGUAGE_CHECKS),
                 argument = EmulatorValue.Known(HOST_PACKAGE_FIXTURE, FieldHostFixture()),
@@ -338,7 +395,7 @@ class FieldGetAccessMatrixTest {
         )
 
         for (policy in policies) {
-            val result = FieldGetEmulator(classIndex, policy).execute(
+            val result = FieldGetEmulator(classIndex.currentResolver(), policy).execute(
                 emulatorCall(
                     receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.LANGUAGE_CHECKS),
                     argument = EmulatorValue.Unknown(OBJECT),
@@ -406,7 +463,7 @@ class FieldGetAccessMatrixTest {
         val metadata = hostMetadata(java.util.ArrayList::class.java.getDeclaredField("size"))
         val policy = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
 
-        val result = FieldGetEmulator(classIndex, policy).execute(
+        val result = FieldGetEmulator(classIndex.currentResolver(), policy).execute(
             emulatorCall(
                 receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.OVERRIDDEN),
                 argument = EmulatorValue.Known(metadata.declaringType, arrayListOf("element")),
@@ -495,7 +552,7 @@ class FieldGetAccessMatrixTest {
         if (metadata.storage == FieldStorage.INSTANCE) {
             val receiver = frame.allocateObject(
                 receiverType,
-                requireNotNull(classIndex.instanceFieldDefaults(receiverType)),
+                requireNotNull(classIndex.currentResolver().instanceFieldDefaults(receiverType)),
             )
             val receiverRef = receiver.raw as HeapRef
             assertTrue(frame.writeField(receiverRef, metadata.descriptor, Value.Known(expected, INT)))
@@ -514,7 +571,7 @@ class FieldGetAccessMatrixTest {
     private fun hostStaticGet(
         metadata: TrackedFieldValue,
         policy: ReflectionPolicy,
-    ): SynchronousCallResult = FieldGetEmulator(classIndex, policy).execute(
+    ): SynchronousCallResult = FieldGetEmulator(classIndex.currentResolver(), policy).execute(
         emulatorCall(
             receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.LANGUAGE_CHECKS),
             argument = EmulatorValue.Unknown(OBJECT),
@@ -544,7 +601,7 @@ class FieldGetAccessMatrixTest {
     }
 
     private fun lookup(type: VirtualType, name: String, target: MethodDescriptor): SynchronousCallResult {
-        val lookup = FieldLookupEmulator(classIndex, ReflectionPolicy())
+        val lookup = FieldLookupEmulator(classIndex.currentResolver(), ReflectionPolicy())
         return lookup.execute(
             EmulatorInvocation(
                 target,
@@ -552,7 +609,7 @@ class FieldGetAccessMatrixTest {
                 InvokeKind.VIRTUAL,
                 FIELD,
                 listOf(STRING),
-                EmulatorValue.Known(CLASS, classIndex.loadClassConstant(type.descriptor)),
+                EmulatorValue.Known(CLASS, classIndex.currentResolver().loadClassConstant(type.descriptor)),
                 listOf(EmulatorValue.Known(STRING, name)),
                 initializedSnapshot(),
             ),
@@ -674,6 +731,7 @@ class FieldGetAccessMatrixTest {
         val NO_SUCH_FIELD = VirtualType.of("Ljava/lang/NoSuchFieldException;")
         val DECLARING = VirtualType.of("Lorg/cf/smalivm/DummyClass;")
         val NEST = VirtualType.of("Lorg/cf/smalivm/DummyClass\$DummyInnerClass;")
+        val STRIPPED_NEST = VirtualType.of("Lorg/cf/smalivm/DummyClass\$StrippedInnerClass;")
         val SAME_PACKAGE = VirtualType.of("Lorg/cf/smalivm/SamePackageClass;")
         val CHILD = VirtualType.of("Lorg/cf/smalivm/unrelated/DummyChildClass;")
         val UNRELATED = VirtualType.of("Lorg/cf/smalivm/unrelated/UnrelatedClass;")
@@ -692,7 +750,23 @@ class FieldGetAccessMatrixTest {
 
         private val accessCases = listOf(
             ownerCase("sameDeclaringClassAllAccess", "same declaring class", "P11-FG-FWC", DECLARING),
-            ownerCase("sameNestAllAccess", "same nest", "P11-FG-FWIC", NEST),
+            case(
+                "sameNestNonPrivateAccess",
+                "a nest member shares its host's package",
+                ids("P11-FG-FWIC-001", "P11-FG-FWIC-002", "P11-FG-FWIC-003", "P11-FG-FWIC-005", "P11-FG-FWIC-006", "P11-FG-FWIC-007"),
+                NEST,
+                listOf(FieldVisibility.PUBLIC, FieldVisibility.PROTECTED, FieldVisibility.PACKAGE).flatMap(::instance) +
+                    listOf(FieldVisibility.PUBLIC, FieldVisibility.PROTECTED, FieldVisibility.PACKAGE).flatMap(::static),
+                ExpectedAccess.ALLOWED,
+            ),
+            case(
+                "sameNestPrivateDenied",
+                "ART reflection.cc VerifyAccess grants a private member to its declaring class alone",
+                ids("P11-FG-FWIC-004", "P11-FG-FWIC-008"),
+                NEST,
+                both(FieldVisibility.PRIVATE),
+                ExpectedAccess.DENIED,
+            ),
             case("publicUniversal", "public access is universal", ids("P11-FG-FWCCUP-001", "P11-FG-FWCCUP-007"), CHILD, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED, receiver = CHILD),
             case("protectedCrossPackageReceiver", "JLS protected cross-package receiver restriction", ids("P11-FG-FWCCUP-002"), CHILD, instance(FieldVisibility.PROTECTED), ExpectedAccess.PROTECTED_RECEIVER_RULE, receiver = CHILD),
             case("crossPackagePackageDenied", "cross-package package access is denied", ids("P11-FG-FWCCUP-003", "P11-FG-FWCCUP-009"), CHILD, both(FieldVisibility.PACKAGE), ExpectedAccess.DENIED),

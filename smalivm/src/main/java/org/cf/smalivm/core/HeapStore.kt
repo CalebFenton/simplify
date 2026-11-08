@@ -1061,7 +1061,7 @@ internal class HeapStore private constructor(
 
     companion object {
         /** Joins one outcome partition. An object absent from any path stays absent. */
-        fun merge(stores: List<HeapStore>, superclasses: Superclasses): HeapStore {
+        fun merge(stores: List<HeapStore>, superclasses: TypeHierarchy): HeapStore {
             require(stores.isNotEmpty())
             val first = stores.first()
             val sameObjectRoot = stores.all { it.objects === first.objects }
@@ -1132,7 +1132,7 @@ internal class HeapStore private constructor(
         /** The joined object, the first path's own version when every path agrees, or null to drop it. */
         private fun mergeObject(
             objects: List<HeapObject>,
-            superclasses: Superclasses,
+            superclasses: TypeHierarchy,
             sameGraph: Boolean,
         ): HeapObject? {
             val first = objects.first()

@@ -69,9 +69,9 @@ internal data class TrackedFieldValue(
 }
 
 /** Whether the VM's class loader resolves [field]'s declaring type to the exact host class the field came from. */
-internal fun hostDeclaringClassMatchesVm(field: TrackedFieldValue, classIndex: ClassIndex): Boolean {
+internal fun hostDeclaringClassMatchesVm(field: TrackedFieldValue, resolver: ProgramSnapshotResolver): Boolean {
     val domain = field.domain as? TrackedFieldDomain.Host ?: return false
     return hostBoundary({ false }) {
-        classIndex.loadClassConstant(field.declaringType.descriptor) === domain.declaringClass
+        resolver.loadClassConstant(field.declaringType.descriptor) === domain.declaringClass
     }
 }

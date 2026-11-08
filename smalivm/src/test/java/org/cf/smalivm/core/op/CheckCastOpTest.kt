@@ -80,7 +80,7 @@ class CheckCastOpTest {
             0,
             FrameValue.refined(
                 value,
-                ThrowableDomain.constrainedTo(throwable, classIndex.throwableHierarchy),
+                ThrowableDomain.constrainedTo(throwable, classIndex.currentSnapshot.hierarchy),
             ),
         )
 
@@ -107,14 +107,14 @@ class CheckCastOpTest {
         val symbolic = execute(
             FrameValue.refined(
                 Value.Unknown(exception),
-                ThrowableDomain.constrainedTo(exception, classIndex.throwableHierarchy),
+                ThrowableDomain.constrainedTo(exception, classIndex.currentSnapshot.hierarchy),
             ),
         )
         val nonCloneableFrame = Frame.entryFrame(view)
         val nonCloneable = nonCloneableFrame.allocateThrowable(npe, NullPointerException("not cloneable"))
         nonCloneableFrame.assignFrameValue(
             0,
-            FrameValue.refined(nonCloneable, ThrowableDomain.exact(npe, classIndex.throwableHierarchy)),
+            FrameValue.refined(nonCloneable, ThrowableDomain.exact(npe, classIndex.currentSnapshot.hierarchy)),
         )
         val nonCloneableGraph = ExecutionSession.of(view, classIndex, entryFrame = nonCloneableFrame).run()
         val cloneableFrame = Frame.entryFrame(view)
@@ -123,7 +123,7 @@ class CheckCastOpTest {
             0,
             FrameValue.refined(
                 cloneable,
-                ThrowableDomain.exact(cloneableException, classIndex.throwableHierarchy),
+                ThrowableDomain.exact(cloneableException, classIndex.currentSnapshot.hierarchy),
             ),
         )
         val cloneableGraph = ExecutionSession.of(view, classIndex, entryFrame = cloneableFrame).run()

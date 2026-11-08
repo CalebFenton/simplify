@@ -115,12 +115,12 @@ class InvocationIntrinsicsTest {
         val entry = callerView()
         val frame = Frame.entryFrame(entry)
         val runtimeType = VirtualType.of("Lhash_code;")
-        val receiver = frame.allocateObject(runtimeType, classIndex.instanceFieldDefaults(runtimeType)!!)
+        val receiver = frame.allocateObject(runtimeType, classIndex.currentResolver().instanceFieldDefaults(runtimeType)!!)
         frame.assign(0, Value.Known(receiver.raw, objectType))
         val session = invokeOnce(vm, OBJECT_GET_CLASS, InvokeKind.VIRTUAL, frame = frame)
 
         val graph = session.run()
-        val classToken = requireNotNull(classIndex.loadClassConstant(runtimeType.descriptor))
+        val classToken = requireNotNull(classIndex.currentResolver().loadClassConstant(runtimeType.descriptor))
 
         assertEquals(
             Value.Known(classToken, classType),
@@ -238,7 +238,7 @@ class InvocationIntrinsicsTest {
         val entry = wideCallerView()
         val frame = Frame.entryFrame(entry)
         val subtype = VirtualType.of("Lhash_code;")
-        val receiver = frame.allocateObject(subtype, classIndex.instanceFieldDefaults(subtype)!!)
+        val receiver = frame.allocateObject(subtype, classIndex.currentResolver().instanceFieldDefaults(subtype)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(receiverRef, objectType))
@@ -265,7 +265,7 @@ class InvocationIntrinsicsTest {
         val entry = wideCallerView()
         val frame = Frame.entryFrame(entry)
         val enumType = VirtualType.of("Lextends_enum;")
-        val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
+        val receiver = frame.allocateObject(enumType, classIndex.currentResolver().instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Known("not-a-canonical-enum-name", VirtualType.of("Ljava/lang/String;")))
@@ -303,7 +303,7 @@ class InvocationIntrinsicsTest {
         val entry = wideCallerView()
         val frame = Frame.entryFrame(entry)
         val enumType = VirtualType.of("Lextends_enum;")
-        val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
+        val receiver = frame.allocateObject(enumType, classIndex.currentResolver().instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Unknown(stringType))
@@ -333,7 +333,7 @@ class InvocationIntrinsicsTest {
             var frame = Frame.entryFrame(entry)
             val enumType = VirtualType.of("Lextends_enum;")
             val refs = List(2) {
-                frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!).raw as HeapRef
+                frame.allocateObject(enumType, classIndex.currentResolver().instanceFieldDefaults(enumType)!!).raw as HeapRef
             }
             val names = listOf("first-not-canonical", "second-not-canonical")
             val ordinals = listOf(3, 11)
@@ -376,7 +376,7 @@ class InvocationIntrinsicsTest {
                 VirtualType.of("Lextends_enum_obfuscated;"),
             )
             val refs = enumTypes.map { enumType ->
-                frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!).raw as HeapRef
+                frame.allocateObject(enumType, classIndex.currentResolver().instanceFieldDefaults(enumType)!!).raw as HeapRef
             }
             val name = "NONE"
             val ordinals = listOf(5, 12)

@@ -57,14 +57,6 @@ internal fun sameReference(a: Value, b: Value): Boolean? {
 }
 
 /**
- * Whether a value of one type is an instance of another, over arrays and primitives as well as classes. May
- * raise [ClassLoadFailure] for a class the program does not contain.
- */
-fun interface InstanceOfTest {
-    fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean
-}
-
-/**
  * What the engine can prove about "is the value in this register an instance of `C`?". `instance-of` and
  * `check-cast` map it differently:
  *
@@ -116,7 +108,7 @@ internal sealed interface CastOutcome {
 internal fun castOutcome(
     value: Value,
     target: VirtualType,
-    types: InstanceOfTest,
+    types: TypeHierarchy,
     heapObjectTypeOf: (HeapRef) -> VirtualType?,
 ): CastOutcome {
     if (value.readsAsNullReference) return CastOutcome.ReadsAsNull

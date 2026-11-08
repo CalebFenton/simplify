@@ -82,11 +82,11 @@ class ClassInitTest {
             "the ancestor-searching lookup hands back the SUPERCLASS's initializer: $inherited",
         )
         assertEquals(
-            MethodLookup.NoSuchMethod, classIndex.lookupClassInitializer(HEIR),
+            MethodLookup.NoSuchMethod, classIndex.currentResolver().lookupClassInitializer(HEIR),
             "...and the declared-only lookup correctly finds nothing",
         )
-        assertFalse(classIndex.hasClassInitializer(HEIR))
-        assertTrue(classIndex.hasClassInitializer(WITNESS), "a class that DOES declare one is still found")
+        assertFalse(classIndex.currentResolver().hasClassInitializer(HEIR))
+        assertTrue(classIndex.currentResolver().hasClassInitializer(WITNESS), "a class that DOES declare one is still found")
         // ...and it matters end to end: initializing `heir` must run GRANDPARENT's initializer as the
         // ancestor's, then settle `heir` itself with nothing to run -- not run grandparent's twice, and not
         // mark `heir` initialized on the strength of an inherited method.
@@ -107,8 +107,8 @@ class ClassInitTest {
         // Integer declares <clinit> in the captured framework, but framework initialization is suppressed.
         // NewInstanceOpTest.theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit checks
         // the same policy through new-instance rather than directly through the planner.
-        assertTrue(classIndex.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
-        assertFalse(classIndex.isFrameworkClass(WITNESS), "a fixture class is an application class")
+        assertTrue(classIndex.currentSnapshot.hierarchy.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
+        assertFalse(classIndex.currentSnapshot.hierarchy.isFrameworkClass(WITNESS), "a fixture class is an application class")
         val plan = defaultInvoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), INTEGER)
         assertNull(plan.context, "a framework <clinit> is NEVER run")
         assertTrue(plan.settled.map { it.descriptor }.contains(INTEGER.descriptor), "but it IS marked initialized")

@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 import org.cf.util.ClassNameUtils
 
 /** Implements the one-argument Class.forName contract without initializing a host class. */
-internal class ClassForNameEmulator(private val classIndex: ClassIndex) : EmulatorHandler {
+internal class ClassForNameEmulator(private val resolver: ProgramSnapshotResolver) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val argument = call.arguments.single()
         if (argument !is EmulatorValue.Known) return returnUnknown(call.returnType)
@@ -16,13 +16,13 @@ internal class ClassForNameEmulator(private val classIndex: ClassIndex) : Emulat
         } catch (_: IllegalArgumentException) {
             return classNotFound(binaryName)
         }
-        val indexed = classIndex.isLoadable(type)
-        if (indexed && type.isReference && !type.isArray && !classIndex.isFrameworkClass(type) &&
+        val indexed = resolver.hierarchy.isLoadable(type)
+        if (indexed && type.isReference && !type.isArray && !resolver.hierarchy.isFrameworkClass(type) &&
             call.classInitStatus.actionFor(type) != ClassInitAction.Proceed
         ) {
             return SynchronousCallResult.NeedsClassInit(type)
         }
-        val classToken = classIndex.loadClassConstant(type.descriptor)
+        val classToken = resolver.loadClassConstant(type.descriptor)
         if (!indexed && classToken == null) return classNotFound(binaryName)
         if (classToken == null) return returnUnknown(call.returnType)
         return SynchronousCallResult.Returned(

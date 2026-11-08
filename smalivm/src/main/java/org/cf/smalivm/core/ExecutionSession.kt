@@ -177,7 +177,7 @@ class ExecutionSession internal constructor(
     private val invoker: Invoker = Invoker(resolver, vmServices.invocationServices),
     private val clockMillis: () -> Long = System::currentTimeMillis,
     /** The session's throwable model. Overridden only to exercise model-failure containment. */
-    private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy,
+    private val throwableHierarchy: ThrowableHierarchy = resolver.hierarchy,
     private val routingInvariant: () -> Unit = {},
 ) {
     private val frontierNodes = ArrayDeque<ExecutionNode>()
@@ -620,7 +620,7 @@ class ExecutionSession internal constructor(
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
-        if (!resolver.isFrameworkClass(transition.definingClass)) {
+        if (!resolver.hierarchy.isFrameworkClass(transition.definingClass)) {
             raiseSynchronousEffect(node, SideEffectLevel.STRONG)
             return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
         }
@@ -690,7 +690,7 @@ class ExecutionSession internal constructor(
      * Plans the class-init an op asked for: initialize this class, then run the op again at its own address.
      *
      * Inside [planContained] because [ClassInitPlanner] walks the superclass chain, and
-     * [ClassIndex.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
+     * [TypeHierarchy.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
      * end the path and not the run.
      */
     private fun planInitClass(node: ExecutionNode, type: VirtualType): Committable =
@@ -1194,7 +1194,7 @@ class ExecutionSession internal constructor(
         if (call.target.name != "<init>") return null
         val ref = (call.receiver as? Value.Known)?.raw as? HeapRef ?: return null
         val runtimeType = node.frame.heapObject(ref)?.type ?: return null
-        if (!resolver.isSubtypeOf(runtimeType, call.target.definingClass)) return null
+        if (!resolver.hierarchy.isSubtypeOf(runtimeType, call.target.definingClass)) return null
         val enclosingConstructor = node.view.signature.substringAfter("->").startsWith("<init>(")
         // The outer guest constructor owns final completion. Marking after its base call would make a later
         // throw from the outer constructor look like successful initialization.
@@ -2699,7 +2699,7 @@ class ExecutionSession internal constructor(
             view,
             vmServices,
             limits,
-            entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
+            entryFrame ?: Frame.entryFrame(view, resolver),
             resolver,
         )
 
@@ -2723,16 +2723,16 @@ class ExecutionSession internal constructor(
             vmServices: VmServices,
             limits: Limits,
             entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
+            opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op,
         ): ExecutionSession {
             val resolver = capture(view, vmServices, entryFrame)
             return ExecutionSession(
                 view,
                 vmServices,
                 limits,
-                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
+                entryFrame ?: Frame.entryFrame(view, resolver),
                 resolver,
-                { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
+                { address, currentView, _ -> opFactory(address, currentView, resolver) },
             )
         }
 
@@ -2741,7 +2741,7 @@ class ExecutionSession internal constructor(
             classIndex: ClassIndex,
             limits: Limits,
             entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
+            opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op,
         ): ExecutionSession = of(view, VmServices(classIndex), limits, entryFrame, opFactory)
 
         internal fun of(
@@ -2749,7 +2749,7 @@ class ExecutionSession internal constructor(
             vmServices: VmServices,
             limits: Limits,
             entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
+            opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op,
             invoker: Invoker,
         ): ExecutionSession {
             val resolver = capture(view, vmServices, entryFrame)
@@ -2757,9 +2757,9 @@ class ExecutionSession internal constructor(
                 view,
                 vmServices,
                 limits,
-                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
+                entryFrame ?: Frame.entryFrame(view, resolver),
                 resolver,
-                { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
+                { address, currentView, _ -> opFactory(address, currentView, resolver) },
                 invoker,
             )
         }
@@ -2769,7 +2769,7 @@ class ExecutionSession internal constructor(
             classIndex: ClassIndex,
             limits: Limits,
             entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
+            opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op,
             invoker: Invoker,
         ): ExecutionSession = of(view, VmServices(classIndex), limits, entryFrame, opFactory, invoker)
 

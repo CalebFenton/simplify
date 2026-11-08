@@ -53,7 +53,7 @@ fun interface EmulatorHandler {
 }
 
 internal fun defaultEmulatorRegistrations(
-    classIndex: ClassIndex,
+    resolver: ProgramSnapshotResolver,
     reflectionPolicy: ReflectionPolicy,
 ): List<EmulatorRegistration> {
     val textUtilsTarget = MethodDescriptor(
@@ -79,7 +79,7 @@ internal fun defaultEmulatorRegistrations(
             },
             EmulatorCapability(handlesUnknownArguments = true),
             SideEffectLevel.NONE,
-            FieldLookupEmulator(classIndex, reflectionPolicy),
+            FieldLookupEmulator(resolver, reflectionPolicy),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(
@@ -91,7 +91,7 @@ internal fun defaultEmulatorRegistrations(
             ),
             EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
             SideEffectLevel.STRONG,
-            FieldGetEmulator(classIndex, reflectionPolicy),
+            FieldGetEmulator(resolver, reflectionPolicy),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Predicate("tracked-field-set-accessible") { target ->
@@ -114,7 +114,7 @@ internal fun defaultEmulatorRegistrations(
             ),
             EmulatorCapability(handlesUnknownArguments = false),
             SideEffectLevel.NONE,
-            ClassForNameEmulator(classIndex),
+            ClassForNameEmulator(resolver),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(textUtilsTarget),
@@ -151,7 +151,7 @@ internal fun defaultEmulatorRegistrations(
             },
             EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
             SideEffectLevel.NONE,
-            ObjectGetClassEmulator(classIndex),
+            ObjectGetClassEmulator(resolver),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(

@@ -163,7 +163,7 @@ class SnapshotReExecutionTest {
 
         assertFalse(siteB.dynamicLoadingEvidence.isPresent)
         assertFalse(snapshotB.dynamicLoadingEvidence.isPresent)
-        assertTrue(index.resolver(snapshotB).classIndex.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.resolver(snapshotB).dispatchWorldIsComplete(DYNAMIC_INTERFACE))
         assertEquals(Value.Known(7, INT), execute(services, DYNAMIC_CALLER).trusted()!!.terminatingConsensus(0))
         assertSame(implementationA, snapshotB.applicationMethod(DYNAMIC_IMPLEMENTATION))
         assertSame(siteA.declaration, siteB.declaration)
@@ -206,7 +206,7 @@ class SnapshotReExecutionTest {
 
         assertEquals(setOf(DYNAMIC_SITE), siteC.dynamicLoadingEvidence.methodSignatures)
         assertEquals(setOf(DYNAMIC_SITE), snapshotC.dynamicLoadingEvidence.methodSignatures)
-        assertFalse(index.resolver(snapshotC).classIndex.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.resolver(snapshotC).dispatchWorldIsComplete(DYNAMIC_INTERFACE))
         assertEquals(Value.Unknown(INT), execute(services, DYNAMIC_CALLER).trusted()!!.terminatingConsensus(0))
         assertSame(implementationA, snapshotC.applicationMethod(DYNAMIC_IMPLEMENTATION))
         assertSame(siteB.declaration, siteC.declaration)
@@ -227,7 +227,7 @@ class SnapshotReExecutionTest {
         val inheritedOnly = index.currentSnapshot
 
         assertEquals(setOf(SUBCLASS_DYNAMIC_SITE), inheritedOnly.dynamicLoadingEvidence.methodSignatures)
-        assertFalse(index.resolver(inheritedOnly).classIndex.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.resolver(inheritedOnly).dispatchWorldIsComplete(DYNAMIC_INTERFACE))
 
         val inherited = services.methodEditor.beginEdit(requireNotNull(index.methodView(SUBCLASS_DYNAMIC_SITE)))
         inherited.removeInstructions(listOf(0, 3))
@@ -235,7 +235,7 @@ class SnapshotReExecutionTest {
         val noSites = index.currentSnapshot
 
         assertFalse(noSites.dynamicLoadingEvidence.isPresent)
-        assertTrue(index.resolver(noSites).classIndex.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.resolver(noSites).dispatchWorldIsComplete(DYNAMIC_INTERFACE))
     }
 
     @Test

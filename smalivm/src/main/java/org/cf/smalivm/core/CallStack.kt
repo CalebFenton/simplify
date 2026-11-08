@@ -42,7 +42,7 @@ class Activation internal constructor(
      * becomes [ClassInitState.FAILED]. Nothing else can answer "which class did the initializer that just
      * finished belong to": the returning node's own `view` names the `<clinit>`'s DECLARING class, which is
      * the same thing today but would silently be the wrong thing the moment a `<clinit>` were resolved through
-     * anything but a declared-only lookup ([ClassIndex.lookupClassInitializer] exists because the oracle's
+     * anything but a declared-only lookup ([ProgramSnapshotResolver.lookupClassInitializer] exists because the oracle's
      * ancestor-searching lookup does exactly that).
      *
      * It is **not** state a path carries: it is a property of the call, exactly like [view], and it is

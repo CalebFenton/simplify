@@ -5,7 +5,7 @@ import java.lang.reflect.Modifier
 
 /** Resolves Class field lookup into scheduler allocation of one tracked field identity. */
 internal class FieldLookupEmulator(
-    private val classIndex: ClassIndex,
+    private val resolver: ProgramSnapshotResolver,
     private val reflectionPolicy: ReflectionPolicy,
 ) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
@@ -18,11 +18,11 @@ internal class FieldLookupEmulator(
         val requestedType = virtualTypeOfHostClass(classToken)
 
         val tracked = try {
-            val indexedToken = classIndex.loadClassConstant(requestedType.descriptor)
+            val indexedToken = resolver.loadClassConstant(requestedType.descriptor)
             if (
                 indexedToken === classToken &&
-                classIndex.isLoadable(requestedType) &&
-                !classIndex.isFrameworkClass(requestedType)
+                resolver.hierarchy.isLoadable(requestedType) &&
+                !resolver.hierarchy.isFrameworkClass(requestedType)
             ) {
                 virtualField(requestedType, name, declaredOnly)
             } else {
@@ -30,11 +30,14 @@ internal class FieldLookupEmulator(
             }
         } catch (target: SecurityException) {
             return targetThrew(target)
+        } catch (_: ClassLoadFailure) {
+            // The member walk reached a class the program lacks, so whether the field exists is unknown.
+            return returnUnknown(call.returnType)
         } ?: return targetThrew(NoSuchFieldException(name))
 
         if (
             tracked.domain is TrackedFieldDomain.Host &&
-            !hostFieldReadIsAuthorized(tracked, classIndex, reflectionPolicy)
+            !hostFieldReadIsAuthorized(tracked, resolver, reflectionPolicy)
         ) {
             return returnUnknown(call.returnType)
         }
@@ -47,7 +50,7 @@ internal class FieldLookupEmulator(
         declaredOnly: Boolean,
     ): TrackedFieldValue? {
         if (declaredOnly) {
-            return classIndex.declaredFields(requestedType)
+            return resolver.declaredFields(requestedType)
                 .firstOrNull { it.name == name }
                 ?.toTrackedField()
         }
@@ -60,14 +63,14 @@ internal class FieldLookupEmulator(
         visited: MutableSet<VirtualType>,
     ): TrackedFieldValue? {
         if (!visited.add(type)) return null
-        classIndex.declaredFields(type)
+        resolver.declaredFields(type)
             .firstOrNull { it.name == name && Modifier.isPublic(it.modifiers) }
             ?.let { return it.toTrackedField() }
-        for (interfaceType in classIndex.directInterfaces(type)) {
+        for (interfaceType in resolver.hierarchy.directInterfaces(type)) {
             publicVirtualField(interfaceType, name, visited)?.let { return it }
         }
-        if (classIndex.isInterface(type)) return null
-        val superclass = classIndex.superclassOf(type) ?: return null
+        if (resolver.hierarchy.isInterface(type)) return null
+        val superclass = resolver.hierarchy.superclassOf(type) ?: return null
         return publicVirtualField(superclass, name, visited)
     }
 

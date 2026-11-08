@@ -231,7 +231,7 @@ class DebuggerTest {
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val fixtureType = VirtualType.of(CLASS_FOR_NAME)
         val countField = ClassIndex.fieldDescriptorOf(fixtureType, "guestInitCount", "I")
-        assertSame(classIndex.loadClassConstant(CLASS_FOR_NAME), returned.raw)
+        assertSame(classIndex.currentResolver().loadClassConstant(CLASS_FOR_NAME), returned.raw)
         assertEquals(
             Value.Known(1, int),
             graph.terminatingStaticFieldConsensusOverExploredPaths(fixtureType, countField),

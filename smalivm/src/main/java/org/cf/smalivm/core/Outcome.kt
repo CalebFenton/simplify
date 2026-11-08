@@ -105,7 +105,7 @@ enum class InvokeKind { STATIC, DIRECT, SUPER, VIRTUAL, INTERFACE }
 data class MethodDescriptor(val definingClass: VirtualType, val name: String, val proto: String) {
     /**
      * [name] + [proto], i.e. `returnsSeven()I` -- the form the class model looks a member up by
-     * ([ClassIndex.lookupMethod], [ClassIndex.findMethod]). A **member** descriptor: no defining class, unlike
+     * ([ProgramSnapshotResolver.lookupMethod]). A **member** descriptor: no defining class, unlike
      * `MethodView.signature`, and not a type descriptor, unlike [VirtualType.descriptor].
      */
     val descriptor: String get() = "$name$proto"

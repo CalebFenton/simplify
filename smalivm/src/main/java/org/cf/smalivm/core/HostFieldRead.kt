@@ -36,13 +36,13 @@ internal sealed interface HostFieldRead {
  */
 internal fun hostFieldReadIsAuthorized(
     field: TrackedFieldValue,
-    classIndex: ClassIndex,
+    resolver: ProgramSnapshotResolver,
     policy: ReflectionPolicy,
 ): Boolean {
-    if (!hostDeclaringClassMatchesVm(field, classIndex)) return false
+    if (!hostDeclaringClassMatchesVm(field, resolver)) return false
     val chain = if (field.storage == FieldStorage.STATIC) {
         try {
-            classIndex.hostInitializationChain(field.declaringType)
+            resolver.hostInitializationChain(field.declaringType)
         } catch (_: ClassLoadFailure) {
             return false
         }

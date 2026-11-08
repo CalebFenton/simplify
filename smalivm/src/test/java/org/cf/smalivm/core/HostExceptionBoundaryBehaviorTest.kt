@@ -89,7 +89,7 @@ class HostExceptionBoundaryBehaviorTest {
             result = { SynchronousCallResult.TargetThrew(HostThrowable(runtimeType, thrown)) },
         )
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = execute(vm, "hostOnlyRuntimeFirstMatch()I")
         val clauses = graph.methodView.tryBlocks.flatMap(TryBlock::catches)
         val runtimeHandler = clauses.single { it.exceptionType == RUNTIME_EXCEPTION }.handlerAddress
@@ -101,7 +101,7 @@ class HostExceptionBoundaryBehaviorTest {
         assertTrue(graph.wasReached(runtimeHandler))
         assertFalse(graph.wasReached(exceptionHandler))
         assertFalse(
-            CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent,
+            CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent,
             "runtime evidence must remain attached to this throwable, not mutate ClassIndex",
         )
     }
@@ -118,7 +118,7 @@ class HostExceptionBoundaryBehaviorTest {
         ).single() as Value.Known
         frame.assign(view.parameters.single().register, source)
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = vm.newSession(view, entryFrame = frame).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val returnedRef = returned.raw as HeapRef

@@ -20,7 +20,7 @@ internal object SynchronousInvocationFixtures {
         descriptor: String,
         backends: List<Backend>,
         limits: Limits = Limits(),
-        opFactory: (Int, MethodView, ClassIndex) -> Op = OpBuilder::build,
+        opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = OpBuilder::build,
     ): ExecutionSession {
         val view = view(className, descriptor)
         return ExecutionSession.of(

@@ -133,7 +133,7 @@ class ExceptionPropagationTest {
         val npe = VirtualType.of("Ljava/lang/NullPointerException;")
         val runtime = VirtualType.of("Ljava/lang/RuntimeException;")
         val value = frame.allocateThrowable(npe, NullPointerException("same ref constraints"))
-        val exact = ThrowableDomain.exact(npe, CoreTester.classIndex.throwableHierarchy)
+        val exact = ThrowableDomain.exact(npe, CoreTester.classIndex.currentSnapshot.hierarchy)
         val narrowed = requireNotNull(exact.narrowUpperBound(runtime))
         val calleeSignature = "Linvoke_review_callee;->throwsNpe()V"
         val session = ExecutionSession.of(caller, CoreTester.classIndex, Limits(), frame) { address, currentView, index ->

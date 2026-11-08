@@ -97,7 +97,7 @@ class ExecutionGraph internal constructor(
      * [ExecutionSession] passes the `ClassIndex` it already holds; it is the only production constructor
      * call site.
      */
-    private val superclasses: Superclasses,
+    private val superclasses: TypeHierarchy,
 ) : ExecutionGraphView {
 
     val programRevision: ProgramRevision = methodView.programRevision

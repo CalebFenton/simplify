@@ -103,7 +103,7 @@ class OpaqueTrackedFieldTest {
         val fieldRef = field.raw as HeapRef
         val array = frame.allocateArray(INT_ARRAY, arrayOf(Value.Known(7, INT)))
         val arrayRef = array.raw as HeapRef
-        val objectValue = frame.allocateObject(DECLARING, requireNotNull(classIndex.instanceFieldDefaults(DECLARING)))
+        val objectValue = frame.allocateObject(DECLARING, requireNotNull(classIndex.currentResolver().instanceFieldDefaults(DECLARING)))
         val objectRef = objectValue.raw as HeapRef
         assertTrue(frame.writeField(objectRef, PUBLIC_INSTANCE, Value.Known(8, INT)))
         val hostRef = frame.allocateHostObject(BUILDER, StringBuilder("host"))

@@ -16,10 +16,10 @@ package org.cf.smalivm.core
  * Information only ever decreases across a join; nothing below re-derives a value the
  * paths did not all carry. This is what makes consensus trustworthy (spec §6).
  *
- * [superclasses] has no default: `joinTypes` is the one function every consensus query routes through, so a
+ * [hierarchy] has no default: `joinTypes` is the one function every consensus query routes through, so a
  * call site that silently fell back to the hierarchy-free rule would lose precision with nothing failing.
  */
-fun join(a: Value, b: Value, superclasses: Superclasses): Value {
+fun join(a: Value, b: Value, hierarchy: TypeHierarchy): Value {
     if (a is Value.Top || b is Value.Top) return Value.Top
     val left = a.asNullAgainst(b)
     val right = b.asNullAgainst(a)
@@ -27,7 +27,7 @@ fun join(a: Value, b: Value, superclasses: Superclasses): Value {
     // At least one side is Unknown, or the Knowns disagree: the value is gone.
     val ta = checkNotNull(left.type) // non-Top values always carry a type
     val tb = checkNotNull(right.type)
-    return when (val joined = joinTypes(ta, tb, superclasses)) {
+    return when (val joined = joinTypes(ta, tb, hierarchy)) {
         is JoinedType.Joined -> Value.Unknown(joined.type)
         JoinedType.Incompatible -> Value.Top
     }
@@ -48,9 +48,9 @@ private fun Value.asNullAgainst(other: Value): Value {
 private val INT = VirtualType.of("I")
 
 /** Folds ⊔ over [values]: the per-address consensus read. Returns null for no input. */
-fun joinAll(values: Iterable<Value>, superclasses: Superclasses): Value? =
+fun joinAll(values: Iterable<Value>, hierarchy: TypeHierarchy): Value? =
     values.fold(null as Value?) { acc, v ->
-        if (acc == null) v else join(acc, v, superclasses)
+        if (acc == null) v else join(acc, v, hierarchy)
     }
 
 /**
@@ -59,8 +59,8 @@ fun joinAll(values: Iterable<Value>, superclasses: Superclasses): Value? =
  * Equal refinements survive. Any disagreement forgets both refinements; retaining either side would make a
  * fact from one path appear true on the other path.
  */
-internal fun joinFrameValues(a: FrameValue, b: FrameValue, superclasses: Superclasses): FrameValue {
-    val value = join(a.value, b.value, superclasses)
+internal fun joinFrameValues(a: FrameValue, b: FrameValue, hierarchy: TypeHierarchy): FrameValue {
+    val value = join(a.value, b.value, hierarchy)
     return if (
         a is FrameValue.RefinedThrowable && b is FrameValue.RefinedThrowable && a.domain == b.domain
     ) {
@@ -70,13 +70,13 @@ internal fun joinFrameValues(a: FrameValue, b: FrameValue, superclasses: Supercl
     }
 }
 
-internal fun joinAllFrameValues(values: Iterable<FrameValue>, superclasses: Superclasses): FrameValue? =
+internal fun joinAllFrameValues(values: Iterable<FrameValue>, hierarchy: TypeHierarchy): FrameValue? =
     values.fold(null as FrameValue?) { acc, value ->
-        if (acc == null) value else joinFrameValues(acc, value, superclasses)
+        if (acc == null) value else joinFrameValues(acc, value, hierarchy)
     }
 
 /** Joins modeled throwable causes without treating a definite absent cause as an ordinary reference value. */
-internal fun joinThrowableCauses(causes: Iterable<Value?>, superclasses: Superclasses): Value? {
+internal fun joinThrowableCauses(causes: Iterable<Value?>, hierarchy: TypeHierarchy): Value? {
     var joined: Value? = null
     var absentCell = false
     var nullCause = false
@@ -87,7 +87,7 @@ internal fun joinThrowableCauses(causes: Iterable<Value?>, superclasses: Supercl
             continue
         }
         if (cause.readsAsNullReference) nullCause = true else nonNullCause = true
-        joined = joined?.let { join(it, cause, superclasses) } ?: cause
+        joined = joined?.let { join(it, cause, hierarchy) } ?: cause
     }
     if (joined == null) return null
     if (absentCell || (nullCause && nonNullCause)) return Value.Top
