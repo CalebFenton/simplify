@@ -107,13 +107,6 @@
   return-void
 .end method
 
-# Need proper error handling, and to test private and instance from static
-#.method public static TestPrivateMethodInaccessible()V
-#.end method
-
-#.method public static TestUnknownMethodMutableAndImmutableParametersMutateOnlyMutableAndReturnUnknownValue()V
-#.end method
-
 .method public static initializeClassIfArgumentIsZero(I)V
   .locals 1
 
@@ -190,13 +183,6 @@
 
   sget-object v0, Linvoke_static_test;->mutable:[I
 
-  # Assuming Random will never be white-listed!
-  # This exposes a bug. Collapse multiverse within a collapse multiverse loses track of mappings between object references
-  # if you sget mutable and then modify it, mutable doesn't get updated after a collapse
-  #new-instance v1, Ljava/util/Random;
-  #invoke-direct {v1}, Ljava/util/Random;-><init>()V
-  #invoke-virtual {v1}, Ljava/util/Random;->nextInt()I
-  #move-result v1
   move v1, p0
   if-eqz v1, :was_zero
 
@@ -287,8 +273,7 @@
   const-string v0, ", death as light as a feather"
   invoke-virtual {p0, v0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
 
-  # Reusing the parameter register ensures we're not just looking at end-state register values but
-  # are somehow keeping track of changes in the parameters.
+  # Overwriting the parameter register shows the caller tracks the mutated object, not the callee's register.
   const/4 p0, 0x1
 
   return-void
@@ -305,7 +290,6 @@
   return-void
 .end method
 
-# test assume maximum unknown
 .method private static set0thElementOfFirstParameterTo0IfSecondParameterIs0([II)V
   .locals 1
 
@@ -316,14 +300,13 @@
   :eq_0
   aput v0, p0, v0
   move v0, p0
-  # wipe out p0 value to make sure we don't care about register index
+  # Overwrites p0 so the caller must track the array rather than the register.
   new-instance p0, Ljava/lang/StringBuilder;
 
   :end
   return-void
 .end method
 
-# Test case would have p0 == p1
 .method private static set0thElementOfFirstParameterTo0IfThirdParameterIs0([I[II)V
   .locals 1
 

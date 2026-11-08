@@ -1,23 +1,16 @@
-# GENERATED-STYLE FIXTURE, kept in its own file because it is ~1000 lines of repetition and would bury
-# the readable switch fixtures in `swich_test.smali`.
+# Path explosion in a single opcode, kept apart from `switch_test.smali` because it is long repetition.
+# Address visits are path-local, so loop-free siblings do not consume each other's budget at
+# reconvergence: an unknown-selector switch with 501 targets converging on one address gives each path
+# one visit and retains all 502 paths.
 #
-# Plan 8 Task 6: PATH EXPLOSION IN A SINGLE OPCODE. Address visits are path-local persistent state, so
-# loop-free siblings do not consume each other's budget at reconvergence. An unknown-selector switch with
-# 501 distinct targets
-# converging on one address gives each path one visit and retains all 502 paths, with no loop
-# and no second branch anywhere in the method. `size` is a `ushort` in the payload layout, so up to
-# 65535 cases are representable and this is nowhere near the limit of what a dex file can express.
-#
-# Every arm is `goto/32 :end` rather than `goto :end`: dexlib2 widens an out-of-range `goto` for you,
-# which would make the address of every arm depend on how far away the target is. The explicit `30t`
-# form keeps all 501 arms three code units wide so the addresses are uniform.
+# Every arm is `goto/32 :end`: dexlib2 widens an out-of-range `goto`, which would make arm addresses
+# depend on the distance to the target. The `30t` form keeps every arm three code units wide.
 .class public Lswitch_explosion_test;
 .super Ljava/lang/Object;
 .method public static manyTargetsConvergingOnOneAddress()V
     .locals 1
 
-    # Same convention as `swich_test.smali`: never put the switch at address 0, or "offset relative to
-    # the switch opcode" and "offset relative to the method start" become the same number.
+    # As in `switch_test.smali`, the switch is not at address 0.
     nop
 
     packed-switch v0, :pswitch_data_0

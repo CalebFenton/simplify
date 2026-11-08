@@ -17,14 +17,9 @@
     return-void
 .end method
 
-# --- Methods below appended by Plan 9 Task 17 (the two above are the original oracle corpus;
-# --- appended at the END so no existing address moves).
-
-# `new-instance` of a class absent from the loaded set. Mirrors new_array_test.smali's
-# createNonExistentArrayClass()V exactly: the type reference parses, resolution fails at execute
-# time, and the guest error is a NoClassDefFoundError (measured on both interpreter tiers by
-# Task 16 Step 0's Fx_NewInstanceAbsentType). The nop after the new-instance is what the
-# `wasReached` negative reads: new-instance is 21c = 2 code units, so the nop sits at address 2.
+# The type reference parses and resolution fails at execution, throwing NoClassDefFoundError
+# (DALVIK-SEMANTICS.md, Fx_NewInstanceAbsentType). new-instance is 21c, two code units, so the nop is at
+# address 2, the fall-through a definite throw never reaches.
 .method public static newAbsentClassInstance()V
     .locals 1
 
@@ -35,9 +30,8 @@
     return-void
 .end method
 
-# Two UNRELATED allocations of ONE type -- adjudication 8's fixture. Under the oracle's
-# type-equality aliasing (type/UninitializedInstance.java compares type only) these two registers
-# hold "equal" values; under the core's id-based heap identity they are two distinct objects.
+# Two unrelated allocations of one type. Heap identity is the allocation id, so they are two distinct
+# objects whose values never agree.
 .method public static newTwoLocalInstances()V
     .locals 2
 
@@ -47,9 +41,8 @@
     return-void
 .end method
 
-# `new-instance` of an app class WITH a guest `<clinit>` -- the class-init integration proof that
-# the real op (not ClassInitTest's stub) triggers initialization. Lclass_init/witness; is the
-# ordinary-<clinit> fixture Task 16 built; its initializer allocates a [I, which is the observable.
+# An app class with a guest <clinit>, which runs before the allocation. Lclass_init/witness;'s initializer
+# allocates an int array.
 .method public static newWitnessInstance()V
     .locals 1
 

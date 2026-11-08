@@ -17,15 +17,8 @@
     return-void
 .end method
 
-# Plans 6–7 additions. The existing two methods have no `move-result-object`, so the array they build lives
-# only in the result slot -- which no ExecutionGraph query exposes, deliberately (CoreTester.test says so
-# and refuses the corpus's negative-pseudo-register idiom). These move it into a real register, which is
-# exactly what that guard's message prescribes, and the ASSERTED VALUES are unchanged.
-#
-# The register-count variants exist because the corpus's coverage of the 1/2/4/5-register Instruction35c
-# decode lived entirely in mockk tests (see the adjudication note): `filledNewArray()V` is 3 registers and
-# `filledNewArrayRange()V` is 6, so two of the five 35c shapes and neither boundary were covered
-# behaviorally.
+# The first two methods leave the array in the result slot, which no graph query exposes; the methods
+# below move it into a register. The register-count variants cover every Instruction35c shape (1 to 5).
 .method public static filledNewArrayThenMoveResult()V
     .locals 4
 
@@ -80,9 +73,7 @@
     return-void
 .end method
 
-# The RANGE form with exactly five registers, which is the case the oracle's "size > 5 -> print the range
-# spelling" rule gets wrong and the opcode-based rule gets right. `A` is 8 bits for 3rc, so {v0 .. v4} is
-# perfectly legal and no existing fixture covers it (filledNewArrayRange()V uses six). See Step 2's toString.
+# The range form with five registers: `A` is 8 bits for 3rc, so {v0 .. v4} is legal and renders as a range.
 .method public static filledNewArrayRangeFive()V
     .locals 6
 
@@ -92,8 +83,7 @@
     return-void
 .end method
 
-# The two rows the first draft's "anything but [I fails DEX verification" claim wrongly excluded. [BC] says
-# reference types ARE acceptable; ART does NOT implement the single-word primitive components.
+# [BC] accepts reference components; ART implements no single-word primitive component except int.
 .method public static filledNewArrayOfStrings()V
     .locals 3
 
@@ -112,11 +102,8 @@
     return-void
 .end method
 
-# The two DECODE-TIME refusals, both `UnsupportedOp`. `[J` is forbidden by SPEC ([BC]: "no arrays of long
-# or double") and is an ART verifier hard failure, so no device ever reaches an interpreter for it; a
-# non-array type operand violates [BC]'s "The type must be an array type" and has no component to fill.
-# Both exist so the guard in OpBuilder.buildFilledNewArray is not INERT -- see
-# OpBuilderTest.aFilledNewArrayWithNoFillableComponentTypeIsUnsupportedRatherThanAHostFailure.
+# Both refused at decode time: `[J` is forbidden ([BC]: "no arrays of long or double"), and a non-array type
+# operand has no component to fill ([BC]: "The type must be an array type").
 .method public static filledNewArrayOfLongs()V
     .locals 3
 
@@ -135,11 +122,8 @@
     return-void
 .end method
 
-# NOT in the brief's fixture block, and added because without it the op's `!loadable` branch would be
-# INERT -- no test could kill a mutation that deleted it, which the mutate-to-prove rule forbids. Shaped
-# like `new_array_test.smali`'s createNonExistentArrayClass()V minus the try block: the throw is a
-# `NoClassDefFoundError`, an `Error`, so a `catch (Exception)` clause could not catch it anyway (design
-# decision 4), and a handler-free method is what `CoreTester.testThrows` is correct for.
+# An absent component class. NoClassDefFoundError is an Error, which `catch (Exception)` cannot catch, so the
+# method has no handler.
 .method public static filledNewArrayOfMissingClass()V
     .locals 3
 
