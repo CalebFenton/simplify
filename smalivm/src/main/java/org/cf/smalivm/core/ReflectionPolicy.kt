@@ -83,6 +83,16 @@ public class ReflectionPolicy(
         else -> ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY)
     }
 
+    /**
+     * Whether initializing framework class [type] leaves nothing a guest can observe, so a `<clinit>` the analysis
+     * skips changes no state it models. True for a class listed in safe_classes.cfg whose `<clinit>` is not in
+     * unsafe_methods.cfg: the listing vouches that no method of the class affects or reads process state, the host
+     * runs that same `<clinit>` whenever an authorized call first touches the class, and denying the `<clinit>` is
+     * how the policy marks an initializer that does. An exact safe_methods.cfg entry vouches for one method only.
+     */
+    internal fun initializationIsUnobservable(type: VirtualType): Boolean =
+        type in safeClasses && MethodSignature.classInitializer(type) !in exactUnsafeMethods
+
     public companion object {
         /**
          * Loads fresh immutable policy data for one VM owner. The policy treats the host default charset as the

@@ -26,6 +26,7 @@ internal class CallRouter(
         // An aborted callee path leaves its call incomplete; so does a routing abort below.
         if (aborted.isNotEmpty()) activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
         val classInitContext = activation.classInitContext
+        if (classInitContext != null && (threw.isNotEmpty() || aborted.isNotEmpty())) activation.releaseConfinedEffect()
         if (classInitContext == null) {
             if (returned.isNotEmpty()) invokeNode.observeNormalContinuation()
             if (threw.isNotEmpty() || aborted.isNotEmpty()) invokeNode.observeExceptionalContinuation()

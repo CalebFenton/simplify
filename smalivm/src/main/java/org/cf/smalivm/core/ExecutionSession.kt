@@ -199,7 +199,7 @@ public class ExecutionSession internal constructor(
                 }
                 armFrame.assign(arm.register, moved ?: FrameValue.plain(Value.Top))
             }
-            raiseEffect(node, applied.effect)
+            raiseEffect(node, applied.effect) { initializer -> initializer.confines(arm.update.footprint) }
             val path = if (arm is OpArm.Throw) normalizeThrow(arm.evidence, armFrame, hierarchy) else null
             PreparedOpArm.Ready(arm, armFrame, path)
         }
@@ -428,12 +428,16 @@ public class ExecutionSession internal constructor(
     }
 
     /**
-     * Raises the triggering address to [SideEffectLevel.STRONG] when [plan] settled a class whose `<clinit>` the
-     * analysis does not run. The activation chain is raised too, so a caller whose callee triggered an unmodelled
-     * initializer does not report `NONE` for its own addresses.
+     * Raises the triggering address to [SideEffectLevel.STRONG] when [plan] settled a class whose skipped `<clinit>`
+     * may leave state the analysis does not model. The activation chain is raised too, so a caller whose callee
+     * triggered such an initializer does not report `NONE` for its own addresses. A skipped initializer the
+     * reflection policy shows unobservable ([ReflectionPolicy.initializationIsUnobservable]) declares nothing.
      */
     private fun declareSkippedInitializerEffect(node: ExecutionNode, plan: ClassInitPlan) {
-        if (plan.skippedAnInitializer) raiseEffect(node, SideEffectLevel.STRONG)
+        val policy = vmServices.reflectionPolicy
+        if (plan.skippedInitializers.any { !policy.initializationIsUnobservable(it) }) {
+            raiseEffect(node, SideEffectLevel.STRONG)
+        }
     }
 
     /**
@@ -590,6 +594,8 @@ public class ExecutionSession internal constructor(
      * Finalizes [selected]'s host graph and raises the effect by what the call did to guest-visible host state: a
      * change is `WEAK`, like a guest field or array write, and a comparison the graphs cannot complete is `STRONG`.
      * One stopped by a host failure rethrows it, so the containment boundary ends the path as `HOST_FAILURE` with it.
+     * Inside a class initialization, a change confined to objects the initialization allocated stays inside it: the
+     * changed objects for a `WEAK` change, every object the call held for an unprovable one.
      */
     private fun finalizeSelectedCall(node: ExecutionNode, selected: SelectedSynchronousCall): HostGraphComparison {
         val comparison = hostBoundary({
@@ -600,10 +606,15 @@ public class ExecutionSession internal constructor(
         }
         when (comparison) {
             HostGraphComparison.Equal -> Unit
-            HostGraphComparison.Different -> raiseEffect(node, SideEffectLevel.WEAK)
+            HostGraphComparison.Different -> raiseEffect(node, SideEffectLevel.WEAK) { initializer ->
+                selected.changedRefs()?.all(initializer::allocatedDuring) == true
+            }
             is HostGraphComparison.Unprovable -> {
-                raiseEffect(node, SideEffectLevel.STRONG)
-                comparison.cause?.let { throw it }
+                val cause = comparison.cause
+                raiseEffect(node, SideEffectLevel.STRONG) { initializer ->
+                    cause == null && selected.heldRefs().all(initializer::allocatedDuring)
+                }
+                cause?.let { throw it }
             }
         }
         return comparison
@@ -915,10 +926,20 @@ public class ExecutionSession internal constructor(
     private fun hostFailureArm(node: ExecutionNode, failure: Throwable): Committable =
         Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(node.frame, hostFailureOutcome(failure))))
 
-    /** Raises [node]'s own effect, and its activation chain's declared effect, to at least [level]. */
-    private fun raiseEffect(node: ExecutionNode, level: SideEffectLevel) {
+    /**
+     * Raises [node]'s own effect, and its activation chain's declared effect, to at least [level]. An effect
+     * inside a class initialization that [isConfined] to it, per the initializer's [ClassInitContext], stops at that
+     * initializer's activation ([Activation.raiseDeclaredEffect]): the trigger does not carry it.
+     */
+    private inline fun raiseEffect(
+        node: ExecutionNode,
+        level: SideEffectLevel,
+        isConfined: (ClassInitContext) -> Boolean = { false },
+    ) {
         node.sideEffectLevel = maxOf(node.sideEffectLevel, level)
-        node.activation.raiseDeclaredEffect(level)
+        val initializer = if (level > SideEffectLevel.NONE) node.activation.enclosingInitializer() else null
+        val boundary = initializer?.takeIf { isConfined(requireNotNull(it.classInitContext)) }
+        node.activation.raiseDeclaredEffect(level, boundary)
     }
 
     /** Runs to completion and returns the immutable result. */

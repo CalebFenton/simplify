@@ -941,10 +941,24 @@ device initializes such a class. A trigger that reaches one ends its path as `MA
 
 **Framework classes** (bundled, non-application classes) are never initialized by running their `<clinit>`:
 the class is marked initialized and the trigger records a `STRONG` effect when the class declares an
-initializer (**ENGINE CHOICE**). A final static holds its dex literal, or `Unknown` that a static read may
-project from the host class when the reflection policy allows it. A non-final static is `Unknown` under
-`ARBITRARY` entry, and holds its literal or a projectable `Unknown` under `FRESH_PROCESS`. `new-instance` of a
-framework class still yields a tracked uninitialized object.
+initializer whose effects are observable (**ENGINE CHOICE**). An initializer is unobservable when its class is
+listed in `safe_classes.cfg` and its `<clinit>` is not in `unsafe_methods.cfg`: the listing vouches that no
+method of the class affects or reads process state, and the host already runs that `<clinit>` whenever an
+authorized call first touches the class. Such a skipped initializer records nothing. A final static holds its
+dex literal, or `Unknown` that a static read may project from the host class when the reflection policy allows
+it. A non-final static is `Unknown` under `ARBITRARY` entry, and holds its literal or a projectable `Unknown`
+under `FRESH_PROCESS`. `new-instance` of a framework class still yields a tracked uninitialized object.
+
+**A self-contained initialization is not the trigger's effect** (**ENGINE CHOICE**). Effects inside a guest
+`<clinit>` (and everything it calls) count for the triggering instruction only when they reach beyond the
+initialization. A `WEAK` write stays confined when it writes only initializer-only statics of the initializer's
+own class and objects allocated since the initialization started (a host call: only such objects' host state
+changed). Every other effect (another class's static, a pre-existing object, an opaque or `STRONG` call, an
+observable skipped framework initializer) reaches the trigger as before. An initialization that throws or
+aborts gives its confined effects to the trigger too, since a later trigger does not run it again. So a call
+whose only effect is a self-contained initialization reports `NONE` and may be removed; removing it only
+delays that class's initialization to its next trigger, which runs the same initializer to the same result.
+`InitializerEffectAttributionTest` covers each case.
 
 ---
 

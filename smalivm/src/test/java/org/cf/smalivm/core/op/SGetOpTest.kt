@@ -118,8 +118,7 @@ class SGetOpTest {
 
     /**
      * `Ljava/lang/Integer;` is a framework class whose `<clinit>` is not run, and `MAX_VALUE` is still known
-     * because the dex encodes it as a literal. [aStaticReadDeclaresNoEffectButASkippedInitializerIsStrong] pins
-     * the effect of the skipped initializer.
+     * because the dex encodes it as a literal. [aStaticReadDeclaresNoEffect] pins the read's effect.
      */
     @Test
     fun aFrameworkStaticWithAnEncodedLiteralReadsTheLiteral() {
@@ -186,12 +185,11 @@ class SGetOpTest {
     }
 
     /**
-     * `sget` declares no effect of its own; the `STRONG` on a framework read is the scheduler's declaration for
-     * the skipped `Integer.<clinit>`. Both halves in one test: an op-level effect would make both methods
-     * non-`NONE`, and a lost scheduler declaration would make both `NONE`.
+     * `sget` declares no effect of its own, of an app class's static or of a framework class's, whose skipped
+     * `Integer.<clinit>` the reflection policy shows unobservable.
      */
     @Test
-    fun aStaticReadDeclaresNoEffectButASkippedInitializerIsStrong() {
+    fun aStaticReadDeclaresNoEffect() {
         val plain = CoreTester.execute(CLASS_NAME, "getStaticIntLiteral()V")
         assertEquals(CompletionStatus.Complete, plain.completion())
         assertEquals(
@@ -201,9 +199,8 @@ class SGetOpTest {
         val framework = CoreTester.execute(CLASS_NAME, "getStaticWhitelistedClassField()V")
         assertEquals(CompletionStatus.Complete, framework.completion())
         assertEquals(
-            SideEffectLevel.STRONG, framework.explored.methodSideEffectLevel(),
-            "Integer.<clinit> exists and was not run, so whatever it would have written is unmodelled " +
-                "state -- the trigger address is STRONG, declared by the scheduler",
+            SideEffectLevel.NONE, framework.explored.methodSideEffectLevel(),
+            "Integer is a safe class whose <clinit> is not denied, so skipping its initializer leaves nothing observable",
         )
     }
 

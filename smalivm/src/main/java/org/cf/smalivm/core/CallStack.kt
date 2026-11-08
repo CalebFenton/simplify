@@ -60,12 +60,51 @@ internal class Activation private constructor(
      */
     internal var declaredEffect: SideEffectLevel = SideEffectLevel.NONE
 
-    internal fun raiseDeclaredEffect(level: SideEffectLevel) {
+    /**
+     * For a class-init prelude, the highest level of the effects confined to its initialization
+     * ([ClassInitContext.confines]). They stay out of [declaredEffect], so the trigger does not carry them, unless
+     * the initialization does not complete normally ([releaseConfinedEffect]).
+     */
+    private var confinedEffect: SideEffectLevel = SideEffectLevel.NONE
+
+    /** Whether this activation or one of its callers is a class-init prelude. */
+    private val insideInitializer: Boolean = classInitContext != null || caller?.insideInitializer == true
+
+    /** The nearest class-init prelude activation on the [caller] chain, starting at this one. */
+    internal fun enclosingInitializer(): Activation? =
+        if (insideInitializer) generateSequence(this) { it.caller }.firstOrNull { it.classInitContext != null } else null
+
+    /**
+     * Raises [declaredEffect] of this activation and its callers to at least [level]. When [boundary], a class-init
+     * prelude on the chain, confines the effect, the walk stops there and records it as [confinedEffect], so the
+     * activations inside the initialization see it and the trigger and its callers do not. Outside every
+     * initialization a caller's level is at least its callee's, so the walk stops at the first activation already
+     * at [level].
+     */
+    internal fun raiseDeclaredEffect(level: SideEffectLevel, boundary: Activation? = null) {
         var activation: Activation? = this
-        while (activation != null && level > activation.declaredEffect) {
-            activation.declaredEffect = level
+        while (activation != null) {
+            if (activation === boundary) {
+                activation.confinedEffect = maxOf(activation.confinedEffect, level)
+                return
+            }
+            if (level > activation.declaredEffect) {
+                activation.declaredEffect = level
+            } else if (!activation.insideInitializer) {
+                return
+            }
             activation = activation.caller
         }
+    }
+
+    /**
+     * Gives a class-init prelude's [confinedEffect] to its trigger and the trigger's callers: an initialization that
+     * threw or aborted is not one a later trigger can repeat, so what it changed is the trigger's effect.
+     */
+    internal fun releaseConfinedEffect() {
+        val trigger = requireNotNull(returnSite).invokeNode
+        if (confinedEffect > trigger.sideEffectLevel) trigger.sideEffectLevel = confinedEffect
+        requireNotNull(caller).raiseDeclaredEffect(confinedEffect)
     }
 
     /**

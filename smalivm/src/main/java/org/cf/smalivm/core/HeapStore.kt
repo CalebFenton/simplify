@@ -23,6 +23,9 @@ import kotlinx.collections.immutable.persistentListOf
 internal class HeapIds {
     private var next = 0
     fun allocate(): HeapRef = HeapRef(next++)
+
+    /** The id the next allocation gets; every ref allocated from now on has an id at least this. */
+    fun mark(): Int = next
 }
 
 internal class HostSeed(
@@ -47,6 +50,27 @@ internal class HostGraphCheckpoint(
     val selectionRoots: List<Value>,
 ) {
     private var consumed = false
+
+    /** The graph [HeapStore.finalizeHostGraph] compared this checkpoint with, once it did. */
+    private var finalGraph: HostGraphState? = null
+
+    internal fun recordFinalGraph(graph: HostGraphState) {
+        finalGraph = graph
+    }
+
+    /**
+     * The refs of the objects held before the call whose host state the finalized call changed, or null when that
+     * cannot be shown exactly. Only objects the checkpoint's guest refs hold are reported: the checkpoint graph is
+     * pruned to what guest refs reach, so a changed node no ref holds is reached from a held object that changed too.
+     */
+    internal fun changedRefs(): Set<HeapRef>? {
+        val after = checkNotNull(finalGraph) { "Host graph checkpoint was not finalized" }
+        val changed = HostGraphComparator().changedNodeIds(graph, after, expectedMirrorElements) ?: return null
+        return changed.mapNotNullTo(HashSet()) { objects.refFor(HostGraphNodeId(it)) }
+    }
+
+    /** The refs of every object whose host state this checkpoint holds: all a call selected with it can change. */
+    internal fun heldRefs(): List<HeapRef> = objects.graphBacked()
 
     fun verify(requester: HeapStore) {
         check(owner === requester) { "Host graph checkpoint belongs to a different heap path" }
@@ -153,6 +177,9 @@ internal class HeapStore private constructor(
     private var hostGraph: HostGraphState,
 ) {
     constructor(ids: HeapIds) : this(ids, HeapObjects.EMPTY, HostGraphState.empty())
+
+    /** [HeapIds.mark] of the run's shared id source. */
+    fun allocationMark(): Int = ids.mark()
 
     /** A fresh array of [length] whose elements hold Java's default for the component type. */
     fun allocateArray(type: VirtualType, length: Int): HeapRef {
@@ -813,6 +840,7 @@ internal class HeapStore private constructor(
         }) {
             val refreshed = hostGraph.refresh()
             hostGraph = refreshed
+            checkpoint.recordFinalGraph(refreshed)
             val comparison = HostGraphComparator().compare(checkpoint.graph, refreshed, checkpoint.expectedMirrorElements)
             pruneHostGraphToGuestRoots(guestRoots + checkpoint.selectionRoots)
             compactHostGraph()

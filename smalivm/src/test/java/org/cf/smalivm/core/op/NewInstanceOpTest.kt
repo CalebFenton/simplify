@@ -68,10 +68,7 @@ class NewInstanceOpTest {
         assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
-    /**
-     * A framework class is marked initialized without running its `<clinit>`. The skipped initializer's
-     * writes are unmodelled state, so the triggering address is `STRONG`.
-     */
+    /** A framework class is marked initialized without running its `<clinit>`. */
     @Test
     fun theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit() {
         val graph = CoreTester.execute(CLASS_NAME, "newNonLocalInstance()V")
@@ -80,10 +77,6 @@ class NewInstanceOpTest {
         assertEquals(
             ClassInitState.INITIALIZED, initStateAtReturn(graph, VirtualType.of("Ljava/lang/Integer;")),
             "but the class is marked initialized, so a second trigger has nothing to do",
-        )
-        assertEquals(
-            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
-            "an initializer that exists and did not run is unmodelled state, so the trigger is STRONG",
         )
     }
 

@@ -385,13 +385,37 @@ internal class GuestInitializer(
  * One visible initializer and every class waiting on its successful completion. [triggerState] is the path's
  * class state at the trigger when the trigger found the initializer's class [ClassInitState.UNKNOWN], else null;
  * a successful return forgets the non-final static writes made since ([ClassStore.completeInitializer]).
+ *
+ * [ownInitializerOnlyStatics] and [allocationMark] decide which writes stay confined to this initialization
+ * ([confines]): writes of the initializer's own class's initializer-only statics, and of objects whose heap id is
+ * at least [allocationMark], the next id the run's [HeapIds] handed out when the trigger planned it. Ids are
+ * monotonic and a path's heap holds only objects its own history allocated, so such an object was allocated on
+ * this path by this initialization or code it called.
  */
 internal class ClassInitContext(
     val requestedClass: VirtualType,
     val activeInitializer: GuestInitializer,
     val waitingDependents: List<VirtualType>,
+    val ownInitializerOnlyStatics: Set<String>,
+    val allocationMark: Int,
     val triggerState: ClassStore? = null,
 ) {
+    /** Whether [ref] was allocated after this initialization started. */
+    fun allocatedDuring(ref: HeapRef): Boolean = ref.id >= allocationMark
+
+    /**
+     * Whether an update with [footprint] writes something, and writes only cells this initialization owns: its own
+     * class's initializer-only statics and objects it allocated.
+     */
+    fun confines(footprint: OpUpdateFootprint): Boolean {
+        val statics = footprint.staticDescriptors
+        val arrays = footprint.arrayRanges.keys
+        val objects = footprint.objectFields.keys
+        if (statics.isEmpty() && arrays.isEmpty() && objects.isEmpty()) return false
+        return statics.all { it in ownInitializerOnlyStatics } && arrays.all(::allocatedDuring) &&
+            objects.all(::allocatedDuring)
+    }
+
     init {
         require(activeInitializer.type !in waitingDependents) {
             "The active initializer cannot also be a waiting dependent"
@@ -431,10 +455,10 @@ internal class ClassInitPlan(
      */
     val settled: List<VirtualType>,
     /**
-     * True when a class in [settled] has a `<clinit>` that did not run. Whatever it would have changed is
-     * unmodelled, so the trigger declares [SideEffectLevel.STRONG]; a class with no initializer skips nothing.
+     * Classes in [settled] whose declared `<clinit>` did not run, ancestors first. A class with no initializer skips
+     * nothing. The session decides from the reflection policy which of them leave unmodelled state behind.
      */
-    val skippedAnInitializer: Boolean,
+    val skippedInitializers: List<VirtualType>,
     /** The guest `<clinit>` to run now and the requested classes waiting on it. */
     internal val context: ClassInitContext?,
     internal val dependencyFailure: ClassInitDependencyFailure? = null,
@@ -461,7 +485,7 @@ internal class ClassInitPlan(
         get() = settled.isEmpty() && context == null && dependencyFailure == null && malformedInitializer == null
 
     override fun toString(): String =
-        "ClassInitPlan(settled=$settled, skippedAnInitializer=$skippedAnInitializer, " +
+        "ClassInitPlan(settled=$settled, skippedInitializers=$skippedInitializers, " +
             "context=${context?.activeInitializer?.type}, dependencyFailure=${dependencyFailure?.recipe?.message}, " +
             "malformedInitializer=$malformedInitializer, staticSeeds=$staticSeeds)"
 }
@@ -488,7 +512,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         val settled = ArrayList<VirtualType>(2)
         val seeds = LinkedHashMap<String, StaticCell>()
         val initializerOnly = HashSet<String>()
-        var skippedAnInitializer = false
+        val skippedInitializers = ArrayList<VirtualType>(1)
         val nearestFailedAncestorIndex = chain.indexOfLast { ancestor ->
             state.classInitAction(ancestor) is ClassInitAction.ThrowFailed
         }
@@ -499,7 +523,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                     if (index != nearestFailedAncestorIndex) continue
                     return ClassInitPlan(
                         settled,
-                        skippedAnInitializer,
+                        skippedInitializers,
                         context = null,
                         dependencyFailure = ClassInitDependencyFailure(
                             action.recipe,
@@ -516,7 +540,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
             // none and is on every chain, so only a framework class that declares one counts as skipped.
             if (resolver.hierarchy.isFrameworkClass(ancestor)) {
                 settled.add(ancestor)
-                if (resolver.hasClassInitializer(ancestor)) skippedAnInitializer = true
+                if (resolver.hasClassInitializer(ancestor)) skippedInitializers.add(ancestor)
                 prepare(ancestor, initializerRuns = false, lifecycleUnknown, seeds, initializerOnly)
                 continue
             }
@@ -529,11 +553,13 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                     prepare(ancestor, initializerRuns = true, lifecycleUnknown, seeds, initializerOnly)
                     return ClassInitPlan(
                         settled,
-                        skippedAnInitializer,
+                        skippedInitializers,
                         ClassInitContext(
                             type,
                             GuestInitializer(ancestor, lookup.view, ENTRY_ADDRESS),
                             uninitializedBelow(state, chain, index),
+                            ownInitializerOnlyStatics = resolver.initializerOnlyStatics(ancestor),
+                            allocationMark = state.heap.allocationMark(),
                             triggerState = if (lifecycleUnknown) state.classes.copy() else null,
                         ),
                         staticSeeds = seeds,
@@ -542,7 +568,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                 }
                 is MethodLookup.NoBody -> return ClassInitPlan(
                     settled,
-                    skippedAnInitializer,
+                    skippedInitializers,
                     context = null,
                     malformedInitializer = ancestor,
                 )
@@ -552,7 +578,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         }
         return ClassInitPlan(
             settled,
-            skippedAnInitializer,
+            skippedInitializers,
             context = null,
             staticSeeds = seeds,
             initializerOnlyStatics = initializerOnly,
@@ -569,7 +595,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         prepare(type, initializerRuns = true, lifecycleUnknown = false, seeds, initializerOnly)
         return ClassInitPlan(
             emptyList(),
-            false,
+            emptyList(),
             context = null,
             staticSeeds = seeds,
             initializerOnlyStatics = initializerOnly,

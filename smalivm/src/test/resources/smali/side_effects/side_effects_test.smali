@@ -131,7 +131,7 @@
 .method public static newInstanceFrameworkClassWithInitializer()V
   .locals 1
 
-  new-instance v0, Ljava/lang/Integer;
+  new-instance v0, Ljava/util/Random;
 
   return-void
 .end method

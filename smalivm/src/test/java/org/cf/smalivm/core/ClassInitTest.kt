@@ -28,8 +28,8 @@ class ClassInitTest {
             listOf(VirtualType.OBJECT.descriptor, NO_CLINIT.descriptor), plan.settled.map { it.descriptor },
             "the whole chain settles, most ancestral first",
         )
-        assertFalse(
-            plan.skippedAnInitializer,
+        assertEquals(
+            emptyList<VirtualType>(), plan.skippedInitializers,
             "Ljava/lang/Object; declares no <clinit>, so NOTHING was skipped -- and it is on every app " +
                 "class's chain, so a STRONG here would make every class-init trigger in the system STRONG",
         )
@@ -70,16 +70,16 @@ class ClassInitTest {
     }
 
     @Test
-    fun aFrameworkClassIsSettledWithoutRunningItsInitializerAndDeclaresStrong() {
+    fun aFrameworkClassIsSettledWithoutRunningItsInitializerAndNamedSkipped() {
         // Integer declares <clinit> in the captured framework, but framework initialization is suppressed.
         assertTrue(classIndex.currentSnapshot.hierarchy.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
         assertFalse(classIndex.currentSnapshot.hierarchy.isFrameworkClass(WITNESS), "a fixture class is an application class")
         val plan = defaultInvoker(classIndex).planClassInit(plannerFrame(), INTEGER)
         assertNull(plan.context, "a framework <clinit> is NEVER run")
         assertTrue(plan.settled.map { it.descriptor }.contains(INTEGER.descriptor), "but it IS marked initialized")
-        assertTrue(
-            plan.skippedAnInitializer,
-            "an initializer that exists and did not run is unmodelled state, so the trigger is STRONG",
+        assertEquals(
+            listOf(INTEGER), plan.skippedInitializers,
+            "an initializer that exists and did not run is named, so the session can judge what it leaves behind",
         )
     }
 

@@ -46,6 +46,12 @@ internal class SelectedHostCall private constructor(
         return frame.finalizeHostGraph(checkpoint)
     }
 
+    /** After [finalize]: [HostGraphCheckpoint.changedRefs] of this call. */
+    internal fun changedRefs(): Set<HeapRef>? = checkpoint.changedRefs()
+
+    /** [HostGraphCheckpoint.heldRefs] of this call. */
+    internal fun heldRefs(): List<HeapRef> = checkpoint.heldRefs()
+
     /** Undoes this selection: [frame]'s heap returns to its state before the call, whatever the backend did. */
     internal fun discard(frame: Frame) {
         frame.heap.restoreHostGraph(checkpoint)
@@ -290,6 +296,12 @@ internal class SelectedSynchronousCall(
     fun execute(): SynchronousCallResult = executor.execute(call)
 
     fun finalize(frame: Frame): HostGraphComparison = call.finalize(frame)
+
+    /** After [finalize] found the call changed host state: the refs of the selected objects it changed, or null. */
+    fun changedRefs(): Set<HeapRef>? = call.changedRefs()
+
+    /** The refs of every selected object whose host state this call could change. */
+    fun heldRefs(): List<HeapRef> = call.heldRefs()
 
     fun discard(frame: Frame) = call.discard(frame)
 
