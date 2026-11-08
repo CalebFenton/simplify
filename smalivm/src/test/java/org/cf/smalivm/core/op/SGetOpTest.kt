@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test
  *
  * **Assertions go through `CoreTester.test`'s TERMINATING consensus, not per-address reads at the
  * `sget` address, and that is load-bearing:** the class-init trigger re-executes the op at its own
- * address, so the first pass contributes `Value.Top` to `consensusOverExploredPaths(address, register)`
+ * address, so the first pass contributes `Value.Top` to `explored.consensus(address, register)`
  * (`ExecutionSession.planInitClass`'s ⚠️ note). Terminating consensus reads returning nodes only and is
  * what the oracle's `Tester.test` asserted through, so the migration is faithful.
  */
@@ -328,7 +328,7 @@ class SGetOpTest {
     }
 
     /**
-     * `sget` declares NO side effect of its own -- `SGetOp` calls `recordSideEffect` nowhere, pinned
+     * `sget` declares NO side effect of its own -- `SGetOp` declares no effect on any arm, pinned
      * rather than assumed (the `FilledNewArrayOp`/`ThrowOp` precedent) -- and the STRONG a framework
      * read carries is the SCHEDULER's declaration for the skipped `Integer.<clinit>`
      * (`ExecutionSession.declareSkippedInitializerEffect`), not the op's. Both halves in one test
@@ -340,13 +340,13 @@ class SGetOpTest {
         val plain = CoreTester.execute(CLASS_NAME, "getStaticIntLiteral()V")
         assertEquals(CompletionStatus.Complete, plain.completion())
         assertEquals(
-            SideEffectLevel.NONE, plain.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, plain.explored.methodSideEffectLevel(),
             "a read of an app class's static perturbs nothing -- NONE, or every folding pass stops",
         )
         val framework = CoreTester.execute(CLASS_NAME, "getStaticWhitelistedClassField()V")
         assertEquals(CompletionStatus.Complete, framework.completion())
         assertEquals(
-            SideEffectLevel.STRONG, framework.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.STRONG, framework.explored.methodSideEffectLevel(),
             "Integer.<clinit> exists and was NOT run (resolved decision 7), so whatever it would have " +
                 "written is unmodelled state -- the trigger address is STRONG, declared by the scheduler",
         )

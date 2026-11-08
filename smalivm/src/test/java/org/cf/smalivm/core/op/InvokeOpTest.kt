@@ -1,21 +1,29 @@
 package org.cf.smalivm.core.op
 
+import java.nio.file.Files
+import java.nio.file.Path
+import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
+import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.Outcome
+import org.cf.smalivm.core.currentResolver
 import org.cf.smalivm.core.heapRefsOf
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.VmServices
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class InvokeOpTest {
     @Test
@@ -42,10 +50,24 @@ class InvokeOpTest {
         CoreTester.assertReturns(CLASS_NAME, "knownVirtual()I", known(2))
     }
 
+    /**
+     * One loaded implementation decides the call only when the program cannot load more classes. The shared
+     * fixture tree calls `Class.forName`, so the same call there stays unknown.
+     */
     @Test
-    fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant() {
-        CoreTester.assertReturns(CLASS_NAME, "uniqueUnknown(Linvoke_unique_base;)I", known(7))
-        CoreTester.assertReturns(CLASS_NAME, "interfaceUnknown(Linvoke_single_interface;)I", known(9))
+    fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant(@TempDir root: Path) {
+        for (name in listOf("invoke_task20", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
+            Files.copy(Path.of(CoreTester.TEST_CLASS_PATH, "ops", "$name.smali"), root.resolve("$name.smali"))
+        }
+        val closed = VmServices(ClassIndex.open(root.toFile()))
+        fun closedReturn(descriptor: String): Value {
+            val graph = closed.newSession(closed.classIndex.requireMethodView(CLASS_NAME, descriptor)).run()
+            return graph.trusted()!!.terminatingConsensus(0)
+        }
+
+        assertEquals(known(7), closedReturn("uniqueUnknown(Linvoke_unique_base;)I"))
+        assertEquals(known(9), closedReturn("interfaceUnknown(Linvoke_single_interface;)I"))
+        CoreTester.assertReturns(CLASS_NAME, "uniqueUnknown(Linvoke_unique_base;)I", Value.Unknown(type("I")))
     }
 
     @Test
@@ -53,7 +75,7 @@ class InvokeOpTest {
         val graph = CoreTester.execute(CLASS_NAME, "ambiguousUnknown(Linvoke_dispatch_base;)I")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(type("I")), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         val invoke = graph.addresses().flatMap { graph.nodePile(it) }
             .single { it.dispatchCandidates.isNotEmpty() }
         assertEquals(
@@ -112,11 +134,11 @@ class InvokeOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         val value = graph.trusted()!!.terminatingConsensus(1)
         assertTrue(value is Value.Known && value.raw is HeapRef, "the caller keeps its HeapRef: $value")
-        val array = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef)
+        val array = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray)
         assertEquals(1, (array as HeapObject.TrackedArray).length)
         assertEquals(Value.Unknown(type("I")), array.element(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -127,15 +149,15 @@ class InvokeOpTest {
         val root = trusted.terminatingConsensus(0) as Value.Known
         val child = trusted.terminatingConsensus(1) as Value.Known
         assertEquals(root, trusted.terminatingConsensus(2), "the root alias keeps the same HeapRef")
-        val rootObject = trusted.terminatingHeapObject(root.raw as HeapRef) as HeapObject.TrackedObject
-        val childObject = trusted.terminatingHeapObject(child.raw as HeapRef) as HeapObject.TrackedObject
+        val rootObject = trusted.terminatingHeapObject(root.raw as HeapRef).agreed() as HeapObject.TrackedObject
+        val childObject = trusted.terminatingHeapObject(child.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertEquals(Value.Unknown(type("Linvoke_nested_object;")), rootObject.field("Linvoke_nested_object;->child:Linvoke_nested_object;"))
         assertEquals(Value.Unknown(type("I")), childObject.field("Linvoke_nested_object;->value:I"))
 
         val cycle = CoreTester.execute(CLASS_NAME, "opaqueCycle()Linvoke_nested_object;")
         assertEquals(CompletionStatus.Complete, cycle.completion(), "the reachable cycle guard must terminate")
         val cycleRef = (cycle.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val cycleObject = cycle.trusted()!!.terminatingHeapObject(cycleRef) as HeapObject.TrackedObject
+        val cycleObject = cycle.trusted()!!.terminatingHeapObject(cycleRef).agreed() as HeapObject.TrackedObject
         assertEquals(
             Value.Unknown(type("Linvoke_nested_object;")),
             cycleObject.field("Linvoke_nested_object;->child:Linvoke_nested_object;"),
@@ -326,7 +348,7 @@ class InvokeOpTest {
         }
         val graph = CoreTester.execute(STATIC, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial)
         val ref = (graph.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Unknown(type("I")), array.element(0))
     }
 
@@ -418,18 +440,19 @@ class InvokeOpTest {
     fun invokeNonExistentMethodThrowsException() {
         val graph = CoreTester.execute(STATIC, "invokeNonExistentMethod()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph)) // adjudication 7
+        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph))
     }
 
     @Test
     fun hasExpectedToString() {
         val view = CoreTester.classIndex.requireMethodView(STATIC, "invokeReturnVoid()V")
-        assertEquals("invoke-static {}, Linvoke_static_test;->returnVoid()V", org.cf.smalivm.core.OpBuilder.build(0, view, CoreTester.classIndex).toString())
+        val op = OpBuilder.build(0, view, CoreTester.classIndex.currentResolver())
+        assertEquals("invoke-static {}, Linvoke_static_test;->returnVoid()V", op.toString())
     }
 
     private fun assertTrackedObject(value: Value, graph: org.cf.smalivm.core.ExecutionGraph, uninitialized: Boolean) {
         assertTrue(value is Value.Known && value.raw is HeapRef, "expected tracked object, got $value")
-        val obj = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef)
+        val obj = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef).agreed()
         assertTrue(obj is HeapObject.TrackedObject)
         assertEquals(uninitialized, (obj as HeapObject.TrackedObject).uninitialized)
     }
@@ -470,7 +493,7 @@ class InvokeOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         val value = graph.trusted()!!.terminatingConsensus(register)
         assertTrue(value is Value.Known && value.raw is HeapRef && value.type == type(descriptor), "tracked $descriptor: $value")
-        val obj = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef)
+        val obj = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef).agreed()
         assertTrue(obj is HeapObject.TrackedObject)
         assertFalse((obj as HeapObject.TrackedObject).uninitialized, "the matching constructor returned normally")
     }
@@ -482,17 +505,17 @@ class InvokeOpTest {
             assertTrue(value is Value.Known && value.raw is HeapRef && value.type == type("[B"), "register $register: $value")
             val alias = graph.trusted()!!.terminatingConsensus(if (register == 0) 5 else 6)
             assertEquals(value, alias, "opaque collapse preserves root identity and aliases")
-            val array = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef) as HeapObject.TrackedArray
+            val array = graph.trusted()!!.terminatingHeapObject((value as Value.Known).raw as HeapRef).agreed() as HeapObject.TrackedArray
             assertEquals(listOf(Value.Unknown(type("B")), Value.Unknown(type("B"))), array.elements())
         }
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     private fun assertExactCharArray(graph: org.cf.smalivm.core.ExecutionGraph, register: Int, aliasRegister: Int) {
         val value = graph.trusted()!!.terminatingConsensus(register)
         assertEquals(value, graph.trusted()!!.terminatingConsensus(aliasRegister), "constructor keeps exact array ref")
         val ref = (value as Value.Known).raw as HeapRef
-        val array = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(
             listOf(Value.Known('4', type("C")), Value.Known('2', type("C"))),
             array.elements(),
@@ -504,7 +527,7 @@ class InvokeOpTest {
         val value = graph.trusted()!!.terminatingStaticFieldConsensus(
             type(STATIC), "$STATIC->mutable:[I",
         ) as Value.Known
-        return graph.trusted()!!.terminatingHeapObject(value.raw as HeapRef) as HeapObject.TrackedArray
+        return graph.trusted()!!.terminatingHeapObject(value.raw as HeapRef).agreed() as HeapObject.TrackedArray
     }
 
     private fun known(value: Int) = Value.Known(value, type("I"))

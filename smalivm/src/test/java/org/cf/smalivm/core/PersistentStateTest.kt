@@ -14,6 +14,7 @@ import org.junit.jupiter.api.assertTimeoutPreemptively
 /** Persistent frame, heap, and class-init state: isolation between paths and copy cost independent of size. */
 class PersistentStateTest {
     private val classIndex = CoreTester.classIndex
+    private val vm = CoreTester.vmServices
     private val int = VirtualType.of("I")
     private val intArray = VirtualType.of("[I")
     private val objectType = VirtualType.of("Lpersistent_state/object;")
@@ -46,7 +47,7 @@ class PersistentStateTest {
         val liveRef = seedLiveState(seeded)
 
         val graph = assertTimeoutPreemptively(Duration.ofSeconds(20)) {
-            ExecutionSession.of(view, classIndex, Limits(maxAddressVisits = 1_000, maxSteps = 5_000), seeded).run()
+            vm.newSession(view, Limits(maxAddressVisits = 1_000, maxSteps = 5_000), seeded).run()
         }
 
         val nodes = graph.nodePile(0) + graph.nodePile(1)
@@ -233,7 +234,7 @@ class PersistentStateTest {
         assertEquals(emptySet<Int>(), frame.registersRead())
         assertObjectVersionsSame(frame, listOf(ref, arrayRef), versions)
 
-        val debuggerSession = ExecutionSession.of(view(SPINE, "nopThenConst()I"), classIndex, Limits())
+        val debuggerSession = vm.newSession(view(SPINE, "nopThenConst()I"))
         val debugger = Debugger(debuggerSession)
         val debugFrame = debugger.cursor!!.frame
         val debugRead = debugFrame.registersRead()
@@ -250,28 +251,28 @@ class PersistentStateTest {
         val graphRef = seedLiveState(graphSeed)
         val graphArrayRef = graphSeed.allocateArray(intArray, 2).raw as HeapRef
         graphSeed.writeArrayElement(graphArrayRef, 0, Value.Known(8, int))
-        val graph = ExecutionSession.of(graphView, classIndex, Limits(), graphSeed).run()
+        val graph = vm.newSession(graphView, Limits(), graphSeed).run()
         val graphFrames = graph.methodView.addresses.flatMap { graph.nodePile(it).map(ExecutionNode::frame) }
         val graphRefs = listOf(graphRef, graphArrayRef)
         val graphReads = graphFrames.map(Frame::registersRead)
         val graphVersions = graphFrames.map { frame -> graphRefs.map { frame.heapObject(it) } }
         val trusted = graph.trusted()!!
         repeat(10) {
-            graph.consensusOverExploredPaths(0, 0)
-            graph.registerValuesOverExploredPaths(0, 0)
-            graph.terminatingConsensusOverExploredPaths(0)
-            val exploredObject = graph.terminatingHeapObjectOverExploredPaths(graphRef) as HeapObject.TrackedObject
+            graph.explored.consensus(0, 0)
+            graph.explored.registerValues(0, 0)
+            graph.explored.terminatingConsensus(0)
+            val exploredObject = graph.explored.terminatingHeapObject(graphRef).agreed() as HeapObject.TrackedObject
             assertEquals(Value.Known(3, int), exploredObject.field(field))
             val exploredArray =
-                graph.terminatingHeapObjectOverExploredPaths(graphArrayRef) as HeapObject.TrackedArray
+                graph.explored.terminatingHeapObject(graphArrayRef).agreed() as HeapObject.TrackedArray
             assertEquals(Value.Known(8, int), exploredArray.element(0))
             assertEquals(
                 Value.Known(4, int),
-                graph.terminatingStaticFieldConsensusOverExploredPaths(objectType, STATIC_FIELD),
+                graph.explored.terminatingStaticFieldConsensus(objectType, STATIC_FIELD),
             )
-            val trustedObject = trusted.terminatingHeapObject(graphRef) as HeapObject.TrackedObject
+            val trustedObject = trusted.terminatingHeapObject(graphRef).agreed() as HeapObject.TrackedObject
             assertEquals(Value.Known(3, int), trustedObject.field(field))
-            val trustedArray = trusted.terminatingHeapObject(graphArrayRef) as HeapObject.TrackedArray
+            val trustedArray = trusted.terminatingHeapObject(graphArrayRef).agreed() as HeapObject.TrackedArray
             assertEquals(Value.Known(8, int), trustedArray.element(0))
             assertEquals(
                 Value.Known(4, int),
@@ -290,7 +291,7 @@ class PersistentStateTest {
         val seeded = Frame.entryFrame(method)
         val liveRef = seedLiveState(seeded)
         seeded.read(0)
-        val session = ExecutionSession.of(method, classIndex, Limits(), seeded)
+        val session = vm.newSession(method, Limits(), seeded)
         val debugger = Debugger(session)
         val invoke = debugger.stepInto()!!
         assertEquals(1, invoke.address)
@@ -318,7 +319,7 @@ class PersistentStateTest {
         val seeded = Frame.entryFrame(method)
         seeded.assign(0, Value.Known(55, int))
         val liveRef = seedLiveState(seeded)
-        val session = ExecutionSession.of(method, classIndex, Limits(), seeded)
+        val session = vm.newSession(method, Limits(), seeded)
         val debugger = Debugger(session)
         val trigger = debugger.cursor!!
         val retry = debugger.stepOver()!!
@@ -349,7 +350,7 @@ class PersistentStateTest {
         val liveRef = seedLiveState(seeded)
         seeded.assign(0, Value.Unknown(int))
         seeded.read(0)
-        val graph = ExecutionSession.of(method, classIndex, Limits(), seeded).run()
+        val graph = vm.newSession(method, Limits(), seeded).run()
         val invoke = graph.nodePile(0).single()
         val calleeReturns = descendants(invoke).filter {
             it.view.signature == "$CALLEE->returnsFromEitherPath(I)V" && it.outcome is Outcome.Returned

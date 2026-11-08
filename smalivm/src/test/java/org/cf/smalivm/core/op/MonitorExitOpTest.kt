@@ -22,7 +22,7 @@ class MonitorExitOpTest {
         assertTrue(graph.getOp(0) is MonitorExitOp, "monitor-exit must not decode as MonitorEnterOp")
         assertTrue(graph.wasReached(1), "the feasible monitor operation must continue")
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0))
         assertEquals(setOf(REGISTER), graph.registersRead(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
     }
@@ -41,7 +41,7 @@ class MonitorExitOpTest {
         assertEquals(2, graph.outcomes.size)
         assertTrue(graph.wasReached(1), "unknown can be non-null, so normal continuation is feasible")
         assertTrue(graph.wasReached(3), "the unknown null arm searches at the advanced pc and enters the handler")
-        assertEquals(SideEffectLevel.WEAK, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.WEAK, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -51,7 +51,7 @@ class MonitorExitOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "a definite null has no feasible continuation")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -61,7 +61,7 @@ class MonitorExitOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "Known(5, I) reads as a definite null reference in this engine")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -71,7 +71,7 @@ class MonitorExitOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "Known(0, I) has no sibling continuation")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
     }
 
@@ -150,7 +150,7 @@ class MonitorExitOpTest {
         val caught = graph.trusted()!!.terminatingConsensus(1) as Value.Known
         val ref = caught.raw as HeapRef
         assertEquals(VirtualType.of(NPE), caught.type)
-        assertTrue(graph.terminatingHostObjectOverExploredPaths(ref) is NullPointerException)
+        assertTrue(CoreTester.terminatingHostObject(graph, ref) is NullPointerException)
     }
 
     private fun assertSingleEscapingNpe(graph: org.cf.smalivm.core.ExecutionGraph) {

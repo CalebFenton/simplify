@@ -3,10 +3,9 @@ package org.cf.smalivm.core.op
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.InvokeKind
-import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.OpArm
-import org.cf.smalivm.core.Transition
+import org.cf.smalivm.core.currentResolver
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
@@ -29,11 +28,11 @@ class InvokeOpcodeFormsTest {
         for (row in rows) {
             val view = CoreTester.classIndex.requireMethodView(row.owner, row.method)
             val address = view.addresses.single { view.instructionAt(it).opcode.name == row.opcode }
-            val op = OpBuilder.build(address, view, CoreTester.classIndex)
-            val transition = op.execute(Frame.entryFrame(view)).arms.single() as OpArm.Invoke
-            assertEquals(row.kind, transition.kind, "${row.owner}->${row.method} ${row.opcode}")
-            assertEquals(row.target, transition.target, row.opcode)
-            assertArrayEquals(row.registers, transition.argumentRegisters, row.opcode)
+            val op = OpBuilder.build(address, view, CoreTester.classIndex.currentResolver())
+            val arm = op.execute(Frame.entryFrame(view)).arms.single() as OpArm.Invoke
+            assertEquals(row.kind, arm.kind, "${row.owner}->${row.method} ${row.opcode}")
+            assertEquals(row.target, arm.target, row.opcode)
+            assertArrayEquals(row.registers, arm.argumentRegisters, row.opcode)
             assertEquals(row.registers.toSet(), op.registersRead, row.opcode)
         }
     }

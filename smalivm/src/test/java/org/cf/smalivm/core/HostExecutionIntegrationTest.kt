@@ -40,13 +40,13 @@ class HostExecutionIntegrationTest {
         frame.assign(view.parameters[1].register, admitted[1])
 
         val graph = vm.newSession(view, entryFrame = frame).run()
-        val affected = graph.trusted()!!.terminatingHeapObject(admitted[0].raw as HeapRef) as HeapObject.HostObject
-        val preserved = graph.trusted()!!.terminatingHeapObject(admitted[1].raw as HeapRef) as HeapObject.HostObject
+        val affected = graph.trusted()!!.terminatingHeapObject(admitted[0].raw as HeapRef).agreed() as HeapObject.HostObject
+        val preserved = graph.trusted()!!.terminatingHeapObject(admitted[1].raw as HeapRef).agreed() as HeapObject.HostObject
 
         assertEquals(Value.Known(7, VirtualType.of("I")), (graph.outcomes.single() as Outcome.Returned).value)
         assertEquals(HostGraphContents.Unknown, affected.contents)
         assertTrue(preserved.contents is HostGraphContents.Known)
-        assertEquals("visible", graph.terminatingHostObjectOverExploredPaths(admitted[1].raw as HeapRef).toString())
+        assertEquals("visible", CoreTester.terminatingHostObject(graph, admitted[1].raw as HeapRef).toString())
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
@@ -116,7 +116,7 @@ class HostExecutionIntegrationTest {
         frame.assign(view.parameters[1].register, builder)
 
         val graph = vm.newSession(view, entryFrame = frame).run()
-        val disconnected = graph.trusted()!!.terminatingHeapObject(builder.raw as HeapRef) as HeapObject.HostObject
+        val disconnected = graph.trusted()!!.terminatingHeapObject(builder.raw as HeapRef).agreed() as HeapObject.HostObject
         return OpaqueLengthResult((graph.outcomes.single() as Outcome.Returned).value, disconnected)
     }
 

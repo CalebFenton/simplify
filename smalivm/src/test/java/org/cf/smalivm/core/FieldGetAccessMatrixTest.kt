@@ -678,12 +678,12 @@ class FieldGetAccessMatrixTest {
 
     private fun invokeFieldGetOnce(vm: VmServices, entry: MethodView, frame: Frame): ExecutionSession {
         val next = entry.nextAddress(0)
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, view, index ->
+        return vm.newSession(entry, Limits(), frame) { address, view, resolver ->
             when {
-                view.signature != entry.signature -> OpBuilder.build(address, view, index)
+                view.signature != entry.signature -> OpBuilder.build(address, view, resolver)
                 address == 0 -> InvokeTestOp(address, FIELD_GET, intArrayOf(0, 1))
                 address == next -> ReturnResultTestOp(address)
-                else -> OpBuilder.build(address, view, index)
+                else -> OpBuilder.build(address, view, resolver)
             }
         }
     }
@@ -709,13 +709,13 @@ class FieldGetAccessMatrixTest {
     ) : Op(address) {
         override val name: String = "field-get-test-invoke"
         override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Invoke(target, registers, InvokeKind.VIRTUAL)).asOpExecution()
+            OpExecution.single(OpArm.Invoke(target, registers, InvokeKind.VIRTUAL))
     }
 
     private class ReturnResultTestOp(address: Int) : Op(address) {
         override val name: String = "field-get-test-return"
         override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Return(frame.takeResult())).asOpExecution()
+            OpExecution.single(OpArm.Return.fromValue(frame.takeResult()))
     }
 
     internal companion object {

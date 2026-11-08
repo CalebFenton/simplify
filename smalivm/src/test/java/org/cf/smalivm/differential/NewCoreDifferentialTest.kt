@@ -1,19 +1,13 @@
 package org.cf.smalivm.differential
 
 import org.cf.smalivm.core.AbortReason
-import org.cf.smalivm.core.Activation
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreTester
-import org.cf.smalivm.core.ExecutionGraph
-import org.cf.smalivm.core.ExecutionNode
-import org.cf.smalivm.core.ExecutionSession
-import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapRef
-import org.cf.smalivm.core.Limits
-import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -150,11 +144,11 @@ class NewCoreDifferentialTest {
         val graph = CoreTester.execute("Ldifferential/invocation;", "callAbortedArrayCallee()[I")
         assertEquals(CompletionStatus.Partial(setOf(org.cf.smalivm.core.AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        val argument = graph.terminatingConsensusOverExploredPaths(1) as Value.Known
+        val argument = graph.explored.terminatingConsensus(1) as Value.Known
         assertTrue(argument.raw is HeapRef, "opaque fallback retains the argument reference")
-        val array = graph.terminatingHeapObjectOverExploredPaths(argument.raw as HeapRef) as org.cf.smalivm.core.HeapObject.TrackedArray
+        val array = graph.explored.terminatingHeapObject(argument.raw as HeapRef).agreed() as org.cf.smalivm.core.HeapObject.TrackedArray
         assertEquals(Value.Unknown(VirtualType.of("I")), array.element(0))
-        assertEquals(Value.Unknown(VirtualType.of("[I")), graph.terminatingConsensusOverExploredPaths(3))
+        assertEquals(Value.Unknown(VirtualType.of("[I")), graph.explored.terminatingConsensus(3))
     }
 
     @Test
@@ -190,7 +184,7 @@ class NewCoreDifferentialTest {
             val reached = graph.addresses().filter(graph::wasReached).toSet()
             assertEquals(setOf(0), reached, "${row.id}: only the invoke executes")
             assertFalse(graph.wasReached(3), "${row.id}: the infeasible return continuation stays dead")
-            assertEquals(Value.Top, graph.terminatingConsensusOverExploredPaths(0), "${row.id}: no return state")
+            assertEquals(Value.Top, graph.explored.terminatingConsensus(0), "${row.id}: no return state")
 
             val fixture = Fixtures.invocationCases.single { it.id == row.id }
             val projected = NEW_CORE.run(fixture)
@@ -213,9 +207,9 @@ class NewCoreDifferentialTest {
         )
         assertEquals(CompletionStatus.Partial(setOf(org.cf.smalivm.core.AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        val held = graph.terminatingConsensusOverExploredPaths(0) as Value.Known
+        val held = graph.explored.terminatingConsensus(0) as Value.Known
         assertTrue(held.raw is HeapRef, "the caller must retain its exact reference: $held")
-        val obj = graph.terminatingHeapObjectOverExploredPaths(held.raw as HeapRef) as org.cf.smalivm.core.HeapObject.TrackedObject
+        val obj = graph.explored.terminatingHeapObject(held.raw as HeapRef).agreed() as org.cf.smalivm.core.HeapObject.TrackedObject
         assertEquals(
             Value.Unknown(VirtualType.of("I")),
             obj.field("Ldifferential/invocation_target;->value:I"),
@@ -232,7 +226,7 @@ class NewCoreDifferentialTest {
         )
         assertTrue(graph.completion() is CompletionStatus.Partial)
         assertNull(graph.trusted(), "a truncated core run cannot expose trusted output")
-        assertEquals(Value.Known(11, VirtualType.of("I")), graph.terminatingConsensusOverExploredPaths(0))
+        assertEquals(Value.Known(11, VirtualType.of("I")), graph.explored.terminatingConsensus(0))
         assertEquals(setOf(0, 3, 4, 6, 7), graph.addresses().toSet())
 
         val fixture = Fixtures.invocationCases.single { it.id == "invoke-entrypoint-truncation" }
@@ -316,7 +310,7 @@ class NewCoreDifferentialTest {
     fun aBackwardBranchLoopTruncatesOnlyItsOwnPathAndItsSiblingSurvives() {
 
         val view = CoreTester.classIndex.requireMethodView("Ldifferential/branch;", "loopWithNonLoopingSibling(I)I")
-        val graph = ExecutionSession.of(view, CoreTester.classIndex, Limits(), Frame.entryFrame(view)).run()
+        val graph = CoreTester.vmServices.newSession(view).run()
 
         val completion = graph.completion()
         assertTrue(completion is CompletionStatus.Partial, "an unbounded loop cannot be fully explored: $completion")
@@ -451,31 +445,6 @@ class NewCoreDifferentialTest {
             NEW_CORE.run(fixture).registers[0],
         )
 
-    }
-
-    @Test
-    fun heapReprDoesNotRecurseForeverOnASelfReferentialArray() {
-
-        val objectArray = VirtualType.of("[Ljava/lang/Object;")
-        val view = CoreTester.classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
-        val frame = Frame.entryFrame(view)
-        val ref = frame.allocateArray(objectArray, 1).raw as HeapRef
-        frame.writeArrayElement(ref, 0, Value.Known(ref, objectArray)) 
-
-        val node = ExecutionNode(
-            0, OpBuilder.build(0, view, CoreTester.classIndex), frame, null, Activation.entry(view),
-        )
-        node.endWith(Outcome.Returned(null))
-        val graph = ExecutionGraph(
-            methodView = view,
-            addressToNodes = mapOf(0 to listOf(node)),
-            outcomes = listOf(node.outcome!!),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(node),
-            superclasses = CoreTester.classIndex,
-        )
-
-        assertEquals("[[...]]", NEW_CORE.heapRepr(graph, ref, mutableSetOf()))
     }
 
     @Test

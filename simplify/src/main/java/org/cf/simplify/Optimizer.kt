@@ -40,12 +40,13 @@ class Optimizer(
                 "No concrete application method: $methodSignature"
             }
             val graph = vmServices.newSession(method, limits).run()
-            if (graph.trusted() == null) return Result(commits, graph.completion(), false, rejections, counts)
+            val trusted = graph.trusted() ?: return Result(commits, graph.completion(), false, rejections, counts)
             if (commits >= maxPasses) return Result(commits, graph.completion(), true, rejections, counts)
+            val controlFlow = MethodControlFlow.of(trusted.methodView)
             var committed = false
             for (strategy in strategies) {
-                val input = StrategyInput(graph, vmServices.methodEditor)
-                val transaction = input.transaction
+                val transaction = vmServices.methodEditor.beginEdit(trusted)
+                val input = StrategyInput(trusted, controlFlow, transaction)
                 val commitResult = try {
                     strategy.perform(input)
                     transaction.commit()

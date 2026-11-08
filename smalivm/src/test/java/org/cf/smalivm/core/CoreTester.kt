@@ -19,14 +19,10 @@ object CoreTester {
     /** Parsed once; each import builds its own immutable program snapshot from it. */
     private val fixtureInput = ProgramInput.read(File(TEST_CLASS_PATH), SmaliParser.DEX_API_LEVEL)
 
-    /** A fresh workspace over the fixture tree, for tests that need a [ClassIndex] with different overrides. */
+    /** A fresh workspace over the fixture tree, for tests that need their own [ClassIndex]. */
     fun importFixtures(): ProgramWorkspace = InitialProgramImporter.import(fixtureInput)
 
-    val classIndex: ClassIndex = ClassIndex(
-        importFixtures(),
-        dynamicLoadingEvidence = false,
-        hierarchyComplete = true,
-    )
+    val classIndex: ClassIndex = ClassIndex(importFixtures())
 
     val vmServices = VmServices(classIndex)
 
@@ -36,15 +32,7 @@ object CoreTester {
      */
     val classLoader: SmaliClassLoader get() = classIndex.classLoader
 
-    /**
-     * Runs a method to completion. [initialRegisters] seeds the entry frame to explore one input.
-     *
-     * Goes through the [MethodView]-taking overload of [ExecutionSession.of] rather than the
-     * `VirtualMethod` one, so ONE view backs both the seeded frame and the run. The other overload
-     * builds a second, equal-but-distinct view, which left the graph's `methodView` non-identical to
-     * the view the frame range-checks against -- harmless while views are pure value objects, and a
-     * trap the day one gains identity-keyed caching or a per-view mutable overlay (Plan 13's editor).
-     */
+    /** Runs a method to completion. [initialRegisters] seeds the entry frame to explore one input. */
     fun execute(
         className: String,
         methodDescriptor: String,
@@ -56,7 +44,7 @@ object CoreTester {
         val entries = initialRegisters.entries.toList()
         val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
         entries.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
-        return ExecutionSession.of(view, vmServices, limits, frame).run()
+        return vmServices.newSession(view, limits, frame).run()
     }
 
     /**
@@ -95,65 +83,29 @@ object CoreTester {
      * consumer's own path and the completion check becomes unskippable.
      */
     fun test(className: String, methodDescriptor: String, initial: CoreState, expected: CoreState) {
-        // Fails loudly rather than silently ignoring them: no query on ExecutionGraph or
-        // TrustedGraphView exposes a Frame's result/caught slot, so an `expected.setResult(...)` a
-        // migrating test wrote by reflex would otherwise assert NOTHING and pass vacuously.
-        require(expected.result == null && expected.caught == null) {
-            "CoreTester.test cannot check the result/caught slots -- no graph query exposes them. " +
-                "Assert the register a `move-result`/`move-exception` moved the slot INTO instead: $expected"
-        }
-        // The SAME accident by the other idiom, and the one the unmigrated corpus actually uses: it
-        // writes the result slot as a NEGATIVE register index (`ExecutionState.RESULT_REGISTER` /
-        // `EXCEPTION_REGISTER` -- the collapse `CoreState`'s typed slots replaced), not via `setResult`.
-        // Nine live call sites remain, all in `opcode/InvokeOpTest.kt` (`testMethodWith*`/`can*` tests --
-        // cited by FILE rather than by line, because a `git rm` orphans a line range and Plan 7 Task 7 found
-        // five citations that then resolved to a test showing the OPPOSITE of the claim). The other four were
-        // in `opcode/FilledNewArrayTest.kt`, which Plan 7 Task 11 migrated and deleted -- and they are the
-        // reason this guard exists at all: `core/op/FilledNewArrayOpTest` asserts the register
-        // `move-result-object` moves the slot into, exactly as the message below prescribes. Without this
-        // guard they land in `registers[-1]`, `valueIn` answers `Value.Top` for an out-of-range register, and
-        // the migrator gets `expected Known(7, I) but was Top` instead of being told what actually went wrong.
+        // A negative register is the old engine's result/exception pseudo-register. No graph query exposes
+        // the result or caught slot, and an out-of-range register reads `Top`, so the expectation would pass
+        // or fail for the wrong reason; assert the register `move-result`/`move-exception` wrote instead.
         require((expected.registers.keys + expected.arrays.keys).none { it < 0 }) {
             "CoreTester.test cannot check the result/caught slots -- no graph query exposes them, and a " +
                 "NEGATIVE expected register is the old engine's ExecutionState.RESULT_REGISTER / " +
                 "EXCEPTION_REGISTER idiom. Assert the register a `move-result`/`move-exception` moved " +
                 "the slot INTO instead: $expected"
         }
-        // The same vacuity class one line up, and the likelier accident: with no expected register OR
-        // array this asserts only that the run completed, so a migration that forgot to fill `expected`
-        // passes while checking no value at all. Every caller of this function is a behavioral test about
-        // a register or an array, so an expectation empty of BOTH is always a mistake, never a deliberate
-        // "just check it completes" (that is `execute` plus an explicit assertion). An array-only
-        // expectation -- most of APutOpTest and all of FillArrayDataOpTest, once migrated -- is not
-        // vacuous: it asserts length AND every element (see the array loop below), so it must satisfy
-        // this guard on its own.
-        // A STATIC FIELD expectation satisfies this guard on its own, and it must: all seven migrated
-        // `SPutOpTest` tests expect only a field (`expected.setFields(...)` with no register at all), which is
-        // not vacuous -- it asserts the value a returning-path consensus holds for a named cell. Omitting it
-        // from the guard would have made those seven unwritable; adding `staticFields` here rather than
-        // loosening the guard keeps every OTHER empty-expectation accident still caught.
+        // An expectation with no register, array, or static field asserts only that the run completed.
         require(expected.registers.isNotEmpty() || expected.arrays.isNotEmpty() || expected.staticFields.isNotEmpty()) {
             "CoreTester.test needs at least one expected register, array or static field, or it asserts " +
                 "nothing about $className->$methodDescriptor beyond the run completing"
         }
-        // ...and the same class again for the OTHER way an expectation can be empty of content while
-        // non-empty of entries: passing the SEED as the expectation. `require(registers.isNotEmpty())`
-        // above cannot see it, because the aliased object is full. Every assertion then degenerates to
-        // "the seed survived", which no arithmetic defect can break for a register the method never
-        // writes -- e.g. `CoreState().apply { setRegisters(1, 7, "I") }` passed twice to `addInt()V`,
-        // which writes only v0. Identity, not equality: two independent states that happen to be equal
-        // are a legitimate "this method changes nothing here" claim.
+        // The seed passed as the expectation degenerates every assertion to "the seed survived". Identity,
+        // not equality: two independent equal states are a legitimate "this method changes nothing" claim.
         require(initial !== expected) {
             "CoreTester.test was given ONE CoreState as both seed and expectation, so every assertion " +
                 "it makes is `the seed survived` -- vacuous for any register " +
                 "$className->$methodDescriptor does not write. Build a separate expected state: $expected"
         }
-        // An out-of-range expected register passes VACUOUSLY rather than failing: `ExecutionGraph`'s
-        // `valueIn` answers `Value.Top` for `register !in 0 until registerCount` (deliberately -- a
-        // query must never throw on traversal), so `expected.setRegister(999, Value.Top)` compares
-        // `Top == Top` and satisfies the non-empty guard above. Any migrated test whose expectation IS
-        // `Top` ("this register is unassigned") therefore passes when the register NUMBER is wrong. The
-        // seed side needs no such check: `Frame.assign` range-checks and throws.
+        // `valueIn` answers `Top` for an out-of-range register, so an expected `Top` there would pass with the
+        // wrong register number.
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val expectedRegistersAndArrays = expected.registers.keys + expected.arrays.keys
         require(expectedRegistersAndArrays.all { it < view.registerCount }) {
@@ -175,10 +127,7 @@ object CoreTester {
                 "register $register after $className->$methodDescriptor",
             )
         }
-        // Static fields, through the graph's own returning-path CONSENSUS query rather than any one node's
-        // frame -- the class-state counterpart of the register loop above, and the replacement for the
-        // oracle's `getTerminatingFieldConsensus(field)`. Dominated by the same completion gate, so a field
-        // assertion can never be read off a truncated run.
+        // Static fields through returning-path consensus, never one node's frame.
         for ((descriptor, expectedValue) in expected.staticFields) {
             assertEquals(
                 expectedValue,
@@ -186,12 +135,8 @@ object CoreTester {
                 "static field $descriptor after $className->$methodDescriptor",
             )
         }
-        // Element-wise through heap CONSENSUS, never one path's heap: two returning paths can agree
-        // about the ref and disagree about the contents (TrustedGraphView.terminatingHeapObject). This
-        // loop is dominated by the completion gate above -- there is no way to reach it without a
-        // Complete run -- which is TRAP 3 (self-truncating array runs) closed structurally rather than
-        // by a second check: an array fixture that trips Limits.maxAddressVisits on one path never gets
-        // this far at all.
+        // Element-wise through heap consensus, never one path's heap: two returning paths can agree about the
+        // ref and disagree about the contents.
         for ((register, spec) in expected.arrays) {
             val consensus = trusted!!.terminatingConsensus(register)
             assertTrue(
@@ -199,23 +144,13 @@ object CoreTester {
                 "register $register after $className->$methodDescriptor should hold a tracked array, but was $consensus",
             )
             val ref = (consensus as Value.Known).raw as HeapRef
-            val actual = trusted.terminatingHeapObject(ref)
+            val actual = trusted.terminatingHeapObject(ref).agreed()
             assertTrue(actual is HeapObject.TrackedArray, "no array at $ref for register $register; got $actual")
             val array = actual as HeapObject.TrackedArray
             val expectedElements = CoreState.elementsOf(spec)
             assertEquals(expectedElements.size, array.length, "length of register $register after $className->$methodDescriptor")
-            // ASSIGNABILITY, not equality: the runtime type must be assignable TO the declared type,
-            // never the reverse. The dex verifier proves the declared type and the runtime class are
-            // COMPATIBLE, never that they are identical: String[] <: Object[] is legal covariance, so a
-            // test may declare "[Ljava/lang/Object;" while the array's true runtime type is
-            // [Ljava/lang/String; -- both correct at once. Equality would reject verified, legitimate
-            // input as a harness defect. Primitive arrays are invariant ([I is not an Object[]) -- but
-            // NOT because isSubtypeOf's own reference guard rejects the pair: VirtualType.isReference
-            // counts arrays (including [I) as references, so that guard never fires here. The real
-            // enforcement is one level down, in VirtualArray.getImmediateAncestors: a primitive-component
-            // array's only immediate ancestor is plain Ljava/lang/Object; (never an array type), so [I's
-            // whole ancestor set never contains [Ljava/lang/Object; the way a reference-component array's
-            // would. isSubtypeOf is reused rather than re-derived; the invariance is its callee's doing.
+            // Assignability, not equality: the verifier proves the declared and runtime array types
+            // compatible, not identical (`String[]` may be declared as `Object[]`).
             assertTrue(
                 classIndex.isSubtypeOf(array.type, spec.type),
                 "register $register after $className->$methodDescriptor: runtime array type ${array.type} " +
@@ -237,7 +172,7 @@ object CoreTester {
      * Checks completion FIRST, for the same reason [assertReturns] does, even though `wasReached` is
      * ungated and needs no [TrustedGraphView]: an *absent* address here is a dead-code claim, and on a
      * `Partial` run `wasReached` returns `false` for a genuinely unreachable address and for one the
-     * run simply never got to, indistinguishably (see [ExecutionGraphView.wasReached]). Without this
+     * run simply never got to, indistinguishably (see [ExecutionGraph.wasReached]). Without this
      * check the harness would quietly teach every later plan's tests to read a truncated exploration
      * as a coverage proof -- and a fixture that stopped early would show up as a *passing* narrower
      * expectation rather than as a failure.
@@ -422,7 +357,7 @@ object CoreTester {
             val known = caught as Value.Known
             val actualMessage = when (val raw = known.raw) {
                 is HeapRef -> {
-                    val host = graph.terminatingHostObjectOverExploredPaths(raw) as? Throwable
+                    val host = terminatingHostObject(graph, raw) as? Throwable
                     host?.message ?: throw AssertionError("no tracked throwable at $raw")
                 }
                 is Throwable -> raw.message
@@ -475,9 +410,21 @@ object CoreTester {
         val admitted = frame.admitHostSeeds(seeds.map { it.second })
         seeds.zip(admitted).forEach { (seed, value) -> frame.assign(seed.first, value) }
         seedStaticFields(frame, initial)
-        initial.result?.let { frame.setResult(it) }
-        initial.caught?.let { frame.setCaught(it) }
-        return ExecutionSession.of(view, vmServices, limits, frame).run()
+        return vmServices.newSession(view, limits, frame).run()
+    }
+
+    /**
+     * The host object every returning path of [graph] holds at [ref], or null when they disagree or none
+     * returned. Host objects are mutable, so no public graph query exposes them.
+     */
+    fun terminatingHostObject(graph: ExecutionGraph, ref: HeapRef): Any? {
+        val returned = graph.addresses().asSequence()
+            .flatMap { graph.nodePile(it).asSequence() }
+            .filter { it.outcome is Outcome.Returned && it.activation.returnSite == null }
+            .toList()
+        if (returned.isEmpty()) return null
+        val first = (returned.first().endingFrame ?: returned.first().frame).hostObjectAt(ref) ?: return null
+        return if (returned.all { (it.endingFrame ?: it.frame).hostObjectAt(ref) === first }) first else null
     }
 
     /**

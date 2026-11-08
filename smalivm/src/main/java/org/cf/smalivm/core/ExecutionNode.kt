@@ -68,6 +68,9 @@ class ExecutionNode internal constructor(
     internal var endingFrame: Frame? = null
         private set
 
+    /** The state this node's path ended in, or [frame] for a node that ended no path. */
+    internal val terminalFrame: Frame get() = endingFrame ?: frame
+
     /**
      * The host `Throwable` that ended a path at this node, when the corresponding [Outcome] is
      * `Aborted(HOST_FAILURE)`. Kept so a host bug converted into a bounded path abort is still
@@ -94,18 +97,10 @@ class ExecutionNode internal constructor(
      * How much [op] may have perturbed observable state this engine does not model, on **this** path
      * (spec §4.5: effects are recorded on the node, never on the op).
      *
-     * `NONE` for every op that touches only its own [Frame] and the tracked heap. `STRONG` is declared by
-     * the op itself, through `Frame.recordSideEffect`, and transferred here by `ExecutionSession.step`
-     * as soon as `execute` has run -- before any successor's frame is copied, so the level describes this
-     * address rather than every address below it.
-     *
-     * **"As soon as `execute` has run" includes an `execute` that THREW**, and the wording is deliberate:
-     * the transfer is unconditional and sits *before* the host-failure boundary's early return, so an op
-     * that declared `STRONG` and then raised a host `Throwable` still records it. An earlier revision said
-     * *"immediately after `execute` returns"* and transferred after that early return, which silently lost
-     * the declaration -- a KDoc asserting the opposite of the code, which is worse than the gap itself.
-     * A node whose op never ran at all (a bound stopped it) keeps `NONE`: it never called
-     * `recordSideEffect`, and its frame is a fresh copy.
+     * The scheduler raises it from the effect each returned arm's update declares, and from the
+     * invocation, class-initialization, and synchronized-entry rules it owns. Successor nodes start at
+     * `NONE`, so the level describes this address rather than every address below it. A node whose op
+     * never ran, or whose `execute` raised a host failure, keeps `NONE`.
      *
      * **Read `ExecutionGraph.sideEffectLevel` rather than this field**, unless you specifically want one
      * path: that query maxes this over the whole node pile and folds in the separate

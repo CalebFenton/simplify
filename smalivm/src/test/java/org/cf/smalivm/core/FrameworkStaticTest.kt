@@ -27,7 +27,7 @@ class FrameworkStaticTest {
         val graph = run("encodedLiteral()I", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -40,7 +40,7 @@ class FrameworkStaticTest {
 
         val graph = run("mutableReference()Ljava/util/List;", vm)
         val ref = (graph.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        assertSame(java.util.Collections.EMPTY_LIST, graph.terminatingHostObjectOverExploredPaths(ref))
+        assertSame(java.util.Collections.EMPTY_LIST, CoreTester.terminatingHostObject(graph, ref))
         assertEquals(
             Value.Known(ref, EMPTY_LIST_TYPE),
             graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.descriptor),
@@ -59,7 +59,7 @@ class FrameworkStaticTest {
         val graph = run("unsafeSystemField()Ljava/io/PrintStream;", VmServices(classIndex, policy))
 
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -88,7 +88,7 @@ class FrameworkStaticTest {
         val graph = run("immutableReference()Ljava/lang/Boolean;", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(Value.Unknown(BOOLEAN), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -102,7 +102,7 @@ class FrameworkStaticTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -136,7 +136,7 @@ class FrameworkStaticTest {
         frame.writeStaticField(TRUE.descriptor, Value.Known(false, TRUE.type))
         frame.completeClassInit(TRUE.definingClass)
 
-        val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
+        val graph = vm.newSession(view, entryFrame = frame).run()
 
         assertEquals(Value.Known(false, TRUE.type), graph.trusted()!!.terminatingConsensus(0))
     }
@@ -203,7 +203,7 @@ class FrameworkStaticTest {
         val frame = Frame.entryFrame(view).apply { assign(1, Value.Unknown(intType)) }
         assertNull(frame.staticCell(EMPTY_LIST.descriptor))
 
-        val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
+        val graph = vm.newSession(view, entryFrame = frame).run()
         val returning = returningNodes(graph, view)
         val returned = returning.map { ((it.outcome as Outcome.Returned).value as Value.Known).raw as HeapRef }
 
@@ -228,7 +228,7 @@ class FrameworkStaticTest {
         frame.assign(0, admitted)
         val probed = probeNextHeapId(frame)
 
-        val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
+        val graph = vm.newSession(view, entryFrame = frame).run()
 
         assertEquals(Value.Known(existingRef, EMPTY_LIST_TYPE), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(

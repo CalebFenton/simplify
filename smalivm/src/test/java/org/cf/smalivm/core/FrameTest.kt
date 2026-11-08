@@ -122,60 +122,11 @@ class FrameTest {
     @Test
     fun registersAssignedTracksOnlyWrites() {
         // Bug class: registersAssigned() reporting a register that was only read, or omitting
-        // one assign() actually wrote -- either would mislead a consumer (e.g. Plan 14's
-        // dead-code strategy) about which registers this frame's op actually produced. Oracle:
-        // RegisterFile's contract (StateContracts.kt) -- registersAssigned is exactly the write
-        // set.
+        // one assign() actually wrote. Oracle: registersAssigned is exactly the write set.
         val f = frame()
         assertEquals(emptySet<Int>(), f.registersAssigned())
         f.assign(2, Value.Known(1, int))
         assertEquals(setOf(2), f.registersAssigned())
-    }
-
-    /**
-     * The op -> scheduler side-effect channel (spec §4.5), added in Plan 7 Task 8 fix round 1 for `aput`'s
-     * unmodellable-store rows. Two properties, both of which the op-level tests could NOT pin individually,
-     * which is why they are here rather than only in `APutOpTest`:
-     *
-     *  - **Aggregation errs upward** (spec §4.5's own words). No op in this build calls `recordSideEffect`
-     *    twice on one frame, so replacing the max with a plain assignment killed **nothing** in the
-     *    end-to-end battery. It is still a real guard rather than speculation: Plan 9's `iput`/`invoke` will
-     *    have several rows per op, and a `WEAK` landing after a `STRONG` would silently downgrade the claim
-     *    the trust gate is built on. Pinned directly instead of left to a future task to discover.
-     *  - **A copy does not inherit a declared level.** Also unkillable end-to-end on its own, because
-     *    `ExecutionSession` clears the level before copying any successor frame -- the two protections are
-     *    deliberately redundant, so breaking either alone is invisible. That redundancy is the point (the
-     *    failure it prevents is `sideEffectLevel(a)` answering `STRONG` for every address after the first
-     *    unprovable store, which no value assertion would notice), and this test is what makes the *second*
-     *    protection individually falsifiable.
-     */
-    @Test
-    fun aDeclaredSideEffectErrsUpwardAndIsClearedWhenTaken() {
-        val f = frame()
-        f.recordSideEffect(SideEffectLevel.STRONG)
-        f.recordSideEffect(SideEffectLevel.WEAK)
-        assertEquals(
-            SideEffectLevel.STRONG, f.takeSideEffectLevel(),
-            "a lower level must not downgrade a higher one -- effects err upward (spec §4.5)",
-        )
-        assertEquals(
-            SideEffectLevel.NONE, f.takeSideEffectLevel(),
-            "and the level is a ONE-OP handoff, so taking it clears it",
-        )
-    }
-
-    @Test
-    fun aFrameCopyDoesNotInheritADeclaredSideEffect() {
-        val f = frame()
-        f.recordSideEffect(SideEffectLevel.STRONG)
-        assertEquals(
-            SideEffectLevel.NONE, f.copy().takeSideEffectLevel(),
-            "a successor's frame must not inherit its parent op's effect declaration",
-        )
-        assertEquals(
-            SideEffectLevel.STRONG, f.takeSideEffectLevel(),
-            "...and copying must not consume the original's either",
-        )
     }
 
     @Test

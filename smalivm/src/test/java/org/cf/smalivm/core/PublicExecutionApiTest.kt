@@ -116,7 +116,7 @@ class PublicExecutionApiTest {
         val ref = known.raw
         assertTrue(ref is HeapRef)
 
-        val heapObject = graph.terminatingHeapObjectOverExploredPaths(ref as HeapRef)
+        val heapObject = graph.explored.terminatingHeapObject(ref as HeapRef).agreed()
         assertTrue(heapObject is HeapObject.TrackedObject)
         val tracked = heapObject as HeapObject.TrackedObject
         assertEquals(CUSTOM_EXCEPTION, tracked.type)

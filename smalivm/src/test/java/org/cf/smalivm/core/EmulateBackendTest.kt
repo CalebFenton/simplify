@@ -27,7 +27,7 @@ class EmulateBackendTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Known(41, intType), graph.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0))
         val invoke = graph.nodePile(0).single()
         assertSame(invoke.activation, invoke.children.single().activation)
     }
@@ -40,9 +40,9 @@ class EmulateBackendTest {
         val opaque = vm.newSession(view(CALLER, "callsNativeCallee()I")).run()
 
         assertEquals(Value.Known(7, intType), guest.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.NONE, guest.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, guest.explored.sideEffectLevel(0))
         assertEquals(Value.Unknown(intType), opaque.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.STRONG, opaque.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, opaque.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -314,9 +314,9 @@ class EmulateBackendTest {
 
         assertEquals(0, initialExecutions)
         assertEquals(Value.Known(2, intType), firstGraph.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.WEAK, firstGraph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, firstGraph.explored.sideEffectLevel(0))
         assertEquals(Value.Unknown(intType), secondGraph.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.NONE, secondGraph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, secondGraph.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -412,7 +412,7 @@ class EmulateBackendTest {
         assertEquals(Value.Known(false, booleanType), nonEmpty.outcomes.single().returnedValue())
         assertEquals(Value.Unknown(booleanType), unknown.outcomes.single().returnedValue())
         assertEquals(null, unknown.nodePile(0).single().hostFailure)
-        assertEquals(SideEffectLevel.STRONG, unknown.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, unknown.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -431,28 +431,28 @@ class EmulateBackendTest {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
         val target = method(CALLEE, "identityInt", "(I)I")
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
     private fun identityObjectSession(vm: VmServices, entry: MethodView, frame: Frame): ExecutionSession {
         val target = method(INVOKE_REVIEW_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
     private fun instanceSession(vm: VmServices, target: MethodDescriptor, receiver: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, receiver) }
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) {
                 invokeOp(address, target, intArrayOf(0), InvokeKind.VIRTUAL)
             } else {
-                OpBuilder.build(address, method, index)
+                OpBuilder.build(address, method, resolver)
             }
         }
     }
@@ -460,9 +460,9 @@ class EmulateBackendTest {
     private fun textUtilsSession(vm: VmServices, target: MethodDescriptor, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
         val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
-        return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
+        return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
-            else OpBuilder.build(address, method, index)
+            else OpBuilder.build(address, method, resolver)
         }
     }
 
@@ -493,8 +493,7 @@ class EmulateBackendTest {
         kind: InvokeKind = InvokeKind.STATIC,
     ) = object : Op(address) {
         override val name = "invoke-emulator-test"
-        override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Invoke(target, registers, kind)).asOpExecution()
+        override fun execute(frame: Frame): OpExecution = OpExecution.single(OpArm.Invoke(target, registers, kind))
     }
 
     private fun registration(

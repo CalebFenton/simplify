@@ -63,3 +63,24 @@
     move-object v2, v1
     return-object v2
 .end method
+
+.method public static copyOnIfFallthrough(I)Ljava/lang/String;
+    .locals 2
+    const-string v0, "branch literal"
+    if-eqz p0, :done
+    move-object v1, v0
+    return-object v1
+    :done
+    move-object v1, v0
+    return-object v1
+.end method
+
+.method public static copyAtBranchJoin(I)Ljava/lang/String;
+    .locals 2
+    const-string v0, "branch literal"
+    if-eqz p0, :join
+    const-string v0, "branch literal"
+    :join
+    move-object v1, v0
+    return-object v1
+.end method

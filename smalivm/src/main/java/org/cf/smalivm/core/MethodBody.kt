@@ -47,6 +47,25 @@ internal data class ImportedTryRegion(
 )
 internal data class ImportedDebugItem(val position: LogicalCodePosition, val item: DebugItem)
 
+/**
+ * A hard failure of ART's method verifier, which makes the declaring class fail verification. [codeAddress] is
+ * the address the failure names: the instruction, the try range start, or the target that is not an instruction start.
+ */
+internal data class VerifierRejection(val reason: Reason, val codeAddress: Int) {
+    enum class Reason {
+        NO_INSTRUCTIONS,
+        /** A try range starts off an instruction start, is empty, or ends past the code. */
+        TRY_RANGE_OUTSIDE_INSTRUCTIONS,
+        HANDLER_NOT_AN_INSTRUCTION,
+        /** A non-range five-register instruction declares more registers than its five register fields. */
+        ARGUMENT_COUNT_ABOVE_FIVE,
+        /** A branch, payload or switch case target is not an instruction start inside the code. */
+        TARGET_NOT_AN_INSTRUCTION,
+        /** A switch names something other than a switch table of its kind. */
+        SWITCH_TABLE_OF_WRONG_KIND,
+    }
+}
+
 /** Immutable assembled code and metadata for one concrete method. */
 class MethodBody private constructor(
     internal val implementation: ImmutableMethodImplementation,
@@ -161,6 +180,11 @@ class MethodBody private constructor(
             ImmutableMethodImplementation(registerCount, instructions, emptyList(), emptyList()),
         )
 
+        /**
+         * Imports code [verifierRejection] accepts. A try range may end, and a debug item may sit, inside an
+         * instruction or past the code; each takes effect at the next instruction start, which is where ART's
+         * verifier and its line table apply them.
+         */
         fun import(
             implementation: MethodImplementation,
             syntheticPayloadPaddingAddresses: Set<Int>? = null,
@@ -176,6 +200,12 @@ class MethodBody private constructor(
                 codeAddress += instruction.codeUnits
             }
             positionsByAddress[codeAddress] = logicalPositions[sourceInstructions.size]
+            val boundaries = positionsByAddress.keys.toIntArray()
+            fun positionAtOrAfter(address: Int): LogicalCodePosition {
+                val index = boundaries.binarySearch(address)
+                val boundary = if (index >= 0) index else minOf(-index - 1, boundaries.lastIndex)
+                return positionsByAddress.getValue(boundaries[boundary])
+            }
 
             val immutable = requireNotNull(ImmutableMethodImplementation.of(implementation))
             val encoded = ArrayList<EncodedInstruction>(sourceInstructions.size)
@@ -211,7 +241,7 @@ class MethodBody private constructor(
             val tryRegions = immutable.tryBlocks.map { block ->
                 ImportedTryRegion(
                     requireNotNull(positionsByAddress[block.startCodeAddress]),
-                    requireNotNull(positionsByAddress[block.startCodeAddress + block.codeUnitCount]),
+                    positionAtOrAfter(block.startCodeAddress + block.codeUnitCount),
                     block.exceptionHandlers.map { handler ->
                         ImportedExceptionHandler(
                             handler.exceptionType,
@@ -221,7 +251,7 @@ class MethodBody private constructor(
                 )
             }.toPersistentList()
             val debugItems = immutable.debugItems.map { item ->
-                ImportedDebugItem(requireNotNull(positionsByAddress[item.codeAddress]), item)
+                ImportedDebugItem(positionAtOrAfter(item.codeAddress), item)
             }.toPersistentList()
             val syntheticPaddingPositions = if (syntheticPayloadPaddingAddresses == null) {
                 val protectedPositions = buildSet {
@@ -259,6 +289,55 @@ class MethodBody private constructor(
                 persistentHashMapOf(),
             )
         }
+
+        /**
+         * The first hard failure ART's method verifier (`runtime/verifier/method_verifier.cc`) reports for
+         * [implementation] among its checks of code addresses, switch tables and five-register counts, or null.
+         */
+        fun verifierRejection(implementation: MethodImplementation): VerifierRejection? {
+            val instructionsByAddress = LinkedHashMap<Int, Instruction>()
+            var codeSize = 0
+            for (instruction in implementation.instructions) {
+                instructionsByAddress[codeSize] = instruction
+                codeSize += instruction.codeUnits
+            }
+            if (instructionsByAddress.isEmpty()) return VerifierRejection(VerifierRejection.Reason.NO_INSTRUCTIONS, 0)
+            for (block in implementation.tryBlocks) {
+                val start = block.startCodeAddress
+                val end = start.toLong() + block.codeUnitCount
+                if (start !in instructionsByAddress || end <= start || end > codeSize) {
+                    return VerifierRejection(VerifierRejection.Reason.TRY_RANGE_OUTSIDE_INSTRUCTIONS, start)
+                }
+            }
+            for (handler in implementation.tryBlocks.flatMap { it.exceptionHandlers }) {
+                if (handler.handlerCodeAddress !in instructionsByAddress) {
+                    val address = handler.handlerCodeAddress
+                    return VerifierRejection(VerifierRejection.Reason.HANDLER_NOT_AN_INSTRUCTION, address)
+                }
+            }
+            for ((address, instruction) in instructionsByAddress) {
+                if (instruction is FiveRegisterInstruction && instruction.registerCount > MAX_FIVE_REGISTER_COUNT) {
+                    return VerifierRejection(VerifierRejection.Reason.ARGUMENT_COUNT_ABOVE_FIVE, address)
+                }
+                if (instruction !is OffsetInstruction) continue
+                val target = address + instruction.codeOffset
+                val targeted = instructionsByAddress[target]
+                    ?: return VerifierRejection(VerifierRejection.Reason.TARGET_NOT_AN_INSTRUCTION, target)
+                val tableOpcode = SWITCH_TABLE_BY_SWITCH[instruction.opcode] ?: continue
+                if (targeted.opcode != tableOpcode) {
+                    return VerifierRejection(VerifierRejection.Reason.SWITCH_TABLE_OF_WRONG_KIND, target)
+                }
+                (targeted as SwitchPayload).switchElements.map { address + it.offset }
+                    .firstOrNull { it !in instructionsByAddress }
+                    ?.let { case -> return VerifierRejection(VerifierRejection.Reason.TARGET_NOT_AN_INSTRUCTION, case) }
+            }
+            return null
+        }
+
+        private val SWITCH_TABLE_BY_SWITCH = mapOf(
+            Opcode.PACKED_SWITCH to Opcode.PACKED_SWITCH_PAYLOAD,
+            Opcode.SPARSE_SWITCH to Opcode.SPARSE_SWITCH_PAYLOAD,
+        )
 
         fun logical(
             registerCount: Int,

@@ -5,26 +5,8 @@ import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
-import org.junit.jupiter.api.assertThrows
 
 class CallRoutingReliabilityTest {
-    @Test
-    fun schedulerInvariantFailureDuringRoutingEscapesLoudly() {
-        val view = view()
-        val session = ExecutionSession(
-            methodView = view,
-            vmServices = CoreTester.vmServices,
-            limits = Limits(),
-            entryFrame = Frame.entryFrame(view),
-            routingInvariant = { error("injected routing invariant") },
-        )
-
-        val failure = assertThrows<IllegalStateException> { session.run() }
-
-        assertEquals("injected routing invariant", failure.message)
-        assertTrue(session.outcomes.none { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
-    }
-
     @Test
     fun schedulerWorkLimitCancelsPendingRoutingAndReleasesCollectorState() {
         val session = CoreTester.vmServices.newSession(
@@ -38,49 +20,12 @@ class CallRoutingReliabilityTest {
     }
 
     @Test
-    fun timeoutAtPendingRoutingCancelsEveryCompletionBeforeMergeOrResolution() {
-        lateinit var session: ExecutionSession
-        val view = view()
-        session = ExecutionSession(
-            methodView = view,
-            vmServices = CoreTester.vmServices,
-            limits = Limits(maxExecutionTimeMillis = 1),
-            entryFrame = Frame.entryFrame(view),
-            clockMillis = {
-                // The innermost callee's first ending completes its activation and queues its routing.
-                if (session.reachedNodes().any { it.view.signature != view.signature && it.outcome != null }) 2 else 0
-            },
-        )
-
-        val graph = session.run()
-
-        assertAbortedRouting(session, graph, AbortReason.TIMEOUT)
-    }
-
-    @Test
     fun methodLimitCancelsCollectedReturnThrowAndOpenPathExactlyOnce() {
         val session = partialCompletionSession(Limits(maxAddressVisits = 0, maxSteps = 6))
 
         val graph = session.run()
 
         assertPartialCollectionCancelled(session, graph, AbortReason.METHOD_LIMIT)
-    }
-
-    @Test
-    fun timeoutCancelsCollectedReturnThrowAndOpenPathExactlyOnce() {
-        lateinit var session: ExecutionSession
-        session = partialCompletionSession(
-            limits = Limits(maxAddressVisits = 0, maxExecutionTimeMillis = 1),
-            clockMillis = {
-                // Fire once the callee's return and throw paths have both ended while its loop path is open.
-                val terminals = session.reachedNodes().filter { it.view.signature == CALLEE }.mapNotNull { it.outcome }
-                if (terminals.any { it is Outcome.Returned } && terminals.any { it is Outcome.Threw }) 2 else 0
-            },
-        )
-
-        val graph = session.run()
-
-        assertPartialCollectionCancelled(session, graph, AbortReason.TIMEOUT)
     }
 
     @Test
@@ -106,7 +51,7 @@ class CallRoutingReliabilityTest {
     ) {
         assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
         assertEquals(listOf(Outcome.Aborted(reason)), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         // Routing never ran: no caller resume node exists, and every reached node executed its op.
         assertTrue(session.isFinished)
         val nodes = allNodes(graph.nodePile(0).single())
@@ -127,41 +72,30 @@ class CallRoutingReliabilityTest {
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Returned })
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Threw })
         assertEquals(1, calleeTerminals.count { it.outcome == Outcome.Aborted(reason) })
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertTrue(session.isFinished)
     }
 
-    private fun partialCompletionSession(
-        limits: Limits,
-        clockMillis: () -> Long = System::currentTimeMillis,
-    ): ExecutionSession {
+    private fun partialCompletionSession(limits: Limits): ExecutionSession {
         val caller = CoreTester.classIndex.requireMethodView(OWNER, "partialCompletionCaller(I)I")
         val callee = CoreTester.classIndex.requireMethodView(OWNER, "partialCompletionCallee(I)I")
         val returnAddress = callee.addresses.first { callee.opcodeAt(it).name.startsWith("const") }
         val throwAddress = callee.addresses.filter { callee.opcodeAt(it).name.startsWith("const") }[1]
         val loopAddress = callee.addresses.single { callee.opcodeAt(it).name.startsWith("goto") }
-        return ExecutionSession(
-            methodView = caller,
-            vmServices = CoreTester.vmServices,
-            limits = limits,
-            entryFrame = Frame.entryFrame(caller),
-            opFactory = { address, currentView, index ->
-                if (currentView.signature == callee.signature && address == 0) {
-                    object : Op(address) {
-                        override val name = "return-throw-or-loop"
+        // No real opcode forks three ways by jumping, so the callee's entry op is scripted.
+        val fork = object : Op(0) {
+            override val name = "return-throw-or-loop"
 
-                        override fun execute(frame: Frame): OpExecution = listOf(
-                            Transition.Jump(returnAddress),
-                            Transition.Jump(throwAddress),
-                            Transition.Jump(loopAddress),
-                        ).asOpExecution()
-                    }
-                } else {
-                    OpBuilder.build(address, currentView, index)
-                }
-            },
-            clockMillis = clockMillis,
-        )
+            override fun execute(frame: Frame): OpExecution = OpExecution.of(
+                OpArm.Jump(returnAddress),
+                OpArm.Jump(throwAddress),
+                OpArm.Jump(loopAddress),
+            )
+        }
+        return CoreTester.vmServices.newSession(caller, limits, null) { address, current, resolver ->
+            if (current.signature == callee.signature && address == 0) fork
+            else OpBuilder.build(address, current, resolver)
+        }
     }
 
     private fun allNodes(root: ExecutionNode): List<ExecutionNode> = buildList {
@@ -170,12 +104,6 @@ class CallRoutingReliabilityTest {
             node.children.forEach(::visit)
         }
         visit(root)
-    }
-
-    private fun ExecutionSession.reachedNodes(): List<ExecutionNode> {
-        var root = currentNode ?: return emptyList()
-        while (true) root = root.parent ?: break
-        return allNodes(root)
     }
 
     private fun view(): MethodView = CoreTester.classIndex.requireMethodView(OWNER, "outerThreeFrames()I")

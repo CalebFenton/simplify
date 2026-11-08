@@ -249,7 +249,7 @@ class ThrowRoutingTest {
         assertTrue(returned is Outcome.Returned, "the only path is the handler's, and it returns: $returned")
         val caught = (returned as Outcome.Returned).value
         assertTrue(caught is Value.Known && caught.type == npe, "move-exception bound an NPE, not an int: $caught")
-        val host = graph.terminatingHostObjectOverExploredPaths((caught as Value.Known).raw as HeapRef) as Throwable
+        val host = CoreTester.terminatingHostObject(graph, (caught as Value.Known).raw as HeapRef) as Throwable
         assertTrue(host is NullPointerException, "got ${host.javaClass.name}")
         // Message-less on purpose, and it is [ART]-faithful rather than arbitrary: `THROW()` calls the
         // NO-ARGUMENT ThrowNullPointerException(), which is ThrowException("Ljava/lang/NullPointerException;")
@@ -419,21 +419,18 @@ class ThrowRoutingTest {
 
     @Test
     fun synthesizingTheNpeIsNotASideEffect() {
-        // The effect-level decision, named so a later edit cannot make it silently. Allocating the NPE
-        // is a fully modelled write to the run's OWN heap: fresh object, fresh HeapRef, no other tracked
-        // object's contents change -- which is the test `Frame.recordSideEffect`'s KDoc states ("call it
-        // whenever a write's TARGET cannot be identified"). A spurious STRONG would be invisible in every
-        // other assertion in this file while silently stopping every constant fold in any method that
-        // contains a `throw` of a null, because `methodSideEffectLevelOverExploredPaths` maxes over
-        // addresses (Task 10's Important 2). The opposite error -- a missing declaration -- is what
-        // Task 8's Critical was, so the level is asserted rather than assumed either way.
+        // Allocating the NPE is a fully modelled write to the run's OWN heap: fresh object, fresh HeapRef,
+        // no other tracked object's contents change, so it declares no effect. A spurious STRONG would stop
+        // every constant fold in any method that contains a `throw` of a null, because
+        // `ExploredPaths.methodSideEffectLevel` maxes over addresses; a missing declaration would be the
+        // opposite error, so the level is asserted either way.
         val graph = session("throwNullConst()Ljava/lang/Object;").run()
         val throwAddress = graph.methodView.addresses.first {
             graph.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.THROW
         }
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(throwAddress),
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(throwAddress),
             "heap-allocating a guest throwable is modelled state, not an unmodelled effect")
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "and nothing else in this method declares one either, so a consumer may still fold")
     }
 
@@ -525,8 +522,8 @@ class ThrowRoutingTest {
     fun aMalformedHandlerAddressAbortsTheThrowingPathInsteadOfCrashing() {
         // Bug class: handing a handler address straight to decode, whose `requireNotNull` on the
         // instruction throws out of `step()` and kills the run. Oracle: spec §4.4 -- an
-        // unrepresentable successor is Aborted, never a crash and never a wrong answer -- and the
-        // same containment `enqueue` already applies to a jump off the end of a method.
+        // unrepresentable successor is Aborted, never a crash and never a wrong answer -- the same
+        // containment a jump off the end of a method gets.
         //
         // MALFORMED_INPUT, not HOST_FAILURE: a try-block table naming a handler address the method
         // does not contain is the bytecode asking for something impossible, which is the same
@@ -537,7 +534,7 @@ class ThrowRoutingTest {
         }
         val thrown = Value.Known(IllegalStateException("boom"), runtimeException)
         val frame = Frame.entryFrame(view).also { it.assign(view.parameters.single().register, thrown) }
-        val graph = ExecutionSession.of(view, classIndex, Limits(), frame).run()
+        val graph = vmServices.newSession(view, Limits(), frame).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
     }
@@ -549,7 +546,7 @@ class ThrowRoutingTest {
         val view = withTryBlocks(caughtDescriptor) {
             listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, it.endAddress)), null))
         }
-        val graph = ExecutionSession.of(view, classIndex, Limits()).run() // parameter Unknown -> ambiguous
+        val graph = vmServices.newSession(view).run() // parameter Unknown -> ambiguous
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes,
             "exactly one outcome: the malformed table aborted the throw instead of routing it")
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
@@ -557,23 +554,14 @@ class ThrowRoutingTest {
 
     @Test
     fun oneMalformedHandlerAbortsTheWholeForkRatherThanCommittingHalfOfIt() {
-        // The generalized form: the malformed handler is the SECOND one forked, so an implementation
-        // that enqueued as it went would have already committed the first handler and the run would
-        // hold a half-applied fork plus an abort -- a Partial run that also explored a path nobody
-        // can account for. The design decision, recorded on `OnUnbuildable.ALL_OR_NOTHING`: a
-        // malformed try-block table makes ALL of that table's routing suspect, so the throwing path
-        // aborts and routes nothing. The abort makes the run Partial, so no consumer trusts the
-        // truncation. This is also the test that pins WHICH policy a single-transition fork gets --
-        // `commit` is shared with the SKIP_ONE fork across transitions, and `applyAll` picks between
-        // them on `transitions.size`.
+        // The malformed handler is the SECOND one forked, so an implementation that scheduled handlers
+        // as it went would already have committed the first one: a half-applied fork plus an abort.
+        // `OnUnbuildable.ALL_OR_NOTHING`: a malformed try-block table makes ALL of that table's routing
+        // suspect, so the throwing path aborts and routes nothing, and the abort makes the run Partial.
         //
-        // AND it pins the reason as MALFORMED_INPUT, which is the ruling the ALL_OR_NOTHING case
-        // needed and is defensible only if the two axes are kept apart: the policy answers HOW MUCH
-        // is abandoned (all of that table's routing, plus its escape conclusion), the reason answers
-        // WHY the loss happened (a handler address the method does not contain -- bad input). The
-        // table-wide distrust argument recorded on `OnUnbuildable.ALL_OR_NOTHING` -- "'this escapes
-        // unhandled' is exactly as suspect as 'this is caught at 9999'" -- is about the first axis and
-        // is untouched by the label. One abort, still; only its reason is now the true one.
+        // The reason is MALFORMED_INPUT: the policy answers HOW MUCH is abandoned (all of that table's
+        // routing, plus its escape conclusion), the reason answers WHY (a handler address the method
+        // does not contain -- bad input).
         val view = withTryBlocks(caughtDescriptor) {
             listOf(
                 TryBlock(
@@ -587,7 +575,7 @@ class ThrowRoutingTest {
             )
         }
         val frame = Frame.entryFrame(view).also { it.assign(view.parameters.single().register, Value.Top) }
-        val graph = ExecutionSession.of(view, classIndex, Limits(), frame).run()
+        val graph = vmServices.newSession(view, Limits(), frame).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)
         assertFalse(graph.wasReached(1), "the well-formed handler must not have been committed either")
     }

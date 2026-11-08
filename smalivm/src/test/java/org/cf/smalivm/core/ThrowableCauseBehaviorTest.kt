@@ -148,12 +148,12 @@ class ThrowableCauseBehaviorTest {
         assertTrue(outcome is Outcome.Returned, "expected the cycle root to return, got $outcome")
         val returned = (outcome as Outcome.Returned).value as Value.Known
         val outerRef = returned.raw as HeapRef
-        val outer = graph.terminatingHeapObjectOverExploredPaths(outerRef) as HeapObject.GuestThrowable
+        val outer = graph.explored.terminatingHeapObject(outerRef).agreed() as HeapObject.GuestThrowable
         val cause = outer.cause as Value.Known
         val causeRef = cause.raw as HeapRef
-        val causeObject = graph.terminatingHeapObjectOverExploredPaths(causeRef) as HeapObject.GuestThrowable
-        val outerHost = graph.terminatingHostObjectOverExploredPaths(outerRef) as Throwable
-        val causeHost = graph.terminatingHostObjectOverExploredPaths(causeRef) as Throwable
+        val causeObject = graph.explored.terminatingHeapObject(causeRef).agreed() as HeapObject.GuestThrowable
+        val outerHost = CoreTester.terminatingHostObject(graph, outerRef) as Throwable
+        val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
 
         assertNotEquals(outerRef, causeRef)
         assertEquals(Value.Known(outerRef, outer.type), causeObject.cause)
@@ -220,12 +220,12 @@ class ThrowableCauseBehaviorTest {
         val graph = session.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val rootRef = returned.raw as HeapRef
-        val root = graph.terminatingHeapObjectOverExploredPaths(rootRef) as HeapObject.GuestThrowable
+        val root = graph.explored.terminatingHeapObject(rootRef).agreed() as HeapObject.GuestThrowable
         val cause = requireNotNull(root.cause) as Value.Known
         val causeRef = cause.raw as HeapRef
-        val causeObject = graph.terminatingHeapObjectOverExploredPaths(causeRef) as HeapObject.GuestThrowable
-        val rootHost = graph.terminatingHostObjectOverExploredPaths(rootRef) as Throwable
-        val causeHost = graph.terminatingHostObjectOverExploredPaths(causeRef) as Throwable
+        val causeObject = graph.explored.terminatingHeapObject(causeRef).agreed() as HeapObject.GuestThrowable
+        val rootHost = CoreTester.terminatingHostObject(graph, rootRef) as Throwable
+        val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
         val terminalNode = requireNotNull(session.currentNode)
         val terminal = terminalNode.endingFrame ?: terminalNode.frame
 

@@ -95,7 +95,7 @@ internal class HeapStore private constructor(
     private var trackedFields: CompatibilityMapKey<Int, TrackedFieldCompatibility>,
     private var mirroredArrayRefs: PersistentSet<Int>,
     private var dirtyMirroredArrayRefs: PersistentSet<Int>,
-) : Heap {
+) {
     constructor(ids: HeapIds) :
         this(
             ids,
@@ -383,11 +383,11 @@ internal class HeapStore private constructor(
         nodeRefs = nodeRefs.putting(nodeId.id, ref)
     }
 
-    override fun objectAt(ref: HeapRef): HeapObject? = objects[ref.id]
+    /** The object [ref] denotes on this path, or null when this heap has no such object. */
+    fun objectAt(ref: HeapRef): HeapObject? = objects[ref.id]
 
-    override fun objectType(ref: HeapRef): VirtualType? = objects[ref.id]?.type
-
-    override fun getField(ref: HeapRef, fieldDescriptor: String): Value =
+    /** A tracked object's field cell, or [Value.Top] when this path has no such object or field. */
+    fun getField(ref: HeapRef, fieldDescriptor: String): Value =
         (objects[ref.id] as? HeapObject.TrackedObject)?.field(fieldDescriptor) ?: Value.Top
 
     /** Writes one resolved cell. False means this path has no matching tracked object or field. */
@@ -1060,10 +1060,16 @@ internal class HeapStore private constructor(
     internal fun trackedFieldCompatibilityKey(): CompatibilityMapKey<Int, TrackedFieldCompatibility> = trackedFields
 
     companion object {
-        /** Joins one outcome partition. An object absent from any path stays absent. */
+        /**
+         * Joins one outcome partition. An object absent from any path stays absent. Callers partition by
+         * tracked-field compatibility first, so every store agrees on each tracked field's accessibility.
+         */
         fun merge(stores: List<HeapStore>, superclasses: TypeHierarchy): HeapStore {
             require(stores.isNotEmpty())
             val first = stores.first()
+            require(stores.all { it.trackedFields == first.trackedFields }) {
+                "Tracked-field accessibility must be partitioned before executable heap merge"
+            }
             val sameObjectRoot = stores.all { it.objects === first.objects }
             val sameGraph = stores.all { it.hostGraph === first.hostGraph }
             if (sameObjectRoot && sameGraph) return first.copy()
@@ -1129,8 +1135,12 @@ internal class HeapStore private constructor(
             )
         }
 
-        /** The joined object, the first path's own version when every path agrees, or null to drop it. */
-        private fun mergeObject(
+        /**
+         * The join of one object over several paths: the first path's own version when every path agrees, or
+         * null when they disagree about its kind or shape. [sameGraph] says whether host-graph contents are
+         * comparable across the paths.
+         */
+        internal fun mergeObject(
             objects: List<HeapObject>,
             superclasses: TypeHierarchy,
             sameGraph: Boolean,
@@ -1219,10 +1229,8 @@ internal class HeapStore private constructor(
                 is HeapObject.TrackedField -> {
                     val fields = objects.map { it as? HeapObject.TrackedField ?: return null }
                     if (fields.any { it.metadata != first.metadata }) return null
-                    require(fields.all { it.accessibility == first.accessibility }) {
-                        "Tracked-field accessibility must be partitioned before executable heap merge"
-                    }
-                    first
+                    if (fields.all { it.accessibility == first.accessibility }) first
+                    else HeapObject.TrackedField(first.metadata, FieldAccessibility.UNKNOWN)
                 }
             }
         }

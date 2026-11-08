@@ -1,8 +1,10 @@
 package org.cf.smalivm.differential
 
 import java.io.File
+import org.cf.smalivm.core.Agreement
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
+import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapObject
@@ -53,10 +55,10 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
     }
 
     private fun normalize(register: Int, graph: ExecutionGraph): NormalizedValue {
-        val value = graph.terminatingConsensusOverExploredPaths(register)
+        val value = graph.explored.terminatingConsensus(register)
         return when {
 
-            value is Value.Top -> when (graph.terminatingRegisterOccupancyOverExploredPaths(register)) {
+            value is Value.Top -> when (graph.explored.terminatingRegisterOccupancy(register)) {
                 RegisterOccupancy.HELD -> NormalizedValue(ValueKind.CONFLICTED, null, null)
                 RegisterOccupancy.NEVER_ASSIGNED, RegisterOccupancy.NO_PATH ->
                     NormalizedValue(ValueKind.ABSENT, null, null)
@@ -91,7 +93,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
             val normalized = normalizeValue(value, graph)
             val raw = (value as? Value.Known)?.raw
             val runtimeType = when {
-                raw is HeapRef -> graph.terminatingHeapObjectOverExploredPaths(raw)?.type?.descriptor
+                raw is HeapRef -> agreedHeapObject(graph, raw)?.type?.descriptor
                 raw != null && value.type?.descriptor?.startsWith("L") == true -> raw.javaClass.name
                 else -> normalized.type
             }
@@ -103,7 +105,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
     internal fun heapRepr(graph: ExecutionGraph, ref: HeapRef, visiting: MutableSet<Int>): String {
         if (!visiting.add(ref.id)) return "[...]"
         try {
-            return when (val obj = graph.terminatingHeapObjectOverExploredPaths(ref)) {
+            return when (val obj = agreedHeapObject(graph, ref)) {
                 null -> "<absent $ref>"
                 is HeapObject.TrackedField -> "<instance java.lang.reflect.Field>"
 
@@ -114,7 +116,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
                         "<instance ${obj.type.descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')}>"
                     }
                 is HeapObject.GuestThrowable, is HeapObject.HostObject ->
-                    graph.terminatingHostObjectOverExploredPaths(ref)?.let(ResultProjection::reprOf)
+                    CoreTester.terminatingHostObject(graph, ref)?.let(ResultProjection::reprOf)
                         ?: "<unknown ${obj.type}>"
                 is HeapObject.TrackedArray -> ResultProjection.listRepr(
                     obj.elements().map { element ->
@@ -133,6 +135,10 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
         }
     }
 
+    /** The returning paths' joined object at [ref]; the projection renders every other answer as absent. */
+    private fun agreedHeapObject(graph: ExecutionGraph, ref: HeapRef): HeapObject? =
+        (graph.explored.terminatingHeapObject(ref) as? Agreement.Agreed)?.value
+
     private fun entryFor(exception: Value, graph: ExecutionGraph): String {
         val raw = (exception as? Value.Known)?.raw
         return when {
@@ -142,8 +148,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
                     .flatMap { graph.nodePile(it).asSequence() }
                     .filter { it.outcome is Outcome.Threw }
                     .mapNotNull { node ->
-                        val terminalFrame = node.endingFrame ?: node.frame
-                        terminalFrame.hostObjectAt(raw) as? Throwable
+                        node.terminalFrame.hostObjectAt(raw) as? Throwable
                     }
                     .firstOrNull()
                 if (hostThrowable != null) {

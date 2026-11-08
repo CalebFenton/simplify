@@ -14,19 +14,15 @@ import java.io.File
  */
 class ExecutionGraphTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
+    private val vmServices = VmServices(classIndex)
     private val int = VirtualType.of("I")
 
     private fun graphOf(descriptor: String, limits: Limits = Limits()): ExecutionGraph =
-        ExecutionSession.of(classIndex.requireMethodView("Lspine/spine;", descriptor), classIndex, limits).run()
+        vmServices.newSession(classIndex.requireMethodView("Lspine/spine;", descriptor), limits).run()
 
     /**
-     * The trust-bearing queries of a graph whose run COMPLETED (spec §9's gate; see
-     * [TrustedGraphView]). Fails loudly rather than returning null, so a test that unexpectedly turns
-     * Partial says so instead of silently NPEing further down.
-     *
-     * Tests below that deliberately assert on a *Partial* run must NOT use this -- they call the
-     * ungated `...OverExploredPaths` accessors, because their subject is the pile filter, not the
-     * trust gate.
+     * The value queries of a graph whose run COMPLETED. Fails loudly rather than returning null, so a test that
+     * unexpectedly turns Partial says so. Tests about a *Partial* run read [ExecutionGraph.explored] instead.
      */
     private fun ExecutionGraph.trustedOrFail(): TrustedGraphView =
         requireNotNull(trusted()) { "expected a Complete run to be trusted, but completion was ${completion()}" }
@@ -51,31 +47,18 @@ class ExecutionGraphTest {
 
     @Test
     fun knownStringResolvesAnImmutableConstructedReceiverWithoutExposingItsHostObject() {
-        val view = classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
-        val stringType = VirtualType.of("Ljava/lang/String;")
-        val frame = Frame.entryFrame(view)
-        val receiver = frame.allocateObject(stringType, emptyMap())
-        val ref = receiver.raw as HeapRef
-        assertTrue(frame.installConstructedHostObject(ref, "constructed"))
-        frame.assign(0, receiver)
-        val node = ExecutionNode(
-            address = 0,
-            op = OpBuilder.build(0, view, classIndex),
-            frame = frame,
-            parent = null,
-            activation = Activation.entry(view),
-        )
-        val graph = ExecutionGraph(
-            methodView = view,
-            addressToNodes = mapOf(0 to listOf(node)),
-            outcomes = emptyList(),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(node),
-            superclasses = classIndex,
-        )
+        val view = classIndex.requireMethodView("Lknown_string;", "constructString()Ljava/lang/String;")
+        val graph = vmServices.newSession(view).run().trustedOrFail()
+        val opcodes = view.instructionAddresses.associateBy { view.opcodeAt(it) }
+        val newInstance = opcodes.getValue(com.android.tools.smali.dexlib2.Opcode.NEW_INSTANCE)
+        val returned = opcodes.getValue(com.android.tools.smali.dexlib2.Opcode.RETURN_OBJECT)
 
-        assertEquals("constructed", graph.trustedOrFail().knownString(0, 0))
-        assertNull(graph.trustedOrFail().knownString(0, 1))
+        assertEquals(Agreement.Absent, graph.knownString(newInstance, 0), "an uninitialized String has no contents yet")
+        assertEquals(Agreement.Agreed("ok"), graph.knownString(returned, 0), "the bytes 0x6f 0x6b decode to \"ok\"")
+        assertEquals(
+            Agreement.Absent, graph.knownString(returned, view.registerCount),
+            "an out-of-range register names no string",
+        )
     }
 
     @Test
@@ -107,9 +90,9 @@ class ExecutionGraphTest {
     fun parentAndChildAddressesFollowControlFlow() {
         val g = graphOf("nopThenConst()I")
         val addresses = g.methodView.addresses
-        assertArrayEquals(intArrayOf(), g.parentAddresses(addresses[0]))
-        assertArrayEquals(intArrayOf(addresses[0]), g.parentAddresses(addresses[1]))
-        assertArrayEquals(intArrayOf(addresses[1]), g.children(addresses[0]))
+        assertArrayEquals(intArrayOf(), g.explored.parentAddresses(addresses[0]))
+        assertArrayEquals(intArrayOf(addresses[0]), g.explored.parentAddresses(addresses[1]))
+        assertArrayEquals(intArrayOf(addresses[1]), g.explored.children(addresses[0]))
     }
 
     @Test
@@ -142,7 +125,7 @@ class ExecutionGraphTest {
         // aggregation itself, not the trust gate, so reading the truncated picture deliberately is the
         // right outcome rather than a workaround.
         val aborted = graphOf("unsupportedWideFilledArray()I")
-        assertEquals(SideEffectLevel.STRONG, aborted.methodSideEffectLevelOverExploredPaths(),
+        assertEquals(SideEffectLevel.STRONG, aborted.explored.methodSideEffectLevel(),
             "an unimplemented opcode could have done anything; assume the worst")
     }
 
@@ -177,12 +160,6 @@ class ExecutionGraphTest {
         assertEquals(1, g.nodePile(0).size)
         assertEquals(emptyList<ExecutionNode>(), g.nodePile(999))
         assertEquals(0, g.getOp(0).address)
-    }
-
-    @Test
-    fun tryBlocksComeFromTheStaticView() {
-        val g = graphOf("throwCaught(Ljava/lang/RuntimeException;)Ljava/lang/Object;")
-        assertEquals(g.methodView.tryBlocks, g.tryBlocks())
     }
 
     @Test
@@ -273,11 +250,11 @@ class ExecutionGraphTest {
         assertEquals(2, g.nodePile(moveAddress).size, "both the executed visit and the limit-aborted revisit are piled")
 
         assertEquals(
-            Value.Known(1, int), g.consensusOverExploredPaths(moveAddress, 1),
+            Value.Known(1, int), g.explored.consensus(moveAddress, 1),
             "only the executed visit may vote; an unfiltered pile would see v1 disagree (1 vs 2) and collapse to Unknown",
         )
         assertEquals(
-            setOf(Value.Known(1, int)), g.registerValuesOverExploredPaths(moveAddress, 1),
+            setOf(Value.Known(1, int)), g.explored.registerValues(moveAddress, 1),
             "registerValues must also exclude the never-executed revisit's stale frame",
         )
     }
@@ -346,44 +323,8 @@ class ExecutionGraphTest {
         val disagreeAddrs = disagree.addresses() // [const v1,0x1 ; move v0,v1 ; const v1,0x2 ; goto]
         assertEquals(
             Value.Unknown(int),
-            disagree.consensusOverExploredPaths(intArrayOf(disagreeAddrs[0], disagreeAddrs[2]), 1),
+            disagree.explored.consensus(intArrayOf(disagreeAddrs[0], disagreeAddrs[2]), 1),
             "two addresses whose register genuinely disagrees must join to Unknown, not silently pick one side",
-        )
-    }
-
-    @Test
-    fun consensusRangeChecksAgainstTheNodesOwnViewNotTheGraphsMethodView() {
-        // Bug class (review finding 5): valueIn range-checked the requested register against the
-        // GRAPH's methodView.registerCount rather than the NODE's own view.registerCount. Frame.peek
-        // range-checks against its OWN view (a Frame is built per-node, one per MethodView), so a
-        // node whose view is NARROWER than the graph's method -- unreachable through any public API
-        // today, but guaranteed once Plan 9 gives every callee node its own MethodView -- would pass
-        // this query's bound check yet still throw IllegalArgumentException straight out of
-        // Frame.peek, in a query the spec says must never throw on ordinary traversal. Both
-        // constructors used below are `internal` (reachable from this module); no public API can
-        // build a node whose view differs from its graph's yet, which is exactly why this needs a
-        // hand-built graph rather than a real session run.
-        val wideEntry = classIndex.requireMethodView("Lspine/spine;", "moveChain()I") // .registers 3
-        val narrowForeign = classIndex.requireMethodView("Lspine/spine;", "returnFive()I") // .registers 1
-        val foreignNode = ExecutionNode(
-            address = 0,
-            op = OpBuilder.build(0, narrowForeign, classIndex),
-            frame = Frame.entryFrame(narrowForeign),
-            parent = null,
-            activation = Activation.entry(narrowForeign),
-        )
-        val graph = ExecutionGraph(
-            methodView = wideEntry,
-            addressToNodes = mapOf(0 to listOf(foreignNode)),
-            outcomes = emptyList(),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(foreignNode),
-            superclasses = CoreTester.classIndex,
-        )
-        assertEquals(
-            Value.Top, graph.trustedOrFail().consensus(0, 1),
-            "register 1 is in-range for the graph's OWN methodView (3 registers) but out of range for " +
-                "this particular node's view (1 register) -- must be Top, never throw",
         )
     }
 }

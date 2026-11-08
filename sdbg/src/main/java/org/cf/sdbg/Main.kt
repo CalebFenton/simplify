@@ -1,9 +1,6 @@
 package org.cf.sdbg
 
 import org.cf.sdbg.command.CliCommands
-import org.cf.smalivm.core.Debugger
-import org.cf.smalivm.core.ExecutionSession
-import org.cf.smalivm.core.VmServices
 import org.fusesource.jansi.AnsiConsole
 import org.jline.builtins.ConfigurationPath
 import org.jline.console.impl.Builtins
@@ -25,12 +22,6 @@ import java.util.function.Function
 import kotlin.system.exitProcess
 
 object Main {
-    lateinit var services: VmServices
-    lateinit var session: ExecutionSession
-    lateinit var debugger: Debugger
-    lateinit var listing: SmaliListing
-    const val version: String = "2.0.0-SNAPSHOT"
-
     internal fun commandLine(command: Any): CommandLine = CommandLine(command).setExecutionExceptionHandler {
         exception, commandLine, _ ->
         var cause: Throwable? = exception
@@ -48,19 +39,18 @@ object Main {
         }
     }
 
-    private fun startConsoleLoop() {
+    private fun startConsoleLoop(debugSession: DebugSession) {
         val workDir = Paths.get("")
         val parser = DefaultParser()
         val builtins = Builtins(workDir, ConfigurationPath(null, null), null)
         builtins.alias("zle", "widget")
         builtins.alias("bindkey", "keymap")
         val systemCompleter = builtins.compileCompleters()
-        val commands = CliCommands()
-        val cmd = commandLine(commands)
-        val picocliCommands = PicocliCommands(cmd)
-        systemCompleter.add(picocliCommands.compileCompleters())
-        systemCompleter.compile()
         TerminalBuilder.builder().build().use { terminal ->
+            val cmd = commandLine(CliCommands(debugSession, terminal))
+            val picocliCommands = PicocliCommands(cmd)
+            systemCompleter.add(picocliCommands.compileCompleters())
+            systemCompleter.compile()
             val commandSession = CommandSession(terminal, System.`in`, System.out, System.err)
             val reader = LineReaderBuilder.builder()
                 .terminal(terminal)
@@ -69,7 +59,6 @@ object Main {
                 .variable(LineReader.LIST_MAX, 50)
                 .build()
             builtins.setLineReader(reader)
-            commands.configureReader(reader)
             cmd.setOut(terminal.writer()).setErr(terminal.writer())
             val descriptions = DescriptionGenerator(builtins, picocliCommands, parser)
             TailTipWidgets(reader, Function { line: CmdLine -> descriptions.commandDescription(line) }, 5,
@@ -109,7 +98,7 @@ object Main {
         val status = try {
             val initialize = Initialize()
             val result = commandLine(initialize).execute(*args)
-            if (result == 0 && initialize.started) startConsoleLoop()
+            initialize.debugSession?.let(::startConsoleLoop)
             result
         } catch (e: Exception) {
             System.err.println(e.message ?: e.javaClass.simpleName)
@@ -131,4 +120,9 @@ object Main {
             }
         }
     }
+}
+
+/** The `Implementation-Version` of the jar sdbg runs from; "unknown" when its classes are not in a jar. */
+internal class ManifestVersion : CommandLine.IVersionProvider {
+    override fun getVersion(): Array<String> = arrayOf(Main::class.java.`package`.implementationVersion ?: "unknown")
 }

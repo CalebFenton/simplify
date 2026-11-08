@@ -42,7 +42,7 @@ class StaticFieldAccessTest {
      * content -- a build that seeded on completion would read `Top` inside the `<clinit>` and then
      * clobber its writes (`ClassInitStore.prepare`'s KDoc names this test as its pin). Also the
      * mutate-to-prove witness for `sget`'s class-init trigger (MEASURED,
-     * `Fx_StaticFieldDoesInitialize`): an op that skips `Transition.InitClass` never runs the
+     * `Fx_StaticFieldDoesInitialize`): an op that skips `OpArm.InitClass` never runs the
      * `<clinit>`, and all three field expectations plus the register go red.
      */
     @Test
@@ -122,7 +122,7 @@ class StaticFieldAccessTest {
             register is Value.Known && (register as Value.Known).raw is HeapRef,
             "r0 must hold the tracked array read back from the field: $register",
         )
-        val array = trusted.terminatingHeapObject((register as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((register as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray, "no tracked array behind the ref; got $array")
         assertEquals(1, (array as HeapObject.TrackedArray).length)
         assertEquals(

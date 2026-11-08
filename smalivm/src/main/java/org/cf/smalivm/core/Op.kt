@@ -116,16 +116,13 @@ private class Decoding(
             else -> error("${instruction.opcode.name} is not an offset instruction")
         }
 
-    /**
-     * The register list of a `35c` or `3rc` instruction, or null when a `35c` declares more registers than
-     * its five fields, which `copyOf` would pad with reads of `v0` the instruction never names.
-     */
+    /** The register list of a `35c` or `3rc` instruction. */
     val registerList: IntArray?
         get() {
             val count = (instruction as VariableRegisterInstruction).registerCount
             return when (instruction) {
                 is RegisterRangeInstruction -> IntArray(count) { instruction.startRegister + it }
-                is FiveRegisterInstruction -> if (count > 5) null else intArrayOf(
+                is FiveRegisterInstruction -> intArrayOf(
                     instruction.registerC, instruction.registerD, instruction.registerE,
                     instruction.registerF, instruction.registerG,
                 ).copyOf(count)
@@ -143,14 +140,11 @@ private class Decoding(
  * register numbers, literals, target addresses and core types and never touch dexlib2 or the class model.
  *
  * Each opcode maps to one decoder row that carries the opcode's operator, domain, comparison or store kind
- * as a typed value. A malformed instruction (a payload target that is not a payload, a register list longer
- * than its format) decodes to an [UnsupportedOp] rather than throwing, because a decode throwable becomes
+ * as a typed value. A malformed instruction (a payload target that is not a payload) decodes to an
+ * [UnsupportedOp] rather than throwing, because a decode throwable becomes
  * `Aborted(HOST_FAILURE)`, indistinguishable from an engine bug.
  */
 internal object OpBuilder {
-    fun build(address: Int, view: MethodView, classIndex: ClassIndex): Op =
-        build(address, view, classIndex.resolver(classIndex.currentSnapshot))
-
     fun build(address: Int, view: MethodView, resolver: ProgramSnapshotResolver): Op {
         // A payload is data: something that jumps to one aborts rather than executing a table as code.
         if (view.isPayload(address)) return UnsupportedOp(address, view.payloadAt(address).opcode.name)

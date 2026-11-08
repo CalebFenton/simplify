@@ -30,12 +30,50 @@ The resumed Kotlin core separates method structure, execution evidence, and edit
   sessions execute. Output includes all application classes and methods, not only optimization targets,
   and excludes bundled framework classes. An older retained snapshot can still be serialized separately.
 - Simplify's Kotlin `Optimizer` runs constant propagation, dead code removal, peephole optimization,
-  and unreflection through `StrategyInput`. Each strategy receives complete evidence and a fresh
-  transaction. After a commit, the optimizer re-executes the published method before the next strategy.
+  and unreflection through `StrategyInput`. Each strategy receives the trusted graph of a complete run, the
+  method's `MethodControlFlow`, and a fresh transaction the optimizer opened. After a commit, the optimizer
+  re-executes the published method and restarts at the first strategy.
   Only committed changes contribute to optimization counts. Partial analysis authorizes no rewrite.
 - Effect and identity proofs remain conservative: volatile accesses, array writes, synchronization,
   and observable exceptions are retained; equal string contents alone do not authorize interning.
   Reflective calls require proven normal continuation and no side effects before lowering.
+
+## Analysis query contract
+
+`ExecutionGraph` records the nodes each explored path produced. `ExecutionGraph.explored` and
+`ExecutionGraph.trusted()` expose the same `ExploredPaths` queries, and every rule below holds for both.
+
+- **Completion-gated trust.** A consumer acts on an answer only from a `TrustedGraphView`. `trusted()`
+  returns one only when `completion()` is `canTrustConsensus`: every path ran to an end and none aborted.
+  A run stopped by a bound, an unsupported opcode, malformed input or a host failure is `Partial`; a
+  mid-run snapshot is `InProgress`; both answer null. `explored` answers with no gate and describes only
+  the walked paths: sound to read for a debugger or a test, never a licence to rewrite.
+- **Dead code.** `TrustedGraphView.isDead(address)` is the only dead-code proof: true for an executable
+  instruction no path reached. `ExecutionGraph.wasReached` is ungated coverage; its `false` proves nothing.
+- **Payloads.** `.array-data`, `packed-switch-data` and `sparse-switch-data` are data that control flow
+  never reaches ([CON] B22), so `wasReached` is false for them on every run and `isDead` is false for them.
+- **Post-op state.** The state at an address is the state after its op ran; consensus at an op's address
+  is the value it produced. When the op destroys or never computes the needed value (a `check-cast`
+  recast, an unemulated `Method.invoke`), read its parents through `parentAddresses` and the
+  multi-address overloads. Only nodes whose op ran vote; a node a bound stopped stays in `nodePile`.
+- **Per-address scope.** `consensus`, `registerValues`, `registerOccupancy`, the reflected-member queries
+  and `sideEffectLevel` union every activation of the method, recursive ones included, because a rewrite
+  at an address must hold on every activation that executes it.
+- **Terminating scope.** `terminatingConsensus`, `terminatingRegisterOccupancy`, `didAnyPathReturn`,
+  `terminatingStaticFieldConsensus` and `terminatingHeapObject` read only the paths that returned in the
+  run's own activation; a callee's or a recursive activation's return does not vote, nor does a throwing
+  or aborted path. `terminatingConsensus` agreeing on a ref says nothing about the object's contents;
+  `terminatingHeapObject` joins those element by element.
+- **No absence in band.** `reflectedMethod`, `reflectedField`, `arrayLength`, `knownString` and
+  `terminatingHeapObject` return an `Agreement`: `Agreed(value)`, `Disagree`, `Absent` (a path holds no
+  value of that kind) or `NoPath` (no op ran there, or no path returned).
+- **`Value.Top` pairings.** A `Top` consensus is read with `RegisterOccupancy`: `HELD` means live and
+  unknowable; `NEVER_ASSIGNED` means no path holds a readable value, which is not "free" (the high half of
+  a live wide pair also answers it; `availableRegisters` answers "free"); `NO_PATH` means no op ran there,
+  or for the terminating query no path returned.
+- **Effects.** `sideEffectLevel(address)` is the most any op there declared, or `STRONG` where a path
+  aborted on an unsupported opcode. It is `NONE` for an address no op ran at. `methodSideEffectLevel` is
+  the maximum over the method.
 
 ## Kotlin demo and debugger consumers
 

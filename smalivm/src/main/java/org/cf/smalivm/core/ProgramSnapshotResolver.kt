@@ -88,17 +88,17 @@ internal class ProgramSnapshotResolver internal constructor(
         callerClass: VirtualType,
         receiverType: VirtualType?,
     ): InvocationLookup {
-        val referenced = if (kind == InvokeKind.STATIC && target.descriptor == ClassIndex.CLASS_INITIALIZER_DESCRIPTOR) {
+        val referenced = if (kind == InvokeKind.STATIC && target.nameAndProto == ClassIndex.CLASS_INITIALIZER_DESCRIPTOR) {
             lookupClassInitializer(target.definingClass)
         } else {
-            lookupMethod(target.definingClass, target.descriptor)
+            lookupMethod(target.definingClass, target.nameAndProto)
         }
         if (referenced is MethodLookup.NoSuchClass || referenced is MethodLookup.NoSuchMethod) {
             return InvocationLookup.Resolved(referenced)
         }
         return when (kind) {
             InvokeKind.STATIC -> InvocationLookup.Resolved(referenced)
-            InvokeKind.DIRECT -> InvocationLookup.Resolved(lookupDeclaredMethod(target.definingClass, target.descriptor))
+            InvokeKind.DIRECT -> InvocationLookup.Resolved(lookupDeclaredMethod(target.definingClass, target.nameAndProto))
             InvokeKind.SUPER -> if (hierarchy.isInterface(target.definingClass)) {
                 resolveInterfaceSuper(callerClass, target)
             } else {
@@ -108,13 +108,13 @@ internal class ProgramSnapshotResolver internal constructor(
                     null
                 }
                 InvocationLookup.Resolved(
-                    if (parent == null) MethodLookup.NoSuchMethod else lookupMethod(parent, target.descriptor),
+                    if (parent == null) MethodLookup.NoSuchMethod else lookupMethod(parent, target.nameAndProto),
                 )
             }
             InvokeKind.VIRTUAL, InvokeKind.INTERFACE -> if (receiverType != null) {
-                InvocationLookup.Resolved(lookupMethod(receiverType, target.descriptor))
+                InvocationLookup.Resolved(lookupMethod(receiverType, target.nameAndProto))
             } else {
-                val candidates = dispatchCandidates(target.definingClass, target.descriptor)
+                val candidates = dispatchCandidates(target.definingClass, target.nameAndProto)
                 val candidateNames = java.util.Collections.unmodifiableSet(LinkedHashSet(candidates.keys))
                 when {
                     !dispatchWorldIsComplete(target.definingClass) -> InvocationLookup.Ambiguous(candidateNames)
@@ -137,9 +137,7 @@ internal class ProgramSnapshotResolver internal constructor(
      */
     fun dispatchWorldIsComplete(declaredType: VirtualType): Boolean {
         if (!declaredType.isReference || declaredType.isArray || hierarchy.isFinal(declaredType)) return true
-        val ancestryComplete = index.hierarchyCompleteOverride ?: hierarchy.applicationAncestryComplete
-        val dynamicLoading = index.dynamicLoadingEvidenceOverride ?: snapshot.dynamicLoadingEvidence.isPresent
-        return ancestryComplete && !dynamicLoading
+        return hierarchy.applicationAncestryComplete && !snapshot.dynamicLoadingEvidence.isPresent
     }
 
     /**
@@ -449,7 +447,7 @@ internal class ProgramSnapshotResolver internal constructor(
                 false
             }
             if (!belowTarget) continue
-            val lookup = lookupDeclaredMethod(type, target.descriptor)
+            val lookup = lookupDeclaredMethod(type, target.nameAndProto)
             if (lookup is MethodLookup.Runnable) candidates[lookup.view.signature] = lookup.view
         }
         val mostSpecific = candidates.values.filter { candidate ->
@@ -459,7 +457,7 @@ internal class ProgramSnapshotResolver internal constructor(
         }
         return when (mostSpecific.size) {
             1 -> InvocationLookup.Resolved(runnable(mostSpecific.single()))
-            0 -> InvocationLookup.Resolved(lookupDeclaredMethod(target.definingClass, target.descriptor))
+            0 -> InvocationLookup.Resolved(lookupDeclaredMethod(target.definingClass, target.nameAndProto))
             else -> InvocationLookup.Ambiguous(mostSpecific.mapTo(linkedSetOf()) { it.signature })
         }
     }
@@ -491,7 +489,7 @@ internal class ProgramSnapshotResolver internal constructor(
             is MethodLookup.DefaultConflict -> lookup.method
             MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> return null
         }
-        return "${method.target.definingClass.descriptor}->${method.target.descriptor}"
+        return "${method.target.definingClass.descriptor}->${method.target.nameAndProto}"
     }
 
     private fun snapshotFields(type: VirtualType, static: Boolean): List<Field> {

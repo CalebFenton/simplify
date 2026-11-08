@@ -10,9 +10,13 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
+import java.nio.file.Path
 
 class DebuggerTest {
     private val classIndex = CoreTester.classIndex
+    private val vm = CoreTester.vmServices
     private val int = VirtualType.of("I")
 
     private fun viewOf(className: String, descriptor: String) =
@@ -21,15 +25,11 @@ class DebuggerTest {
     private fun sessionOf(
         descriptor: String,
         limits: Limits = Limits(),
-    ): ExecutionSession = ExecutionSession.of(viewOf(SPINE, descriptor), classIndex, limits)
+    ): ExecutionSession = vm.newSession(viewOf(SPINE, descriptor), limits)
 
     @Test
     fun stepOverDirectCallDrainsTheCalleeAndStopsBeforeTheCallerContinuation() {
-        val session = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(session)
         val invoke = debugger.cursor!!
 
@@ -49,11 +49,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverFromCalleeReturnStopsBeforeAncestorCallerResume() {
-        val session = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(session)
         val callerActivation = debugger.cursor!!.activation
         debugger.stepInto()
@@ -75,7 +71,7 @@ class DebuggerTest {
         val view = viewOf(CALLER, "recursesOnceThenAddsOne(I)I")
         val frame = Frame.entryFrame(view)
         frame.assign(view.parameters.single().register, Value.Known(1, int))
-        val session = ExecutionSession.of(view, classIndex, Limits(), frame)
+        val session = vm.newSession(view, Limits(), frame)
         val debugger = Debugger(session)
         debugger.stepInto()
         debugger.stepInto()
@@ -96,11 +92,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverDrainsNestedCallsBeforeTheOuterCallerResumes() {
-        val session = ExecutionSession.of(
-            viewOf(INVOKE_REVIEW, "nestedTwoHandlers()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(INVOKE_REVIEW, "nestedTwoHandlers()I"))
         val debugger = Debugger(session)
         val outerInvoke = debugger.cursor!!
 
@@ -173,11 +165,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverDrainsClassInitializerAndStopsBeforeTheSameAddressTriggerRetry() {
-        val session = ExecutionSession.of(
-            viewOf(CLASS_INIT_TRIGGER, "callsWitnessTouch()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CLASS_INIT_TRIGGER, "callsWitnessTouch()I"))
         val debugger = Debugger(session)
         val trigger = debugger.cursor!!
 
@@ -234,7 +222,7 @@ class DebuggerTest {
         assertSame(classIndex.currentResolver().loadClassConstant(CLASS_FOR_NAME), returned.raw)
         assertEquals(
             Value.Known(1, int),
-            graph.terminatingStaticFieldConsensusOverExploredPaths(fixtureType, countField),
+            graph.explored.terminatingStaticFieldConsensus(fixtureType, countField),
         )
         assertEquals(2, graph.nodePile(invokeAddress).size, "completion must not schedule a third retry")
         assertTrue(graph.nodePile(caller.nextAddress(invokeAddress)).single().opExecutionStarted)
@@ -242,11 +230,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverOpaqueCallConsumesOnlyTheInvokeSchedulerStep() {
-        val session = ExecutionSession.of(
-            viewOf(INVOKE_REVIEW, "arityMismatchOpaque()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(INVOKE_REVIEW, "arityMismatchOpaque()I"))
         val debugger = Debugger(session)
         while (debugger.cursor!!.view.opcodeAt(debugger.cursor!!.address) != Opcode.INVOKE_STATIC) {
             debugger.stepInto()
@@ -319,9 +303,8 @@ class DebuggerTest {
 
     @Test
     fun stepOverObservesCalleeAbortFallbackAndStopsBeforeCallerResume() {
-        val session = ExecutionSession.of(
+        val session = vm.newSession(
             viewOf(CALLER, "callsSpinningCallee()I"),
-            classIndex,
             Limits(maxAddressVisits = 2, maxSteps = 100),
         )
         val debugger = Debugger(session)
@@ -341,35 +324,17 @@ class DebuggerTest {
         assertTrue(descendantNodes.any { it.outcome == Outcome.Aborted(AbortReason.ADDRESS_LIMIT) })
         assertSame(invoke.activation, resumedCaller.activation)
         assertEquals(4, resumedCaller.address)
-        assertFalse(resumedCaller.opExecutionStarted, "Plan 9 fallback resumes the caller but step-over does not run it")
+        assertFalse(resumedCaller.opExecutionStarted, "the fallback resumes the caller but step-over does not run it")
     }
 
     @Test
     fun stepOverDrainsEveryForkedDescendantBeforeAnOlderCallerSibling() {
-        val outerView = viewOf(SPINE, "throwTwoHandlers(Ljava/lang/Object;)Ljava/lang/Object;")
-        val outerSignature = outerView.signature
-        val calleeSignature = CALLEE_RETURNS_SEVEN
-        val target = MethodDescriptor(VirtualType.of("Lcalls/callee;"), "returnsSeven", "()I")
-        val session = ExecutionSession.of(outerView, classIndex, Limits(), Frame.entryFrame(outerView)) {
-                address, view, index ->
-            when {
-                view.signature == outerSignature && address == 3 -> object : Op(address) {
-                    override val name = "invoke-forking-callee"
-                    override fun execute(frame: Frame) =
-                        listOf(Transition.Invoke(target, IntArray(0), InvokeKind.STATIC)).asOpExecution()
-                }
-                view.signature == calleeSignature && address == 0 -> object : Op(address) {
-                    override val name = "fork-two-return-paths"
-                    override fun execute(frame: Frame) =
-                        listOf(Transition.Jump(1), Transition.Jump(1)).asOpExecution()
-                }
-                else -> OpBuilder.build(address, view, index)
-            }
-        }
+        val session = vm.newSession(viewOf(DEBUGGER_FIXTURE, "forkThenCallForkingCallee(II)I"))
         val debugger = Debugger(session)
         debugger.stepInto()
         val olderCallerSibling = session.frontier.first()
         val invoke = debugger.cursor!!
+        assertEquals(Opcode.INVOKE_STATIC, invoke.view.opcodeAt(invoke.address))
 
         val continuation = debugger.stepOver()!!
 
@@ -389,11 +354,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverStopsBeforeADescendantBreakpointAndContinueExecutesThatExactNode() {
-        val session = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(session)
         debugger.addBreakpoint(Breakpoint(CALLEE_RETURNS_SEVEN, 1))
         debugger.addBreakpoint(Breakpoint(debugger.cursor!!.view.signature, 1))
@@ -479,11 +440,7 @@ class DebuggerTest {
 
     @Test
     fun aFutureCalleeBreakpointIsAcceptedAndMatchedWhenTheCalleeIsReached() {
-        val session = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(session)
         val invoke = debugger.cursor!!
         assertTrue(debugger.addBreakpoint(Breakpoint(CALLEE_RETURNS_SEVEN, 0)))
@@ -504,7 +461,7 @@ class DebuggerTest {
         val view = viewOf(CALLER, "recursesOnceThenAddsOne(I)I")
         val frame = Frame.entryFrame(view)
         frame.assign(view.parameters.single().register, Value.Known(1, int))
-        val session = ExecutionSession.of(view, classIndex, Limits(), frame)
+        val session = vm.newSession(view, Limits(), frame)
         val debugger = Debugger(session)
         debugger.addBreakpoint(Breakpoint(view.signature, 0))
 
@@ -560,7 +517,7 @@ class DebuggerTest {
     @Test
     fun aForkedSiblingStopsAgainAtTheSameLocation() {
         val view = viewOf(IF_TEST, "ifEqualZeroToFallThrough(I)V")
-        val session = ExecutionSession.of(view, classIndex, Limits())
+        val session = vm.newSession(view)
         val debugger = Debugger(session)
         debugger.addBreakpoint(Breakpoint(view.signature, 1))
 
@@ -739,18 +696,14 @@ class DebuggerTest {
             ),
             graph.outcomes,
         )
-        assertTrue(graph.methodView.addresses.filterNot(graph::isPayload).all(graph::wasReached))
+        assertTrue(graph.methodView.addresses.filterNot(graph.methodView::isPayload).all(graph::wasReached))
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertNotNull(graph.trusted())
     }
 
     @Test
     fun stepIntoEntersAnInvokedMethodThroughTheSessionFrontier() {
-        val session = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val session = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(session)
         val invoke = debugger.cursor!!
 
@@ -804,16 +757,8 @@ class DebuggerTest {
 
     @Test
     fun stepIntoMatchesDirectSessionStructuralTraceAndFinalResult() {
-        val direct = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
-        val driven = ExecutionSession.of(
-            viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"),
-            classIndex,
-            Limits(),
-        )
+        val direct = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
+        val driven = vm.newSession(viewOf(CALLER, "callsCalleeAndReturnsItsResult()I"))
         val debugger = Debugger(driven)
         val directTrace = mutableListOf<StructuralTrace>()
         val debuggerTrace = mutableListOf<StructuralTrace>()
@@ -889,12 +834,7 @@ class DebuggerTest {
         assertTrue(unsupported.graph().wasReached(aborted.address))
 
         val hostFailureView = viewOf(SPINE, "returnFive()I")
-        val hostFailure = ExecutionSession.of(
-            hostFailureView,
-            classIndex,
-            Limits(),
-            Frame.entryFrame(hostFailureView),
-        ) { address, view, index ->
+        val hostFailure = vm.newSession(hostFailureView, Limits(), null) { address, view, resolver ->
             if (address == 0) {
                 object : Op(address) {
                     override val name = "throws-host-failure"
@@ -903,7 +843,7 @@ class DebuggerTest {
                         throw IllegalStateException("host failure before execute returned")
                 }
             } else {
-                OpBuilder.build(address, view, index)
+                OpBuilder.build(address, view, resolver)
             }
         }
         val failed = hostFailure.step()!!
@@ -963,17 +903,19 @@ class DebuggerTest {
         assertEquals(CompletionStatus.InProgress, atBreakpoint.completion())
         assertNull(atBreakpoint.trusted())
 
-        val aborted = sessionOf("unsupportedWideFilledArray()I")
-        val root = aborted.frontier.single()
-        aborted.enqueue(1, root)
+        val abortingView = viewOf(DEBUGGER_FIXTURE, "abortsBeforeCleanBranch(I)I")
+        val aborted = vm.newSession(abortingView)
         val abortedDebugger = Debugger(aborted)
-        abortedDebugger.addBreakpoint(Breakpoint(root.view.signature, 0))
+        val cleanIndex = 3
+        abortedDebugger.addBreakpoint(Breakpoint(abortingView.signature, cleanIndex))
         val beforeAbort = aborted.graph()
         assertEquals(CompletionStatus.InProgress, beforeAbort.completion())
         assertNull(beforeAbort.trusted())
 
-        assertSame(root, abortedDebugger.runToBreakpoint())
-        assertFalse(abortedDebugger.isFinished, "the breakpoint leaves the clean root path scheduled")
+        val cleanBranch = abortedDebugger.runToBreakpoint()!!
+        assertEquals(abortingView.codeAddressAtInstructionIndex(cleanIndex), cleanBranch.address)
+        assertFalse(cleanBranch.opExecutionStarted)
+        assertFalse(abortedDebugger.isFinished, "the breakpoint leaves the clean branch path scheduled")
         val afterAbort = aborted.graph()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), afterAbort.completion())
         assertNull(afterAbort.trusted())
@@ -991,15 +933,14 @@ class DebuggerTest {
     fun debuggerKeepsAForkedSiblingAfterAHostFailureAndExposesTheExactFailedNode() {
         val view = viewOf(SPINE, "throwTwoHandlers(Ljava/lang/Object;)Ljava/lang/Object;")
         val failure = IllegalStateException("debugger host failure")
-        val session = ExecutionSession.of(view, classIndex, Limits(), Frame.entryFrame(view)) {
-                address, currentView, index ->
+        val session = vm.newSession(view, Limits(), null) { address, currentView, resolver ->
             if (currentView.signature == view.signature && address == 3) {
                 object : Op(address) {
                     override val name = "throws-debugger-host-failure"
                     override fun execute(frame: Frame): OpExecution = throw failure
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
         val debugger = Debugger(session)
@@ -1055,7 +996,7 @@ class DebuggerTest {
         val nodesBefore = listOf(fork) + frontierBefore
         val childrenBefore = nodesBefore.associateWith { it.children.toList() }
         val stateBefore = debugger.currentState!!
-        val valuesBefore = (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister)
+        val valuesBefore = (0 until stateBefore.registerCount).map(stateBefore::peekRegister)
         val assignedBefore = stateBefore.registersAssigned()
         val readBefore = debugger.cursor!!.frame.registersRead()
         val caughtBefore = debugger.cursor!!.frame.copy().takeCaught()
@@ -1066,7 +1007,7 @@ class DebuggerTest {
             debugger.currentInstructionIndex
             debugger.isFinished
             debugger.currentState!!.let { state ->
-                repeat(state.registers.registerCount) { register ->
+                repeat(state.registerCount) { register ->
                     state.peekRegister(register)
                     state.readRegister(register)
                 }
@@ -1081,7 +1022,7 @@ class DebuggerTest {
             children.zip(node.children).forEach { (before, after) -> assertSame(before, after) }
         }
         assertSame(stateBefore, debugger.currentState)
-        assertEquals(valuesBefore, (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister))
+        assertEquals(valuesBefore, (0 until stateBefore.registerCount).map(stateBefore::peekRegister))
         assertEquals(assignedBefore, stateBefore.registersAssigned())
         assertEquals(readBefore, debugger.cursor!!.frame.registersRead())
         assertEquals(caughtBefore, debugger.cursor!!.frame.copy().takeCaught())
@@ -1095,14 +1036,8 @@ class DebuggerTest {
         assertEquals(1, unsupportedDebugger.currentInstructionIndex, "an unsupported executable op still has an index")
 
         val malformedView = viewOf("Lfill_array_data_test;", "fillArrayDataWithMalformedPayloadTarget()V")
-        val malformed = ExecutionSession.of(malformedView, classIndex, Limits())
+        val malformed = vm.newSession(malformedView)
         assertEquals(0, Debugger(malformed).currentInstructionIndex, "a malformed operand does not erase its op index")
-
-        val payloadView = viewOf("Lfill_array_data_test;", "fillArrayDataInt()V")
-        val payloadSession = ExecutionSession.of(payloadView, classIndex, Limits())
-        val entry = payloadSession.frontier.single()
-        payloadSession.enqueue(payloadView.payloadAddresses.single(), entry)
-        assertNull(Debugger(payloadSession).currentInstructionIndex, "payload data is not an executable instruction")
     }
 
     @Test
@@ -1150,26 +1085,26 @@ class DebuggerTest {
     }
 
     @Test
-    fun debuggerObservationPreservesFinalAnalysisFacts() {
+    fun debuggerObservationPreservesFinalAnalysisFacts(@TempDir root: Path) {
         val directOpaque = sessionOf("arityMismatchOpaque()I", className = INVOKE_REVIEW).run()
         val observedOpaque = runWithDebuggerObservation(sessionOf("arityMismatchOpaque()I", className = INVOKE_REVIEW))
         assertEquivalentFinalGraphs(directOpaque, observedOpaque)
 
-        val directArrayRef = (directOpaque.terminatingConsensusOverExploredPaths(1) as Value.Known).raw as HeapRef
-        val observedArrayRef = (observedOpaque.terminatingConsensusOverExploredPaths(1) as Value.Known).raw as HeapRef
-        val directArray = directOpaque.terminatingHeapObjectOverExploredPaths(directArrayRef) as HeapObject.TrackedArray
-        val observedArray = observedOpaque.terminatingHeapObjectOverExploredPaths(observedArrayRef) as HeapObject.TrackedArray
+        val directArrayRef = (directOpaque.explored.terminatingConsensus(1) as Value.Known).raw as HeapRef
+        val observedArrayRef = (observedOpaque.explored.terminatingConsensus(1) as Value.Known).raw as HeapRef
+        val directArray = directOpaque.explored.terminatingHeapObject(directArrayRef).agreed() as HeapObject.TrackedArray
+        val observedArray = observedOpaque.explored.terminatingHeapObject(observedArrayRef).agreed() as HeapObject.TrackedArray
         assertEquals(directArray.type, observedArray.type)
         assertEquals(directArray.elements(), observedArray.elements())
         assertEquals(Value.Unknown(int), observedArray.element(0))
         assertTrue(finalNodeFacts(observedOpaque).any { it.invocationDiagnostic != null })
 
-        val incompleteIndex = ClassIndex(CoreTester.importFixtures(), hierarchyComplete = false)
-        val incompleteView = incompleteIndex.requireMethodView(INVOKE_REVIEW, "incompleteWorld(Linvoke_unique_base;)I")
-        val directDispatch = ExecutionSession.of(incompleteView, incompleteIndex, Limits()).run()
-        val observedDispatch = runWithDebuggerObservation(
-            ExecutionSession.of(incompleteView, incompleteIndex, Limits()),
-        )
+        Files.writeString(root.resolve("orphan.smali"), ORPHAN_SOURCE.trimIndent())
+        val incompleteIndex = task53ClassIndex(root, INCOMPLETE_BASE_SOURCE)
+        val incompleteVm = VmServices(incompleteIndex)
+        val incompleteView = incompleteIndex.requireMethodView(INCOMPLETE_BASE, "incompleteWorld(Lincomplete/base;)I")
+        val directDispatch = incompleteVm.newSession(incompleteView).run()
+        val observedDispatch = runWithDebuggerObservation(incompleteVm.newSession(incompleteView))
         assertEquivalentFinalGraphs(directDispatch, observedDispatch)
         assertTrue(finalNodeFacts(observedDispatch).any { it.dispatchCandidates.isNotEmpty() })
 
@@ -1223,14 +1158,14 @@ class DebuggerTest {
         frame.writeStaticField(STATIC_FIELD, Value.Known(31, int))
         frame.completeClassInit(STATE_TYPE)
         return StatefulSession(
-            ExecutionSession.of(view, classIndex, Limits(), frame),
+            vm.newSession(view, Limits(), frame),
             arrayRef,
             objectRef,
         )
     }
 
     private fun sessionOf(descriptor: String, className: String): ExecutionSession =
-        ExecutionSession.of(viewOf(className, descriptor), classIndex, Limits())
+        vm.newSession(viewOf(className, descriptor))
 
     private fun runWithDebuggerObservation(session: ExecutionSession): ExecutionGraph {
         val debugger = Debugger(session)
@@ -1239,7 +1174,7 @@ class DebuggerTest {
             debugger.lastNode
             debugger.currentInstructionIndex
             debugger.currentState?.let { state ->
-                repeat(state.registers.registerCount) { state.peekRegister(it) }
+                repeat(state.registerCount) { state.peekRegister(it) }
                 state.registersAssigned()
             }
             session.graph().let { snapshot ->
@@ -1255,23 +1190,23 @@ class DebuggerTest {
     private fun assertEquivalentFinalGraphs(expected: ExecutionGraph, actual: ExecutionGraph) {
         assertEquals(expected.outcomes, actual.outcomes)
         assertEquals(expected.completion(), actual.completion())
-        assertEquals(expected.methodSideEffectLevelOverExploredPaths(), actual.methodSideEffectLevelOverExploredPaths())
+        assertEquals(expected.explored.methodSideEffectLevel(), actual.explored.methodSideEffectLevel())
         assertEquals(expected.addresses().toList(), actual.addresses().toList())
         assertEquals(finalNodeFacts(expected), finalNodeFacts(actual))
         for (address in expected.addresses()) {
             assertEquals(expected.wasReached(address), actual.wasReached(address), "reached address $address")
-            assertEquals(expected.parentAddresses(address).toList(), actual.parentAddresses(address).toList())
-            assertEquals(expected.children(address).toList(), actual.children(address).toList())
-            assertEquals(expected.sideEffectLevel(address), actual.sideEffectLevel(address))
+            assertEquals(expected.explored.parentAddresses(address).toList(), actual.explored.parentAddresses(address).toList())
+            assertEquals(expected.explored.children(address).toList(), actual.explored.children(address).toList())
+            assertEquals(expected.explored.sideEffectLevel(address), actual.explored.sideEffectLevel(address))
             for (register in 0 until expected.methodView.registerCount) {
                 assertEquals(
-                    expected.consensusOverExploredPaths(address, register),
-                    actual.consensusOverExploredPaths(address, register),
+                    expected.explored.consensus(address, register),
+                    actual.explored.consensus(address, register),
                     "consensus at $address/v$register",
                 )
                 assertEquals(
-                    expected.registerValuesOverExploredPaths(address, register),
-                    actual.registerValuesOverExploredPaths(address, register),
+                    expected.explored.registerValues(address, register),
+                    actual.explored.registerValues(address, register),
                     "values at $address/v$register",
                 )
             }
@@ -1312,7 +1247,7 @@ class DebuggerTest {
         val childrenBefore = (frontierBefore + listOfNotNull(lastNodeBefore)).associateWith { it.children.toList() }
         val outcomesBefore = session.outcomes.toList()
         val completionBefore = session.completion()
-        val valuesBefore = stateBefore?.let { state -> (0 until state.registers.registerCount).map(state::peekRegister) }
+        val valuesBefore = stateBefore?.let { state -> (0 until state.registerCount).map(state::peekRegister) }
         val assignedBefore = stateBefore?.registersAssigned()
         val readBefore = cursorBefore?.frame?.registersRead()
         val arrayBefore = (stateBefore?.heapObject(arrayRef) as? HeapObject.TrackedArray)?.elements()
@@ -1326,7 +1261,7 @@ class DebuggerTest {
             debugger.currentInstructionIndex
             debugger.isFinished
             debugger.currentState?.let { state ->
-                repeat(state.registers.registerCount) { register ->
+                repeat(state.registerCount) { register ->
                     state.peekRegister(register)
                     state.readRegister(register)
                 }
@@ -1353,7 +1288,7 @@ class DebuggerTest {
         }
         assertEquals(outcomesBefore, session.outcomes)
         assertEquals(completionBefore, session.completion())
-        assertEquals(valuesBefore, stateBefore?.let { state -> (0 until state.registers.registerCount).map(state::peekRegister) })
+        assertEquals(valuesBefore, stateBefore?.let { state -> (0 until state.registerCount).map(state::peekRegister) })
         assertEquals(assignedBefore, stateBefore?.registersAssigned())
         assertEquals(readBefore, cursorBefore?.frame?.registersRead(), "debugger register reads do not forge liveness")
         assertEquals(arrayBefore, (stateBefore?.heapObject(arrayRef) as? HeapObject.TrackedArray)?.elements())
@@ -1372,7 +1307,7 @@ class DebuggerTest {
     ) {
         assertEquals(
             (0 until control.registerCount).map(control::peek),
-            (0 until observed.registers.registerCount).map(observed::peekRegister),
+            (0 until observed.registerCount).map(observed::peekRegister),
         )
         assertEquals(control.registersAssigned(), observed.registersAssigned())
         assertEquals(control.registersRead(), (observed as Frame).registersRead())
@@ -1398,6 +1333,29 @@ class DebuggerTest {
         const val CLASS_INIT_TRIGGER = "Lclass_init/trigger;"
         const val CLASS_INIT_WITNESS = "Lclass_init/witness;-><clinit>()V"
         const val CALLEE_RETURNS_SEVEN = "Lcalls/callee;->returnsSeven()I"
+        const val DEBUGGER_FIXTURE = "Ldebugger_paths;"
+        const val INCOMPLETE_BASE = "Lincomplete/base;"
+        const val INCOMPLETE_BASE_SOURCE = """
+            .class public Lincomplete/base;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .locals 1
+                const/4 v0, 0x7
+                return v0
+            .end method
+
+            .method public static incompleteWorld(Lincomplete/base;)I
+                .locals 0
+                invoke-virtual {p0}, Lincomplete/base;->value()I
+                move-result p0
+                return p0
+            .end method
+        """
+        const val ORPHAN_SOURCE = """
+            .class public Lincomplete/orphan;
+            .super Lincomplete/absent;
+        """
         val INT_ARRAY = VirtualType.of("[I")
         val OBJECT_TYPE = VirtualType.of("Ldebugger/object;")
         val STATE_TYPE = VirtualType.of("Ldebugger/state;")

@@ -109,7 +109,7 @@
 # A case whose target IS the fall-through, i.e. an offset of +3 (`31t` is three code units). Legal,
 # and an obfuscator emits it as an opaque predicate. It is the switch's version of the same-address
 # fork `CommitTest.aBranchWhoseTargetIsItsFallThroughBuildsTwoNodesAtThatOneAddress` covers for `if`:
-# without dedup against `Transition.Continue` an unprovable selector yields TWO SuccessorSpecs at one
+# without dedup against the plain fall-through an unprovable selector yields TWO SuccessorSpecs at one
 # address, so two nodes, two Outcomes and double that address's visit budget.
 .method public static packedSwitchWhoseCaseTargetsItsFallThrough()V
     .locals 1

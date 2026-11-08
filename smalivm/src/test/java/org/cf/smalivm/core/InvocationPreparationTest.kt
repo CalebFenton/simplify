@@ -226,15 +226,12 @@ class InvocationPreparationTest {
 
     @Test
     fun nullReceiverStopsBeforeBackendExecution() {
-        val backend = RecordingBackend()
-        val invoker = invokerOf(classIndex, listOf(backend))
-        val view = view("Linvoke_task20;", "nullVirtual()I")
-        val graph = ExecutionSession.of(
-            view, classIndex, Limits(), Frame.entryFrame(view), OpBuilder::build, invoker,
-        ).run()
+        val vm = VmServices(classIndex)
+        val calls = recordingEmulator(vm, method("Ljava/lang/String;", "length", "()I"))
+        val graph = vm.newSession(view("Linvoke_task20;", "nullVirtual()I")).run()
 
         assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
-        assertEquals(0, backend.probes)
+        assertEquals(emptyList<EmulatorInvocation>(), calls)
     }
 
     @Test
@@ -260,14 +257,11 @@ class InvocationPreparationTest {
     }
 
     @Test
-    fun preparationDoesNotProbeOrAlterFrameFrontierOrEffects() {
+    fun preparationDoesNotProbeOrAlterFrameOrFrontier() {
         val backend = RecordingBackend()
         val view = view("Lcalls/caller;", "passesAnArgument()I")
-        val frame = Frame.entryFrame(view).also {
-            it.assign(0, known(8, "I"))
-            it.recordSideEffect(SideEffectLevel.WEAK)
-        }
-        val session = ExecutionSession.of(view, classIndex, Limits(), frame)
+        val frame = Frame.entryFrame(view).also { it.assign(0, known(8, "I")) }
+        val session = CoreTester.vmServices.newSession(view, Limits(), frame)
         val frontierBefore = session.frontier
 
         val preparation = invokerOf(classIndex, listOf(backend)).prepare(
@@ -282,43 +276,52 @@ class InvocationPreparationTest {
         assertEquals(emptyList<Outcome>(), session.outcomes)
         assertEquals(known(8, "I"), frame.peek(0))
         assertEquals(emptySet<Int>(), frame.registersRead())
-        assertEquals(SideEffectLevel.WEAK, frame.takeSideEffectLevel())
     }
 
     /** Catches a scheduler that null-checks the receiver before resolving the target: it would throw NPE. */
     @Test
-    fun sessionResolutionFailureWinsOverANullReceiverAndProbesNoBackend() {
-        val backend = RecordingBackend()
-        val view = view("Linvoke_task20;", "missingBeforeNull()V")
+    fun sessionResolutionFailureWinsOverANullReceiverAndRunsNoBackend() {
+        val vm = VmServices(classIndex)
+        val calls = recordingEmulator(vm, method("Linvoke_task20;", "missing", "()V"))
 
-        val graph = ExecutionSession.of(
-            view, classIndex, Limits(), Frame.entryFrame(view), OpBuilder::build, invokerOf(classIndex, listOf(backend)),
-        ).run()
+        val graph = vm.newSession(view("Linvoke_task20;", "missingBeforeNull()V")).run()
 
         assertEquals(listOf("Ljava/lang/NoSuchMethodError;"), CoreTester.escapingTypes(graph))
-        assertEquals(0, backend.probes)
+        assertEquals(emptyList<EmulatorInvocation>(), calls)
     }
 
     /**
-     * Catches a scheduler that probes before binding: the backend would see the raw int word instead of the
-     * Object parameter the zero binds to as null.
+     * Catches a scheduler that selects a backend before binding: the emulator would receive the raw int word
+     * instead of the Object parameter the zero binds to as null.
      */
     @Test
-    fun backendProbeSeesTheBoundArgument() {
-        val backend = RecordingBackend()
+    fun backendReceivesTheBoundArgument() {
+        val vm = VmServices(classIndex)
+        val calls = recordingEmulator(
+            vm,
+            method("Linvoke_task20;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;"),
+        )
         val view = view("Linvoke_task20;", "zeroBecomesNull()Ljava/lang/Object;")
         val frame = Frame.entryFrame(view).also {
             it.completeClassInit(type("Linvoke_task20;"))
         }
 
-        ExecutionSession.of(
-            view, classIndex, Limits(), frame, OpBuilder::build, invokerOf(classIndex, listOf(backend)),
-        ).run()
+        vm.newSession(view, Limits(), frame).run()
 
-        assertEquals(1, backend.probes)
-        val argument = backend.lastCall!!.arguments.single()
-        assertEquals(type("Ljava/lang/Object;"), argument.type)
-        assertTrue(argument.isNullReference)
+        assertEquals(
+            listOf<EmulatorValue>(EmulatorValue.Known(type("Ljava/lang/Object;"), null)),
+            calls.single().arguments,
+        )
+    }
+
+    /** Every call an emulator registered on [vm] for [target] receives; it answers a typed null. */
+    private fun recordingEmulator(vm: VmServices, target: MethodDescriptor): List<EmulatorInvocation> {
+        val calls = mutableListOf<EmulatorInvocation>()
+        vm.emulate(target) { call ->
+            calls += call
+            SynchronousCallResult.Returned(HostReturn.Value(HostValue.TypedNull(call.returnType)))
+        }
+        return calls
     }
 
     private fun ready(
@@ -351,14 +354,11 @@ class InvocationPreparationTest {
     private class RecordingBackend : Backend {
         var probes = 0
             private set
-        var lastCall: BackendInvocation? = null
-            private set
 
         override val name: String = "recording"
 
         override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe {
             probes += 1
-            lastCall = call
             return when (lookup) {
                 is MethodLookup.Runnable -> BackendProbe.Schedule(lookup.view, 0)
                 else -> BackendProbe.Declined("not runnable")

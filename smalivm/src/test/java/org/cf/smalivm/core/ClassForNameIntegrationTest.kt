@@ -40,7 +40,7 @@ class ClassForNameIntegrationTest {
 
         assertEquals("org.cf.smalivm.core.ClassForNameHostInitProbe", (returned.raw as Class<*>).name)
         assertFalse(ClassForNameHostInitSentinel.initialized)
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -53,7 +53,7 @@ class ClassForNameIntegrationTest {
 
         assertSame(expected, firstToken)
         assertSame(firstToken, secondToken)
-        assertEquals(SideEffectLevel.NONE, first.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, first.explored.methodSideEffectLevel())
         assertNull(first.nodePile(invokeAddress(first.methodView)).last().hostFailure)
     }
 
@@ -84,7 +84,7 @@ class ClassForNameIntegrationTest {
         assertEquals(Value.Known(0x29, VirtualType.of("I")), (graph.outcomes.single() as Outcome.Returned).value)
         assertEquals(0x29, staticInt(graph, "sentinel"))
         assertEquals(1, staticInt(graph, "guestInitCount"))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -123,7 +123,7 @@ class ClassForNameIntegrationTest {
             val graph = forName(name)
             val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
             assertSame(expected, returned.raw, name)
-            assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(), name)
+            assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(), name)
         }
     }
 
@@ -180,7 +180,7 @@ class ClassForNameIntegrationTest {
 
     private fun staticInt(graph: ExecutionGraph, name: String): Int {
         val descriptor = ClassIndex.fieldDescriptorOf(fixtureType, name, "I")
-        return (graph.terminatingStaticFieldConsensusOverExploredPaths(fixtureType, descriptor) as Value.Known).raw as Int
+        return (graph.explored.terminatingStaticFieldConsensus(fixtureType, descriptor) as Value.Known).raw as Int
     }
 
     private fun graphNodes(root: ExecutionNode): List<ExecutionNode> = buildList {

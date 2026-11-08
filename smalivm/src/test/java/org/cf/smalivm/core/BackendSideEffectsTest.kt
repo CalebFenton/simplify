@@ -18,7 +18,7 @@ class BackendSideEffectsTest {
         )
 
         assertEquals(Value.Known(4, INT), run.graph.returnedValue())
-        assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -38,7 +38,7 @@ class BackendSideEffectsTest {
         assertEquals(ref, (trusted.terminatingConsensus(0) as Value.Known).raw)
         assertEquals(ref, (trusted.terminatingConsensus(1) as Value.Known).raw)
         assertEquals("none-mutated", run.returnedHostObject().toString())
-        assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -53,7 +53,7 @@ class BackendSideEffectsTest {
         )
 
         assertEquals("strong-mutated", run.returnedHostObject().toString())
-        assertEquals(SideEffectLevel.STRONG, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -68,7 +68,7 @@ class BackendSideEffectsTest {
         )
 
         assertEquals("weak-mutated", run.returnedHostObject().toString())
-        assertEquals(SideEffectLevel.WEAK, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.WEAK, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -83,7 +83,7 @@ class BackendSideEffectsTest {
         )
 
         assertEquals("kept-before-throw", run.hostObjectInRegister(1).toString())
-        assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
     }
 
     private fun execute(
@@ -108,12 +108,12 @@ class BackendSideEffectsTest {
 
     private fun FixtureRun.returnedHostObject(): Any {
         val returned = graph.returnedValue() as Value.Known
-        return requireNotNull(graph.terminatingHostObjectOverExploredPaths(returned.raw as HeapRef))
+        return requireNotNull(CoreTester.terminatingHostObject(graph, returned.raw as HeapRef))
     }
 
     private fun FixtureRun.hostObjectInRegister(register: Int): Any {
         val value = graph.trusted()!!.terminatingConsensus(register) as Value.Known
-        return requireNotNull(graph.terminatingHostObjectOverExploredPaths(value.raw as HeapRef))
+        return requireNotNull(CoreTester.terminatingHostObject(graph, value.raw as HeapRef))
     }
 
     private data class FixtureRun(

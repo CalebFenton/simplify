@@ -17,17 +17,69 @@
     return-void
 .end method
 
-.method public static castThrowableToSerializable()V
+# Whatever p0 throws is caught by the catch-all and cast; every Throwable is Serializable.
+.method public static castCaughtThrowableToSerializable(Ljava/lang/Throwable;)V
     .locals 1
 
+    :try_start_0
+    throw p0
+    :try_end_0
+    .catchall {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v0
     check-cast v0, Ljava/io/Serializable;
 
     return-void
 .end method
 
-.method public static castExceptionToCloneable()V
+# The caught Exception is symbolic, or the NullPointerException a null p0 raises; the cast is outside the try.
+.method public static castCaughtExceptionToCloneable(Ljava/lang/Exception;)V
     .locals 1
 
+    :try_start_0
+    throw p0
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v0
+    check-cast v0, Ljava/lang/Cloneable;
+
+    return-void
+.end method
+
+.method public static castCaughtNullPointerExceptionToCloneable()V
+    .locals 1
+
+    new-instance v0, Ljava/lang/NullPointerException;
+    invoke-direct {v0}, Ljava/lang/NullPointerException;-><init>()V
+
+    :try_start_0
+    throw v0
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v0
+    check-cast v0, Ljava/lang/Cloneable;
+
+    return-void
+.end method
+
+.method public static castCaughtCloneableExceptionToCloneable()V
+    .locals 1
+
+    new-instance v0, Lcloneable_exception;
+    invoke-direct {v0}, Lcloneable_exception;-><init>()V
+
+    :try_start_0
+    throw v0
+    :try_end_0
+    .catch Ljava/lang/Exception; {:try_start_0 .. :try_end_0} :catch_0
+
+    :catch_0
+    move-exception v0
     check-cast v0, Ljava/lang/Cloneable;
 
     return-void

@@ -66,7 +66,7 @@ class IGetOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NoSuchFieldError;"), CoreTester.escapingTypes(graph))
         assertFalse(graph.wasReached(4), "static-only declarations are absent from instance resolution")
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(2))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(2))
     }
 
     @Test
@@ -75,7 +75,7 @@ class IGetOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
         assertTrue(graph.outcomes.contains(Outcome.Returned(Value.Unknown(type("I")))))
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -123,7 +123,7 @@ class IGetOpTest {
         assertEquals(CompletionStatus.Complete, narrow.completion())
         assertEquals(setOf(0), narrow.registersRead(2))
         assertEquals(setOf(1), narrow.registersAssigned(2))
-        assertEquals(SideEffectLevel.NONE, narrow.sideEffectLevel(2))
+        assertEquals(SideEffectLevel.NONE, narrow.explored.sideEffectLevel(2))
 
         val wide = CoreTester.execute(CLASS_NAME, "getLongFromFreshObject()J")
         assertEquals(CompletionStatus.Complete, wide.completion())

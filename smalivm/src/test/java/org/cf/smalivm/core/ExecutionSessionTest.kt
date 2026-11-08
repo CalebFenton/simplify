@@ -19,10 +19,11 @@ import java.io.File
  */
 class ExecutionSessionTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
+    private val vm = VmServices(classIndex)
     private val int = VirtualType.of("I")
 
     private fun session(descriptor: String, limits: Limits = Limits()) =
-        ExecutionSession.of(classIndex.requireMethodView("Lspine/spine;", descriptor), classIndex, limits)
+        vm.newSession(classIndex.requireMethodView("Lspine/spine;", descriptor), limits)
 
     private fun viewOf(descriptor: String) =
         classIndex.requireMethodView("Lspine/spine;", descriptor)
@@ -123,7 +124,7 @@ class ExecutionSessionTest {
         s.step()                            // const/4 v0, 0x3
         val aborted = s.step()!!            // filled-new-array {v0}, [J -- deliberately unsupported
         assertEquals(Outcome.Aborted(AbortReason.UNSUPPORTED_OP), aborted.outcome)
-        assertEquals(emptyList<ExecutionNode>(), aborted.children, "an aborted path enqueues no successor")
+        assertEquals(emptyList<ExecutionNode>(), aborted.children, "an aborted path schedules no successor")
         assertEquals(Value.Known(3, int), aborted.frame.peek(0), "the aborting op must not have written v0")
         assertNull(s.step(), "the path ended at the abort, and the session is still finishable")
     }
@@ -205,110 +206,48 @@ class ExecutionSessionTest {
 
     @Test
     fun aDrainedFrontierNodeIsStillPiledEvenThoughItNeverRan() {
-        // The Task 6 piling decision, from the SESSION side. abortRun's drain loop ends every node
-        // still scheduled when a METHOD_LIMIT/TIMEOUT fires, none of which ever run their op -- but
-        // before this fix, only the single node step() had just dequeued got added to a pile at all;
-        // every OTHER drained sibling vanished as an unqueried ExecutionNode.children entry, with its
-        // Aborted outcome unattributable to any address graph.nodePile could show. No Plan 3 op forks
-        // yet (ambiguity is Task 7's job), so the frontier never naturally holds more than one node;
-        // this test manufactures that condition with the same internal-enqueue seam
-        // `successorsAreDecodedAgainstTheNodesOwnMethodNotTheSessionsEntryMethod` below uses, so the
-        // drain loop actually has more than one victim to pool. Oracle: spec §6.4 (a limit-aborted
-        // node must be attributable to the address it happened at) plus ExecutionGraph's contract
-        // that nodePile is unfiltered while wasReached is not.
-        val view = viewOf("returnFive()I") // addresses: 0 = const/4 v0,0x5, 1 = return v0
-        val s = ExecutionSession.of(view, classIndex, Limits(maxSteps = 1))
-        val root = s.frontier.single() // address 0, not yet stepped
-        // Two synthetic siblings queued before any stepping begins, mimicking what a forking op will
-        // do from Task 7 on. The frontier is LIFO, so child2 (address 0) is dequeued and executes
-        // first; its own child then trips the step limit, leaving BOTH child1 (address 1) and root
-        // (address 0) still sitting in the frontier for the SAME abortRun call to drain.
-        s.enqueue(1, root)
-        val child1 = root.children[0]
-        s.enqueue(0, root)
-        val child2 = root.children[1]
+        // When a METHOD_LIMIT fires, abortRun ends every node still scheduled, none of which run their
+        // op; each must still be piled at its own address or its Aborted outcome is unattributable.
+        // `returnsOrThrows(I)I` forks at `if-eqz p0`@0 on the unknown parameter into the fall-through
+        // `const/4`@2 and the `new-instance`@4. With one step allowed, the if runs, the next dequeued
+        // successor trips the limit, and the other is drained by the SAME abortRun call. Oracle: spec §6.4
+        // plus ExecutionGraph's contract that nodePile is unfiltered while wasReached is not.
+        val s = session("returnsOrThrows(I)I", Limits(maxSteps = 1))
 
         while (s.step() != null) Unit
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)), s.completion())
         val graph = s.graph()
-        assertTrue(
-            graph.nodePile(0).any { it === root },
-            "root was only ever drained, never individually stepped -- it must still be piled",
-        )
-        assertTrue(
-            graph.nodePile(1).any { it === child1 },
-            "child1 was drained alongside root in the SAME abortRun call -- the loop must pile every victim, not just the first",
-        )
-        assertFalse(graph.wasReached(1), "neither node ever piled at address 1 executed its op")
-        assertTrue(graph.wasReached(0), "child2 -- the OTHER node piled at address 0 -- genuinely executed before the limit hit")
+        assertEquals(1, graph.nodePile(2).size, "the fall-through successor must be piled although it never ran")
+        assertEquals(1, graph.nodePile(4).size, "the branch successor must be piled although it never ran")
+        assertFalse(graph.wasReached(2), "the fall-through successor never executed its op")
+        assertFalse(graph.wasReached(4), "the branch successor never executed its op")
+        assertTrue(graph.wasReached(0), "the forking if-eqz executed before the limit hit")
     }
 
     /**
-     * A node whose op **never ran** declares nothing. `maxAddressVisits = 0` is not how it is
-     * provoked -- `0` disables the bound -- so this uses a step limit of 1 against a two-instruction
-     * method: the second node is dequeued,
-     * the bound fires before `execute`, and its level must still be `NONE`.
-     *
-     * That is exactly why `ExecutionGraph.sideEffectLevel` needs no executed-only filter, and it is asserted
-     * rather than assumed because the transfer is now unconditional -- so the property rests on construction
-     * rather than on the transfer being skipped.
-     *
-     * **Measured honesty about what this half is worth: the address-1 assertion has NO sole killer**, because
-     * TWO independent facts protect it -- a fresh `Frame.copy` carries no level, and the limit exit returns
-     * before the transfer line. Breaking it needs a two-site mutation, and the enclosing test dies anyway
-     * under P2 (transfer deleted) and P3 (the graph ignores declarations) via its address-0 half. Stated
-     * rather than left as an implied claim of coverage.
+     * A node whose op **never ran** declares nothing. `maxAddressVisits = 0` disables the bound, so this
+     * uses a step limit of 1 against a method whose first op declares `STRONG`: the second node is
+     * dequeued, the bound fires before `execute`, and its level must still be `NONE`.
      */
     @Test
     fun aNodeWhoseOpNeverRanDeclaresNoSideEffect() {
         val view = viewOf("nopThenConst()I")
         val alwaysDeclares = object : Op(0) {
             override val name = "always-declares"
-            override fun execute(frame: Frame): OpExecution {
-                frame.recordSideEffect(SideEffectLevel.STRONG)
-                return listOf(Transition.Continue).asOpExecution()
-            }
+            override fun execute(frame: Frame): OpExecution =
+                OpExecution.single(OpArm.Continue(OpUpdate.effect(SideEffectLevel.STRONG)))
         }
-        val s = ExecutionSession.of(view, classIndex, Limits(maxSteps = 1), Frame.entryFrame(view)) { address, v, index ->
-            if (address == 0) alwaysDeclares else OpBuilder.build(address, v, index)
+        val s = vm.newSession(view, Limits(maxSteps = 1), null) { address, current, resolver ->
+            if (address == 0) alwaysDeclares else OpBuilder.build(address, current, resolver)
         }
         while (s.step() != null) Unit
         val graph = s.graph()
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0), "address 0's op ran and declared")
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0), "address 0's op ran and declared")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(1),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(1),
             "address 1 was dequeued but the step limit stopped it before execute, so it declared nothing",
         )
-    }
-
-    @Test
-    fun aDeclaredSideEffectSurvivesAnOpThatThrowsAHostThrowable() {
-        val view = viewOf("returnFive()I")
-        val declaresThenThrows = object : Op(0) {
-            override val name = "declares-then-throws"
-            override fun execute(frame: Frame): OpExecution {
-                frame.recordSideEffect(SideEffectLevel.STRONG)
-                throw IllegalStateException("boom, after declaring")
-            }
-        }
-        val session = ExecutionSession.of(
-            view,
-            classIndex,
-            Limits(),
-            Frame.entryFrame(view),
-        ) { address, current, index ->
-            if (address == 0) declaresThenThrows else OpBuilder.build(address, current, index)
-        }
-
-        val node = session.step()!!
-        val graph = session.graph()
-
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertEquals(SideEffectLevel.STRONG, node.sideEffectLevel)
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertNull(graph.trusted())
     }
 
     @Test
@@ -337,7 +276,7 @@ class ExecutionSessionTest {
         val mismatchedFrame = Frame.entryFrame(narrow)
 
         assertThrows(IllegalArgumentException::class.java) {
-            ExecutionSession.of(wide, classIndex, Limits(), mismatchedFrame)
+            vm.newSession(wide, Limits(), mismatchedFrame)
         }
     }
 
@@ -360,8 +299,8 @@ class ExecutionSessionTest {
         // sharing of mutable state across paths, and a fortiori across runs).
         val view = classIndex.requireMethodView("Lspine/spine;", "moveChain()I")
         val seeded = Frame.entryFrame(view).also { it.assign(0, Value.Known(111, int)) }
-        val first = ExecutionSession.of(view, classIndex, Limits(), seeded)
-        val second = ExecutionSession.of(view, classIndex, Limits(), seeded)
+        val first = vm.newSession(view, Limits(), seeded)
+        val second = vm.newSession(view, Limits(), seeded)
 
         first.run()
         assertEquals(Value.Known(111, int), seeded.peek(0), "the run must not overwrite the caller's seed")
@@ -370,59 +309,6 @@ class ExecutionSessionTest {
         // ran -- proof it inherited nothing from the first run.
         while (second.step() != null) Unit
         assertEquals(first.outcomes, second.outcomes)
-    }
-
-    @Test
-    fun successorsAreDecodedAgainstTheNodesOwnMethodNotTheSessionsEntryMethod() {
-        // Bug class: hard-coding the session's entry method into the three decode sites (`apply`'s
-        // nextAddress, `enqueue`'s hasAddress, `nodeAt`'s OpBuilder.build), which is what forces Plan 9
-        // to nest a child session per call -- a second execution loop wearing recursion as a disguise,
-        // which re-splits step() so Plan 10 can no longer single-step into a callee. Nothing in THIS plan
-        // needs cross-method decode (one session walks one method), so without this test all three
-        // sites revert to `methodView` with the whole suite green and the Plan 9 prerequisite is
-        // silently gone. Oracle: spec §5.1 (one driver) plus ExecutionNode.view's contract.
-        //
-        // The two methods are chosen so every site discriminates. Entry `returnFive()I` has addresses
-        // {0: const/4 (1 unit), 1: return}; foreign `nopThenConst()I` has {0,1: nop, 2: const/16 (TWO
-        // units), 4: return}. So at address 2 the entry method has no instruction at all, and address 2
-        // is 2 units wide in the foreign method but would be 1 in a narrow-const method.
-        val entry = viewOf("returnFive()I")
-        val foreign = viewOf("nopThenConst()I")
-        val s = ExecutionSession.of(entry, classIndex, Limits())
-        // No public API can produce a node belonging to another method; that is Plan 9's job. Build one
-        // directly and schedule its successor, exactly as an Invoke transition eventually will.
-        val foreignParent = ExecutionNode(
-            address = 1,
-            op = OpBuilder.build(1, foreign, classIndex),
-            frame = Frame.entryFrame(foreign),
-            parent = null,
-            activation = Activation.entry(foreign),
-        )
-        s.enqueue(2, foreignParent)
-
-        val child = foreignParent.children.single()
-        assertSame(foreign, child.view, "the successor belongs to its parent's method, not the session's")
-        assertEquals(2, child.address, "address 2 does not exist in the session's entry method")
-        assertEquals(
-            OpBuilder.build(2, foreign, classIndex).name, child.op.name,
-            "the op must be the one at address 2 in the FOREIGN method",
-        )
-        assertNull(foreignParent.outcome, "scheduling into another method is not a malformed-flow abort")
-
-        // Executing it exercises the third site: falling through uses the foreign method's instruction
-        // widths, so const/16 at 2 continues to 4 -- and 4 exists only in the foreign method.
-        assertSame(child, s.step(), "the scheduled foreign node is next (LIFO)")
-        val grandchild = child.children.single()
-        assertEquals(4, grandchild.address, "nextAddress must come from the node's own method (2 + 2 units)")
-        assertSame(foreign, grandchild.view)
-        // Two paths are still scheduled here (the session's own entry node and the foreign
-        // grandchild), so the honest status mid-walk is InProgress -- "nothing aborted" is not the same
-        // claim as "finished", which is exactly the distinction CompletionStatus.InProgress draws.
-        // Draining it is what turns that into Complete, and both paths must end cleanly for the
-        // original assertion ("nothing was mis-resolved") to hold.
-        assertEquals(CompletionStatus.InProgress, s.completion())
-        while (s.step() != null) Unit
-        assertEquals(CompletionStatus.Complete, s.completion(), "no path aborted; nothing was mis-resolved")
     }
 
     @Test

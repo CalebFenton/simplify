@@ -144,15 +144,7 @@ internal data class FieldDeclaration(
  * through [resolver] over the snapshot it captured instead, so publications after it starts do not reach it.
  * Hierarchy questions answer from the snapshot's [HierarchySnapshot], which publication never changes.
  */
-class ClassIndex internal constructor(
-    internal val programWorkspace: ProgramWorkspace,
-    dynamicLoadingEvidence: Boolean? = null,
-    hierarchyComplete: Boolean? = null,
-) : TypeHierarchy {
-    /** Replace the snapshot's dispatch-world facts in [ProgramSnapshotResolver.dispatchWorldIsComplete]; null reads them. */
-    internal val dynamicLoadingEvidenceOverride: Boolean? = dynamicLoadingEvidence
-    internal val hierarchyCompleteOverride: Boolean? = hierarchyComplete
-
+class ClassIndex internal constructor(internal val programWorkspace: ProgramWorkspace) : TypeHierarchy {
     internal val currentSnapshot: ProgramSnapshot get() = programWorkspace.currentSnapshot
 
     /**
@@ -197,6 +189,7 @@ class ClassIndex internal constructor(
             "No concrete application method: $className->$methodDescriptor"
         }
 
+
     companion object {
         /**
          * Imports the program at [input]: a Smali file, a directory of Smali files, a DEX file, or an archive whose
@@ -212,7 +205,7 @@ class ClassIndex internal constructor(
 
         /**
          * The one spelling of a fully-qualified field descriptor, `Lcom/example/Foo;->bar:I`, the key form of
-         * [Heap.getField] and [ClassState.getStaticField]. A storage key and a lookup key that differ by one
+         * [ExecutionState.getField] and [ClassState.getStaticField]. A storage key and a lookup key that differ by one
          * character miss silently, so every field key is built here.
          */
         internal fun fieldDescriptorOf(definingClass: VirtualType, name: String, fieldTypeDescriptor: String): String =

@@ -42,6 +42,20 @@ class ConstantPropagationStrategyTest {
         assertEquals(before, returned(reload(services), method, 2).raw)
     }
 
+    @Test fun stringOriginProofCrossesTheFallThroughArmOfABranchButNotAJoin() {
+        val services = services()
+        // The fall-through arm of if-eqz is entered only from the if, so the const-string reaches it unchanged.
+        val fallthrough = "Ltask65/ConstantIdentity;->copyOnIfFallthrough(I)Ljava/lang/String;"
+        optimize(services, fallthrough)
+        val edited = view(services, fallthrough)
+        assertEquals(1, edited.instructionAddresses.count { edited.opcodeAt(it) == Opcode.MOVE_OBJECT })
+        assertEquals("branch literal", returned(services, fallthrough, 1).raw)
+        // Two definitions meet at the join; neither alone proves the register's identity there.
+        val join = "Ltask65/ConstantIdentity;->copyAtBranchJoin(I)Ljava/lang/String;"
+        optimize(services, join)
+        assertTrue(has(view(services, join), Opcode.MOVE_OBJECT))
+    }
+
     @Test fun constructedStringIdentityIsNotReplacedByAnInternedLiteral() {
         val services = services()
         val method = "Ltask65/ConstantIdentity;->run()I"

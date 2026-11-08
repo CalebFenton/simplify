@@ -1,16 +1,11 @@
 package org.cf.smalivm.core
 
 /**
- * Seeded or expected registers, result, caught exception, and static fields for [CoreTester].
- * [UNKNOWN] becomes a typed [Value.Unknown]; results and caught exceptions use separate slots.
+ * Seeded or expected registers, arrays, and static fields for [CoreTester].
+ * [UNKNOWN] becomes a typed [Value.Unknown].
  */
 class CoreState {
     private val registerToValue = LinkedHashMap<Int, Value>()
-
-    var result: Value? = null
-        private set
-    var caught: Value? = null
-        private set
 
     val registers: Map<Int, Value> get() = registerToValue
 
@@ -130,18 +125,9 @@ class CoreState {
         fieldToValue["$className->$fieldNameAndType"] = value
     }
 
-    fun setResult(raw: Any?, typeDescriptor: String) {
-        result = valueOf(raw, typeDescriptor)
-    }
-
-    fun setCaught(raw: Any?, typeDescriptor: String) {
-        caught = valueOf(raw, typeDescriptor)
-    }
-
     fun getRegister(register: Int): Value? = registerToValue[register]
 
-    override fun toString(): String =
-        "CoreState(registers=$registerToValue, staticFields=$fieldToValue, result=$result, caught=$caught)"
+    override fun toString(): String = "CoreState(registers=$registerToValue, staticFields=$fieldToValue)"
 
     companion object {
         /**

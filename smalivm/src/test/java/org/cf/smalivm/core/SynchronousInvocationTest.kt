@@ -9,7 +9,6 @@ import org.cf.smalivm.core.SynchronousInvocationFixtures.classType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.classIndex
 import org.cf.smalivm.core.SynchronousInvocationFixtures.intType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.longType
-import org.cf.smalivm.core.SynchronousInvocationFixtures.nativeCallSession
 import org.cf.smalivm.core.SynchronousInvocationFixtures.nativePlan
 import org.cf.smalivm.core.SynchronousInvocationFixtures.objectType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.session
@@ -24,28 +23,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class SynchronousInvocationTest {
-    /**
-     * Catches selection that does not probe in list order: a later backend's 9, or an opaque Unknown chosen
-     * before every backend is asked, would replace the first accepting backend's 7.
-     */
-    @Test
-    fun firstAcceptingBackendInListOrderSuppliesTheResult() {
-        val declined = ScriptedProbeBackend("emulator") { BackendProbe.Declined("emulator declined") }
-        fun returning(name: String, value: Int) = ScriptedSynchronousBackend(
-            name,
-            { BackendProbe.Execute(SideEffectLevel.NONE) },
-            { SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(value, intType))) },
-        )
-        val seven = returning("virtual", 7)
-        val nine = returning("reflection", 9)
-
-        val graph = session(CALLER, "callsNativeCallee()I", listOf(declined, seven, nine)).run()
-
-        assertEquals(Value.Known(7, intType), graph.outcomes.single().returnedValue())
-        assertEquals(1, declined.probeCount)
-        assertEquals(0, nine.probeCount)
-    }
-
     @Test
     fun onlyDeclinedAdvancesAndDeniedIsTerminal() {
         val first = ScriptedProbeBackend("emulator") { BackendProbe.Declined("unsupported shape") }
@@ -64,29 +41,28 @@ class SynchronousInvocationTest {
 
     @Test
     fun deniedCallContinuesOnceWithTypedUnknownAndStrongEffect() {
-        val denied = ScriptedProbeBackend("reflection") { BackendProbe.Denied("policy denied") }
-        val graph = session(CALLER, "callsNativeCallee()I", listOf(denied)).run()
+        val vm = VmServices(classIndex, ReflectionPolicy(exactUnsafeMethods = setOf(NATIVE_CALLEE)))
+        val graph = session(CALLER, "callsNativeCallee()I", vm).run()
         val invoke = graph.nodePile(0).single()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(intType), graph.outcomes.single().returnedValue())
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
-        assertEquals("policy denied", invoke.invocationDiagnostic)
+        assertEquals("reflection policy denied $NATIVE_CALLEE by EXACT_UNSAFE", invoke.invocationDiagnostic)
         assertEquals(1, invoke.children.size)
     }
 
     @Test
-    fun allDeclinesCreateOneStrongOpaqueContinuationWithOneDiagnostic() {
+    fun allDeclinesPlanOneOpaqueCallWithEveryDiagnosticInOrder() {
         val first = ScriptedProbeBackend("emulator") { BackendProbe.Declined("no emulator") }
         val second = ScriptedProbeBackend("reflection") { BackendProbe.Declined("no reflection") }
-        val graph = session(CALLER, "callsNativeCallee()I", listOf(first, second)).run()
-        val invoke = graph.nodePile(0).single()
 
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(Value.Unknown(intType), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
-        assertEquals(1, invoke.children.size)
-        assertEquals("emulator: no emulator; reflection: no reflection", invoke.invocationDiagnostic)
+        val plan = nativePlan(invokerOf(classIndex, listOf(first, second)))
+
+        assertTrue(plan is OpaqueInvocation)
+        plan as OpaqueInvocation
+        assertEquals(intType, plan.returnType)
+        assertEquals("emulator: no emulator; reflection: no reflection", plan.diagnostic)
     }
 
     @Test
@@ -122,10 +98,14 @@ class SynchronousInvocationTest {
         }
     }
 
+    /**
+     * The emulator answers a call whose guest body the application bytecode backend would otherwise schedule,
+     * so any fallback to a later backend shows up as an activation of that body.
+     */
     @Test
-    fun returnedThrownInitAndFailureResultsNeverProbeAnotherBackend() {
+    fun returnedThrownInitAndFailureResultsNeverFallBackToALaterBackend() {
         val results = listOf<SynchronousCallResult>(
-            SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(7, intType))),
+            SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(9, intType))),
             SynchronousCallResult.TargetThrew(
                 HostThrowable(VirtualType.of("Ljava/lang/NullPointerException;"), NullPointerException("target")),
             ),
@@ -133,37 +113,31 @@ class SynchronousInvocationTest {
             SynchronousCallResult.InfrastructureFailure(IllegalStateException("lookup")),
         )
         for (result in results) {
-            val backend = ScriptedSynchronousBackend(
-                "accepted",
-                { BackendProbe.Execute(SideEffectLevel.STRONG) },
-                { result },
-            )
-            val later = ScriptedProbeBackend("later") { error("must not probe") }
-            val session = session(CALLER, "callsNativeCallee()I", listOf(backend, later))
+            val vm = VmServices(classIndex)
+            var executions = 0
+            vm.emulate(RETURNS_SEVEN, SideEffectLevel.STRONG) {
+                executions++
+                result
+            }
+            val session = session(CALLER, "callsCalleeAndReturnsItsResult()I", vm)
 
-            session.step()
+            val invoke = session.step()!!
 
-            assertEquals(1, backend.probeCount)
-            assertEquals(1, backend.executeCount)
-            assertEquals(0, later.probeCount)
+            assertEquals(1, executions, result.toString())
+            assertTrue(invoke.children.none { it.view.signature == RETURNS_SEVEN_SIGNATURE }, result.toString())
+            assertTrue(session.frontier.none { it.view.signature == RETURNS_SEVEN_SIGNATURE }, result.toString())
         }
     }
 
     @Test
     fun guestScheduleCreatesAnActivationButSynchronousExecuteDoesNot() {
-        val schedule = ScriptedProbeBackend("guest") { lookup ->
-            BackendProbe.Schedule((lookup as MethodLookup.Runnable).view, 0)
-        }
-        val guest = session(CALLER, "callsCalleeAndReturnsItsResult()I", listOf(schedule))
+        val guest = session(CALLER, "callsCalleeAndReturnsItsResult()I", VmServices(classIndex))
         val guestInvoke = guest.step()!!
         assertNotSame(guestInvoke.activation, guestInvoke.children.single().activation)
 
-        val synchronous = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.NONE) },
-            { SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(7, intType))) },
-        )
-        val host = session(CALLER, "callsCalleeAndReturnsItsResult()I", listOf(synchronous))
+        val vm = VmServices(classIndex)
+        vm.emulate(RETURNS_SEVEN) { SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(7, intType))) }
+        val host = session(CALLER, "callsCalleeAndReturnsItsResult()I", vm)
         val hostInvoke = host.step()!!
 
         assertSame(hostInvoke.activation, hostInvoke.children.single().activation)
@@ -172,55 +146,42 @@ class SynchronousInvocationTest {
     }
 
     @Test
-    fun guestCalleeAbortUsesOpaqueContinuationWithoutHostProbe() {
-        val host = ScriptedProbeBackend("host") { error("guest abort must not retry a backend") }
+    fun guestCalleeAbortUsesOpaqueContinuationWithoutSelectingAgain() {
+        val vm = VmServices(classIndex)
+        val selections = vm.countSelections(MethodDescriptor(VirtualType.of(CALLEE), "spinsForever", "()V"))
         val graph = session(
             CALLER,
             "callsSpinningCallee()I",
-            listOf(ApplicationBytecodeBackend(classIndex.currentResolver()), host),
+            vm,
             Limits(maxAddressVisits = 2, maxSteps = 100),
         ).run()
 
-        assertEquals(0, host.probeCount)
+        assertEquals(1, selections())
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        assertEquals(Value.Known(2, intType), graph.terminatingConsensusOverExploredPaths(0))
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(1))
+        assertEquals(Value.Known(2, intType), graph.explored.terminatingConsensus(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(1))
         assertTrue(allNodes(graph.nodePile(1).single()).any { it.outcome == Outcome.Aborted(AbortReason.ADDRESS_LIMIT) })
     }
 
+    /** The callee's first op throws a host exception, which no real opcode does. */
     @Test
-    fun guestHostFailureKeepsCauseThenResumesCallerOpaqueWithoutProbingHostBackends() {
+    fun guestHostFailureKeepsCauseThenResumesCallerOpaqueWithoutSelectingAgain() {
         val cause = IllegalStateException("guest op failed")
-        val reflection = ScriptedProbeBackend("reflection") { BackendProbe.Declined("not reached") }
-        val callerView = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-        val calleeView = view(CALLEE, "returnsSeven()I")
-        // The root forks to two real invoke nodes at address 0, preserving the fixture's move-result at 3.
-        var callerEntryBuilds = 0
-        val session = session(
-            CALLER,
-            "callsCalleeAndReturnsItsResult()I",
-            listOf(ApplicationBytecodeBackend(classIndex.currentResolver()), reflection),
-            opFactory = { address, method, index ->
-                when {
-                    method.signature == callerView.signature && address == 0 -> object : Op(address) {
-                        private val delegate = OpBuilder.build(address, method, index)
-                        private val forks = callerEntryBuilds++ == 0
-                        override val name = if (forks) "fork-before-call" else delegate.name
-                        override fun execute(frame: Frame) = if (forks) {
-                            listOf(Transition.Jump(0), Transition.Jump(0)).asOpExecution()
-                        } else {
-                            delegate.execute(frame)
-                        }
-                    }
-                    method.signature == calleeView.signature && address == 0 -> object : Op(address) {
-                        override val name = "fail-in-guest"
-                        override fun execute(frame: Frame): OpExecution = throw cause
-                    }
-                    else -> OpBuilder.build(address, method, index)
+        val vm = VmServices(classIndex)
+        val selections = vm.countSelections(RETURNS_SEVEN)
+        val callerView = view(FORKING_CALLER, "forksThenCallsReturnsSeven(I)I")
+        val invokeAt = callerView.nextAddress(0)
+        val session = vm.newSession(callerView, Limits(), null) { address, method, resolver ->
+            if (method.signature == RETURNS_SEVEN_SIGNATURE && address == 0) {
+                object : Op(address) {
+                    override val name = "fail-in-guest"
+                    override fun execute(frame: Frame): OpExecution = throw cause
                 }
-            },
-        )
+            } else {
+                OpBuilder.build(address, method, resolver)
+            }
+        }
 
         session.step()
         val olderSibling = session.frontier.first()
@@ -228,16 +189,17 @@ class SynchronousInvocationTest {
         val failedCallee = session.step()!!
         val continuation = failedCallee.children.single()
 
+        assertEquals(invokeAt, invoke.address)
         assertSame(cause, failedCallee.hostFailure)
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failedCallee.outcome)
-        assertEquals(calleeView.signature, failedCallee.view.signature)
+        assertEquals(RETURNS_SEVEN_SIGNATURE, failedCallee.view.signature)
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertSame(invoke.activation, continuation.activation)
-        assertEquals(3, continuation.address)
+        assertEquals(callerView.nextAddress(invokeAt), continuation.address)
         assertFalse(continuation.opExecutionStarted)
         assertEquals(listOf(olderSibling, continuation), session.frontier)
         assertFalse(olderSibling.opExecutionStarted)
-        assertEquals(0, reflection.probeCount)
+        assertEquals(1, selections())
 
         val moveResult = session.step()!!
         val callerReturn = session.step()!!
@@ -259,56 +221,63 @@ class SynchronousInvocationTest {
         )
         for (result in results) {
             lateinit var execution: ExecutionSession
-            val backend = ScriptedSynchronousBackend(
-                "sync",
-                { BackendProbe.Execute(SideEffectLevel.WEAK) },
-                {
-                    assertEquals(SideEffectLevel.WEAK, execution.currentNode!!.sideEffectLevel)
-                    assertEquals(SideEffectLevel.WEAK, execution.currentNode!!.activation.declaredEffect)
-                    result
-                },
-            )
-            execution = nativeCallSession(backend)
+            val observed = mutableListOf<SideEffectLevel>()
+            val vm = VmServices(classIndex)
+            vm.emulate(NATIVE_CALLEE, SideEffectLevel.WEAK) {
+                observed += execution.currentNode!!.sideEffectLevel
+                observed += execution.currentNode!!.activation.declaredEffect
+                result
+            }
+            execution = session(CALLER, "callsNativeCallee()I", vm)
 
             execution.step()
 
+            assertEquals(listOf(SideEffectLevel.WEAK, SideEffectLevel.WEAK), observed, result.toString())
             assertEquals(SideEffectLevel.WEAK, execution.currentNode!!.sideEffectLevel)
         }
     }
 
+    /** Each emulated value differs from what the guest callee would return, so a guest result cannot pass. */
     @Test
     fun narrowWideObjectTypedNullAndVoidReturnsUseTheCorrectMoveResultBehavior() {
         val narrow = returning(
             CALLER,
             "callsCalleeAndReturnsItsResult()I",
-            HostReturn.Value(HostValue.Primitive(7, intType)),
+            RETURNS_SEVEN,
+            HostReturn.Value(HostValue.Primitive(9, intType)),
         )
-        assertEquals(Value.Known(7, intType), narrow.outcomes.single().returnedValue())
+        assertEquals(Value.Known(9, intType), narrow.outcomes.single().returnedValue())
 
         val wide = returning(
             CALLER,
             "passesAWideArgument()J",
-            HostReturn.Value(HostValue.Primitive(42L, longType)),
+            MethodDescriptor(VirtualType.of(CALLEE), "identityLong", "(J)J"),
+            HostReturn.Value(HostValue.Primitive(43L, longType)),
         )
-        assertEquals(Value.Known(42L, longType), wide.outcomes.single().returnedValue())
+        assertEquals(Value.Known(43L, longType), wide.outcomes.single().returnedValue())
 
         val objectGraph = returning(
             INVOKE_REVIEW,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
-            HostReturn.Value(
-                HostValue.Reference("canonical", objectType),
-            ),
+            IDENTITY_OBJECT,
+            HostReturn.Value(HostValue.Reference("canonical", objectType)),
         )
         assertEquals(Value.Known("canonical", objectType), objectGraph.outcomes.single().returnedValue())
 
         val typedNull = returning(
             INVOKE_REVIEW,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
+            IDENTITY_OBJECT,
             HostReturn.Value(HostValue.TypedNull(objectType)),
         )
         assertEquals(Value.Known(null, objectType), typedNull.outcomes.single().returnedValue())
 
-        val voidGraph = returning(CALLER, "callsVoidCallee()I", HostReturn.Void)
+        val voidGraph = returning(
+            CALLER,
+            "callsVoidCallee()I",
+            MethodDescriptor(VirtualType.of(CALLEE), "returnsNothing", "()V"),
+            HostReturn.Void,
+        )
         assertEquals(Value.Known(3, intType), voidGraph.outcomes.single().returnedValue())
     }
 
@@ -318,9 +287,8 @@ class SynchronousInvocationTest {
         val graph = returning(
             INVOKE_REVIEW,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
-            HostReturn.Value(
-                HostValue.Reference(represented, classType),
-            ),
+            IDENTITY_OBJECT,
+            HostReturn.Value(HostValue.Reference(represented, classType)),
         )
         val returned = graph.outcomes.single().returnedValue() as Value.Known
 
@@ -329,84 +297,52 @@ class SynchronousInvocationTest {
     }
 
     @Test
-    fun targetThrowDoesNotRetryTheInvokeOrProbeAnotherBackend() {
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.STRONG) },
-            {
-                SynchronousCallResult.TargetThrew(
-                    HostThrowable(VirtualType.of("Ljava/lang/NullPointerException;"), NullPointerException("target")),
-                )
-            },
-        )
-        val later = ScriptedProbeBackend("later") { BackendProbe.Declined("must not retry") }
-        val session = session(CALLER, "callsThrowingCalleeWithCatch()I", listOf(backend, later))
+    fun targetThrowDoesNotRetryTheInvokeOrFallBackToTheGuestBody() {
+        val vm = VmServices(classIndex)
+        var executions = 0
+        vm.emulate(THROWS_UNCAUGHT, SideEffectLevel.STRONG) {
+            executions++
+            SynchronousCallResult.TargetThrew(
+                HostThrowable(VirtualType.of("Ljava/lang/NullPointerException;"), NullPointerException("target")),
+            )
+        }
+        val session = session(CALLER, "callsThrowingCalleeWithCatch()I", vm)
         val invoke = session.frontier.single()
         session.run()
-        val invokeAttempts = allNodes(invoke).filter {
-            it.view.signature == invoke.view.signature && it.address == invoke.address
-        }
+        val nodes = allNodes(invoke)
+        val invokeAttempts = nodes.filter { it.view.signature == invoke.view.signature && it.address == invoke.address }
 
         assertEquals(1, invokeAttempts.size)
-        assertEquals(1, backend.probeCount)
-        assertEquals(1, backend.executeCount)
-        assertEquals(0, later.probeCount)
+        assertEquals(1, executions)
+        assertTrue(nodes.none { it.view.signature == THROWS_UNCAUGHT_SIGNATURE })
     }
 
     @Test
     fun targetThrowUsesHostRuntimeTypeWhenBackendTagIsOnlyThrowable() {
-        val backend = ScriptedSynchronousBackend(
-            "mislabeled-target",
-            { BackendProbe.Execute(SideEffectLevel.NONE) },
-            {
-                SynchronousCallResult.TargetThrew(
-                    HostThrowable(
-                        VirtualType.of("Ljava/lang/Throwable;"),
-                        NullPointerException("runtime type wins"),
-                    ),
-                )
-            },
-        )
+        val vm = VmServices(classIndex)
+        var executions = 0
+        vm.emulate(THROWS_UNCAUGHT) {
+            executions++
+            SynchronousCallResult.TargetThrew(
+                HostThrowable(VirtualType.of("Ljava/lang/Throwable;"), NullPointerException("runtime type wins")),
+            )
+        }
 
-        val graph = session(CALLER, "callsThrowingCalleeWithCompetingCatch()I", listOf(backend)).run()
+        val graph = session(CALLER, "callsThrowingCalleeWithCompetingCatch()I", vm).run()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Known(5, intType), graph.outcomes.single().returnedValue())
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
-        assertEquals(1, backend.probeCount)
-        assertEquals(1, backend.executeCount)
+        assertEquals(1, executions)
     }
 
     @Test
     fun infrastructureFailureAbortsOnlyItsPathAndKeepsTheExactCauseAndSibling() {
         val cause = IllegalStateException("host lookup broke")
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.STRONG) },
-            { SynchronousCallResult.InfrastructureFailure(cause) },
-        )
-        val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-        val target = MethodDescriptor(VirtualType.of(CALLEE), "nativeCallee", "()I")
-        val session = session(
-            CALLER,
-            "callsCalleeAndReturnsItsResult()I",
-            listOf(backend),
-            opFactory = { address, method, index ->
-                when (address) {
-                    0 -> object : Op(address) {
-                        override val name = "fork"
-                        override fun execute(frame: Frame) =
-                            listOf(Transition.Jump(3), Transition.Jump(3)).asOpExecution()
-                    }
-                    3 -> object : Op(address) {
-                        override val name = "invoke-native"
-                        override fun execute(frame: Frame) =
-                            listOf(Transition.Invoke(target, IntArray(0), InvokeKind.STATIC)).asOpExecution()
-                    }
-                    else -> OpBuilder.build(address, method, index)
-                }
-            },
-        )
+        val vm = VmServices(classIndex)
+        vm.emulate(NATIVE_CALLEE, SideEffectLevel.STRONG) { SynchronousCallResult.InfrastructureFailure(cause) }
+        val entry = view(FORKING_CALLER, "forksThenCallsNativeCallee(I)I")
+        val session = vm.newSession(entry)
 
         session.step()
         val olderSibling = session.frontier.first()
@@ -418,17 +354,15 @@ class SynchronousInvocationTest {
         assertFalse(olderSibling.opExecutionStarted)
         assertSame(failed, session.currentNode)
         assertEquals(entry.signature, failed.view.signature)
+        assertEquals(entry.nextAddress(0), failed.address)
     }
 
     @Test
-    fun virtualMachineErrorThrownBySynchronousBackendEscapes() {
+    fun virtualMachineErrorThrownByASynchronousHandlerEscapes() {
         val fatal = StackOverflowError("fatal")
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.STRONG) },
-            { throw fatal },
-        )
-        val session = nativeCallSession(backend)
+        val vm = VmServices(classIndex)
+        vm.emulate(NATIVE_CALLEE, SideEffectLevel.STRONG) { throw fatal }
+        val session = session(CALLER, "callsNativeCallee()I", vm)
 
         assertSame(fatal, assertThrows<StackOverflowError> { session.step() })
         assertEquals(null, session.currentNode!!.hostFailure)
@@ -440,12 +374,13 @@ class SynchronousInvocationTest {
             add(SynchronousCallResult.NeedsClassInit(VirtualType.of(INIT_TARGET)))
             add(SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(9, intType))))
         }
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.STRONG) },
-            { results.removeFirst() },
-        )
-        val session = nativeCallSession(backend)
+        val vm = VmServices(classIndex)
+        var executions = 0
+        vm.emulate(NATIVE_CALLEE, SideEffectLevel.STRONG) {
+            executions++
+            results.removeFirst()
+        }
+        val session = session(CALLER, "callsNativeCallee()I", vm)
         val root = session.frontier.single()
         val graph = session.run()
         val nodes = allNodes(root)
@@ -454,7 +389,7 @@ class SynchronousInvocationTest {
             it.activation.classInitContext?.activeInitializer?.type == VirtualType.of(INIT_TARGET) && it.address == 0
         }
 
-        assertEquals(2, backend.executeCount)
+        assertEquals(2, executions)
         assertEquals(2, invokes.size)
         assertSame(invokes.first().activation, invokes.last().activation)
         assertNotSame(invokes.first().activation, initializer.activation)
@@ -465,17 +400,20 @@ class SynchronousInvocationTest {
 
     @Test
     fun dirtyMirrorSynchronizationDoesNotTurnClassInitPreparationIntoUserMutation() {
-        // Bug class: pre-execution mirror synchronization compares as host mutation and blocks NeedsClassInit retry.
-        // Oracle: guest lattice state is already authoritative; synchronization is preparation and compares equal.
+        // Synchronizing a dirty host mirror before the call is preparation, not a host mutation, so it must not
+        // block the class-init retry: the guest lattice state is already authoritative.
         val results = ArrayDeque<SynchronousCallResult>().apply {
             add(SynchronousCallResult.NeedsClassInit(VirtualType.of(INIT_TARGET)))
             add(SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(9, intType))))
         }
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.NONE) },
-            { results.removeFirst() },
-        )
+        val vm = VmServices(classIndex)
+        var executions = 0
+        vm.emulate(
+            MethodDescriptor(VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;"), "arrayNeedsInit", "([I)I"),
+        ) {
+            executions++
+            results.removeFirst()
+        }
         val view = view("Linvoke_backend_test;", "dirtyArrayNeedsInit([I)I")
         val frame = Frame.entryFrame(view)
         val raw = intArrayOf(0)
@@ -485,31 +423,40 @@ class SynchronousInvocationTest {
         val ref = admitted.raw as HeapRef
         frame.assign(view.parameters.single().register, admitted)
         frame.writeArrayElement(ref, 0, Value.Known(7, intType))
-        val session = ExecutionSession.of(
-            view,
-            classIndex,
-            Limits(),
-            frame,
-            OpBuilder::build,
-            invokerOf(classIndex, listOf(backend)),
-        )
+        val session = vm.newSession(view, Limits(), frame)
 
         val graph = session.run()
 
-        assertEquals(2, backend.executeCount)
+        assertEquals(2, executions)
         assertEquals(Value.Known(9, intType), graph.outcomes.single().returnedValue())
         assertEquals(0, raw[0])
         assertEquals(7, (requireNotNull(session.currentNode).frame.hostObjectAt(ref) as IntArray)[0])
     }
 
-    private fun returning(className: String, descriptor: String, result: HostReturn): ExecutionGraph {
-        val backend = ScriptedSynchronousBackend(
-            "sync",
-            { BackendProbe.Execute(SideEffectLevel.NONE) },
-            { SynchronousCallResult.Returned(result) },
-        )
-        return session(className, descriptor, listOf(backend)).run()
+    private fun returning(
+        className: String,
+        descriptor: String,
+        target: MethodDescriptor,
+        result: HostReturn,
+    ): ExecutionGraph {
+        val vm = VmServices(classIndex)
+        vm.emulate(target) { SynchronousCallResult.Returned(result) }
+        return session(className, descriptor, vm).run()
     }
 
     private fun Outcome.returnedValue(): Value? = (this as Outcome.Returned).value
+
+    private companion object {
+        const val FORKING_CALLER = "Lcalls/resolution_caller;"
+        const val RETURNS_SEVEN_SIGNATURE = "Lcalls/callee;->returnsSeven()I"
+        const val THROWS_UNCAUGHT_SIGNATURE = "Lcalls/callee;->throwsUncaught()I"
+        val RETURNS_SEVEN = MethodDescriptor(VirtualType.of(CALLEE), "returnsSeven", "()I")
+        val THROWS_UNCAUGHT = MethodDescriptor(VirtualType.of(CALLEE), "throwsUncaught", "()I")
+        val NATIVE_CALLEE = MethodDescriptor(VirtualType.of(CALLEE), "nativeCallee", "()I")
+        val IDENTITY_OBJECT = MethodDescriptor(
+            VirtualType.of("Linvoke_review_callee;"),
+            "identityObject",
+            "(Ljava/lang/Object;)Ljava/lang/Object;",
+        )
+    }
 }
