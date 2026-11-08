@@ -101,18 +101,9 @@ class MethodView private constructor(
     }
 
     /**
-     * Addresses holding a payload pseudo-instruction — `.array-data` and the two switch tables. These are
-     * **data, not code**: nothing branches *through* them and the core never executes one, so
-     * `wasReached` is false there on every run. **SPEC**, and stated twice: [BC]'s "General design" says
-     * such pseudo-instructions *"must never be encountered during the normal flow of execution"*, and
-     * [CON] B22 makes it a verifier constraint — *"The packed-switch-data, sparse-switch-data, and
-     * fill-array-data pseudo-instructions must not be reachable by control flow."*
-     *
-     * The public address array is defensive. Mutation of one returned array cannot change this view.
-     *
-     * Two consumers need it and neither can derive it: Plan 13's editor must not relocate a payload as if
-     * it were an instruction, and Plan 14's dead-code strategy must not read an unreached payload as dead
-     * code. The differential subtracts it from both engines' reached sets (see `SmaliVmUnderTest.run`).
+     * Addresses holding a payload pseudo-instruction: `.array-data` and the two switch tables. They are data, not
+     * code; [BC] says such pseudo-instructions *"must never be encountered during the normal flow of execution"*,
+     * and [CON] B22 makes that a verifier constraint, so no execution reaches one.
      */
     fun isPayload(address: Int): Boolean = storedPayloadAddresses.binarySearch(address) >= 0
 
@@ -152,9 +143,6 @@ class MethodView private constructor(
 
     /** The address immediately after [address], i.e. this instruction's width in 16-bit code units. */
     fun nextAddress(address: Int): Int = address + instructionAt(address).codeUnits
-
-    /** Whether execution may fall through from [address] to [nextAddress]. False for returns, throws and gotos. */
-    fun canContinue(address: Int): Boolean = opcodeAt(address).canContinue()
 
     internal fun hasSameExecutionIdentity(other: MethodView): Boolean {
         if (programRevision !== other.programRevision) return false
