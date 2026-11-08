@@ -51,6 +51,39 @@ internal class HostGraphComparator {
         }
     }
 
+    /**
+     * The ids of [left]'s nodes whose state differs at the same id in [right], each compared on its own as [compare]
+     * compares the whole graph; null when one of them cannot be compared exactly.
+     */
+    fun changedNodeIds(
+        left: HostGraphState,
+        right: HostGraphState,
+        expectedLeftArrays: Map<Int, List<Any?>> = emptyMap(),
+    ): Set<Int>? {
+        if (!left.isComplete || !right.isComplete) return null
+        val leftNodes = left.objectsById()
+        val rightNodes = right.objectsById()
+        return hostBoundary({ null }) {
+            val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
+            expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
+            val changed = HashSet<Int>()
+            for (id in leftNodes.keys.sorted()) {
+                val rightNode = rightNodes[id]
+                val result = if (rightNode == null) {
+                    HostGraphComparison.Different
+                } else {
+                    Walk(expectedByIdentity).compare(leftNodes.getValue(id), rightNode)
+                }
+                when (result) {
+                    HostGraphComparison.Equal -> Unit
+                    HostGraphComparison.Different -> changed.add(id)
+                    is HostGraphComparison.Unprovable -> return@hostBoundary null
+                }
+            }
+            changed
+        }
+    }
+
     private fun scalarComparison(left: Any, right: Any): HostGraphComparison? = when (left) {
         is Float -> exact(left.toRawBits() == (right as Float).toRawBits())
         is Double -> exact(left.toRawBits() == (right as Double).toRawBits())
