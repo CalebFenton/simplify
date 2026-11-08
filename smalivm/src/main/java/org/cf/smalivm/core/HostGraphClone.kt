@@ -1,6 +1,7 @@
 package org.cf.smalivm.core
 
 import java.lang.reflect.Array as ReflectArray
+import java.lang.reflect.Constructor
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.IdentityHashMap
@@ -42,9 +43,13 @@ private fun copyOf(raw: Any, copies: IdentityHashMap<Any, Any>, unfilled: Mutabl
     copies[raw]?.let { return it }
     val copy = when {
         raw.javaClass.isArray -> ReflectArray.newInstance(raw.javaClass.componentType, ReflectArray.getLength(raw))
-        // JDK reflection filters Method's VM-owned fields from getDeclaredFields().
-        // Allocate a real member copy, then preserve its mutable accessibility and visible graph.
+        // JDK reflection filters a reflected method's or constructor's VM-owned fields (its class, slot, modifiers)
+        // from getDeclaredFields(), so a field-by-field copy is a broken member. Allocate a real member copy, then
+        // preserve its mutable accessibility and visible graph.
         raw is Method -> raw.declaringClass.declaredMethods.first { it == raw }.apply {
+            isAccessible = raw.isAccessible
+        }
+        raw is Constructor<*> -> raw.declaringClass.declaredConstructors.first { it == raw }.apply {
             isAccessible = raw.isAccessible
         }
         else -> HostUnsafe.unsafe.allocateInstance(raw.javaClass)
