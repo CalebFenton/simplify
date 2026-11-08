@@ -337,29 +337,29 @@ class SnapshotReExecutionTest {
 
     private companion object {
         val INT = VirtualType.of("I")
-        val DYNAMIC_INTERFACE = VirtualType.of("Ltask60/Dispatch;")
-        const val CALLER = "Ltask60/Main;->caller()I"
-        const val TARGET = "Ltask60/Main;->target()I"
-        const val OTHER = "Ltask60/Main;->other()I"
-        const val FRAMEWORK_CALLER = "Ltask60/Main;->frameworkCaller()I"
+        val DYNAMIC_INTERFACE = VirtualType.of("Lreexecution/Dispatch;")
+        const val CALLER = "Lreexecution/Main;->caller()I"
+        const val TARGET = "Lreexecution/Main;->target()I"
+        const val OTHER = "Lreexecution/Main;->other()I"
+        const val FRAMEWORK_CALLER = "Lreexecution/Main;->frameworkCaller()I"
         const val FRAMEWORK_METHOD = "Ljava/lang/Integer;->numberOfLeadingZeros(I)I"
-        const val INIT_TRIGGER = "Ltask60/Init;->trigger()I"
-        const val CLASS_INITIALIZER = "Ltask60/Init;-><clinit>()V"
-        const val DYNAMIC_SITE = "Ltask60/DynamicSite;->site()V"
-        const val SUBCLASS_DYNAMIC_SITE = "Ltask60/SubclassDynamicSite;->site(Ltask60/MyLoader;Ljava/lang/String;)V"
-        const val DYNAMIC_CALLER = "Ltask60/DynamicCaller;->call(Ltask60/Dispatch;)I"
-        const val DYNAMIC_IMPLEMENTATION = "Ltask60/OnlyImplementation;->value()I"
-        const val UNRELATED = "Ltask60/Unrelated;"
+        const val INIT_TRIGGER = "Lreexecution/Init;->trigger()I"
+        const val CLASS_INITIALIZER = "Lreexecution/Init;-><clinit>()V"
+        const val DYNAMIC_SITE = "Lreexecution/DynamicSite;->site()V"
+        const val SUBCLASS_DYNAMIC_SITE = "Lreexecution/SubclassDynamicSite;->site(Lreexecution/MyLoader;Ljava/lang/String;)V"
+        const val DYNAMIC_CALLER = "Lreexecution/DynamicCaller;->call(Lreexecution/Dispatch;)I"
+        const val DYNAMIC_IMPLEMENTATION = "Lreexecution/OnlyImplementation;->value()I"
+        const val UNRELATED = "Lreexecution/Unrelated;"
 
         val SOURCES = listOf(
             """
-                .class public Ltask60/Main;
+                .class public Lreexecution/Main;
                 .super Ljava/lang/Object;
 
                 .method public static caller()I
                     .registers 1
                     nop
-                    invoke-static {}, Ltask60/Main;->target()I
+                    invoke-static {}, Lreexecution/Main;->target()I
                     move-result v0
                     return v0
                 .end method
@@ -393,35 +393,35 @@ class SnapshotReExecutionTest {
                 .end method
             """,
             """
-                .class public Ltask60/Init;
+                .class public Lreexecution/Init;
                 .super Ljava/lang/Object;
                 .field public static value:I
 
                 .method static constructor <clinit>()V
                     .registers 1
                     const/4 v0, 0x1
-                    sput v0, Ltask60/Init;->value:I
+                    sput v0, Lreexecution/Init;->value:I
                     return-void
                 .end method
 
                 .method public static trigger()I
                     .registers 1
                     nop
-                    sget v0, Ltask60/Init;->value:I
+                    sget v0, Lreexecution/Init;->value:I
                     return v0
                 .end method
             """,
             """
-                .class public interface abstract Ltask60/Dispatch;
+                .class public interface abstract Lreexecution/Dispatch;
                 .super Ljava/lang/Object;
 
                 .method public abstract value()I
                 .end method
             """,
             """
-                .class public Ltask60/OnlyImplementation;
+                .class public Lreexecution/OnlyImplementation;
                 .super Ljava/lang/Object;
-                .implements Ltask60/Dispatch;
+                .implements Lreexecution/Dispatch;
 
                 .method public value()I
                     .registers 2
@@ -430,7 +430,7 @@ class SnapshotReExecutionTest {
                 .end method
             """,
             """
-                .class public Ltask60/DynamicSite;
+                .class public Lreexecution/DynamicSite;
                 .super Ljava/lang/Object;
 
                 .method public static site()V
@@ -442,18 +442,18 @@ class SnapshotReExecutionTest {
                 .end method
             """,
             """
-                .class public Ltask60/DynamicCaller;
+                .class public Lreexecution/DynamicCaller;
                 .super Ljava/lang/Object;
 
-                .method public static call(Ltask60/Dispatch;)I
+                .method public static call(Lreexecution/Dispatch;)I
                     .registers 2
-                    invoke-interface {p0}, Ltask60/Dispatch;->value()I
+                    invoke-interface {p0}, Lreexecution/Dispatch;->value()I
                     move-result v0
                     return v0
                 .end method
             """,
             """
-                .class public Ltask60/Unrelated;
+                .class public Lreexecution/Unrelated;
                 .super Ljava/lang/Object;
 
                 .method public static value()I
@@ -465,16 +465,16 @@ class SnapshotReExecutionTest {
         )
         val SUBCLASS_SOURCES = listOf(
             """
-                .class public Ltask60/MyLoader;
+                .class public Lreexecution/MyLoader;
                 .super Ljava/lang/ClassLoader;
             """,
             """
-                .class public Ltask60/SubclassDynamicSite;
+                .class public Lreexecution/SubclassDynamicSite;
                 .super Ljava/lang/Object;
 
-                .method public static site(Ltask60/MyLoader;Ljava/lang/String;)V
+                .method public static site(Lreexecution/MyLoader;Ljava/lang/String;)V
                     .registers 2
-                    invoke-virtual {p0, p1}, Ltask60/MyLoader;->loadClass(Ljava/lang/String;)Ljava/lang/Class;
+                    invoke-virtual {p0, p1}, Lreexecution/MyLoader;->loadClass(Ljava/lang/String;)Ljava/lang/Class;
                     move-result-object p0
                     return-void
                 .end method

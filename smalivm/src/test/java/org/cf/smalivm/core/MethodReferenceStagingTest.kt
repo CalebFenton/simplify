@@ -502,12 +502,12 @@ class MethodReferenceStagingTest {
         const val UNAFFECTED = "Lstaging/References;->unaffected()V"
         const val API30_CLASS = "Lstaging/Api30References;"
         const val API30_TARGET = "Lstaging/Api30References;->run()V"
-        const val STAGED_STRING = "task59-staged-string"
+        const val STAGED_STRING = "staging-staged-string"
         const val STAGED_OWNER = "Lstaging/StagedOwner;"
         const val STAGED_TYPE = "[Lstaging/StagedOwner;"
         const val STAGED_FIELD = "stagedField"
         const val STAGED_METHOD = "stagedMethod"
-        const val OBSOLETE_STRING = "task59-obsolete-only"
+        const val OBSOLETE_STRING = "staging-obsolete-only"
         const val SOURCE = """
             .class public Lstaging/References;
             .super Ljava/lang/Object;
