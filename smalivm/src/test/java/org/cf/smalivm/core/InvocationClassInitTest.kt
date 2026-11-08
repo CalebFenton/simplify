@@ -1,5 +1,7 @@
 package org.cf.smalivm.core
 
+import org.cf.smalivm.core.CoreTester.allNodes
+import org.cf.smalivm.core.CoreTester.initializersRun
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -214,29 +216,9 @@ class InvocationClassInitTest {
     private fun calleeEntry(graph: ExecutionGraph, signature: String): ExecutionNode =
         allNodes(graph).single { it.isCallEntry && it.view.signature.toString() == signature }
 
-    private fun initializersRun(graph: ExecutionGraph): List<String> {
-        val activations = mutableListOf<Activation>()
-        for (node in allNodes(graph)) {
-            if (activations.none { it === node.activation }) activations.add(node.activation)
-        }
-        return activations.mapNotNull { it.classInitContext?.activeInitializer?.type?.descriptor }
-    }
-
     private fun returningFrame(graph: ExecutionGraph): Frame = allNodes(graph).single {
         it.outcome is Outcome.Returned && it.activation.caller == null
     }.frame
-
-    private fun allNodes(graph: ExecutionGraph): List<ExecutionNode> {
-        val roots = graph.addresses().flatMap { graph.nodePile(it) }.filter { it.parent == null }
-        val result = mutableListOf<ExecutionNode>()
-        fun collect(node: ExecutionNode) {
-            if (result.any { it === node }) return
-            result.add(node)
-            node.children.forEach(::collect)
-        }
-        roots.forEach(::collect)
-        return result
-    }
 
     private fun allDescendants(node: ExecutionNode): List<ExecutionNode> {
         val result = mutableListOf<ExecutionNode>()

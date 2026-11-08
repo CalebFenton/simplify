@@ -1,5 +1,8 @@
 package org.cf.smalivm.core
 
+import org.cf.smalivm.core.CoreTester.allNodes
+import org.cf.smalivm.core.CoreTester.initStateAtReturn
+import org.cf.smalivm.core.CoreTester.initializersRun
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -7,18 +10,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * The class-initialization lifecycle `Uninitialized -> Initializing -> {Initialized | Failed}`, with a guest
- * `<clinit>` run as a nested call through the same `Invoker` an ordinary call uses.
- *
- * The bug classes, all of them silent wrong answers:
- *
- *  1. **A session-global lifecycle.** A class initialized on some paths would read as initialized on every
- *     path, so a path on which initialization never happened skips it.
- *  2. **A `<clinit>` that re-runs.** On the success path it applies its writes twice; from inside itself it
- *     recurses until the call-depth limit truncates the run.
- *  3. **A failed initializer that reads back as initialized.**
- *  4. **Subclass before superclass**, so a subclass `<clinit>` reads a static its superclass has not written.
- *  5. **A framework `<clinit>` dragged into virtual execution.**
+ * The class-initialization lifecycle, with a guest `<clinit>` run as a nested call through the same `Invoker`
+ * an ordinary call uses. Each wrong implementation here gives a silent wrong answer: a session-global lifecycle
+ * that lets one path's initialization exempt another, a `<clinit>` that re-runs or recurses into itself, a
+ * subclass initialized before its superclass, or a framework `<clinit>` run in virtual execution. Failed
+ * initialization is covered by `ClassInitFailureBehaviorTest`.
  */
 class ClassInitTest {
     private val classIndex = CoreTester.classIndex
@@ -76,8 +72,6 @@ class ClassInitTest {
     @Test
     fun aFrameworkClassIsSettledWithoutRunningItsInitializerAndDeclaresStrong() {
         // Integer declares <clinit> in the captured framework, but framework initialization is suppressed.
-        // NewInstanceOpTest.theFrameworkConservativeInitMarksIntegerWithoutRunningItsClinit checks
-        // the same policy through new-instance rather than directly through the planner.
         assertTrue(classIndex.currentSnapshot.hierarchy.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
         assertFalse(classIndex.currentSnapshot.hierarchy.isFrameworkClass(WITNESS), "a fixture class is an application class")
         val plan = defaultInvoker(classIndex).planClassInit(plannerFrame(), INTEGER)
@@ -100,10 +94,6 @@ class ClassInitTest {
             "and the view is the ancestor's own declared initializer",
         )
     }
-
-    // ------------------------------------------------------------------------------------------
-    // The lifecycle through a real run, triggered by `new-instance`.
-    // ------------------------------------------------------------------------------------------
 
     @Test
     fun aClassWithNoGuestClinitBecomesInitializedWithNoNestedRun() {
@@ -215,10 +205,6 @@ class ClassInitTest {
         )
     }
 
-    // ------------------------------------------------------------------------------------------
-    // The method-entry trigger.
-    // ------------------------------------------------------------------------------------------
-
     @Test
     fun aMethodEntryTriggersItsOwnDefiningClassInitBeforeTheCalleeRuns() {
         // Every non-`<clinit>` method entry triggers initialization of the method's defining class.
@@ -280,13 +266,9 @@ class ClassInitTest {
         )
     }
 
-    // ------------------------------------------------------------------------------------------
-    // What must NOT initialize.
-    // ------------------------------------------------------------------------------------------
-
     @Test
-    fun constClassStillDoesNotInitialize() {
-        // Measured on device: `tools/art-runner/fixtures/Fx_ConstClassDoesNotInitialize.smali` against its control
+    fun constClassResolvesWithoutInitializing() {
+        // Device-measured: `tools/art-runner/fixtures/Fx_ConstClassDoesNotInitialize.smali` against its control
         // `Fx_StaticFieldDoesInitialize.smali`.
         val graph = CoreTester.execute(
             "Lclass_init/const_class_probe;", "resolvesWitnessClass()Ljava/lang/Class;",
@@ -297,13 +279,9 @@ class ClassInitTest {
         assertEquals(ClassInitState.UNINITIALIZED, initStateAtReturn(graph, WITNESS))
         assertEquals(
             SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
-            "which is what makes const-class's NONE truthful (oracle Correctness Defect 21 is the opposite)",
+            "const-class resolves without initializing, so it perturbs nothing",
         )
     }
-
-    // ------------------------------------------------------------------------------------------
-    // Harness
-    // ------------------------------------------------------------------------------------------
 
     private fun viewOf(className: String, descriptor: String) =
         classIndex.requireMethodView(className, descriptor)
@@ -315,50 +293,11 @@ class ClassInitTest {
     private fun run(className: String, descriptor: String): ExecutionGraph =
         CoreTester.vmServices.newSession(viewOf(className, descriptor), entryClassState = EntryClassState.FRESH_PROCESS).run()
 
-    /**
-     * Every node the run created, entry activation and callees alike, in walk order. A `<clinit>`'s nodes
-     * are not in the graph's piles, which describe the entry method, so the walk follows the child edges.
-     */
-    private fun allNodes(graph: ExecutionGraph): List<ExecutionNode> {
-        val out = mutableListOf<ExecutionNode>()
-        fun walk(node: ExecutionNode) {
-            out.add(node)
-            node.children.forEach(::walk)
-        }
-        walk(graph.nodePile(0).first())
-        return out
-    }
-
     private fun nodesIn(graph: ExecutionGraph, signature: String): List<ExecutionNode> =
         allNodes(graph).filter { it.view.signature.toString() == signature }
 
-    /**
-     * Every class whose `<clinit>` actually RAN as a class-init prelude, in the order the runs started.
-     *
-     * Counted by [Activation], deduplicated by IDENTITY (which is [Activation]'s whole contract -- two
-     * calls of one method are two activations), so this is "how many times did the initializer run" and
-     * not "how many nodes did it execute". An activation created by an ordinary `invoke` of a `<clinit>`
-     * has a null [Activation.classInitContext] and is correctly not counted: that is a call, not a
-     * prelude, and telling them apart is what the carve-out test asserts.
-     */
-    private fun initializersRun(graph: ExecutionGraph): List<String> {
-        val seen = mutableListOf<Activation>()
-        for (node in allNodes(graph)) if (seen.none { it === node.activation }) seen.add(node.activation)
-        return seen.mapNotNull { it.classInitContext?.activeInitializer?.type?.descriptor }
-    }
-
     private fun initializerNode(graph: ExecutionGraph, type: VirtualType): ExecutionNode =
         nodesIn(graph, "${type.descriptor}-><clinit>()V").first { it.isCallEntry }
-
-    /**
-     * [type]'s lifecycle state on the entry method's returning path -- i.e. what the run's own method
-     * ended up believing.
-     */
-    private fun initStateAtReturn(graph: ExecutionGraph, type: VirtualType): ClassInitState {
-        val returning = allNodes(graph).filter { it.outcome is Outcome.Returned && it.activation.caller == null }
-        assertTrue(returning.isNotEmpty(), "no returning node in the entry activation")
-        return returning.map { it.frame.initState(type) }.distinct().single()
-    }
 
     private companion object {
         /** Instruction triggers: each method's `new-instance` names the class it initializes. */
