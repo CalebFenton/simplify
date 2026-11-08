@@ -83,7 +83,7 @@ internal abstract class DirectHostTestBase {
         vm: VmServices,
         frame: Frame,
         backends: List<Backend>?,
-    ): ExecutionSession = vm.newSession(view, Limits(), frame, backends, OpBuilder::build)
+    ): ExecutionSession = vm.newSession(view, Limits(), frame, backends, decode = OpBuilder::build)
 }
 
 internal class DirectBackend(

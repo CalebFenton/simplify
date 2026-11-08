@@ -594,7 +594,7 @@ class ReflectBackendTest {
         val original = StringBuilder("before")
         val ref = frame.heap.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))
-        val session = owner.newSession(entry, Limits(), frame, listOf(reflection, later), ::realOrInjected)
+        val session = owner.newSession(entry, Limits(), frame, listOf(reflection, later), decode = ::realOrInjected)
 
         session.run()
 

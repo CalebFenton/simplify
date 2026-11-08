@@ -21,6 +21,7 @@ public class ExecutionSession internal constructor(
     /** How an address in a method becomes an [Op]; [VmServices.newSession] passes the real decoder. */
     private val decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
     private val invoker: Invoker,
+    private val heapPressure: HeapPressure,
 ) {
     private val hierarchy: HierarchySnapshot = resolver.hierarchy
     private val frontierNodes = ArrayDeque<ExecutionNode>()
@@ -43,6 +44,13 @@ public class ExecutionSession internal constructor(
 
     private var steps = 0
     private var deadlineMillis = 0L
+
+    /**
+     * The [HeapPressure.collectionsOverThreshold] count this run has accounted for: the count when it started, so
+     * a collection that ended before the run never stops it, then the count after each confirmation that found
+     * the live data under the threshold.
+     */
+    private var heapPressureSeen = heapPressure.collectionsOverThreshold()
 
     /**
      * The node [step] most recently dequeued. After a limit abort it is the node the limit stopped, whose op never
@@ -1018,8 +1026,9 @@ public class ExecutionSession internal constructor(
     }
 
     /**
-     * A step or time limit ends the whole run; an address-visit or call-depth limit ends only the offending path, so
-     * sibling paths keep exploring. Address visits are checked first, then call depth at a callee's entry only.
+     * A step, time or memory limit ends the whole run; an address-visit or call-depth limit ends only the offending
+     * path, so sibling paths keep exploring. Address visits are checked first, then call depth at a callee's entry
+     * only.
      */
     private fun exceededLimits(node: ExecutionNode): Boolean {
         schedulerLimitReason()?.let { return abortRun(node, it) }
@@ -1035,11 +1044,21 @@ public class ExecutionSession internal constructor(
         return false
     }
 
-    /** Counts one guest node or one routing command as scheduler work. Routing records no address visit. */
+    /**
+     * Counts one guest node or one routing command as scheduler work. Routing records no address visit. Memory is
+     * checked here rather than by catching [OutOfMemoryError], which can surface in any allocation, the JVM's own
+     * included, and leaves no state worth trusting. A collection that reported pressure since the last check costs
+     * one whole-heap collection to confirm; the run stops only when the heap's live data is over the threshold,
+     * and its graph becomes garbage once the caller drops it.
+     */
     private fun schedulerLimitReason(): AbortReason? {
         steps++
         if (limits.maxSteps > 0 && steps > limits.maxSteps) return AbortReason.METHOD_LIMIT
         if (deadlineMillis > 0 && System.currentTimeMillis() > deadlineMillis) return AbortReason.TIMEOUT
+        if (heapPressure.collectionsOverThreshold() != heapPressureSeen) {
+            if (heapPressure.liveDataOverThreshold()) return AbortReason.MEMORY_LIMIT
+            heapPressureSeen = heapPressure.collectionsOverThreshold()
+        }
         return null
     }
 

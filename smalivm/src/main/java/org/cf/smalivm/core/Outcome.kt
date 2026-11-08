@@ -3,8 +3,8 @@ package org.cf.smalivm.core
 /**
  * Why one explored path stopped short of a normal end.
  *
- * [ADDRESS_LIMIT], [METHOD_LIMIT], [CALL_DEPTH] and [TIMEOUT] fire before an op's `execute` runs, so no
- * half-completed mutation is possible on those paths; [HOST_FAILURE] can fire in the middle of one.
+ * [ADDRESS_LIMIT], [METHOD_LIMIT], [CALL_DEPTH], [TIMEOUT] and [MEMORY_LIMIT] fire before an op's `execute` runs,
+ * so no half-completed mutation is possible on those paths; [HOST_FAILURE] can fire in the middle of one.
  *
  * Every abort makes the run [CompletionStatus.Partial], hence `ExecutionGraph.trusted()` null. An abort inside
  * an ordinary callee also lets the caller continue past the call through a conservative `STRONG` opaque
@@ -12,6 +12,13 @@ package org.cf.smalivm.core
  */
 public enum class AbortReason {
     ADDRESS_LIMIT, METHOD_LIMIT, CALL_DEPTH, TIMEOUT,
+
+    /**
+     * During the run, live data on the JVM's tenured heap reached [TenuredHeapPressure.OCCUPANCY_THRESHOLD] of its
+     * maximum. Like [TIMEOUT] it ends the whole run and depends on the host, here on the heap size and on what else
+     * the process retains, so it is never reproducible from the input alone.
+     */
+    MEMORY_LIMIT,
 
     /**
      * The address holds a real instruction this build cannot execute. The only reason that

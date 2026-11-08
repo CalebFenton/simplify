@@ -29,21 +29,25 @@ public class VmServices(
         limits: Limits = Limits(),
         entryFrame: Frame? = null,
         entryClassState: EntryClassState = EntryClassState.ARBITRARY,
-    ): ExecutionSession = openSession(view, limits, entryFrame, null, OpBuilder::build, entryClassState)
+    ): ExecutionSession =
+        openSession(view, limits, entryFrame, null, OpBuilder::build, entryClassState, TenuredHeapPressure)
 
     /**
-     * [newSession] with a replacement decoder and, when [backends] is non-null, replacement invocation
-     * backends: the one way to run an op or a backend that fails in ways no real opcode or shipping backend
-     * can (a host `Throwable` or [VirtualMachineError] mid-call, an arm combination no opcode produces), which
-     * scheduler failure-containment tests need.
+     * [newSession] with a replacement decoder, replacement invocation backends when [backends] is non-null, and a
+     * replacement [heapPressure] signal: the one way to run an op or a backend that fails in ways no real opcode or
+     * shipping backend can (a host `Throwable` or [VirtualMachineError] mid-call, an arm combination no opcode
+     * produces), which scheduler failure-containment tests need, or to put a run under memory pressure without
+     * filling the heap.
      */
     internal fun newSession(
         view: MethodView,
         limits: Limits,
         entryFrame: Frame?,
         backends: List<Backend>? = null,
+        heapPressure: HeapPressure = TenuredHeapPressure,
         decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
-    ): ExecutionSession = openSession(view, limits, entryFrame, backends, decode, EntryClassState.ARBITRARY)
+    ): ExecutionSession =
+        openSession(view, limits, entryFrame, backends, decode, EntryClassState.ARBITRARY, heapPressure)
 
     private fun openSession(
         view: MethodView,
@@ -52,6 +56,7 @@ public class VmServices(
         backends: List<Backend>?,
         decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
         entryClassState: EntryClassState,
+        heapPressure: HeapPressure,
     ): ExecutionSession {
         val snapshot = classIndex.currentSnapshot
         require(snapshot.owns(view)) { "Method view is not current in this program workspace: ${view.signature}" }
@@ -69,6 +74,7 @@ public class VmServices(
             resolver,
             decode,
             if (backends == null) Invoker(resolver, invocationServices) else Invoker(resolver, backends),
+            heapPressure,
         )
     }
 }
