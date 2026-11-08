@@ -50,7 +50,7 @@ class Frame private constructor(
      * the private constructor makes the compiler require it at each.
      */
     private val classes: ClassInitStore,
-) : ExecutionState, RegisterFile {
+) : ExecutionState {
 
     /** A register either holds a value, or is the reserved high half of the wide value below it. */
     private sealed interface RegisterSlot {
@@ -58,7 +58,6 @@ class Frame private constructor(
         data class WideHigh(val lowRegister: Int) : RegisterSlot
     }
 
-    override val registers: RegisterFile get() = this
     override val registerCount: Int get() = view.registerCount
 
     // --- registers ---
@@ -81,7 +80,8 @@ class Frame private constructor(
         assigned = assigned.adding(register)
     }
 
-    override fun peek(register: Int): Value? {
+    /** Null for a register never assigned on this path and for the high half of a wide pair. */
+    fun peek(register: Int): Value? {
         return peekFrameValue(register)?.value
     }
 

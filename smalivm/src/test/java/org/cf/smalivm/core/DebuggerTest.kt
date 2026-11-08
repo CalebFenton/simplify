@@ -1055,7 +1055,7 @@ class DebuggerTest {
         val nodesBefore = listOf(fork) + frontierBefore
         val childrenBefore = nodesBefore.associateWith { it.children.toList() }
         val stateBefore = debugger.currentState!!
-        val valuesBefore = (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister)
+        val valuesBefore = (0 until stateBefore.registerCount).map(stateBefore::peekRegister)
         val assignedBefore = stateBefore.registersAssigned()
         val readBefore = debugger.cursor!!.frame.registersRead()
         val caughtBefore = debugger.cursor!!.frame.copy().takeCaught()
@@ -1066,7 +1066,7 @@ class DebuggerTest {
             debugger.currentInstructionIndex
             debugger.isFinished
             debugger.currentState!!.let { state ->
-                repeat(state.registers.registerCount) { register ->
+                repeat(state.registerCount) { register ->
                     state.peekRegister(register)
                     state.readRegister(register)
                 }
@@ -1081,7 +1081,7 @@ class DebuggerTest {
             children.zip(node.children).forEach { (before, after) -> assertSame(before, after) }
         }
         assertSame(stateBefore, debugger.currentState)
-        assertEquals(valuesBefore, (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister))
+        assertEquals(valuesBefore, (0 until stateBefore.registerCount).map(stateBefore::peekRegister))
         assertEquals(assignedBefore, stateBefore.registersAssigned())
         assertEquals(readBefore, debugger.cursor!!.frame.registersRead())
         assertEquals(caughtBefore, debugger.cursor!!.frame.copy().takeCaught())
@@ -1239,7 +1239,7 @@ class DebuggerTest {
             debugger.lastNode
             debugger.currentInstructionIndex
             debugger.currentState?.let { state ->
-                repeat(state.registers.registerCount) { state.peekRegister(it) }
+                repeat(state.registerCount) { state.peekRegister(it) }
                 state.registersAssigned()
             }
             session.graph().let { snapshot ->
@@ -1312,7 +1312,7 @@ class DebuggerTest {
         val childrenBefore = (frontierBefore + listOfNotNull(lastNodeBefore)).associateWith { it.children.toList() }
         val outcomesBefore = session.outcomes.toList()
         val completionBefore = session.completion()
-        val valuesBefore = stateBefore?.let { state -> (0 until state.registers.registerCount).map(state::peekRegister) }
+        val valuesBefore = stateBefore?.let { state -> (0 until state.registerCount).map(state::peekRegister) }
         val assignedBefore = stateBefore?.registersAssigned()
         val readBefore = cursorBefore?.frame?.registersRead()
         val arrayBefore = (stateBefore?.heapObject(arrayRef) as? HeapObject.TrackedArray)?.elements()
@@ -1326,7 +1326,7 @@ class DebuggerTest {
             debugger.currentInstructionIndex
             debugger.isFinished
             debugger.currentState?.let { state ->
-                repeat(state.registers.registerCount) { register ->
+                repeat(state.registerCount) { register ->
                     state.peekRegister(register)
                     state.readRegister(register)
                 }
@@ -1353,7 +1353,7 @@ class DebuggerTest {
         }
         assertEquals(outcomesBefore, session.outcomes)
         assertEquals(completionBefore, session.completion())
-        assertEquals(valuesBefore, stateBefore?.let { state -> (0 until state.registers.registerCount).map(state::peekRegister) })
+        assertEquals(valuesBefore, stateBefore?.let { state -> (0 until state.registerCount).map(state::peekRegister) })
         assertEquals(assignedBefore, stateBefore?.registersAssigned())
         assertEquals(readBefore, cursorBefore?.frame?.registersRead(), "debugger register reads do not forge liveness")
         assertEquals(arrayBefore, (stateBefore?.heapObject(arrayRef) as? HeapObject.TrackedArray)?.elements())
@@ -1372,7 +1372,7 @@ class DebuggerTest {
     ) {
         assertEquals(
             (0 until control.registerCount).map(control::peek),
-            (0 until observed.registers.registerCount).map(observed::peekRegister),
+            (0 until observed.registerCount).map(observed::peekRegister),
         )
         assertEquals(control.registersAssigned(), observed.registersAssigned())
         assertEquals(control.registersRead(), (observed as Frame).registersRead())

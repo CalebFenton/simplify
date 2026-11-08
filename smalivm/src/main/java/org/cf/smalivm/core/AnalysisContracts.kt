@@ -104,16 +104,6 @@ enum class RegisterOccupancy {
     NO_PATH,
 }
 
-/** Immutable identity data needed to replace one exact reflected method invocation with Dalvik bytecode. */
-data class ReflectedMethodMetadata(
-    val method: MethodReference,
-    val modifiers: Int,
-    val declaringClassModifiers: Int,
-)
-
-/** Immutable identity data needed to replace one exact reflected field read with Dalvik bytecode. */
-data class ReflectedFieldMetadata(val field: FieldReference, val modifiers: Int)
-
 /**
  * The queries whose answers a consumer would **act on** — fold a constant, delete a method — and
  * which are therefore meaningful only when exploration actually finished (spec §9 completion-gated

@@ -27,7 +27,7 @@ internal class PrintCommand : DebuggerCommand() {
             val number = registerTarget.substring(1).toLongOrNull()
             val parameter = registerTarget.startsWith('p')
             val register = number?.plus(if (parameter) currentView.firstParameterRegister else 0)
-            if (register == null || register !in 0 until state.registers.registerCount) {
+            if (register == null || register !in 0 until state.registerCount) {
                 printInvalid("register out of range")
                 return
             }

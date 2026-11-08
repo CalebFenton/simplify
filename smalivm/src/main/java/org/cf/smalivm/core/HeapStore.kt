@@ -95,7 +95,7 @@ internal class HeapStore private constructor(
     private var trackedFields: CompatibilityMapKey<Int, TrackedFieldCompatibility>,
     private var mirroredArrayRefs: PersistentSet<Int>,
     private var dirtyMirroredArrayRefs: PersistentSet<Int>,
-) : Heap {
+) {
     constructor(ids: HeapIds) :
         this(
             ids,
@@ -383,11 +383,11 @@ internal class HeapStore private constructor(
         nodeRefs = nodeRefs.putting(nodeId.id, ref)
     }
 
-    override fun objectAt(ref: HeapRef): HeapObject? = objects[ref.id]
+    /** The object [ref] denotes on this path, or null when this heap has no such object. */
+    fun objectAt(ref: HeapRef): HeapObject? = objects[ref.id]
 
-    override fun objectType(ref: HeapRef): VirtualType? = objects[ref.id]?.type
-
-    override fun getField(ref: HeapRef, fieldDescriptor: String): Value =
+    /** A tracked object's field cell, or [Value.Top] when this path has no such object or field. */
+    fun getField(ref: HeapRef, fieldDescriptor: String): Value =
         (objects[ref.id] as? HeapObject.TrackedObject)?.field(fieldDescriptor) ?: Value.Top
 
     /** Writes one resolved cell. False means this path has no matching tracked object or field. */

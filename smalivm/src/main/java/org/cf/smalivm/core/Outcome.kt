@@ -1,7 +1,5 @@
 package org.cf.smalivm.core
 
-import java.util.Collections
-
 /**
  * Why one explored path stopped short of a normal end (spec §4.4).
  *
@@ -82,70 +80,6 @@ sealed interface Outcome {
     data class Returned(val value: Value?) : Outcome
     data class Threw(val exception: Value) : Outcome
     data class Aborted(val reason: AbortReason) : Outcome
-}
-
-/** Which Dalvik invoke instruction family a call site uses; resolution rules differ per kind (spec §5.3). */
-enum class InvokeKind { STATIC, DIRECT, SUPER, VIRTUAL, INTERFACE }
-
-/**
- * Minimal identity of an invoke target as written in the bytecode: the statically referenced class, the
- * method name, and the dex **proto**. The `Invoker` resolves this to an actual method per [InvokeKind]
- * rules; this type deliberately carries no resolution result.
- *
- * **Three names for three things, none of them interchangeable** -- the field below was called `signature`
- * and was the only one of the three that is not a signature in any sense (`CARRY-FORWARD.md`'s cross-cutting
- * row, discharged in Plan 9 Task 14):
- *
- * | Name | Example |
- * |---|---|
- * | [proto] | `(ILjava/lang/String;)V` |
- * | [descriptor] | `bar(ILjava/lang/String;)V` |
- * | `MethodView.signature` | `Lfoo;->bar(ILjava/lang/String;)V` |
- */
-data class MethodDescriptor(val definingClass: VirtualType, val name: String, val proto: String) {
-    /**
-     * [name] + [proto], i.e. `returnsSeven()I` -- the form the class model looks a member up by
-     * ([ClassIndex.lookupMethod], [ClassIndex.findMethod]). A **member** descriptor: no defining class, unlike
-     * `MethodView.signature`, and not a type descriptor, unlike [VirtualType.descriptor].
-     */
-    val descriptor: String get() = "$name$proto"
-
-    internal fun parameterTypes(): List<VirtualType> {
-        val parameters = proto.substringAfter('(').substringBefore(')')
-        val result = mutableListOf<VirtualType>()
-        var index = 0
-        while (index < parameters.length) {
-            val start = index
-            while (parameters[index] == '[') index++
-            index = if (parameters[index] == 'L') parameters.indexOf(';', index) + 1 else index + 1
-            require(index > start) { "Malformed method proto $proto" }
-            result += VirtualType.of(parameters.substring(start, index))
-        }
-        return result
-    }
-
-    /**
-     * The invoke register words of a call to this method: the receiver first unless [kind] is static, then each
-     * parameter, a wide parameter taking two words.
-     */
-    internal fun argumentWords(kind: InvokeKind): ArgumentWords {
-        val arguments = ArrayList<ArgumentWords.Argument>()
-        var word = 0
-        if (kind != InvokeKind.STATIC) arguments += ArgumentWords.Argument(definingClass, word++)
-        for (type in parameterTypes()) {
-            arguments += ArgumentWords.Argument(type, word)
-            word += if (type.isWide) 2 else 1
-        }
-        return ArgumentWords(arguments, word)
-    }
-}
-
-/** Logical arguments of one invoke and the first register word each occupies. */
-internal class ArgumentWords(val arguments: List<Argument>, val wordCount: Int) {
-    class Argument(val type: VirtualType, val word: Int)
-
-    /** The type of the argument occupying [word], or null past the last word. */
-    fun typeAt(word: Int): VirtualType? = arguments.lastOrNull { it.word <= word && word < wordCount }?.type
 }
 
 /**
@@ -271,90 +205,3 @@ internal fun List<Transition>.asOpExecution(): OpExecution = OpExecution.of(map 
         is Transition.Abort -> OpArm.Abort(transition.reason)
     }
 })
-
-/**
- * Whether a run explored everything it set out to (spec §6.4, §9): the load-bearing gate
- * for optimizer trust. There is deliberately no boolean accessor on Partial that could be
- * confused for "mostly done" — trust is all or nothing.
- *
- * Three-valued, not two: trust has to be refused for a run that has not *finished* as firmly as
- * for one that aborted, and [InProgress] is the case that makes that true in **time** rather than
- * only in kind. Read its KDoc before touching this hierarchy.
- */
-sealed interface CompletionStatus {
-    /**
-     * Every path this run set out to explore ran to an end, and none of them aborted. The only
-     * status [canTrustConsensus] answers `true` for.
-     */
-    data object Complete : CompletionStatus
-
-    /**
-     * At least one path stopped short of a normal end: a bound, an unimplemented opcode, a host
-     * failure. Truncation is permanent — further stepping cannot un-truncate a path already
-     * abandoned — so this outranks [InProgress] even while the frontier is still non-empty. [reasons]
-     * is a non-empty immutable snapshot.
-     */
-    class Partial(reasons: Set<AbortReason>) : CompletionStatus {
-        init {
-            require(reasons.isNotEmpty()) { "Partial requires at least one abort reason" }
-        }
-
-        val reasons: Set<AbortReason> = Collections.unmodifiableSet(LinkedHashSet(reasons))
-
-        override fun equals(other: Any?): Boolean =
-            this === other || other is Partial && reasons == other.reasons
-
-        override fun hashCode(): Int = reasons.hashCode()
-
-        override fun toString(): String = "Partial(reasons=$reasons)"
-    }
-
-    /**
-     * Nothing has aborted **yet**, and the run is not finished: paths are still scheduled.
-     *
-     * **Why this case exists — do not "simplify" it away, and do not fold it into
-     * `Partial(emptySet())`.** `ExecutionSession.graph()` is documented as safe to call mid-run,
-     * because Plan 10's debugger is precisely that consumer. While `completion()` read only the abort
-     * set, a mid-run snapshot answered `Complete` and handed out a non-null
-     * `ExecutionGraph.trusted()`, and the consequence was demonstrated rather than theoretical: step
-     * `Lspine/spine;.unsupportedWideFilledArray()I` **once**, snapshot it, and the trusted view claimed
-     * `methodSideEffectLevel() == NONE` and `consensus(0, 0) == Known(3, I)` — "no side effects, safe
-     * to delete" — while the frontier still held the unsupported `filled-new-array {v0}, [J` that makes the finished run
-     * `Partial(UNSUPPORTED_OP)` with `STRONG` effects and no trusted view at all. The mid-run
-     * snapshot authorized exactly what the finished run refuses, and it did so **through** the gate
-     * rather than around it: the one demonstrated path by which a confident wrong answer could reach
-     * a consumer.
-     *
-     * The recipe above is runnable as written, and must stay that way: it was first demonstrated on
-     * `unsupportedOpcode()I`, whose `add-int` Plan 4 then implemented, so that method now runs to
-     * `Complete` and a reader following the original recipe would conclude this case has no motivating
-     * defect and delete it. `TrustedGraphViewTest.aMidRunSnapshotNeverAuthorizesWhatTheFinishedRunRefuses`
-     * is the executable counterpart, now carried by the clearly named malformed-input fixture.
-     *
-     * A distinct sealed member rather than `Partial(emptySet())` for two reasons. It is honest —
-     * nothing aborted, the run simply is not done, and calling that "partial with no reasons" invents
-     * a truncation that did not happen. And being its own member makes every exhaustive `when` over
-     * [CompletionStatus] force each consumer to decide about it, which is what makes the gate hard to
-     * bypass by *accident* rather than merely documented against — the same reasoning that made the
-     * trust gate a type (spec §9) instead of a KDoc rule.
-     */
-    data object InProgress : CompletionStatus
-}
-
-/**
- * Completion-gated trust (spec §9): a strategy may trust consensus only from a graph
- * whose exploration completed. Any abort reason — timeout, limits, host failure —
- * means some path was never walked, so agreement across walked paths proves nothing; and an
- * [CompletionStatus.InProgress] run has paths still scheduled, which refuses trust for a reason
- * that has nothing to do with aborting (see that type's KDoc for the snapshot that motivated it).
- *
- * An exhaustive `when` rather than `this is Complete`: this predicate is the single definition the
- * trust gate routes through, so a future status must be an explicit decision here instead of
- * silently inheriting an answer from the shape of a type test.
- */
-val CompletionStatus.canTrustConsensus: Boolean
-    get() = when (this) {
-        is CompletionStatus.Complete -> true
-        is CompletionStatus.Partial -> false
-        is CompletionStatus.InProgress -> false
-    }
