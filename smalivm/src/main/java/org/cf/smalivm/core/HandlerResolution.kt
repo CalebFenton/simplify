@@ -4,10 +4,10 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentSet
 
 /** One typed catch clause. */
-data class CatchClause(val exceptionType: VirtualType, val handlerAddress: Int)
+public data class CatchClause(val exceptionType: VirtualType, val handlerAddress: Int)
 
 /** One public try range. The range is start-inclusive and end-exclusive. */
-data class TryBlock(
+public data class TryBlock(
     val startAddress: Int,
     val endAddress: Int,
     val catches: List<CatchClause>,
@@ -19,7 +19,7 @@ data class TryBlock(
         }
     }
 
-    fun covers(address: Int): Boolean = address in startAddress until endAddress
+    internal fun covers(address: Int): Boolean = address in startAddress until endAddress
 }
 
 internal enum class TypeRelation { YES, NO, UNKNOWN }

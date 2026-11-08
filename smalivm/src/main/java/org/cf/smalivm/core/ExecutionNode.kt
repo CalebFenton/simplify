@@ -19,30 +19,32 @@ package org.cf.smalivm.core
  * pile and visit budget it belongs to are the same fact, and two copies of one fact is how a callee node
  * ends up decoded against one method and recorded against another.
  */
-class ExecutionNode internal constructor(
-    val address: Int,
-    val op: Op,
+public class ExecutionNode internal constructor(
+    public val address: Int,
+    public val op: Op,
     frame: Frame,
-    val parent: ExecutionNode?,
+    internal val parent: ExecutionNode?,
     /**
      * Which **call** this node belongs to (spec §4.3). Separate from [parent], which is a control-flow
      * edge: the old engine's single parent edge encoded both at once, which is how a caller's catch
      * handler ended up inheriting a callee's locals.
      */
-    val activation: Activation,
+    internal val activation: Activation,
 ) {
-    var frame: Frame = frame
+    /** Register state after [op] ran. */
+    public var frame: Frame = frame
         internal set
 
-    val view: MethodView get() = activation.view
+    /** The method this node executes in. */
+    public val view: MethodView get() = activation.view
     private val mutableChildren = mutableListOf<ExecutionNode>()
 
     /** How far [op] got on this node; see [OpProgress]. */
-    var progress: OpProgress = OpProgress.Pending
+    internal var progress: OpProgress = OpProgress.Pending
         private set
 
     /** Successors actually explored from this node; more than one means the path forked. */
-    val children: List<ExecutionNode> get() = mutableChildren
+    internal val children: List<ExecutionNode> get() = mutableChildren
 
     /** The path this node ended, with its exact terminal state; null for a node that only continued. */
     private var ending: ActivationExit? = null
@@ -56,7 +58,7 @@ class ExecutionNode internal constructor(
      * continues in the caller at a resumed node this one is the parent of, so `ExecutionSession.outcomes` has
      * no matching entry. Only the entry activation's endings are also run outcomes.
      */
-    val outcome: Outcome? get() = ending?.outcome
+    internal val outcome: Outcome? get() = ending?.outcome
 
     /** The state this node's path ended in, or [frame] for a node that ended no path. */
     internal val terminalFrame: Frame get() = ending?.frame ?: frame
@@ -73,15 +75,15 @@ class ExecutionNode internal constructor(
      * Read `ExploredPaths.sideEffectLevel` unless you want one path: it maxes this over the address's pile
      * and adds `STRONG` for a path that aborted for a reason that [AbortReason.impliesStrongEffect].
      */
-    var sideEffectLevel: SideEffectLevel = SideEffectLevel.NONE
+    internal var sideEffectLevel: SideEffectLevel = SideEffectLevel.NONE
         internal set
 
     /** Candidate implementations recorded when receiver dispatch cannot choose one target. */
-    var dispatchCandidates: Set<String> = emptySet()
+    internal var dispatchCandidates: Set<String> = emptySet()
         internal set
 
     /** Human-readable backend/binding refusal retained when resolved decision 6 continues opaquely. */
-    var invocationDiagnostic: String? = null
+    internal var invocationDiagnostic: String? = null
         internal set
 
     /**
@@ -95,7 +97,7 @@ class ExecutionNode internal constructor(
      * [Activation.frameCount], which is the value that does share the oracle's origin; see
      * [Activation.depth].
      */
-    val callDepth: Int get() = activation.depth
+    internal val callDepth: Int get() = activation.depth
 
     /**
      * True for the node a **call enters at**: the node whose activation was created by the call its parent
@@ -119,7 +121,7 @@ class ExecutionNode internal constructor(
      * skips the call-depth check entirely for the one shape that most needs it. Keying on activation identity
      * instead has no such blind spot, which is why `core/CallStackTest`'s recursive fixture terminates here.
      */
-    val isCallEntry: Boolean get() = activation.caller === parent?.activation
+    internal val isCallEntry: Boolean get() = activation.caller === parent?.activation
 
     /**
      * Stamps the path this node ends. A second stamp is a scheduler bug, not a state to tolerate: it would
@@ -163,7 +165,7 @@ class ExecutionNode internal constructor(
 }
 
 /** How far a node's op got. Each node moves out of [Pending] at most once. */
-sealed interface OpProgress {
+internal sealed interface OpProgress {
     /** `execute` was not entered: the node is scheduled, or a bound stopped it first. Its frame is pre-op. */
     data object Pending : OpProgress
 

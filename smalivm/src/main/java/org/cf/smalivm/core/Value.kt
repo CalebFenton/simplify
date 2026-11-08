@@ -5,7 +5,7 @@ package org.cf.smalivm.core
  * `==` — the raw of a [Value.Known] for a tracked mutable object is a HeapRef, not the
  * live host object.
  */
-data class HeapRef(val id: Int)
+public data class HeapRef(val id: Int)
 
 /**
  * The three-point value lattice (spec §4.1) — the reconciliation primitive.
@@ -17,18 +17,22 @@ data class HeapRef(val id: Int)
  * `UninitializedInstance` is deliberately not a lattice point: a `new-instance` result is
  * `Known(HeapRef, T)` whose heap object is in an uninitialized state (Plan 6+).
  */
-sealed interface Value {
-    val type: VirtualType?
+public sealed interface Value {
+    /** The value's type; null only for [Top]. */
+    public val type: VirtualType?
 
-    data class Known(val raw: Any?, override val type: VirtualType) : Value
-    data class Unknown(override val type: VirtualType) : Value
-    data object Top : Value {
+    /** A concrete value [raw] of [type]. */
+    public data class Known(val raw: Any?, override val type: VirtualType) : Value
+    /** Any value of [type]. */
+    public data class Unknown(override val type: VirtualType) : Value
+    /** Any value of any type. */
+    public data object Top : Value {
         override val type: VirtualType? = null
     }
 }
 
 /** Definitely-null check (spec §4.1: nullness is explicit, only Known(null) IS null). */
-val Value.isNull: Boolean get() = this is Value.Known && raw == null
+public val Value.isNull: Boolean get() = this is Value.Known && raw == null
 
 /**
  * The primitive-bits half of Dalvik's null: a primitive-tagged [Value.Known] whose raw is integral zero.
@@ -64,7 +68,7 @@ val Value.isNull: Boolean get() = this is Value.Known && raw == null
  * [CON] B16 says so outright: *"The A operand of a throw instruction must be assignment-compatible with
  * java.lang.Throwable."*
  */
-val Value.isDalvikNull: Boolean
+public val Value.isDalvikNull: Boolean
     get() = this is Value.Known && !type.isReference && when (val r = raw) {
         is Byte, is Short, is Int, is Long -> (r as Number).toLong() == 0L
         is Char -> r.code == 0
@@ -204,7 +208,7 @@ val Value.isDalvikNull: Boolean
  * (`interpreter_common.cc:1464`) and there is no `storeCheck` behind it to refuse the wide rows the way
  * [org.cf.smalivm.core.op.APutOp]'s rule 4 does. See that op's `stored` for the full comparison.
  */
-val Value.readsAsNullReference: Boolean
+public val Value.readsAsNullReference: Boolean
     get() = isNull || (this is Value.Known && !type.isReference)
 
 /**
@@ -224,7 +228,7 @@ val Value.readsAsNullReference: Boolean
  * `Long` under type `I`); this function does not itself enforce that — Plan 4 arithmetic
  * is where such mismatches get normalized.
  */
-fun Value.agreesWith(other: Value): Boolean {
+internal fun Value.agreesWith(other: Value): Boolean {
     if (this !is Value.Known || other !is Value.Known) return false
     if (type != other.type) return false
     val a = raw

@@ -8,12 +8,14 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 /** Stable identity of one mutable Java object in a path-local host graph. */
-data class HostGraphNodeId(val id: Int)
+public data class HostGraphNodeId(val id: Int)
 
 /** Whether a heap object still has provable Java contents in its path-local graph. */
-sealed interface HostGraphContents {
-    data class Known(val nodeId: HostGraphNodeId) : HostGraphContents
-    data object Unknown : HostGraphContents
+public sealed interface HostGraphContents {
+    /** The object is node [nodeId] of the graph. */
+    public data class Known(val nodeId: HostGraphNodeId) : HostGraphContents
+    /** The object's Java contents are not provable. */
+    public data object Unknown : HostGraphContents
 }
 
 /** A scheduler-owned object was found inside a backend-owned Java graph. */

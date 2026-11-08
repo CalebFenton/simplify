@@ -4,7 +4,7 @@ package org.cf.smalivm.core
  * Whether any path in scope holds a value in a register: which of the facts behind a [Value.Top] consensus
  * applies. The pairings a consumer may act on are in `docs/architecture/graph-optimizer-contract.md`.
  */
-enum class RegisterOccupancy {
+internal enum class RegisterOccupancy {
     /**
      * At least one path holds a value here: a [Value.Known], a [Value.Unknown], or a real [Value.Top] that a
      * `move` from an untouched register put there. With a [Value.Top] consensus this means live and unknowable.

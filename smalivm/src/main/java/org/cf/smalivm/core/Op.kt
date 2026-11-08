@@ -58,15 +58,16 @@ import com.android.tools.smali.dexlib2.iface.reference.Reference
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 
-abstract class Op internal constructor(val address: Int) {
-    abstract val name: String
+/** One decoded instruction at [address], executed against a frame. */
+public abstract class Op internal constructor(internal val address: Int) {
+    internal abstract val name: String
 
     /** Reads [frame] and returns one or more feasible arms. */
     internal abstract fun execute(frame: Frame): OpExecution
 
     /** Registers this op reads / assigns, for the graph's liveness queries (spec §9). */
-    open val registersRead: Set<Int> get() = emptySet()
-    open val registersAssigned: Set<Int> get() = emptySet()
+    internal open val registersRead: Set<Int> get() = emptySet()
+    internal open val registersAssigned: Set<Int> get() = emptySet()
 
     /**
      * The register set a single-destination op assigns: a wide (`J`/`D`) result owns [dest] and `dest + 1`.

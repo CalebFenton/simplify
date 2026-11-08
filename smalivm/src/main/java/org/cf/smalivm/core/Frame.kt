@@ -34,7 +34,7 @@ internal data class CallCompatibilityKey(
  * Registers and slots hold [FrameValue]s, so a throwable's refinement survives moves within the method; the
  * [Value] accessors project it away.
  */
-class Frame private constructor(
+public class Frame private constructor(
     internal val view: MethodView,
     private var slots: PersistentList<RegisterSlot?>,
     private var assigned: PersistentSet<Int>,
@@ -61,7 +61,7 @@ class Frame private constructor(
     // --- registers ---
 
     /** Assigns [value] to [register], reserving the following register when the value is wide. */
-    fun assign(register: Int, value: Value) = assign(register, FrameValue.plain(value))
+    public fun assign(register: Int, value: Value): Unit = assign(register, FrameValue.plain(value))
 
     internal fun assign(register: Int, value: FrameValue) {
         seed(register, value)
@@ -83,13 +83,13 @@ class Frame private constructor(
     }
 
     /** Null for a register never assigned on this path and for the high half of a wide pair. */
-    fun peek(register: Int): Value? {
+    internal fun peek(register: Int): Value? {
         requireInRange(register)
         return (slots[register] as? RegisterSlot.Held)?.value?.value
     }
 
     /** Total read: [Value.Top] for an unassigned register or the high half of a wide pair. */
-    fun read(register: Int): Value = readFrameValue(register).value
+    internal fun read(register: Int): Value = readFrameValue(register).value
 
     /** [read] keeping the register's throwable refinement. */
     internal fun readFrameValue(register: Int): FrameValue {
@@ -113,7 +113,8 @@ class Frame private constructor(
 
     override fun registersAssigned(): Set<Int> = assigned.toSortedSet()
 
-    fun registersRead(): Set<Int> = read.toSortedSet()
+    /** Registers read in this frame, in ascending order. */
+    public fun registersRead(): Set<Int> = read.toSortedSet()
 
     internal fun recordAddressVisit(address: Int): Int {
         val visits = (addressVisits[address] ?: 0) + 1
@@ -140,17 +141,17 @@ class Frame private constructor(
 
     // --- special slots (produced once, consumed once) ---
 
-    fun setResult(value: Value) = setResult(FrameValue.plain(value))
+    internal fun setResult(value: Value) = setResult(FrameValue.plain(value))
     internal fun setResult(value: FrameValue) { result = value }
     internal fun takeResult(): FrameValue? = result.also { result = null }
-    fun setCaught(value: Value) = setCaught(FrameValue.plain(value))
+    internal fun setCaught(value: Value) = setCaught(FrameValue.plain(value))
     internal fun setCaught(value: FrameValue) { caught = value }
     internal fun takeCaught(): FrameValue? = caught.also { caught = null }
     internal fun setReturnValue(value: FrameValue?) { returnValue = value }
-    fun returnValueOrNull(): Value? = returnValue?.value
-    fun setThrown(value: Value) { thrown = value }
+    internal fun returnValueOrNull(): Value? = returnValue?.value
+    internal fun setThrown(value: Value) { thrown = value }
 
-    fun thrownOrNull(): Value? = thrown
+    internal fun thrownOrNull(): Value? = thrown
 
     // --- ExecutionState facade ---
 
@@ -357,7 +358,7 @@ class Frame private constructor(
     )
 
     /** A constant-time snapshot over the same immutable roots. Later writes replace only one frame's roots. */
-    fun copy(): Frame = derive(heap.copy(), classes.copy())
+    internal fun copy(): Frame = derive(heap.copy(), classes.copy())
 
     /** Copies a caller-supplied public entry frame and removes all internal throwable refinements. */
     internal fun sanitizedCopyForPublicEntry(): Frame = copy().also { sanitized ->
@@ -460,12 +461,12 @@ class Frame private constructor(
     override fun toString(): String =
         "Frame(${view.signature}, assigned=${registersAssigned()})"
 
-    companion object {
+    public companion object {
         /**
          * A run's own entry frame: a new heap id space and empty class state. A callee frame comes from
          * [calleeEntryFrame], which shares its caller's.
          */
-        fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassStore())
+        public fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassStore())
 
         /** Default session input; a constructor's receiver is a fresh object when its field layout is known. */
         internal fun entryFrame(view: MethodView, resolver: ProgramSnapshotResolver): Frame {

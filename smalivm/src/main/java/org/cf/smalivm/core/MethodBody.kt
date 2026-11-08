@@ -67,7 +67,7 @@ internal data class VerifierRejection(val reason: Reason, val codeAddress: Int) 
 }
 
 /** Immutable assembled code and metadata for one concrete method. */
-class MethodBody private constructor(
+internal class MethodBody private constructor(
     internal val implementation: ImmutableMethodImplementation,
     internal val instructions: PersistentList<EncodedInstruction>,
     internal val positionsByCodeAddress: PersistentMap<Int, LogicalCodePosition>,
@@ -146,7 +146,7 @@ class MethodBody private constructor(
         else -> listOf(item.debugItemType, item.codeAddress)
     }
 
-    val registerCount: Int get() = implementation.registerCount
+    internal val registerCount: Int get() = implementation.registerCount
 
     /** The position after the last instruction, where try ranges and debug items can end. */
     internal val endPosition: LogicalCodePosition =

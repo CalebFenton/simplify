@@ -15,7 +15,7 @@ import kotlinx.collections.immutable.toPersistentMap
  * see the contents). Guest writes create a replacement through [HeapStore]; an object returned by a read
  * has no mutation surface. This keeps earlier frames and sibling paths unchanged without eager copies.
  */
-sealed class HeapObject(val type: VirtualType) {
+public sealed class HeapObject(internal val type: VirtualType) {
     /** One path-local reflection field identity. Accessibility changes replace this immutable version. */
     internal class TrackedField internal constructor(
         val metadata: TrackedFieldValue,
@@ -32,7 +32,7 @@ sealed class HeapObject(val type: VirtualType) {
     }
 
     /** A direct JVM object plus immutable method metadata captured before the host graph can clone it. */
-    class HostObject internal constructor(
+    internal class HostObject internal constructor(
         type: VirtualType,
         override val contents: HostGraphContents,
         internal val reflectedMethodMetadata: ReflectedMethodMetadata?,
@@ -56,7 +56,7 @@ sealed class HeapObject(val type: VirtualType) {
      * [contents] is the Java array mirroring these elements, or null when the array has none. [mirrorDirty]
      * marks guest writes the mirror has not yet received.
      */
-    class TrackedArray private constructor(
+    public class TrackedArray private constructor(
         type: VirtualType,
         private val elements: PersistentList<Value>,
         override val contents: HostGraphContents?,
@@ -69,13 +69,13 @@ sealed class HeapObject(val type: VirtualType) {
             contents: HostGraphContents? = null,
         ) : this(type, elements.toList().toPersistentList(), contents, mirrorDirty = false, Unit)
 
-        val length: Int get() = elements.size
+        internal val length: Int get() = elements.size
 
         /** The element at [index]. Callers must bounds-check first: an out-of-range read is an AIOOBE the OP decides about. */
-        fun element(index: Int): Value = elements[index]
+        internal fun element(index: Int): Value = elements[index]
 
         /** Every element, in order -- for consensus and for rendering. */
-        fun elements(): List<Value> = elements
+        public fun elements(): List<Value> = elements
 
         internal fun elementsRoot(): PersistentList<Value> = elements
 
@@ -121,9 +121,9 @@ sealed class HeapObject(val type: VirtualType) {
      * [fields] are keyed by the fully-qualified descriptor of the class that declares each field. Identity is the
      * heap id, never the type: two `new-instance` of one type are two unrelated objects.
      */
-    class TrackedObject private constructor(
+    internal class TrackedObject private constructor(
         type: VirtualType,
-        val uninitialized: Boolean,
+        internal val uninitialized: Boolean,
         private val fields: PersistentMap<String, Value>,
         @Suppress("UNUSED_PARAMETER") persistent: Unit,
     ) : HeapObject(type) {
@@ -134,7 +134,7 @@ sealed class HeapObject(val type: VirtualType) {
         ) : this(type, uninitialized, fields.toPersistentMap(), Unit)
 
         /** The value in one fully-qualified declaring-class field cell, or null if this object has no such cell. */
-        fun field(fieldDescriptor: String): Value? = fields[fieldDescriptor]
+        internal fun field(fieldDescriptor: String): Value? = fields[fieldDescriptor]
 
         /** A stable snapshot used by heap consensus. */
         internal fun fields(): Map<String, Value> = fields
@@ -164,10 +164,10 @@ sealed class HeapObject(val type: VirtualType) {
      * conservative: two paths that each throw a fresh NPE do not throw the same object in Dalvik
      * either.
      */
-    class GuestThrowable internal constructor(
+    internal class GuestThrowable internal constructor(
         type: VirtualType,
         override val contents: HostGraphContents,
-        val cause: Value? = null,
+        internal val cause: Value? = null,
     ) : HeapObject(type), HostBacked {
         internal fun withContents(next: HostGraphContents): GuestThrowable =
             if (next == contents) this else GuestThrowable(type, next, cause)
@@ -180,7 +180,7 @@ sealed class HeapObject(val type: VirtualType) {
 }
 
 /** A heap object whose Java state can live in the path's host graph. */
-sealed interface HostBacked {
+internal sealed interface HostBacked {
     /** Where the host graph holds this object's Java state; null only for an array with no Java mirror. */
     val contents: HostGraphContents?
 }
