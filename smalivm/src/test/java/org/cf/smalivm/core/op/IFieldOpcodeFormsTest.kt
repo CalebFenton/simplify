@@ -24,7 +24,7 @@ class IFieldOpcodeFormsTest {
                 op.toString(),
             )
             assertEquals(case.defaultValue, graph.trusted()!!.terminatingConsensus(case.resultRegister), case.getter)
-            assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(2), case.getter)
+            assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(2), case.getter)
         }
     }
 
@@ -39,7 +39,7 @@ class IFieldOpcodeFormsTest {
             assertEquals(IPutOp::class, op::class, "${case.iput} must route to IPutOp")
             assertEquals("${case.iput} r2, r0, $CLASS_NAME->${case.field}", op.toString())
             assertEquals(case.writtenValue, graph.trusted()!!.terminatingConsensus(case.resultRegister), case.putter)
-            assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(2), case.putter)
+            assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(2), case.putter)
             assertEquals(setOf(0, 2), graph.registersRead(2), case.putter)
             assertEquals(emptySet<Int>(), graph.registersAssigned(2), case.putter)
         }

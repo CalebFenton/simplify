@@ -405,7 +405,7 @@ class ExceptionHandlerBehaviorTest {
         assertEquals(List(exitCount) { Outcome.Aborted(AbortReason.MALFORMED_INPUT) }, graph.outcomes)
         assertFalse(graph.wasReached(validHandler))
         assertTrue(graph.outcomes.none { it is Outcome.Threw })
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     private fun assertResidualSurvives(descriptor: String) {

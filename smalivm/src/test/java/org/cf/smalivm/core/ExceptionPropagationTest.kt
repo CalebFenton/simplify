@@ -42,7 +42,7 @@ class ExceptionPropagationTest {
         val owner = VirtualType.of(OWNER)
         val saved = ClassIndex.fieldDescriptorOf(owner, "saved", "Ljava/lang/Throwable;")
 
-        assertEquals(returned, graph.terminatingStaticFieldConsensusOverExploredPaths(owner, saved))
+        assertEquals(returned, graph.explored.terminatingStaticFieldConsensus(owner, saved))
     }
 
     @Test
@@ -110,7 +110,7 @@ class ExceptionPropagationTest {
             returned.sortedBy { (it as Value.Known).raw as Int },
             "the handler must see each path's object and static writes",
         )
-        assertEquals(throwable, graph.terminatingStaticFieldConsensusOverExploredPaths(owner, saved))
+        assertEquals(throwable, graph.explored.terminatingStaticFieldConsensus(owner, saved))
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
@@ -313,7 +313,7 @@ class ExceptionPropagationTest {
         val graph = execute("effectOuter([I)I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertEquals(setOf(Value.Known(3, int)), graph.outcomes.filterIsInstance<Outcome.Returned>().map { it.value }.toSet())
     }
 
@@ -355,7 +355,7 @@ class ExceptionPropagationTest {
         val graph = execute("outerThreeFrames()I")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     @Test

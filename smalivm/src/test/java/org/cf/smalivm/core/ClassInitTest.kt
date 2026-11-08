@@ -144,7 +144,7 @@ class ClassInitTest {
             "it is still INITIALIZED: Uninitialized -> Initialized is a real step, not a shortcut",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "nothing was skipped, so nothing may be declared -- a spurious STRONG stops every fold here",
         )
     }
@@ -351,7 +351,7 @@ class ClassInitTest {
         assertEquals(emptyList<String>(), initializersRun(graph), "const-class resolves without initializing")
         assertEquals(ClassInitState.UNINITIALIZED, initStateAtReturn(graph, WITNESS))
         assertEquals(
-            SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "which is what makes const-class's NONE truthful (oracle Correctness Defect 21 is the opposite)",
         )
     }

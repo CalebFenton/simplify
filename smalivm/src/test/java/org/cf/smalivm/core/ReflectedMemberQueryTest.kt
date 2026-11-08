@@ -5,7 +5,6 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class ReflectedMemberQueryTest {
@@ -24,8 +23,7 @@ class ReflectedMemberQueryTest {
             String::class.java.modifiers,
         )
 
-        assertEquals(expected, graph.reflectedMethodOverExploredPaths(address, 0))
-        assertEquals(expected, graph.trusted()!!.reflectedMethod(address, 0))
+        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedMethod(address, 0))
     }
 
     @Test
@@ -37,36 +35,34 @@ class ReflectedMemberQueryTest {
             Modifier.PUBLIC or Modifier.FINAL,
         )
 
-        assertEquals(expected, graph.reflectedFieldOverExploredPaths(address, 0))
-        assertEquals(expected, graph.trusted()!!.reflectedField(address, 0))
+        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedField(address, 0))
     }
 
     @Test
     fun parentAddressSetRetainsMethodBeforeReflectiveInvocation() {
         val graph = graphOf("invokeStringLengthReflectively()Ljava/lang/Object;")
+        val trusted = requireNotNull(graph.trusted())
         val invokeAddress = graph.methodView.addresses
             .filter { graph.methodView.opcodeAt(it) == Opcode.INVOKE_VIRTUAL }
             .last()
-        val parents = graph.parentAddresses(invokeAddress)
+        val parents = trusted.parentAddresses(invokeAddress)
 
         assertEquals(1, parents.size)
         assertEquals(Opcode.CONST_4, graph.methodView.opcodeAt(parents.single()))
         assertEquals(
-            ReflectedMethodMetadata(
-                STRING_LENGTH,
-                String::class.java.getDeclaredMethod("length").modifiers,
-                String::class.java.modifiers,
+            Agreement.Agreed(
+                ReflectedMethodMetadata(
+                    STRING_LENGTH,
+                    String::class.java.getDeclaredMethod("length").modifiers,
+                    String::class.java.modifiers,
+                ),
             ),
-            graph.reflectedMethodOverExploredPaths(parents, 0),
-        )
-        assertEquals(
-            graph.reflectedMethodOverExploredPaths(parents, 0),
-            requireNotNull(graph.trusted()).reflectedMethod(parents, 0),
+            trusted.reflectedMethod(parents, 0),
         )
     }
 
     @Test
-    fun singleAndMultipleAddressesRequireEveryPathToHoldTheSameMethod() {
+    fun methodQueriesTellAgreementDisagreementAndAbsenceApart() {
         val view = viewOf("moveChain()I")
         val secondAddress = view.addresses[1]
         val length = String::class.java.getDeclaredMethod("length")
@@ -77,14 +73,9 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, methodFrame(view, length)),
             nodeAt(view, secondAddress, methodFrame(view, length)),
         )
-        val expected = ReflectedMethodMetadata(
-            STRING_LENGTH,
-            length.modifiers,
-            String::class.java.modifiers,
-        )
+        val expected = Agreement.Agreed(ReflectedMethodMetadata(STRING_LENGTH, length.modifiers, String::class.java.modifiers))
 
-        assertEquals(expected, same.reflectedMethodOverExploredPaths(0, 0))
-        assertEquals(expected, same.reflectedMethodOverExploredPaths(intArrayOf(0, secondAddress), 0))
+        assertEquals(expected, same.trusted()!!.reflectedMethod(0, 0))
         assertEquals(expected, same.trusted()!!.reflectedMethod(intArrayOf(0, secondAddress), 0))
 
         val different = completeGraphOf(
@@ -92,29 +83,27 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, methodFrame(view, length)),
             nodeAt(view, secondAddress, methodFrame(view, isEmpty)),
         )
-        assertNull(different.reflectedMethodOverExploredPaths(intArrayOf(0, secondAddress), 0))
-        assertNull(different.trusted()!!.reflectedMethod(intArrayOf(0, secondAddress), 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.reflectedMethod(intArrayOf(0, secondAddress), 0))
 
         val memberAndAbsent = completeGraphOf(
             view,
             nodeAt(view, 0, methodFrame(view, length)),
             nodeAt(view, 0, Frame.entryFrame(view)),
         )
-        assertNull(memberAndAbsent.reflectedMethodOverExploredPaths(0, 0))
-        assertNull(memberAndAbsent.trusted()!!.reflectedMethod(0, 0))
+        assertEquals(Agreement.Absent, memberAndAbsent.trusted()!!.reflectedMethod(0, 0))
     }
 
     @Test
     fun branchedParentsDisagreeAboutTheMethod() {
         val graph = graphOf("invokeOneOfTwoStringMethods(Z)Ljava/lang/Object;")
+        val trusted = requireNotNull(graph.trusted())
         val invokeAddress = graph.methodView.addresses
             .filter { graph.methodView.opcodeAt(it) == Opcode.INVOKE_VIRTUAL }
             .last()
-        val parents = graph.parentAddresses(invokeAddress)
+        val parents = trusted.parentAddresses(invokeAddress)
 
         assertEquals(2, parents.size)
-        assertNull(graph.reflectedMethodOverExploredPaths(parents, 0))
-        assertNull(requireNotNull(graph.trusted()).reflectedMethod(parents, 0))
+        assertEquals(Agreement.Disagree, trusted.reflectedMethod(parents, 0))
     }
 
     @Test
@@ -126,12 +115,8 @@ class ReflectedMemberQueryTest {
         val graph = completeGraphOf(view, listOf(executed, notExecuted), setOf(executed))
 
         assertEquals(
-            ReflectedMethodMetadata(
-                STRING_LENGTH,
-                length.modifiers,
-                String::class.java.modifiers,
-            ),
-            graph.reflectedMethodOverExploredPaths(0, 0),
+            Agreement.Agreed(ReflectedMethodMetadata(STRING_LENGTH, length.modifiers, String::class.java.modifiers)),
+            graph.explored.reflectedMethod(0, 0),
         )
     }
 
@@ -144,12 +129,12 @@ class ReflectedMemberQueryTest {
         assertEquals(
             "Lorg/cf/smalivm/core/ReflectedMethodDescriptorFixture;->" +
                 "allTypes(ZBCSIJFDLjava/lang/Object;[I[[Ljava/lang/String;)V",
-            graph.reflectedMethodOverExploredPaths(0, 0)?.method?.toString(),
+            graph.explored.reflectedMethod(0, 0).agreed().method.toString(),
         )
     }
 
     @Test
-    fun fieldDisagreementNonMembersAndAbsentRegistersReturnNoMetadata() {
+    fun fieldQueriesTellDisagreementNonMembersAbsenceAndUnexecutedAddressesApart() {
         val view = viewOf("moveChain()I")
         val secondAddress = view.addresses[1]
         val firstField = trackedField("first")
@@ -159,12 +144,13 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, fieldFrame(view, firstField)),
             nodeAt(view, secondAddress, fieldFrame(view, firstField)),
         )
-        val expected = ReflectedFieldMetadata(
-            ImmutableFieldReference(firstField.declaringType.descriptor, firstField.name, firstField.fieldType.descriptor),
-            firstField.modifiers,
+        val expected = Agreement.Agreed(
+            ReflectedFieldMetadata(
+                ImmutableFieldReference(firstField.declaringType.descriptor, firstField.name, firstField.fieldType.descriptor),
+                firstField.modifiers,
+            ),
         )
-        assertEquals(expected, sameFields.reflectedFieldOverExploredPaths(0, 0))
-        assertEquals(expected, sameFields.reflectedFieldOverExploredPaths(intArrayOf(0, secondAddress), 0))
+        assertEquals(expected, sameFields.trusted()!!.reflectedField(0, 0))
         assertEquals(expected, sameFields.trusted()!!.reflectedField(intArrayOf(0, secondAddress), 0))
 
         val differentFields = completeGraphOf(
@@ -172,16 +158,14 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, fieldFrame(view, firstField)),
             nodeAt(view, secondAddress, fieldFrame(view, secondField)),
         )
-        assertNull(differentFields.reflectedFieldOverExploredPaths(intArrayOf(0, secondAddress), 0))
-        assertNull(differentFields.trusted()!!.reflectedField(intArrayOf(0, secondAddress), 0))
+        assertEquals(Agreement.Disagree, differentFields.trusted()!!.reflectedField(intArrayOf(0, secondAddress), 0))
 
         val memberAndAbsent = completeGraphOf(
             view,
             nodeAt(view, 0, fieldFrame(view, firstField)),
             nodeAt(view, 0, Frame.entryFrame(view)),
         )
-        assertNull(memberAndAbsent.reflectedFieldOverExploredPaths(0, 0))
-        assertNull(memberAndAbsent.trusted()!!.reflectedField(0, 0))
+        assertEquals(Agreement.Absent, memberAndAbsent.trusted()!!.reflectedField(0, 0))
 
         val ordinary = Frame.entryFrame(view).also {
             val ref = it.allocateHostObject(VirtualType.OBJECT, Any())
@@ -192,17 +176,17 @@ class ReflectedMemberQueryTest {
             view,
             nodeAt(view, 0, ordinary),
             nodeAt(view, secondAddress, absent),
-        )
-        assertNull(nonMembers.reflectedMethodOverExploredPaths(0, 0))
-        assertNull(nonMembers.reflectedFieldOverExploredPaths(0, 0))
-        assertNull(nonMembers.reflectedMethodOverExploredPaths(secondAddress, 0))
-        assertNull(nonMembers.reflectedFieldOverExploredPaths(secondAddress, 0))
-        assertNull(nonMembers.reflectedMethodOverExploredPaths(99, 0))
-        assertNull(nonMembers.reflectedFieldOverExploredPaths(99, 0))
+        ).trusted()!!
+        assertEquals(Agreement.Absent, nonMembers.reflectedMethod(0, 0), "a host object that is not a Method")
+        assertEquals(Agreement.Absent, nonMembers.reflectedField(0, 0), "a host object that is not a Field")
+        assertEquals(Agreement.Absent, nonMembers.reflectedMethod(secondAddress, 0), "an unassigned register")
+        assertEquals(Agreement.Absent, nonMembers.reflectedField(secondAddress, 0), "an unassigned register")
+        assertEquals(Agreement.NoPath, nonMembers.reflectedMethod(99, 0), "no op ran at an address the method lacks")
+        assertEquals(Agreement.NoPath, nonMembers.reflectedField(99, 0), "no op ran at an address the method lacks")
     }
 
     @Test
-    fun mixedMemberKindsReturnNoMetadata() {
+    fun eachMemberKindIsAbsentOnAPathHoldingTheOtherKind() {
         val view = viewOf("moveChain()I")
         val graph = completeGraphOf(
             view,
@@ -210,8 +194,8 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, fieldFrame(view, trackedField("answer"))),
         )
 
-        assertNull(graph.reflectedMethodOverExploredPaths(0, 0))
-        assertNull(graph.reflectedFieldOverExploredPaths(0, 0))
+        assertEquals(Agreement.Absent, graph.explored.reflectedMethod(0, 0))
+        assertEquals(Agreement.Absent, graph.explored.reflectedField(0, 0))
     }
 
     @Test
@@ -227,16 +211,14 @@ class ReflectedMemberQueryTest {
             nodeAt(view, 0, frame(3)),
         )
 
-        assertEquals(3, same.arrayLengthOverExploredPaths(intArrayOf(0), 0))
-        assertEquals(3, same.trusted()!!.arrayLength(intArrayOf(0), 0))
+        assertEquals(Agreement.Agreed(3), same.trusted()!!.arrayLength(intArrayOf(0), 0))
 
         val different = completeGraphOf(
             view,
             nodeAt(view, 0, frame(2)),
             nodeAt(view, 0, frame(3)),
         )
-        assertNull(different.arrayLengthOverExploredPaths(intArrayOf(0), 0))
-        assertNull(different.trusted()!!.arrayLength(intArrayOf(0), 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.arrayLength(intArrayOf(0), 0))
     }
 
     @Test
@@ -257,10 +239,8 @@ class ReflectedMemberQueryTest {
             superclasses = classIndex,
         )
 
-        assertNull(graph.reflectedMethodOverExploredPaths(0, 0))
-        assertNull(graph.trusted()!!.reflectedMethod(0, 0))
-        assertNull(graph.reflectedFieldOverExploredPaths(view.addresses[1], 0))
-        assertNull(graph.trusted()!!.reflectedField(view.addresses[1], 0))
+        assertEquals(Agreement.Disagree, graph.trusted()!!.reflectedMethod(0, 0))
+        assertEquals(Agreement.Disagree, graph.trusted()!!.reflectedField(view.addresses[1], 0))
     }
 
     private fun graphOf(descriptor: String): ExecutionGraph =

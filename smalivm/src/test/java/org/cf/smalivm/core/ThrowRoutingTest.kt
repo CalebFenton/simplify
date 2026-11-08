@@ -431,9 +431,9 @@ class ThrowRoutingTest {
         val throwAddress = graph.methodView.addresses.first {
             graph.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.THROW
         }
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(throwAddress),
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(throwAddress),
             "heap-allocating a guest throwable is modelled state, not an unmodelled effect")
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "and nothing else in this method declares one either, so a consumer may still fold")
     }
 

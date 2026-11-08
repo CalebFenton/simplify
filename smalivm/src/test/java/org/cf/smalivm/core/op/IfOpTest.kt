@@ -771,7 +771,7 @@ class IfOpTest {
         val definite = CoreTester.execute(CLASS_NAME, "ifEqualZero()V", CoreState().apply {
             setRegisters(0, 0, "I")
         })
-        assertEquals(SideEffectLevel.NONE, definite.sideEffectLevel(ADDRESS_IF), "a decided branch mutates nothing")
+        assertEquals(SideEffectLevel.NONE, definite.explored.sideEffectLevel(ADDRESS_IF), "a decided branch mutates nothing")
         val trusted = definite.trusted()
         assertNotNull(trusted, "nothing threw and nothing aborted")
         assertEquals(
@@ -783,14 +783,14 @@ class IfOpTest {
             setRegister(0, Value.Unknown(INT))
         })
         assertEquals(
-            SideEffectLevel.NONE, forked.sideEffectLevel(ADDRESS_IF),
+            SideEffectLevel.NONE, forked.explored.sideEffectLevel(ADDRESS_IF),
             "and an AMBIGUOUS predicate is still not an unmodellable write -- it is two successors",
         )
 
         val reference = CoreTester.execute(CLASS_NAME, "ifNotEqualZero()V", CoreState().apply {
             setRegisters(0, byteArrayOf(0x1), "[B")
         })
-        assertEquals(SideEffectLevel.NONE, reference.sideEffectLevel(ADDRESS_IF), "nor is a pointer comparison")
+        assertEquals(SideEffectLevel.NONE, reference.explored.sideEffectLevel(ADDRESS_IF), "nor is a pointer comparison")
     }
 
     /**
@@ -1006,11 +1006,11 @@ class IfOpTest {
         assertEquals(CompletionStatus.Complete, disagree.completion())
         assertEquals(2, disagree.nodePile(3).size, "both arms reach the join")
         assertEquals(
-            setOf(Value.Known(1, INT), Value.Top), disagree.registerValuesOverExploredPaths(3, 0),
+            setOf(Value.Known(1, INT), Value.Top), disagree.explored.registerValues(3, 0),
             "one arm ran the const, the other skipped it -- two DIFFERENT values at one address",
         )
         assertEquals(
-            Value.Top, disagree.consensusOverExploredPaths(3, 0),
+            Value.Top, disagree.explored.consensus(3, 0),
             "so consensus is their join, never whichever arm was explored first",
         )
         assertEquals(

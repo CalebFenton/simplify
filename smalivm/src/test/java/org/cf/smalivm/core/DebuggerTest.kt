@@ -234,7 +234,7 @@ class DebuggerTest {
         assertSame(classIndex.loadClassConstant(CLASS_FOR_NAME), returned.raw)
         assertEquals(
             Value.Known(1, int),
-            graph.terminatingStaticFieldConsensusOverExploredPaths(fixtureType, countField),
+            graph.explored.terminatingStaticFieldConsensus(fixtureType, countField),
         )
         assertEquals(2, graph.nodePile(invokeAddress).size, "completion must not schedule a third retry")
         assertTrue(graph.nodePile(caller.nextAddress(invokeAddress)).single().opExecutionStarted)
@@ -739,7 +739,7 @@ class DebuggerTest {
             ),
             graph.outcomes,
         )
-        assertTrue(graph.methodView.addresses.filterNot(graph::isPayload).all(graph::wasReached))
+        assertTrue(graph.methodView.addresses.filterNot(graph.methodView::isPayload).all(graph::wasReached))
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertNotNull(graph.trusted())
     }
@@ -1155,10 +1155,10 @@ class DebuggerTest {
         val observedOpaque = runWithDebuggerObservation(sessionOf("arityMismatchOpaque()I", className = INVOKE_REVIEW))
         assertEquivalentFinalGraphs(directOpaque, observedOpaque)
 
-        val directArrayRef = (directOpaque.terminatingConsensusOverExploredPaths(1) as Value.Known).raw as HeapRef
-        val observedArrayRef = (observedOpaque.terminatingConsensusOverExploredPaths(1) as Value.Known).raw as HeapRef
-        val directArray = directOpaque.terminatingHeapObjectOverExploredPaths(directArrayRef) as HeapObject.TrackedArray
-        val observedArray = observedOpaque.terminatingHeapObjectOverExploredPaths(observedArrayRef) as HeapObject.TrackedArray
+        val directArrayRef = (directOpaque.explored.terminatingConsensus(1) as Value.Known).raw as HeapRef
+        val observedArrayRef = (observedOpaque.explored.terminatingConsensus(1) as Value.Known).raw as HeapRef
+        val directArray = directOpaque.explored.terminatingHeapObject(directArrayRef).agreed() as HeapObject.TrackedArray
+        val observedArray = observedOpaque.explored.terminatingHeapObject(observedArrayRef).agreed() as HeapObject.TrackedArray
         assertEquals(directArray.type, observedArray.type)
         assertEquals(directArray.elements(), observedArray.elements())
         assertEquals(Value.Unknown(int), observedArray.element(0))
@@ -1255,23 +1255,23 @@ class DebuggerTest {
     private fun assertEquivalentFinalGraphs(expected: ExecutionGraph, actual: ExecutionGraph) {
         assertEquals(expected.outcomes, actual.outcomes)
         assertEquals(expected.completion(), actual.completion())
-        assertEquals(expected.methodSideEffectLevelOverExploredPaths(), actual.methodSideEffectLevelOverExploredPaths())
+        assertEquals(expected.explored.methodSideEffectLevel(), actual.explored.methodSideEffectLevel())
         assertEquals(expected.addresses().toList(), actual.addresses().toList())
         assertEquals(finalNodeFacts(expected), finalNodeFacts(actual))
         for (address in expected.addresses()) {
             assertEquals(expected.wasReached(address), actual.wasReached(address), "reached address $address")
-            assertEquals(expected.parentAddresses(address).toList(), actual.parentAddresses(address).toList())
-            assertEquals(expected.children(address).toList(), actual.children(address).toList())
-            assertEquals(expected.sideEffectLevel(address), actual.sideEffectLevel(address))
+            assertEquals(expected.explored.parentAddresses(address).toList(), actual.explored.parentAddresses(address).toList())
+            assertEquals(expected.explored.children(address).toList(), actual.explored.children(address).toList())
+            assertEquals(expected.explored.sideEffectLevel(address), actual.explored.sideEffectLevel(address))
             for (register in 0 until expected.methodView.registerCount) {
                 assertEquals(
-                    expected.consensusOverExploredPaths(address, register),
-                    actual.consensusOverExploredPaths(address, register),
+                    expected.explored.consensus(address, register),
+                    actual.explored.consensus(address, register),
                     "consensus at $address/v$register",
                 )
                 assertEquals(
-                    expected.registerValuesOverExploredPaths(address, register),
-                    actual.registerValuesOverExploredPaths(address, register),
+                    expected.explored.registerValues(address, register),
+                    actual.explored.registerValues(address, register),
                     "values at $address/v$register",
                 )
             }

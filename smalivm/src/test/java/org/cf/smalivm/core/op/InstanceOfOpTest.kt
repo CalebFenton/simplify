@@ -511,7 +511,7 @@ class InstanceOfOpTest {
         for ((label, seed) in seeds) {
             val graph = CoreTester.execute(CLASS_NAME, "instanceOfString()V", seed)
             assertEquals(
-                SideEffectLevel.NONE, graph.sideEffectLevel(ADDRESS_INSTANCE_OF),
+                SideEffectLevel.NONE, graph.explored.sideEffectLevel(ADDRESS_INSTANCE_OF),
                 "$label: a type test mutates nothing outside its own frame",
             )
             val trusted = graph.trusted()
@@ -528,7 +528,7 @@ class InstanceOfOpTest {
         val arrayGraph = CoreTester.execute(CLASS_NAME, "instanceOfSerializable()V", CoreState().apply {
             setRegisters(0, IntArray(0), OBJECT)
         })
-        assertEquals(SideEffectLevel.NONE, arrayGraph.sideEffectLevel(ADDRESS_INSTANCE_OF))
+        assertEquals(SideEffectLevel.NONE, arrayGraph.explored.sideEffectLevel(ADDRESS_INSTANCE_OF))
     }
 
     /**

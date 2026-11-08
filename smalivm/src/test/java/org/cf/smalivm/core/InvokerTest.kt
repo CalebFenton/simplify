@@ -98,7 +98,7 @@ class InvokerTest {
             "address 0 of the CALLER was executed once; the callee's own address 0 belongs to the callee",
         )
         assertEquals(
-            setOf(Value.Known(1, int)), graph.registerValuesOverExploredPaths(0, 0),
+            setOf(Value.Known(1, int)), graph.explored.registerValues(0, 0),
             "the caller's address 0 wrote 1; 7 is the callee's constant at the callee's address 0",
         )
     }
@@ -159,8 +159,8 @@ class InvokerTest {
         )
         // And both are really on the heap the caller returns with, with their own lengths -- which is
         // what makes the id distinction load-bearing rather than cosmetic.
-        val callers = trusted.terminatingHeapObject(callersArray.raw as HeapRef)
-        val callees = trusted.terminatingHeapObject(calleesArray.raw as HeapRef)
+        val callers = trusted.terminatingHeapObject(callersArray.raw as HeapRef).agreed()
+        val callees = trusted.terminatingHeapObject(calleesArray.raw as HeapRef).agreed()
         assertTrue(callers is HeapObject.TrackedArray && callers.length == 1, "the caller's 1-element array: $callers")
         assertTrue(callees is HeapObject.TrackedArray && callees.length == 2, "the callee's 2-element array: $callees")
     }
@@ -244,14 +244,14 @@ class InvokerTest {
         val graph = run("callsStrongEffectCallee()I", "strongEffect", "()V")
         assertEquals(CompletionStatus.Complete, graph.completion(), "the callee runs fine; it just has effects")
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(invokeAddressIn(view)),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(invokeAddressIn(view)),
             "the address that caused the effect is the invoke",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "and NOT every address: the caller's own const declared nothing",
         )
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertEquals(
             SideEffectLevel.STRONG, graph.trusted()!!.methodSideEffectLevel(),
             "a Complete run hands this to a consumer through the trust gate, so it had better be true",
@@ -302,8 +302,8 @@ class InvokerTest {
             graph.nodePile(invokeAddressIn(view)).single().children.single().view.signature,
             "the STRONG below must come from an INCOMPLETE CALL, so the callee has to have run",
         )
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(invokeAddressIn(view)))
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(invokeAddressIn(view)))
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -319,14 +319,14 @@ class InvokerTest {
         // Resolved decision 6: a limit-aborted callee is an opaque call, not an aborted caller path.
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        assertEquals(Value.Known(2, int), graph.terminatingConsensusOverExploredPaths(0))
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(invokeAddressIn(view)))
+        assertEquals(Value.Known(2, int), graph.explored.terminatingConsensus(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(invokeAddressIn(view)))
         assertEquals(
-            SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel(),
             "a truncated callee is exactly as unanalyzable as a throwing one",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "and still not every address: the caller's own const declared nothing and completed",
         )
     }
@@ -433,7 +433,7 @@ class InvokerTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NoSuchMethodError;"), CoreTester.escapingTypes(graph))
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(invokeAddressIn(view)),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(invokeAddressIn(view)),
             "resolution failed before a callee could have an effect",
         )
     }
@@ -447,7 +447,7 @@ class InvokerTest {
         // Resolved decision 6: an opaque call continues with a typed Unknown result and STRONG effect.
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(int), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertTrue(
             graph.nodePile(0).single().hostFailure == null,
             "a declared-but-bodyless callee is a fact about the input, not a throwable to record",
@@ -520,7 +520,7 @@ class InvokerTest {
         )
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Unknown(int))), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test

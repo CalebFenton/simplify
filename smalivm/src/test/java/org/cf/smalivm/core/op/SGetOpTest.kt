@@ -340,13 +340,13 @@ class SGetOpTest {
         val plain = CoreTester.execute(CLASS_NAME, "getStaticIntLiteral()V")
         assertEquals(CompletionStatus.Complete, plain.completion())
         assertEquals(
-            SideEffectLevel.NONE, plain.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, plain.explored.methodSideEffectLevel(),
             "a read of an app class's static perturbs nothing -- NONE, or every folding pass stops",
         )
         val framework = CoreTester.execute(CLASS_NAME, "getStaticWhitelistedClassField()V")
         assertEquals(CompletionStatus.Complete, framework.completion())
         assertEquals(
-            SideEffectLevel.STRONG, framework.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.STRONG, framework.explored.methodSideEffectLevel(),
             "Integer.<clinit> exists and was NOT run (resolved decision 7), so whatever it would have " +
                 "written is unmodelled state -- the trigger address is STRONG, declared by the scheduler",
         )

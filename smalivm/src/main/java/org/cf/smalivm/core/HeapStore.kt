@@ -1060,10 +1060,16 @@ internal class HeapStore private constructor(
     internal fun trackedFieldCompatibilityKey(): CompatibilityMapKey<Int, TrackedFieldCompatibility> = trackedFields
 
     companion object {
-        /** Joins one outcome partition. An object absent from any path stays absent. */
+        /**
+         * Joins one outcome partition. An object absent from any path stays absent. Callers partition by
+         * tracked-field compatibility first, so every store agrees on each tracked field's accessibility.
+         */
         fun merge(stores: List<HeapStore>, superclasses: Superclasses): HeapStore {
             require(stores.isNotEmpty())
             val first = stores.first()
+            require(stores.all { it.trackedFields == first.trackedFields }) {
+                "Tracked-field accessibility must be partitioned before executable heap merge"
+            }
             val sameObjectRoot = stores.all { it.objects === first.objects }
             val sameGraph = stores.all { it.hostGraph === first.hostGraph }
             if (sameObjectRoot && sameGraph) return first.copy()
@@ -1129,8 +1135,12 @@ internal class HeapStore private constructor(
             )
         }
 
-        /** The joined object, the first path's own version when every path agrees, or null to drop it. */
-        private fun mergeObject(
+        /**
+         * The join of one object over several paths: the first path's own version when every path agrees, or
+         * null when they disagree about its kind or shape. [sameGraph] says whether host-graph contents are
+         * comparable across the paths.
+         */
+        internal fun mergeObject(
             objects: List<HeapObject>,
             superclasses: Superclasses,
             sameGraph: Boolean,
@@ -1219,10 +1229,8 @@ internal class HeapStore private constructor(
                 is HeapObject.TrackedField -> {
                     val fields = objects.map { it as? HeapObject.TrackedField ?: return null }
                     if (fields.any { it.metadata != first.metadata }) return null
-                    require(fields.all { it.accessibility == first.accessibility }) {
-                        "Tracked-field accessibility must be partitioned before executable heap merge"
-                    }
-                    first
+                    if (fields.all { it.accessibility == first.accessibility }) first
+                    else HeapObject.TrackedField(first.metadata, FieldAccessibility.UNKNOWN)
                 }
             }
         }

@@ -20,13 +20,8 @@ class ExecutionGraphTest {
         ExecutionSession.of(classIndex.requireMethodView("Lspine/spine;", descriptor), classIndex, limits).run()
 
     /**
-     * The trust-bearing queries of a graph whose run COMPLETED (spec §9's gate; see
-     * [TrustedGraphView]). Fails loudly rather than returning null, so a test that unexpectedly turns
-     * Partial says so instead of silently NPEing further down.
-     *
-     * Tests below that deliberately assert on a *Partial* run must NOT use this -- they call the
-     * ungated `...OverExploredPaths` accessors, because their subject is the pile filter, not the
-     * trust gate.
+     * The value queries of a graph whose run COMPLETED. Fails loudly rather than returning null, so a test that
+     * unexpectedly turns Partial says so. Tests about a *Partial* run read [ExecutionGraph.explored] instead.
      */
     private fun ExecutionGraph.trustedOrFail(): TrustedGraphView =
         requireNotNull(trusted()) { "expected a Complete run to be trusted, but completion was ${completion()}" }
@@ -74,8 +69,8 @@ class ExecutionGraphTest {
             superclasses = classIndex,
         )
 
-        assertEquals("constructed", graph.trustedOrFail().knownString(0, 0))
-        assertNull(graph.trustedOrFail().knownString(0, 1))
+        assertEquals(Agreement.Agreed("constructed"), graph.trustedOrFail().knownString(0, 0))
+        assertEquals(Agreement.Absent, graph.trustedOrFail().knownString(0, 1), "v1 holds no String")
     }
 
     @Test
@@ -107,9 +102,9 @@ class ExecutionGraphTest {
     fun parentAndChildAddressesFollowControlFlow() {
         val g = graphOf("nopThenConst()I")
         val addresses = g.methodView.addresses
-        assertArrayEquals(intArrayOf(), g.parentAddresses(addresses[0]))
-        assertArrayEquals(intArrayOf(addresses[0]), g.parentAddresses(addresses[1]))
-        assertArrayEquals(intArrayOf(addresses[1]), g.children(addresses[0]))
+        assertArrayEquals(intArrayOf(), g.explored.parentAddresses(addresses[0]))
+        assertArrayEquals(intArrayOf(addresses[0]), g.explored.parentAddresses(addresses[1]))
+        assertArrayEquals(intArrayOf(addresses[1]), g.explored.children(addresses[0]))
     }
 
     @Test
@@ -142,7 +137,7 @@ class ExecutionGraphTest {
         // aggregation itself, not the trust gate, so reading the truncated picture deliberately is the
         // right outcome rather than a workaround.
         val aborted = graphOf("unsupportedWideFilledArray()I")
-        assertEquals(SideEffectLevel.STRONG, aborted.methodSideEffectLevelOverExploredPaths(),
+        assertEquals(SideEffectLevel.STRONG, aborted.explored.methodSideEffectLevel(),
             "an unimplemented opcode could have done anything; assume the worst")
     }
 
@@ -177,12 +172,6 @@ class ExecutionGraphTest {
         assertEquals(1, g.nodePile(0).size)
         assertEquals(emptyList<ExecutionNode>(), g.nodePile(999))
         assertEquals(0, g.getOp(0).address)
-    }
-
-    @Test
-    fun tryBlocksComeFromTheStaticView() {
-        val g = graphOf("throwCaught(Ljava/lang/RuntimeException;)Ljava/lang/Object;")
-        assertEquals(g.methodView.tryBlocks, g.tryBlocks())
     }
 
     @Test
@@ -273,11 +262,11 @@ class ExecutionGraphTest {
         assertEquals(2, g.nodePile(moveAddress).size, "both the executed visit and the limit-aborted revisit are piled")
 
         assertEquals(
-            Value.Known(1, int), g.consensusOverExploredPaths(moveAddress, 1),
+            Value.Known(1, int), g.explored.consensus(moveAddress, 1),
             "only the executed visit may vote; an unfiltered pile would see v1 disagree (1 vs 2) and collapse to Unknown",
         )
         assertEquals(
-            setOf(Value.Known(1, int)), g.registerValuesOverExploredPaths(moveAddress, 1),
+            setOf(Value.Known(1, int)), g.explored.registerValues(moveAddress, 1),
             "registerValues must also exclude the never-executed revisit's stale frame",
         )
     }
@@ -346,7 +335,7 @@ class ExecutionGraphTest {
         val disagreeAddrs = disagree.addresses() // [const v1,0x1 ; move v0,v1 ; const v1,0x2 ; goto]
         assertEquals(
             Value.Unknown(int),
-            disagree.consensusOverExploredPaths(intArrayOf(disagreeAddrs[0], disagreeAddrs[2]), 1),
+            disagree.explored.consensus(intArrayOf(disagreeAddrs[0], disagreeAddrs[2]), 1),
             "two addresses whose register genuinely disagrees must join to Unknown, not silently pick one side",
         )
     }

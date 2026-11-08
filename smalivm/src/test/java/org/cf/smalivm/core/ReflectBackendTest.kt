@@ -293,7 +293,7 @@ class ReflectBackendTest {
         val target = method(fixtureType, "overload", "(I)Ljava/lang/String;")
         val unknown = invoke(vm(exactSafe = setOf(target)), target, InvokeKind.STATIC, listOf(Value.Unknown(intType))).run()
         assertEquals(Value.Unknown(stringType), unknown.outcomes.single().returnedValue())
-        assertEquals(SideEffectLevel.STRONG, unknown.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, unknown.explored.sideEffectLevel(0))
         assertTrue(unknown.nodePile(0).single().invocationDiagnostic!!.contains("reflection"))
 
         val objectTarget = method(fixtureType, "acceptString", "(Ljava/lang/String;)I")
@@ -346,7 +346,7 @@ class ReflectBackendTest {
             graph.outcomes,
             graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
         )
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
     }
 
@@ -358,7 +358,7 @@ class ReflectBackendTest {
         val graph = invoke(vm(), target, InvokeKind.STATIC).run()
 
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertTrue(graph.nodePile(0).single().invocationDiagnostic!!.contains("DEFAULT_DENY"))
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
     }
@@ -601,14 +601,14 @@ class ReflectBackendTest {
         val integerType = type("Ljava/lang/Integer;")
         val target = method(integerType, "intValue", "()I")
         val strong = invoke(VmServices(classIndex), target, InvokeKind.VIRTUAL, listOf(Value.Known(1, integerType))).run()
-        assertEquals(SideEffectLevel.STRONG, strong.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, strong.explored.sideEffectLevel(0))
 
         val policy = ReflectionPolicy(
             exactSafeMethods = setOf(target),
             methodEffects = mapOf(target to SideEffectLevel.NONE),
         )
         val narrow = invoke(VmServices(classIndex, policy), target, InvokeKind.VIRTUAL, listOf(Value.Known(1, integerType))).run()
-        assertEquals(SideEffectLevel.NONE, narrow.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, narrow.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -625,7 +625,7 @@ class ReflectBackendTest {
         val graph = session.run()
 
         assertEquals("v-void", session.currentNode!!.frame.hostObjectAt(ref).toString())
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
         assertEquals(SideEffectLevel.NONE, graph.nodePile(0).single().activation.declaredEffect)
     }
 
@@ -646,7 +646,7 @@ class ReflectBackendTest {
 
         val graph = invoke(owner, target, InvokeKind.STATIC, frame = frame, registers = intArrayOf(0)).run()
 
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(ref, (graph.outcomes.single().returnedValue() as Value.Known).raw)
     }
 

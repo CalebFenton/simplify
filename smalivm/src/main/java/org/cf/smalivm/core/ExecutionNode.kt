@@ -68,6 +68,9 @@ class ExecutionNode internal constructor(
     internal var endingFrame: Frame? = null
         private set
 
+    /** The state this node's path ended in, or [frame] for a node that ended no path. */
+    internal val terminalFrame: Frame get() = endingFrame ?: frame
+
     /**
      * The host `Throwable` that ended a path at this node, when the corresponding [Outcome] is
      * `Aborted(HOST_FAILURE)`. Kept so a host bug converted into a bounded path abort is still

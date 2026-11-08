@@ -74,7 +74,7 @@ class SpineBehaviorTest {
         val returned = graph.trusted()!!.terminatingConsensus(0) as Value.Known
         val ref = returned.raw as HeapRef
         assertEquals(thrown.type, returned.type)
-        val heapObject = graph.trusted()!!.terminatingHeapObject(ref)
+        val heapObject = graph.trusted()!!.terminatingHeapObject(ref).agreed()
         assertTrue(heapObject is HeapObject.GuestThrowable)
         assertTrue((heapObject as HeapObject.GuestThrowable).contents is HostGraphContents.Known)
         val host = graph.terminatingHostObjectOverExploredPaths(ref)
@@ -119,6 +119,6 @@ class SpineBehaviorTest {
         val graph = CoreTester.execute(spine, "unsupportedWideFilledArray()I")
         assertFalse(graph.completion().canTrustConsensus)
         assertNull(graph.trusted(), "a partial exploration hands out no view whose answers look actionable")
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 }

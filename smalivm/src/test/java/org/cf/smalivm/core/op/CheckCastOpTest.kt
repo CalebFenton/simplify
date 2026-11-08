@@ -626,7 +626,7 @@ class CheckCastOpTest {
         for ((label, seed) in seeds) {
             val graph = CoreTester.execute(CLASS_NAME, "castToStringWithCatch()V", seed)
             assertEquals(
-                SideEffectLevel.NONE, graph.sideEffectLevel(ADDRESS_CHECK_CAST),
+                SideEffectLevel.NONE, graph.explored.sideEffectLevel(ADDRESS_CHECK_CAST),
                 "$label: a cast mutates nothing outside its own frame",
             )
             val trusted = graph.trusted()

@@ -222,44 +222,21 @@ class SwitchOpTest {
     }
 
     /**
-     * **THE PAIR, and it is the whole of Step 2's consumer work.** On a **`Complete`** run
-     * `wasReached(payload)` is `false` -- and [org.cf.smalivm.core.ExecutionGraphView.wasReached]'s own
-     * KDoc tells a consumer that a completion check is what makes a `false` a dead-code PROOF. That
-     * would have been enough for a dead-code strategy to delete a switch's table and break every switch
-     * referencing it, which is not hypothetical: `docs/architecture/graph-optimizer-contract.md:136`
-     * records that the OLD dead-removal strategy needed an explicit payload carve-out **in production**,
-     * and it got there the ugly way (the old engine executed payloads, so their addresses were reached,
-     * and Simplify still needed the special case).
-     *
-     * So the negative is never asserted alone. `isPayload(address)` on
-     * [org.cf.smalivm.core.ExecutionGraphView] is the companion query a consumer must consult, and this
-     * is the one place in this plan where an unqualified `wasReached` negative is legitimate: it is
-     * *unconditionally* correct rather than completion-dependent, which is why it takes a companion query
-     * instead of a completion gate (`CARRY-FORWARD.md` Plan 8 item 11 is the shape being avoided).
-     *
-     * The controls matter as much as the claim. `isPayload` must be `false` for the switch instruction
-     * itself and for an ordinary `return-void`, or "everything is a payload" would satisfy the pair; and
-     * the switch address must be *reached*, or a run that decoded nothing would satisfy it too.
+     * A payload is data ([CON] B22: control flow must not reach it), so no op ever runs at its address, even on
+     * a complete run. `isDead` must still answer `false` for it, or a dead-code strategy deletes the table and
+     * breaks every switch that names it. The controls: the selector `1` takes the case at address 5, so the
+     * fall-through `return-void` at 4 is genuinely dead, and the switch itself ran.
      */
     @Test
-    fun aPayloadIsDataSoItIsNeverReachedAndTheGraphSaysSoOnACompleteRun() {
+    fun aPayloadIsNeverReachedAndNeverDeadOnACompleteRun() {
         for (methodName in listOf("packedSwitch()V", "sparseSwitch()V")) {
             val graph = CoreTester.execute(CLASS_NAME, methodName, CoreState().apply { setRegisters(0, 1, "I") })
-            assertEquals(CompletionStatus.Complete, graph.completion(), "$methodName explored everything")
+            val trusted = requireNotNull(graph.trusted()) { "$methodName explored everything" }
             val payload = graph.methodView.payloadAddresses.single()
-            assertTrue(payload in graph.addresses(), "$methodName: graph addresses include payload data")
-            assertFalse(
-                graph.wasReached(payload),
-                "$methodName: a payload is DATA ([CON] B22 forbids control flow reaching it), so no op ran there",
-            )
-            assertTrue(
-                graph.isPayload(payload),
-                "$methodName: and the graph must SAY so, or a dead-code consumer reads the false above as " +
-                    "proof and deletes the table -- graph-optimizer-contract.md:136 is the production precedent",
-            )
-            assertFalse(graph.isPayload(ADDRESS_SWITCH), "$methodName: the switch instruction itself is code")
-            assertTrue(graph.wasReached(ADDRESS_SWITCH), "$methodName: ...and it ran, so this run decoded something")
-            assertFalse(graph.isPayload(ADDRESS_FALL_THROUGH), "$methodName: and so is an ordinary return-void")
+            assertFalse(graph.wasReached(payload), "$methodName: no op runs at payload data")
+            assertFalse(trusted.isDead(payload), "$methodName: unreached payload data is not dead code")
+            assertFalse(trusted.isDead(ADDRESS_SWITCH), "$methodName: the switch ran")
+            assertTrue(trusted.isDead(ADDRESS_FALL_THROUGH), "$methodName: selector 1 never falls through")
         }
     }
 
@@ -667,7 +644,7 @@ class SwitchOpTest {
     @Test
     fun aSwitchDeclaresNoSideEffectOnEveryRow() {
         val decided = CoreTester.execute(CLASS_NAME, "packedSwitch()V", CoreState().apply { setRegisters(0, 1, "I") })
-        assertEquals(SideEffectLevel.NONE, decided.sideEffectLevel(ADDRESS_SWITCH), "a decided switch mutates nothing")
+        assertEquals(SideEffectLevel.NONE, decided.explored.sideEffectLevel(ADDRESS_SWITCH), "a decided switch mutates nothing")
         val trusted = decided.trusted()
         assertNotNull(trusted, "nothing threw and nothing aborted")
         assertEquals(
@@ -679,14 +656,14 @@ class SwitchOpTest {
             setRegister(0, Value.Unknown(INT))
         })
         assertEquals(
-            SideEffectLevel.NONE, forked.sideEffectLevel(ADDRESS_SWITCH),
+            SideEffectLevel.NONE, forked.explored.sideEffectLevel(ADDRESS_SWITCH),
             "and an ambiguous selector is still not an unmodellable write -- it is four successors",
         )
 
         val pointer = CoreTester.execute(CLASS_NAME, "packedSwitch()V", CoreState().apply {
             setRegisters(0, "not a number", "Ljava/lang/String;")
         })
-        assertEquals(SideEffectLevel.NONE, pointer.sideEffectLevel(ADDRESS_SWITCH), "nor is a reference selector")
+        assertEquals(SideEffectLevel.NONE, pointer.explored.sideEffectLevel(ADDRESS_SWITCH), "nor is a reference selector")
     }
 
     /**

@@ -6,6 +6,7 @@ import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -64,7 +65,7 @@ class EntrypointStateTest {
         }
 
         val trusted = requireNotNull(session.run().trusted())
-        val result = trusted.terminatingHeapObject(ref) as HeapObject.TrackedObject
+        val result = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedObject
         for ((field, value) in expectedFields) {
             assertEquals(Value.Known(value, VirtualType.of("I")), result.field("$owner->$field:I"))
             assertEquals(Value.Known(0, VirtualType.of("I")), initial.field("$owner->$field:I"))

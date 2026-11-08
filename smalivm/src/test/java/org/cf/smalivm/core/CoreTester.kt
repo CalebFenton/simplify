@@ -199,7 +199,7 @@ object CoreTester {
                 "register $register after $className->$methodDescriptor should hold a tracked array, but was $consensus",
             )
             val ref = (consensus as Value.Known).raw as HeapRef
-            val actual = trusted.terminatingHeapObject(ref)
+            val actual = trusted.terminatingHeapObject(ref).agreed()
             assertTrue(actual is HeapObject.TrackedArray, "no array at $ref for register $register; got $actual")
             val array = actual as HeapObject.TrackedArray
             val expectedElements = CoreState.elementsOf(spec)

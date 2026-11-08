@@ -5,21 +5,11 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Bug class: **completion-gated trust documented but not enforced.** Spec §9 says a consumer may act
- * on consensus only from a run whose exploration finished, and until this gate existed that rule was
- * KDoc only -- on a `Partial` run `consensus(addr, r)` handed back a confident `Value.Known` and
- * `methodSideEffectLevel()` handed back `NONE`, so a strategy could fold a constant, or delete a
- * method, from an exploration that stopped at a bound without ever consulting [CompletionStatus].
- * The safe path was strictly LONGER than the unsafe one, which is the wrong incentive on the single
- * rule that prevents wrong optimizations.
+ * Bug class: acting on an answer from a run that did not explore every path. The value queries a consumer acts
+ * on are reachable as a [TrustedGraphView] only through [ExecutionGraph.trusted], which is null unless the run's
+ * completion is `canTrustConsensus`; the same queries over a truncated run are spelled `graph.explored`.
  *
- * The fix is type-level, not documentation: the trust-bearing queries live on [TrustedGraphView],
- * reachable only through [ExecutionGraph.trusted], which is null for a `Partial` run. The raw twins
- * stay on [ExecutionGraph] under `...OverExploredPaths` names for the consumers that legitimately
- * want the truncated picture (Plan 10's debugger, Plan 11's differential).
- *
- * Oracle: spec §9 (completion-gated trust) and `CompletionStatus.canTrustConsensus` -- the gate is
- * defined by that one predicate rather than a second `is Complete` test, so the two can never drift.
+ * Oracle: spec §9 (completion-gated trust) and `CompletionStatus.canTrustConsensus`.
  */
 class TrustedGraphViewTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
@@ -56,7 +46,7 @@ class TrustedGraphViewTest {
         val stoppedAddress = partial.addresses().first { address ->
             partial.nodePile(address).any { !it.opExecutionStarted }
         }
-        assertFalse(partial.didEveryExecutionContinueNormallyOverExploredPaths(stoppedAddress))
+        assertFalse(partial.explored.didEveryExecutionContinueNormally(stoppedAddress))
         assertNull(partial.trusted())
     }
 
@@ -106,11 +96,11 @@ class TrustedGraphViewTest {
         val moveAddress = g.methodView.addresses.first { g.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.MOVE }
         assertNull(g.trusted(), "the run stopped at the address budget, so no query on it is actionable")
         assertEquals(
-            Value.Known(1, int), g.consensusOverExploredPaths(moveAddress, 1),
+            Value.Known(1, int), g.explored.consensus(moveAddress, 1),
             "the truncated picture is still available -- a consumer must just name it deliberately",
         )
         assertEquals(
-            SideEffectLevel.NONE, g.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, g.explored.methodSideEffectLevel(),
             "and so is the effect level, which is the query that would wrongly authorize deleting this method",
         )
     }
@@ -168,11 +158,11 @@ class TrustedGraphViewTest {
             "a snapshot whose frontier still holds the aborting op must not authorize anything",
         )
         assertEquals(
-            SideEffectLevel.NONE, midRun.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, midRun.explored.methodSideEffectLevel(),
             "the dangerous answer is genuinely still computable -- it just has to be asked for by its ungated name",
         )
         assertEquals(
-            Value.Known(3, int), midRun.consensusOverExploredPaths(0, 0),
+            Value.Known(3, int), midRun.explored.consensus(0, 0),
             "so is the constant, which is what a propagation pass would have folded",
         )
 
@@ -180,23 +170,25 @@ class TrustedGraphViewTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), finished.completion())
         assertNull(finished.trusted(), "and the finished run refuses what the snapshot was handing out")
         assertEquals(
-            SideEffectLevel.STRONG, finished.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.STRONG, finished.explored.methodSideEffectLevel(),
             "an unimplemented opcode could have done anything, so effects err upward",
         )
     }
 
     @Test
-    fun theGateIsReachableThroughTheConsumerFacingInterface() {
-        // Bug class: putting `trusted()` only on the concrete class. Strategies code against
-        // ExecutionGraphView (AnalysisContracts' whole reason to exist), so a gate absent from the
-        // interface would leave every interface-typed consumer with nothing but the raw accessors --
-        // i.e. exactly the pre-gate situation, silently. This assignment is the assertion: it does not
-        // compile if `trusted()` moves off the interface.
-        val view: ExecutionGraphView = graphOf("returnFive()I")
-        assertNotNull(view.trusted(), "a strategy holding only the interface must still be able to ask for trust")
+    fun isDeadProvesOnlyAnExecutableInstructionNoPathReached() {
+        // gotoSkip()I jumps over one const/4, so on this complete run that instruction alone is dead.
+        val graph = graphOf("gotoSkip()I")
+        val trusted = requireNotNull(graph.trusted())
+        val skipped = graph.methodView.addresses.first {
+            it > 0 && graph.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.CONST_4
+        }
+        assertTrue(trusted.isDead(skipped), "the jumped-over const never ran")
         assertEquals(
-            Value.Known(5, int), view.consensusOverExploredPaths(0, 0),
-            "and the raw twin belongs to the interface too, so a differential adapter can take an ExecutionGraphView",
+            listOf(skipped),
+            graph.methodView.instructionAddresses.filter(trusted::isDead),
+            "every other instruction ran",
         )
+        assertFalse(trusted.isDead(999), "an address the method does not have is not dead code")
     }
 }
