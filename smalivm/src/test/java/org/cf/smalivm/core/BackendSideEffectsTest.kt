@@ -95,7 +95,7 @@ class BackendSideEffectsTest {
         val vm = VmServices(classIndex, policy)
         val frame = Frame.entryFrame(view)
         val entries = initial.entries.toList()
-        val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
+        val admitted = frame.heap.admitHostSeeds(entries.map { HostSeed(it.value) })
         val seeded = entries.zip(admitted).associate { (entry, value) -> entry.key to value }
         seeded.forEach(frame::assign)
         val session = vm.newSession(view, entryFrame = frame)

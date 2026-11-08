@@ -73,7 +73,7 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Linvoke_reflected_test;", "invokeBooleanValueOf()V"))
         val builder = StringBuilder("seed")
 
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(builder, objectType)),
                 HostSeed(Value.Known(builder, objectType)),
@@ -83,7 +83,7 @@ class DirectHostObjectTest {
         val ref = seeded.raw as HeapRef
 
         val stored = frame.heapObject(ref) as HeapObject.HostObject
-        assertSame(builder, frame.hostObjectAt(ref))
+        assertSame(builder, frame.heap.hostObjectAt(ref))
         assertEquals(builderType, stored.type)
         assertTrue(stored.contents is HostGraphContents.Known)
         assertEquals(ref, (admitted[1] as Value.Known).raw)
@@ -99,8 +99,8 @@ class DirectHostObjectTest {
         val first = arrayListOf(shared)
         val second = arrayListOf(shared)
         shared.next = shared
-        val firstRef = frame.allocateHostObject(objectType, first)
-        val secondRef = frame.allocateHostObject(objectType, second)
+        val firstRef = frame.heap.allocateHostObject(objectType, first)
+        val secondRef = frame.heap.allocateHostObject(objectType, second)
         val selected = SelectedHostCall.from(
             prepared(
                 listOf(objectType, objectType),
@@ -124,7 +124,7 @@ class DirectHostObjectTest {
     fun siblingCopiesDoNotShareMutableHostRoots() {
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
         val parent = Frame.entryFrame(view)
-        val ref = parent.allocateHostObject(builderType, StringBuilder("a"))
+        val ref = parent.heap.allocateHostObject(builderType, StringBuilder("a"))
         val first = parent.copy()
         val second = parent.copy()
         val call = prepared(listOf(builderType), listOf(Value.Known(ref, builderType)))
@@ -157,7 +157,7 @@ class DirectHostObjectTest {
         val array = intArrayOf(1, 2)
         val container = arrayListOf<Any>(array)
 
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(container, objectType)),
                 HostSeed(Value.Known(array, intArrayType)),
@@ -184,37 +184,37 @@ class DirectHostObjectTest {
     fun mirroredGuestWriteAfterForkDetachesOnlyTheWritingPath() {
         val parent = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val raw = intArrayOf(1)
-        val admitted = parent.admitHostSeeds(listOf(HostSeed(Value.Known(raw, intArrayType)))).single() as Value.Known
+        val admitted = parent.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, intArrayType)))).single() as Value.Known
         val ref = admitted.raw as HeapRef
         val sibling = parent.copy()
         val writing = parent.copy()
 
-        writing.writeArrayElement(ref, 0, Value.Known(7, intType))
+        writing.heap.setArrayElement(ref, 0, Value.Known(7, intType))
 
         assertSame(parent.hostGraphVersionToken(), sibling.hostGraphVersionToken())
         assertSame(parent.hostGraphVersionToken(), writing.hostGraphVersionToken())
-        assertEquals(Value.Known(1, intType), parent.arrayAt(ref)!!.element(0))
-        assertEquals(Value.Known(1, intType), sibling.arrayAt(ref)!!.element(0))
-        assertEquals(Value.Known(7, intType), writing.arrayAt(ref)!!.element(0))
-        assertEquals(1, (parent.hostObjectAt(ref) as IntArray)[0])
-        assertEquals(1, (sibling.hostObjectAt(ref) as IntArray)[0])
-        assertEquals(1, (writing.hostObjectAt(ref) as IntArray)[0], "the mirror stays stale until selected detach")
-        assertTrue(writing.arrayAt(ref)!!.mirrorDirty)
+        assertEquals(Value.Known(1, intType), parent.heap.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(1, intType), sibling.heap.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(7, intType), writing.heap.arrayAt(ref)!!.element(0))
+        assertEquals(1, (parent.heap.hostObjectAt(ref) as IntArray)[0])
+        assertEquals(1, (sibling.heap.hostObjectAt(ref) as IntArray)[0])
+        assertEquals(1, (writing.heap.hostObjectAt(ref) as IntArray)[0], "the mirror stays stale until selected detach")
+        assertTrue(writing.heap.arrayAt(ref)!!.mirrorDirty)
     }
 
     @Test
     fun unrepresentableMirroredGuestWriteInvalidatesMirrorButKeepsAuthoritativeLatticeWrite() {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val value = frame.admitHostSeeds(listOf(HostSeed(Value.Known(intArrayOf(1), intArrayType)))).single()
+        val value = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(intArrayOf(1), intArrayType)))).single()
             as Value.Known
         val ref = value.raw as HeapRef
 
-        frame.writeArrayElement(ref, 0, Value.Unknown(intType))
+        frame.heap.setArrayElement(ref, 0, Value.Unknown(intType))
 
-        assertEquals(Value.Unknown(intType), frame.arrayAt(ref)!!.element(0))
-        assertTrue(frame.arrayAt(ref)!!.mirror is HostGraphContents.Known)
-        assertTrue(frame.arrayAt(ref)!!.mirrorDirty)
-        assertEquals(1, (frame.hostObjectAt(ref) as IntArray)[0])
+        assertEquals(Value.Unknown(intType), frame.heap.arrayAt(ref)!!.element(0))
+        assertTrue(frame.heap.arrayAt(ref)!!.contents is HostGraphContents.Known)
+        assertTrue(frame.heap.arrayAt(ref)!!.mirrorDirty)
+        assertEquals(1, (frame.heap.hostObjectAt(ref) as IntArray)[0])
         assertThrows<HostGraphRepresentationException> {
             SelectedHostCall.from(
                 prepared(listOf(intArrayType), listOf(value)),
@@ -223,28 +223,28 @@ class DirectHostObjectTest {
             )
         }
         assertThrows<IllegalArgumentException> {
-            frame.writeArrayElement(ref, 2, Value.Known(3, intType))
+            frame.heap.setArrayElement(ref, 2, Value.Known(3, intType))
         }
     }
 
     @Test
     fun observingANonEmptyHostGraphCreatesNoVersions() {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val ref = frame.allocateHostObject(builderType, StringBuilder("observed"))
+        val ref = frame.heap.allocateHostObject(builderType, StringBuilder("observed"))
         val graphVersion = frame.hostGraphVersionToken()
         val objectVersion = frame.heapObject(ref)
-        val raw = frame.hostObjectAt(ref)
+        val raw = frame.heap.hostObjectAt(ref)
 
         repeat(100) {
             frame.heapObject(ref)
-            frame.hostObjectAt(ref)
-            frame.hostNodeId(frame.hostObjectAt(ref)!!)
+            frame.heap.hostObjectAt(ref)
+            frame.heap.hostNodeId(frame.heap.hostObjectAt(ref)!!)
             frame.toString()
         }
 
         assertSame(graphVersion, frame.hostGraphVersionToken())
         assertSame(objectVersion, frame.heapObject(ref))
-        assertSame(raw, frame.hostObjectAt(ref))
+        assertSame(raw, frame.heap.hostObjectAt(ref))
     }
 
     @Test
@@ -252,7 +252,7 @@ class DirectHostObjectTest {
         val seed = StringBuilder("same")
         val view = hostView("recordReceived(Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(builderType, seed)
+        val ref = frame.heap.allocateHostObject(builderType, seed)
         frame.assign(0, Value.Known(ref, builderType))
         val session = hostVm.newSession(view, entryFrame = frame)
         val before = session.frontier.single().frame.hostGraphVersionToken()
@@ -268,7 +268,7 @@ class DirectHostObjectTest {
     fun selectedCallFinalizationIsOneShotAndOwnedByItsFrame() {
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(builderType, StringBuilder("owned"))
+        val ref = frame.heap.allocateHostObject(builderType, StringBuilder("owned"))
         val selected = SelectedHostCall.from(
             prepared(listOf(builderType), listOf(Value.Known(ref, builderType))),
             frame,
@@ -304,7 +304,7 @@ class DirectHostObjectTest {
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame
 
         assertNotSame(before, returned.hostGraphVersionToken())
-        assertEquals("value1", returned.hostObjectAt(ref).toString(), "StringBuilder.append(J) appends the decimal long")
+        assertEquals("value1", returned.heap.hostObjectAt(ref).toString(), "StringBuilder.append(J) appends the decimal long")
         assertEquals(
             SideEffectLevel.NONE,
             graph.explored.sideEffectLevel(0),
@@ -317,7 +317,7 @@ class DirectHostObjectTest {
         val atomicType = VirtualType.of("Ljava/util/concurrent/atomic/AtomicInteger;")
         val view = hostView("ignore(Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(atomicType, java.util.concurrent.atomic.AtomicInteger(0))
+        val ref = frame.heap.allocateHostObject(atomicType, java.util.concurrent.atomic.AtomicInteger(0))
         frame.assign(0, Value.Known(ref, objectType))
         val session = hostVm.newSession(view, entryFrame = frame)
         val before = session.frontier.single().frame.hostGraphVersionToken()
@@ -337,14 +337,14 @@ class DirectHostObjectTest {
     @Test
     fun calleeMergeKeepsSameGraphKnownAndDegradesDifferentGraphsToUnknownContents() {
         val caller = Frame.entryFrame(view("Lcalls/caller;", "callsVoidCallee()I"))
-        val ref = caller.allocateHostObject(builderType, StringBuilder("value"))
+        val ref = caller.heap.allocateHostObject(builderType, StringBuilder("value"))
         val calleeView = view("Lcalls/callee;", "returnsNothing()V")
         val first = caller.calleeEntryFrame(calleeView)
         val second = caller.calleeEntryFrame(calleeView)
 
         val same = caller.mergedCalleeState(listOf(first, second), CoreTester.classIndex)
         assertTrue((same.heapObject(ref) as HeapObject.HostObject).contents is HostGraphContents.Known)
-        assertEquals("value", same.hostObjectAt(ref).toString())
+        assertEquals("value", same.heap.hostObjectAt(ref).toString())
 
         val selected = SelectedHostCall.from(
             prepared(listOf(builderType), listOf(Value.Known(ref, builderType))),
@@ -357,7 +357,7 @@ class DirectHostObjectTest {
 
         assertEquals(HostGraphContents.Unknown, (changed.heapObject(ref) as HeapObject.HostObject).contents)
         assertEquals(builderType, changed.heapObject(ref)!!.type)
-        assertEquals(null, changed.hostObjectAt(ref))
+        assertEquals(null, changed.heap.hostObjectAt(ref))
     }
 
     @Test
@@ -365,7 +365,7 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val child = StringBuilder("child")
         val container = arrayListOf<Any>(child)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(container, objectType)),
                 HostSeed(Value.Known(child, builderType)),
@@ -374,12 +374,12 @@ class DirectHostObjectTest {
         val containerRef = admitted[0].raw as HeapRef
         val childRef = admitted[1].raw as HeapRef
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(objectType))
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(objectType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(containerRef) as HeapObject.HostObject).contents)
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(childRef) as HeapObject.HostObject).contents)
-        assertEquals(null, frame.hostObjectAt(containerRef))
-        assertEquals(null, frame.hostObjectAt(childRef))
+        assertEquals(null, frame.heap.hostObjectAt(containerRef))
+        assertEquals(null, frame.heap.hostObjectAt(childRef))
     }
 
     @Test
@@ -388,7 +388,7 @@ class DirectHostObjectTest {
         val child = StringBuilder("shared")
         val firstRoot = arrayListOf<Any>(child)
         val secondRoot = arrayListOf<Any>(child)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(firstRoot, objectType)),
                 HostSeed(Value.Known(secondRoot, objectType)),
@@ -399,7 +399,7 @@ class DirectHostObjectTest {
         val secondRef = admitted[1].raw as HeapRef
         val childRef = admitted[2].raw as HeapRef
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(objectType))
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(objectType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(firstRef) as HeapObject.HostObject).contents)
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(secondRef) as HeapObject.HostObject).contents)
@@ -413,7 +413,7 @@ class DirectHostObjectTest {
         val parent = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val affected = arrayListOf<Any>(StringBuilder("affected"))
         val disconnected = StringBuilder("disconnected")
-        val admitted = parent.admitHostSeeds(
+        val admitted = parent.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(affected, objectType)),
                 HostSeed(Value.Known(disconnected, builderType)),
@@ -421,21 +421,21 @@ class DirectHostObjectTest {
         ).map { it as Value.Known }
         val affectedRef = admitted[0].raw as HeapRef
         val disconnectedRef = admitted[1].raw as HeapRef
-        val disconnectedNode = requireNotNull(parent.hostNodeId(disconnected))
+        val disconnectedNode = requireNotNull(parent.heap.hostNodeId(disconnected))
         val sibling = parent.copy()
 
-        sibling.collapseReachable(listOf(admitted[0], admitted[0]), listOf(objectType, objectType))
+        sibling.heap.collapseReachable(listOf(admitted[0], admitted[0]), listOf(objectType, objectType))
 
         assertEquals(HostGraphContents.Unknown, (sibling.heapObject(affectedRef) as HeapObject.HostObject).contents)
         assertTrue((sibling.heapObject(disconnectedRef) as HeapObject.HostObject).contents is HostGraphContents.Known)
-        assertSame(disconnected, sibling.hostObjectAt(disconnectedRef))
-        val compactedNode = requireNotNull(sibling.hostNodeId(disconnected))
+        assertSame(disconnected, sibling.heap.hostObjectAt(disconnectedRef))
+        val compactedNode = requireNotNull(sibling.heap.hostNodeId(disconnected))
         assertEquals(HostGraphNodeId(0), compactedNode)
-        assertEquals(disconnectedRef, sibling.refForHostNode(compactedNode))
-        assertEquals(disconnectedNode, parent.hostNodeId(disconnected))
+        assertEquals(disconnectedRef, sibling.heap.refForNode(compactedNode))
+        assertEquals(disconnectedNode, parent.heap.hostNodeId(disconnected))
         assertTrue(sibling.isHostMaterializable(Value.Known(disconnectedRef, builderType)))
-        assertSame(affected, parent.hostObjectAt(affectedRef))
-        assertSame(disconnected, parent.hostObjectAt(disconnectedRef))
+        assertSame(affected, parent.heap.hostObjectAt(affectedRef))
+        assertSame(disconnected, parent.heap.hostObjectAt(disconnectedRef))
     }
 
     @Test
@@ -445,20 +445,20 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val affected = StringBuilder("affected")
         val disconnected = intArrayOf(3, 5, 8)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(affected, builderType)),
                 HostSeed(Value.Known(disconnected, intArrayType)),
             ),
         ).map { it as Value.Known }
         val arrayRef = admitted[1].raw as HeapRef
-        val before = frame.arrayAt(arrayRef)!!.elements()
+        val before = frame.heap.arrayAt(arrayRef)!!.elements()
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(builderType))
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(builderType))
 
-        assertEquals(before, frame.arrayAt(arrayRef)!!.elements())
-        assertTrue(frame.arrayAt(arrayRef)!!.mirror is HostGraphContents.Known)
-        assertSame(disconnected, frame.hostObjectAt(arrayRef))
+        assertEquals(before, frame.heap.arrayAt(arrayRef)!!.elements())
+        assertTrue(frame.heap.arrayAt(arrayRef)!!.contents is HostGraphContents.Known)
+        assertSame(disconnected, frame.heap.hostObjectAt(arrayRef))
         assertTrue(frame.isHostMaterializable(admitted[1]))
     }
 
@@ -467,10 +467,10 @@ class DirectHostObjectTest {
         // Bug class: an unknown reference can alias any VM-owned host root but invalidates none.
         // Oracle: unknown reference connectivity is unprovable, so the conservative fallback is the complete graph.
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val first = frame.allocateHostObject(builderType, StringBuilder("first"))
-        val second = frame.allocateHostObject(builderType, StringBuilder("second"))
+        val first = frame.heap.allocateHostObject(builderType, StringBuilder("first"))
+        val second = frame.heap.allocateHostObject(builderType, StringBuilder("second"))
 
-        frame.collapseReachable(listOf(Value.Unknown(objectType)), listOf(objectType))
+        frame.heap.collapseReachable(listOf(Value.Unknown(objectType)), listOf(objectType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(first) as HeapObject.HostObject).contents)
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(second) as HeapObject.HostObject).contents)
@@ -481,14 +481,14 @@ class DirectHostObjectTest {
         // Bug class: a known ref with unknown contents is treated as a disconnected empty component.
         // Oracle: its hidden Java edges can reach any graph node, so connectivity is unprovable.
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val first = frame.allocateHostObject(builderType, StringBuilder("first"))
-        val second = frame.allocateHostObject(builderType, StringBuilder("second"))
+        val first = frame.heap.allocateHostObject(builderType, StringBuilder("first"))
+        val second = frame.heap.allocateHostObject(builderType, StringBuilder("second"))
         val firstValue = Value.Known(first, builderType)
 
-        frame.collapseReachable(listOf(firstValue), listOf(builderType))
+        frame.heap.collapseReachable(listOf(firstValue), listOf(builderType))
         assertTrue((frame.heapObject(second) as HeapObject.HostObject).contents is HostGraphContents.Known)
 
-        frame.collapseReachable(listOf(firstValue), listOf(builderType))
+        frame.heap.collapseReachable(listOf(firstValue), listOf(builderType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(second) as HeapObject.HostObject).contents)
     }
@@ -503,7 +503,7 @@ class DirectHostObjectTest {
 
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val disconnected = StringBuilder("disconnected")
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(incompleteRoot, objectType)),
                 HostSeed(Value.Known(disconnected, builderType)),
@@ -511,7 +511,7 @@ class DirectHostObjectTest {
         ).map { it as Value.Known }
         val disconnectedRef = admitted[1].raw as HeapRef
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(objectType))
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(objectType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(disconnectedRef) as HeapObject.HostObject).contents)
     }
@@ -533,7 +533,7 @@ class DirectHostObjectTest {
         val disconnected = StringBuilder("disconnected")
         val failing = FailingIterable(StringBuilder("child"))
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(failing, objectType)),
                 HostSeed(Value.Known(disconnected, builderType)),
@@ -542,7 +542,7 @@ class DirectHostObjectTest {
         val disconnectedRef = admitted[1].raw as HeapRef
         failing.fail = true
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(objectType))
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(objectType))
 
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(disconnectedRef) as HeapObject.HostObject).contents)
         assertFalse(frame.isHostMaterializable(admitted[1]))
@@ -559,7 +559,7 @@ class DirectHostObjectTest {
         )
         val frame = Frame.entryFrame(view)
         val captured = StringBuilder("hidden")
-        val deadRef = frame.allocateHostObject(objectType, Runnable { captured.append('!') })
+        val deadRef = frame.heap.allocateHostObject(objectType, Runnable { captured.append('!') })
         frame.assign(view.parameters.single().register, Value.Known("visible", stringType))
 
         val graph = vm.newSession(view, entryFrame = frame).run()
@@ -580,7 +580,7 @@ class DirectHostObjectTest {
         )
         val frame = Frame.entryFrame(view)
         val captured = StringBuilder("hidden")
-        val live = frame.admitHostSeeds(
+        val live = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(Runnable { captured.append('!') }, objectType))),
         ).single()
         frame.assign(view.parameters[0].register, live)
@@ -656,7 +656,7 @@ class DirectHostObjectTest {
         val first = arrayListOf<Any>(StringBuilder("first-child"))
         val second = arrayListOf<Any>(StringBuilder("second-child"))
         val retained = MutableBox(7)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(first, objectType)),
                 HostSeed(Value.Known(second, objectType)),
@@ -667,14 +667,14 @@ class DirectHostObjectTest {
         val secondRef = admitted[1].raw as HeapRef
         val retainedRef = admitted[2].raw as HeapRef
 
-        frame.collapseReachable(listOf(admitted[0]), listOf(objectType))
-        assertEquals(3, frame.hostGraphObjects().size, "the second component and retained root must remain")
+        frame.heap.collapseReachable(listOf(admitted[0]), listOf(objectType))
+        assertEquals(3, frame.heap.hostGraphObjects().size, "the second component and retained root must remain")
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(firstRef) as HeapObject.HostObject).contents)
 
-        frame.collapseReachable(listOf(admitted[1]), listOf(objectType))
-        assertEquals(1, frame.hostGraphObjects().size, "only the retained root must remain")
-        assertEquals(HostGraphNodeId(0), frame.hostNodeId(frame.hostObjectAt(retainedRef)!!))
-        assertEquals(retainedRef, frame.refForHostNode(HostGraphNodeId(0)))
+        frame.heap.collapseReachable(listOf(admitted[1]), listOf(objectType))
+        assertEquals(1, frame.heap.hostGraphObjects().size, "only the retained root must remain")
+        assertEquals(HostGraphNodeId(0), frame.heap.hostNodeId(frame.heap.hostObjectAt(retainedRef)!!))
+        assertEquals(retainedRef, frame.heap.refForNode(HostGraphNodeId(0)))
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(secondRef) as HeapObject.HostObject).contents)
 
         val selected = SelectedHostCall.from(
@@ -694,7 +694,7 @@ class DirectHostObjectTest {
         val unownedChild = MutableChild(1)
         val unownedParent = MutableParent(unownedChild)
         val unownedFrame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val unownedValue = unownedFrame.admitHostSeeds(
+        val unownedValue = unownedFrame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(unownedParent, objectType))),
         ).single() as Value.Known
         val unownedCall = SelectedHostCall.from(
@@ -705,13 +705,13 @@ class DirectHostObjectTest {
         (unownedCall.arguments.single() as MutableParent).child = null
 
         assertEquals(HostGraphComparison.Different, unownedCall.finalize(unownedFrame))
-        assertEquals(1, unownedFrame.hostGraphObjects().size)
-        assertEquals(null, unownedFrame.hostNodeId(unownedChild))
+        assertEquals(1, unownedFrame.heap.hostGraphObjects().size)
+        assertEquals(null, unownedFrame.heap.hostNodeId(unownedChild))
 
         val ownedChild = MutableChild(2)
         val ownedParent = MutableParent(ownedChild)
         val ownedFrame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val owned = ownedFrame.admitHostSeeds(
+        val owned = ownedFrame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(ownedParent, objectType)),
                 HostSeed(Value.Known(ownedChild, objectType)),
@@ -727,9 +727,9 @@ class DirectHostObjectTest {
         (ownedCall.arguments.first() as MutableParent).child = null
 
         assertEquals(HostGraphComparison.Different, ownedCall.finalize(ownedFrame))
-        assertEquals(2, ownedFrame.hostGraphObjects().size)
-        assertEquals(parentRef, ownedFrame.findHostObject(ownedFrame.hostObjectAt(parentRef)!!))
-        assertEquals(childRef, ownedFrame.findHostObject(ownedFrame.hostObjectAt(childRef)!!))
+        assertEquals(2, ownedFrame.heap.hostGraphObjects().size)
+        assertEquals(parentRef, ownedFrame.heap.findHostObject(ownedFrame.heap.hostObjectAt(parentRef)!!))
+        assertEquals(childRef, ownedFrame.heap.findHostObject(ownedFrame.heap.hostObjectAt(childRef)!!))
     }
 
     @Test
@@ -737,7 +737,7 @@ class DirectHostObjectTest {
         // Bug class: each selected mutation leaves the replaced child in the graph, growing every later clone.
         // Oracle: one parent and its current child are the only reachable nodes after every replacement.
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(MutableParent(MutableChild(0)), objectType))),
         ).single() as Value.Known
         val ref = admitted.raw as HeapRef
@@ -750,8 +750,8 @@ class DirectHostObjectTest {
             )
             (selected.arguments.single() as MutableParent).child = MutableChild(value + 1)
             assertEquals(HostGraphComparison.Different, selected.finalize(frame))
-            assertEquals(2, frame.hostGraphObjects().size)
-            assertEquals(ref, frame.findHostObject(frame.hostObjectAt(ref)!!))
+            assertEquals(2, frame.heap.hostGraphObjects().size)
+            assertEquals(ref, frame.heap.findHostObject(frame.heap.hostObjectAt(ref)!!))
         }
     }
 
@@ -761,7 +761,7 @@ class DirectHostObjectTest {
         // Oracle: the result itself becomes a new VM root after finalization; the former parent ref stays stable.
         val view = hostView("detachChild(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
-        val parentRef = frame.allocateHostObject(objectType, MutableParent(MutableChild(9)))
+        val parentRef = frame.heap.allocateHostObject(objectType, MutableParent(MutableChild(9)))
         frame.assign(0, Value.Known(parentRef, objectType))
         val run = hostVm.newSession(view, entryFrame = frame)
         val graph = run.run()
@@ -782,7 +782,7 @@ class DirectHostObjectTest {
         val view = hostView("detachHolderChild(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
         val child = StringBuilder("returned")
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(HostChildHolder(child), objectType)),
                 HostSeed(Value.Known(child, builderType)),
@@ -823,7 +823,7 @@ class DirectHostObjectTest {
         val view = hostView("throwHolderChild(Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)
         val child = IllegalStateException("removed")
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(HostChildHolder(child), objectType)),
                 HostSeed(Value.Known(child, type)),
@@ -843,7 +843,7 @@ class DirectHostObjectTest {
         assertNotEquals(oldChildRef, newRef)
         assertEquals(HostGraphContents.Unknown, (node.frame.heapObject(oldChildRef) as HeapObject.GuestThrowable).contents)
         assertTrue((node.frame.heapObject(newRef) as HeapObject.GuestThrowable).contents is HostGraphContents.Known)
-        assertEquals("removed", (node.frame.hostObjectAt(newRef) as IllegalStateException).message)
+        assertEquals("removed", (node.frame.heap.hostObjectAt(newRef) as IllegalStateException).message)
     }
 
     @Test
@@ -853,7 +853,7 @@ class DirectHostObjectTest {
         val view = hostView("holderChild(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
         val child = StringBuilder("owned")
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(HostChildHolder(child), objectType)),
                 HostSeed(Value.Known(child, builderType)),
@@ -874,7 +874,7 @@ class DirectHostObjectTest {
         val view = hostView("detachHolderChild(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
         val child = intArrayOf(2, 3)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(HostChildHolder(child), objectType)),
                 HostSeed(Value.Known(child, intArrayType)),
@@ -892,8 +892,8 @@ class DirectHostObjectTest {
 
         assertEquals(expectedNewId, newRef.id)
         assertNotEquals(oldRef, newRef)
-        assertEquals(HostGraphContents.Unknown, terminalFrame.arrayAt(oldRef)!!.mirror)
-        assertEquals(listOf(Value.Known(2, intType), Value.Known(3, intType)), terminalFrame.arrayAt(newRef)!!.elements())
+        assertEquals(HostGraphContents.Unknown, terminalFrame.heap.arrayAt(oldRef)!!.contents)
+        assertEquals(listOf(Value.Known(2, intType), Value.Known(3, intType)), terminalFrame.heap.arrayAt(newRef)!!.elements())
         assertTrue(terminalFrame.isHostMaterializable(Value.Known(newRef, intArrayType)))
     }
 
@@ -904,23 +904,23 @@ class DirectHostObjectTest {
         val rawArray = intArrayOf(0)
         val holder = MirrorHolder(rawArray, Array(9_997) { MutableBox(it) })
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val holderValue = frame.admitHostSeeds(
+        val holderValue = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(holder, objectType))),
         ).single() as Value.Known
         val holderRef = holderValue.raw as HeapRef
-        val arrayRef = requireNotNull(frame.findHostObject(rawArray))
+        val arrayRef = requireNotNull(frame.heap.findHostObject(rawArray))
         val sibling = frame.copy()
         val graphVersion = frame.hostGraphVersionToken()
 
-        repeat(100) { value -> assertTrue(frame.writeArrayElement(arrayRef, 0, Value.Known(value, intType))) }
+        repeat(100) { value -> assertTrue(frame.heap.setArrayElement(arrayRef, 0, Value.Known(value, intType))) }
 
         assertSame(graphVersion, frame.hostGraphVersionToken(), "lattice writes must not clone or replace the graph")
-        assertSame(holder, frame.hostObjectAt(holderRef))
-        assertTrue(frame.arrayAt(arrayRef)!!.mirrorDirty)
-        assertEquals(Value.Known(99, intType), frame.arrayAt(arrayRef)!!.element(0))
-        assertEquals(Value.Known(0, intType), sibling.arrayAt(arrayRef)!!.element(0))
+        assertSame(holder, frame.heap.hostObjectAt(holderRef))
+        assertTrue(frame.heap.arrayAt(arrayRef)!!.mirrorDirty)
+        assertEquals(Value.Known(99, intType), frame.heap.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(0, intType), sibling.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(0, rawArray[0])
-        assertEquals(10_000, frame.hostGraphObjects().size)
+        assertEquals(10_000, frame.heap.hostGraphObjects().size)
 
         val selected = SelectedHostCall.from(
             prepared(
@@ -936,10 +936,10 @@ class DirectHostObjectTest {
         assertNotSame(holder, selectedHolder, "one selected detach runs the backend on a clone")
         assertSame(selectedHolder.array, selectedArray)
         assertEquals(99, selectedArray[0])
-        assertFalse(frame.arrayAt(arrayRef)!!.mirrorDirty)
+        assertFalse(frame.heap.arrayAt(arrayRef)!!.mirrorDirty)
         selected.finalize(frame)
-        assertEquals(99, (frame.hostObjectAt(holderRef) as MirrorHolder).array[0])
-        assertEquals(0, (sibling.hostObjectAt(holderRef) as MirrorHolder).array[0])
+        assertEquals(99, (frame.heap.hostObjectAt(holderRef) as MirrorHolder).array[0])
+        assertEquals(0, (sibling.heap.hostObjectAt(holderRef) as MirrorHolder).array[0])
     }
 
     @Test
@@ -953,7 +953,7 @@ class DirectHostObjectTest {
         for (raw in raws) {
             assertFalse(raw.isDirectHostImmutable(), raw.javaClass.name)
             val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-            val admitted = frame.admitHostSeeds(
+            val admitted = frame.heap.admitHostSeeds(
                 listOf(HostSeed(Value.Known(raw, objectType))),
             ).single() as Value.Known
             val ref = admitted.raw as HeapRef
@@ -967,8 +967,8 @@ class DirectHostObjectTest {
             (selected.arguments.single() as MutableHostNumber).note.append("-changed")
             selected.finalize(sibling)
 
-            assertEquals("seed", (frame.hostObjectAt(ref) as MutableHostNumber).note.toString())
-            assertEquals("seed-changed", (sibling.hostObjectAt(ref) as MutableHostNumber).note.toString())
+            assertEquals("seed", (frame.heap.hostObjectAt(ref) as MutableHostNumber).note.toString())
+            assertEquals("seed-changed", (sibling.heap.hostObjectAt(ref) as MutableHostNumber).note.toString())
         }
         assertTrue(BigInteger.ONE.isDirectHostImmutable())
         assertTrue(BigDecimal.ONE.isDirectHostImmutable())
@@ -980,7 +980,7 @@ class DirectHostObjectTest {
         // Oracle: an enum runtime class is not an exact scalar class and its instance fields are graph state.
         MutableHostEnum.VALUE.note = StringBuilder("seed")
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(MutableHostEnum.VALUE, objectType))),
         ).single() as Value.Known
         val ref = admitted.raw as HeapRef
@@ -994,8 +994,8 @@ class DirectHostObjectTest {
         (selected.arguments.single() as MutableHostEnum).note.append("-changed")
         selected.finalize(sibling)
 
-        assertEquals("seed", (frame.hostObjectAt(ref) as MutableHostEnum).note.toString())
-        assertEquals("seed-changed", (sibling.hostObjectAt(ref) as MutableHostEnum).note.toString())
+        assertEquals("seed", (frame.heap.hostObjectAt(ref) as MutableHostEnum).note.toString())
+        assertEquals("seed-changed", (sibling.heap.hostObjectAt(ref) as MutableHostEnum).note.toString())
         assertFalse(MutableHostEnum.VALUE.isDirectHostImmutable())
     }
 
@@ -1069,7 +1069,7 @@ class DirectHostObjectTest {
         val after = requireNotNull(session.currentNode).frame
 
         assertTrue(after.hostGraphVersionToken() !== before, "opaque fallback must prune its invalidated graph")
-        assertTrue(after.hostGraphObjects().isEmpty())
+        assertTrue(after.heap.hostGraphObjects().isEmpty())
     }
 
     @Test
@@ -1084,8 +1084,8 @@ class DirectHostObjectTest {
         val vm = VmServices(CoreTester.classIndex)
         val view = identityView()
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(builderType, StringBuilder("opaque"))
-        frame.collapseReachable(listOf(Value.Known(ref, builderType)), listOf(builderType))
+        val ref = frame.heap.allocateHostObject(builderType, StringBuilder("opaque"))
+        frame.heap.collapseReachable(listOf(Value.Known(ref, builderType)), listOf(builderType))
         frame.assign(0, Value.Known(ref, builderType))
 
         session(view, vm, frame, listOf(backend)).run()
@@ -1164,7 +1164,7 @@ class DirectHostObjectTest {
         val builder = StringBuilder("start")
         val view = hostView("appendChangedThroughAlias(Ljava/lang/StringBuilder;Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(builderType, builder)
+        val ref = frame.heap.allocateHostObject(builderType, builder)
         frame.assign(0, Value.Known(ref, builderType))
         frame.assign(1, Value.Known(ref, objectType))
 
@@ -1184,7 +1184,7 @@ class DirectHostObjectTest {
         val listType = VirtualType.of("Ljava/util/ArrayList;")
         val view = view("Linvoke_reflected_test;", "addToListAndGet()V")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(listType, list)
+        val ref = frame.heap.allocateHostObject(listType, list)
         frame.assign(0, Value.Known(ref, VirtualType.of("Ljava/util/List;")))
         frame.assign(1, Value.Known(ref, objectType))
         frame.assign(2, Value.Known(0, intType))
@@ -1205,14 +1205,14 @@ class DirectHostObjectTest {
     fun returnedUnreachableHistoricalObjectGetsANewReachableRef() {
         val view = hostView("returnStored()Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
-        val hiddenRef = frame.allocateHostObject(builderType, StringBuilder("hidden"))
+        val hiddenRef = frame.heap.allocateHostObject(builderType, StringBuilder("hidden"))
         val session = hostVm.newSession(view, entryFrame = frame)
-        DirectHostCallsFixture.stored = session.frontier.single().frame.hostObjectAt(hiddenRef)!!
+        DirectHostCallsFixture.stored = session.frontier.single().frame.heap.hostObjectAt(hiddenRef)!!
 
         val returned = (session.run().outcomes.single() as Outcome.Returned).value as Value.Known
 
         assertNotEquals(hiddenRef, returned.raw)
-        assertEquals("hidden", session.currentNode!!.frame.hostObjectAt(returned.raw as HeapRef).toString())
+        assertEquals("hidden", session.currentNode!!.frame.heap.hostObjectAt(returned.raw as HeapRef).toString())
     }
 
     @Test
@@ -1221,7 +1221,7 @@ class DirectHostObjectTest {
         val container = arrayListOf<Any>(child)
         val view = hostView("firstElement(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
-        val containerRef = frame.allocateHostObject(objectType, container)
+        val containerRef = frame.heap.allocateHostObject(objectType, container)
         frame.assign(0, Value.Known(containerRef, objectType))
 
         val graph = hostVm.newSession(view, entryFrame = frame).run()
@@ -1236,7 +1236,7 @@ class DirectHostObjectTest {
     fun newMutableReturnGetsAFreshSchedulerIdWithoutCollision() {
         val view = hostView("newBuilder()Ljava/lang/Object;")
         val frame = Frame.entryFrame(view)
-        val existing = frame.allocateHostObject(objectType, arrayListOf("existing"))
+        val existing = frame.heap.allocateHostObject(objectType, arrayListOf("existing"))
         val graph = hostVm.newSession(view, entryFrame = frame).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val returnedRef = returned.raw as HeapRef
@@ -1274,11 +1274,11 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Lcalls/caller;", "callsNativeCallee()I"))
         val builder = StringBuilder("same")
         val raw = arrayOf<Any>(builder)
-        val arrayValue = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, objectArrayType)))).single()
+        val arrayValue = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, objectArrayType)))).single()
             as Value.Known
         val ref = arrayValue.raw as HeapRef
         val before = frame.heapObject(ref)
-        val original = frame.arrayAt(ref)!!.element(0)
+        val original = frame.heap.arrayAt(ref)!!.element(0)
         val selected = SelectedHostCall.from(
             prepared(listOf(objectArrayType), listOf(arrayValue)),
             frame,
@@ -1286,8 +1286,8 @@ class DirectHostObjectTest {
         )
         selected.finalize(frame)
 
-        assertEquals(original, frame.arrayAt(ref)!!.element(0))
-        assertEquals(objectType, (frame.arrayAt(ref)!!.element(0) as Value.Known).type)
+        assertEquals(original, frame.heap.arrayAt(ref)!!.element(0))
+        assertEquals(objectType, (frame.heap.arrayAt(ref)!!.element(0) as Value.Known).type)
         assertSame(before, frame.heapObject(ref))
     }
 
@@ -1295,12 +1295,12 @@ class DirectHostObjectTest {
     fun unchangedImmutableAndNullArrayElementsKeepTagsWhileClearingDirtyMirrorState() {
         val frame = Frame.entryFrame(view("Lcalls/caller;", "callsNativeCallee()I"))
         val raw = arrayOf<Any?>("same", null)
-        val arrayValue = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, objectArrayType)))).single()
+        val arrayValue = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, objectArrayType)))).single()
             as Value.Known
         val ref = arrayValue.raw as HeapRef
         val charSequence = VirtualType.of("Ljava/lang/CharSequence;")
         val string = VirtualType.of("Ljava/lang/String;")
-        frame.writeArrayElements(
+        frame.heap.setArrayElements(
             ref,
             0,
             listOf(Value.Known("same", charSequence), Value.Known(null, string)),
@@ -1314,17 +1314,17 @@ class DirectHostObjectTest {
 
         selected.finalize(frame)
 
-        assertEquals(Value.Known("same", charSequence), frame.arrayAt(ref)!!.element(0))
-        assertEquals(Value.Known(null, string), frame.arrayAt(ref)!!.element(1))
+        assertEquals(Value.Known("same", charSequence), frame.heap.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(null, string), frame.heap.arrayAt(ref)!!.element(1))
         assertNotSame(before, frame.heapObject(ref))
-        assertFalse(frame.arrayAt(ref)!!.mirrorDirty)
+        assertFalse(frame.heap.arrayAt(ref)!!.mirrorDirty)
     }
 
     @Test
     fun targetThrowKeepsMutationAndTheExactThrowable() {
         val view = hostView("appendThenThrow(Ljava/lang/StringBuilder;)V")
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(builderType, StringBuilder("value"))
+        val ref = frame.heap.allocateHostObject(builderType, StringBuilder("value"))
         frame.assign(0, Value.Known(ref, builderType))
 
         val node = hostVm.newSession(view, entryFrame = frame).step()!!
@@ -1333,14 +1333,14 @@ class DirectHostObjectTest {
         val thrownRef = (thrown.exception as Value.Known).raw as HeapRef
 
         assertTrue(stored.contents is HostGraphContents.Known)
-        assertEquals("value-before-throw", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-before-throw", node.frame.heap.hostObjectAt(ref).toString())
         assertEquals(
             SideEffectLevel.NONE,
             node.sideEffectLevel,
             "a target throw does not erase NONE or turn reconciled mutation into an external effect",
         )
         assertEquals(VirtualType.of("Ljava/lang/IllegalStateException;"), thrown.exception.type)
-        assertSame(DirectHostCallsFixture.target, node.frame.hostObjectAt(thrownRef))
+        assertSame(DirectHostCallsFixture.target, node.frame.heap.hostObjectAt(thrownRef))
     }
 
     @Test
@@ -1363,7 +1363,7 @@ class DirectHostObjectTest {
 
         val node = session.step()!!
 
-        assertEquals("value-before-failure", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-before-failure", node.frame.heap.hostObjectAt(ref).toString())
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), node.outcome)
     }
 
@@ -1399,13 +1399,39 @@ class DirectHostObjectTest {
         val vm = VmServices(CoreTester.classIndex)
         val view = identityView()
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(objectType, FatalIterable())
+        val ref = frame.heap.allocateHostObject(objectType, FatalIterable())
         frame.assign(0, Value.Known(ref, objectType))
         val session = session(view, vm, frame, listOf(backend))
 
         assertSame(targetFatal, assertThrows<StackOverflowError> { session.step() })
         assertEquals(null, session.currentNode!!.outcome)
         assertTrue(session.currentNode!!.children.isEmpty())
+    }
+
+    @Test
+    fun finalizationStoppedByAHostFailureEndsThePathWithThatFailure() {
+        // Bug class: a host failure while re-walking the graph after a returned call is reported as Unprovable and
+        // the path continues, so the failure is lost. Oracle: the argument's own accessor throws during the walk,
+        // and that throwable is the cause of the path's HOST_FAILURE abort.
+        class EntryWalkFailure : RuntimeException("entry state cannot be read")
+        class BreakingEntry : Map.Entry<Any?, Any?> {
+            var broken = false
+            override val key: Any? get() = if (broken) throw EntryWalkFailure() else null
+            override val value: Any? get() = null
+        }
+        val backend = DirectBackend { call ->
+            (call.arguments.single() as BreakingEntry).broken = true
+            SynchronousCallResult.Returned(HostReturn.Void)
+        }
+        val view = identityView()
+        val frame = Frame.entryFrame(view)
+        val ref = frame.heap.allocateHostObject(objectType, BreakingEntry())
+        frame.assign(0, Value.Known(ref, objectType))
+
+        val node = session(view, VmServices(CoreTester.classIndex), frame, listOf(backend)).step()!!
+
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is EntryWalkFailure, "cause: ${node.outcome.hostFailure}")
     }
 
     @Test
@@ -1426,7 +1452,7 @@ class DirectHostObjectTest {
         assertSame(primary, node.outcome.hostFailure)
         assertEquals(1, primary.suppressed.size)
         assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
-        assertEquals(Value.Unknown(objectType), node.frame.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Unknown(objectType), node.frame.heap.arrayAt(ref)!!.element(0))
     }
 
     @Test
@@ -1450,7 +1476,7 @@ class DirectHostObjectTest {
         val node = session.step()!!
 
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, escaped), node.outcome)
-        assertEquals("value-before-escape", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-before-escape", node.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -1473,7 +1499,7 @@ class DirectHostObjectTest {
         val vm = VmServices(CoreTester.classIndex)
         val view = identityView()
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(objectType, FatalIterable())
+        val ref = frame.heap.allocateHostObject(objectType, FatalIterable())
         frame.assign(0, Value.Known(ref, objectType))
         val session = session(view, vm, frame, listOf(backend))
 
@@ -1501,7 +1527,7 @@ class DirectHostObjectTest {
         val node = session.step()!!
 
         assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
-        assertEquals("value-changed", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-changed", node.frame.heap.hostObjectAt(ref).toString())
         assertTrue(node.children.isEmpty())
     }
 
@@ -1550,7 +1576,7 @@ class DirectHostObjectTest {
 
         assertEquals(2, executions)
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals("value", requireNotNull(session.currentNode).frame.hostObjectAt(ref).toString())
+        assertEquals("value", requireNotNull(session.currentNode).frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -1573,8 +1599,8 @@ class DirectHostObjectTest {
         )
         (selected.arguments.single() as MutableThrowable).marker = 2
         selected.finalize(first)
-        assertEquals(1, (second.hostObjectAt(ref) as MutableThrowable).marker)
-        assertEquals(2, (first.hostObjectAt(ref) as MutableThrowable).marker)
+        assertEquals(1, (second.heap.hostObjectAt(ref) as MutableThrowable).marker)
+        assertEquals(2, (first.heap.hostObjectAt(ref) as MutableThrowable).marker)
 
         val merged = parent.mergedCalleeState(listOf(first, second), CoreTester.classIndex)
         assertEquals(HostGraphContents.Unknown, (merged.heapObject(ref) as HeapObject.GuestThrowable).contents)
@@ -1598,14 +1624,14 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view)
         val existing = frame.allocateThrowable(type, IllegalStateException("input")).raw as HeapRef
         frame.assign(0, Value.Known(existing, type))
-        val graphNodes = frame.hostGraphObjects().size
+        val graphNodes = frame.heap.hostGraphObjects().size
         val probeBefore = probeNextHeapId(frame)
 
         val node = hostVm.newSession(view, entryFrame = frame).step()!!
         val thrown = node.outcome as Outcome.Threw
 
         assertEquals(existing, (thrown.exception as Value.Known).raw)
-        assertSame(DirectHostCallsFixture.received, node.frame.hostObjectAt(existing))
+        assertSame(DirectHostCallsFixture.received, node.frame.heap.hostObjectAt(existing))
         assertEquals(
             probeBefore + 1,
             probeNextHeapId(node.frame),
@@ -1613,7 +1639,7 @@ class DirectHostObjectTest {
         )
         assertEquals(
             graphNodes,
-            node.frame.hostGraphObjects().size,
+            node.frame.heap.hostGraphObjects().size,
             "the selected throwable clone must not remain as a second host graph",
         )
     }
@@ -1646,12 +1672,12 @@ class DirectHostObjectTest {
         (selected.arguments[2] as Array<Any?>)[0] = inserted
         selected.finalize(frame)
 
-        assertEquals(Value.Known(9, intType), frame.arrayAt(ints)!!.element(1))
-        val insertedValue = frame.arrayAt(objects)!!.element(0) as Value.Known
+        assertEquals(Value.Known(9, intType), frame.heap.arrayAt(ints)!!.element(1))
+        val insertedValue = frame.heap.arrayAt(objects)!!.element(0) as Value.Known
         val insertedRef = insertedValue.raw as HeapRef
         assertEquals(builderType, insertedValue.type)
         assertEquals(builderType, frame.heapObject(insertedRef)!!.type)
-        assertSame(inserted, frame.hostObjectAt(insertedRef))
+        assertSame(inserted, frame.heap.hostObjectAt(insertedRef))
     }
 
     @Test
@@ -1664,7 +1690,7 @@ class DirectHostObjectTest {
 
         val node = session.step()!!
 
-        assertEquals(Value.Known(7, intType), node.frame.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(7, intType), node.frame.heap.arrayAt(ref)!!.element(0))
     }
 
     @Test
@@ -1696,7 +1722,7 @@ class DirectHostObjectTest {
         ).raw as HeapRef
         frame.assign(0, Value.Known(ref, objectType))
         val failed = session(view, vm, frame, listOf(backend)).step()!!
-        val tracked = failed.frame.arrayAt(ref)!!
+        val tracked = failed.frame.heap.arrayAt(ref)!!
 
         assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
         assertEquals(Value.Unknown(objectType), tracked.element(0))
@@ -1723,8 +1749,8 @@ class DirectHostObjectTest {
 
         assertThrows<HostGraphOwnershipException> { selected.finalize(frame) }
 
-        assertEquals(Value.Unknown(objectType), frame.arrayAt(first)!!.element(0))
-        assertEquals(Value.Unknown(objectType), frame.arrayAt(second)!!.element(0))
+        assertEquals(Value.Unknown(objectType), frame.heap.arrayAt(first)!!.element(0))
+        assertEquals(Value.Unknown(objectType), frame.heap.arrayAt(second)!!.element(0))
         assertEquals(null, frame.heapObject(partiallyImportedRef), "rollback must remove the partially imported ref")
         val later = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap()).raw as HeapRef
         assertTrue(later.id >= partiallyImportedRef.id, "failed imports may leave gaps but never reuse a live id")
@@ -1735,7 +1761,7 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val array = intArrayOf(1)
         val container = arrayListOf<Any>(array)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(container, objectType)),
                 HostSeed(Value.Known(array, intArrayType)),
@@ -1744,7 +1770,7 @@ class DirectHostObjectTest {
         val containerRef = admitted[0].raw as HeapRef
         val arrayRef = admitted[1].raw as HeapRef
 
-        frame.writeArrayElement(arrayRef, 0, Value.Known(4, intType))
+        frame.heap.setArrayElement(arrayRef, 0, Value.Known(4, intType))
         val selected = SelectedHostCall.from(
             prepared(listOf(objectType), listOf(Value.Known(containerRef, objectType))),
             frame,
@@ -1755,10 +1781,10 @@ class DirectHostObjectTest {
         selectedArray[0] = 7
         selected.finalize(frame)
 
-        assertEquals(Value.Known(7, intType), frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(7, intType), frame.heap.arrayAt(arrayRef)!!.element(0))
         assertSame(
-            (frame.hostObjectAt(containerRef) as List<*>).single(),
-            frame.hostObjectAt(arrayRef),
+            (frame.heap.hostObjectAt(containerRef) as List<*>).single(),
+            frame.heap.hostObjectAt(arrayRef),
         )
     }
 
@@ -1779,7 +1805,7 @@ class DirectHostObjectTest {
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), node.outcome)
-        assertEquals(Value.Known(8, intType), node.frame.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(8, intType), node.frame.heap.arrayAt(ref)!!.element(0))
     }
 
     @Test
@@ -1799,7 +1825,7 @@ class DirectHostObjectTest {
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, escaped), node.outcome)
-        assertEquals(Value.Known(9, intType), node.frame.arrayAt(ref)!!.element(0))
+        assertEquals(Value.Known(9, intType), node.frame.heap.arrayAt(ref)!!.element(0))
     }
 
     @Test
@@ -1814,9 +1840,9 @@ class DirectHostObjectTest {
         frame.assign(0, Value.Known(outer, objectType))
         val nestedGraph = hostVm.newSession(view, entryFrame = frame).run()
         val terminal = nestedGraph.nodePile(nestedGraph.methodView.terminalInstructionAddresses.single()).single().frame
-        val nestedRef = (terminal.arrayAt(outer)!!.element(0) as Value.Known).raw as HeapRef
+        val nestedRef = (terminal.heap.arrayAt(outer)!!.element(0) as Value.Known).raw as HeapRef
         assertTrue(terminal.heapObject(nestedRef) is HeapObject.TrackedArray)
-        assertEquals(Value.Known(6, intType), terminal.arrayAt(nestedRef)!!.element(0))
+        assertEquals(Value.Known(6, intType), terminal.heap.arrayAt(nestedRef)!!.element(0))
     }
 
     @Test
@@ -1838,8 +1864,8 @@ class DirectHostObjectTest {
 
         selected.finalize(frame)
 
-        val first = frame.arrayAt(outer)!!.element(0) as Value.Known
-        val second = frame.arrayAt(outer)!!.element(1) as Value.Known
+        val first = frame.heap.arrayAt(outer)!!.element(0) as Value.Known
+        val second = frame.heap.arrayAt(outer)!!.element(1) as Value.Known
         assertEquals(first.raw, second.raw)
         assertTrue(frame.heapObject(first.raw as HeapRef) is HeapObject.TrackedArray)
     }
@@ -1888,7 +1914,7 @@ class DirectHostObjectTest {
             charSequenceArray,
             arrayOf(Value.Known(null, VirtualType.of("Ljava/lang/CharSequence;"))),
         ).raw as HeapRef
-        val builderRef = frame.allocateHostObject(builderType, StringBuilder("value"))
+        val builderRef = frame.heap.allocateHostObject(builderType, StringBuilder("value"))
         frame.assign(0, Value.Known(builderRef, objectType))
         frame.assign(1, Value.Known(arrayRef, charSequenceArray))
         frame.assign(2, Value.Known(0, intType))
@@ -1904,7 +1930,7 @@ class DirectHostObjectTest {
 
         val arm = op.execute(frame).arms.single() as OpArm.Continue
         arm.update.applyTo(frame)
-        assertEquals(Value.Known(builderRef, VirtualType.of("Ljava/lang/CharSequence;")), frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(builderRef, VirtualType.of("Ljava/lang/CharSequence;")), frame.heap.arrayAt(arrayRef)!!.element(0))
     }
 
     @Test
@@ -1931,7 +1957,7 @@ class DirectHostObjectTest {
 
         val arm = op.execute(frame).arms.single() as OpArm.Continue
         arm.update.applyTo(frame)
-        assertEquals(Value.Known("value", charSequence), frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known("value", charSequence), frame.heap.arrayAt(arrayRef)!!.element(0))
     }
 
     @Test
@@ -1960,7 +1986,7 @@ class DirectHostObjectTest {
         val vm = VmServices(CoreTester.classIndex)
         val view = identityView()
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(objectType, arrayListOf<Any>())
+        val ref = frame.heap.allocateHostObject(objectType, arrayListOf<Any>())
         frame.assign(0, Value.Known(ref, objectType))
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
@@ -1968,7 +1994,7 @@ class DirectHostObjectTest {
         assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertTrue(node.outcome.hostFailure is HostGraphOwnershipException)
         assertEquals(HostGraphContents.Unknown, (node.frame.heapObject(ref) as HeapObject.HostObject).contents)
-        assertEquals(null, node.frame.hostObjectAt(ref))
+        assertEquals(null, node.frame.heap.hostObjectAt(ref))
     }
 
     private fun prepared(parameterTypes: List<VirtualType>, arguments: List<Value>) = PreparedInvocation(
@@ -1998,7 +2024,7 @@ class DirectHostObjectTest {
         val vm = VmServices(classIndex)
         val view = classIndex.requireMethodView("Linvoke_backend_test;", descriptor)
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(raws.zip(types) { raw, type -> HostSeed(Value.Known(raw, type)) })
+        val admitted = frame.heap.admitHostSeeds(raws.zip(types) { raw, type -> HostSeed(Value.Known(raw, type)) })
         view.parameters.zip(admitted).forEach { (parameter, value) -> frame.assign(parameter.register, value) }
         val graph = vm.newSession(view, entryFrame = frame).run()
         val outcome = graph.outcomes.single()
@@ -2024,7 +2050,7 @@ class DirectHostObjectTest {
     ): Pair<ExecutionSession, HeapRef> {
         val view = view(className, descriptor)
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(type, raw)
+        val ref = frame.heap.allocateHostObject(type, raw)
         seed(frame, ref)
         return session(view, hostVm, frame, backends) to ref
     }

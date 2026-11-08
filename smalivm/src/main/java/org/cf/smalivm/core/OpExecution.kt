@@ -241,7 +241,7 @@ internal class OpUpdate private constructor(
         var effect = SideEffectLevel.NONE
         for (change in changes) {
             when (change) {
-                is Change.Assign -> frame.assignFrameValue(change.register, change.value)
+                is Change.Assign -> frame.assign(change.register, change.value)
                 is Change.AllocateArray -> {
                     val allocated = when (val data = change.data) {
                         // `Unknown` drops what is known about the array but claims nothing false, so it
@@ -266,12 +266,12 @@ internal class OpUpdate private constructor(
                     frame.allocateObject(change.type, change.fields),
                 )
                 is Change.WriteArrayElements -> check(
-                    frame.writeArrayElements(change.ref, change.startIndex, change.values),
+                    frame.heap.setArrayElements(change.ref, change.startIndex, change.values),
                 ) { "No tracked array exists at ${change.ref}" }
-                is Change.WriteField -> check(frame.writeField(change.ref, change.descriptor, change.value)) {
+                is Change.WriteField -> check(frame.heap.setField(change.ref, change.descriptor, change.value)) {
                     "No tracked field ${change.descriptor} exists at ${change.ref}"
                 }
-                is Change.WriteStatic -> frame.writeStaticField(change.descriptor, change.value)
+                is Change.WriteStatic -> frame.classes.setStaticField(change.descriptor, change.value)
                 is Change.Effect -> effect = maxOf(effect, change.level)
             }
         }

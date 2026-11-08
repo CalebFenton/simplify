@@ -34,9 +34,9 @@ sealed class HeapObject(val type: VirtualType) {
     /** A direct JVM object plus immutable method metadata captured before the host graph can clone it. */
     class HostObject internal constructor(
         type: VirtualType,
-        val contents: HostGraphContents,
+        override val contents: HostGraphContents,
         internal val reflectedMethodMetadata: ReflectedMethodMetadata?,
-    ) : HeapObject(type) {
+    ) : HeapObject(type), HostBacked {
         internal fun withContents(next: HostGraphContents): HostObject =
             if (next == contents) this else HostObject(type, next, reflectedMethodMetadata)
 
@@ -44,52 +44,30 @@ sealed class HeapObject(val type: VirtualType) {
     }
 
     /**
-     * A tracked array. **Each element is its own lattice point**, which is the whole reason this type
-     * exists rather than a host array in the raw: the engine being replaced marks the ENTIRE array
-     * `Unknown` when one element or one index is unknown (`opcode/APutOp.kt`'s
-     * `if (store.isUnknown || index.isUnknown) array = Value.unknown(array.type)`), and **its own test called
-     * that non-ideal**: *"TODO: Ideally, setting an element unknown shouldn't set entire array unknown"*. With
-     * elements as [Value]s the honest answer is available -- one unknown element, every other element still
+     * A tracked array. Each element is its own lattice point, so one unknown element leaves every other element
      * known.
      *
-     * **No file reference for that admission on purpose: the test carrying it belonged to the engine being
-     * replaced and was deleted with it in Plan 7 Task 9.** The quotation is preserved here because it is the
-     * strongest evidence for the divergence -- the old engine's own author agreeing -- and a citation to a
-     * deleted file is worse than none: it resolves against whatever now answers to that name. The surviving
-     * tests are `core/op/APutOpTest.anUnknownValueMakesOnlyItsOwnElementUnknown` and, for the unknown-INDEX
-     * half, `…anUnknownIndexJoinsEveryElementWithTheStoredValue`; both are REPLACED migrations, keeping the
-     * corpus's input and question while the answer sharpens. Cited by NAME, never by line range.
+     * [type] is this object's own array type and is always a real array descriptor, so [componentType] is never
+     * null. It comes from something that cannot lie: `new-array`'s type operand, or a seeded host array's own
+     * class. A register's tag is separate and may disagree, because a Dalvik register carries no type: where an
+     * object exists it is the authority for component type and length, and a tag is consulted only for an
+     * `Unknown` array. Element raws are not required to match [componentType].
      *
-     * [type] is **this object's own array type and is always a real array descriptor**, so
-     * [componentType] is never null and no caller needs a fallback. It is established at allocation from
-     * something that cannot lie: `new-array`'s type operand, or -- when the harness seeds a host array --
-     * that array's own class.
-     *
-     * **The REGISTER's tag is a separate thing and is allowed to disagree.** The corpus tags array
-     * registers loosely on purpose (`core/op/AGetOpTest.canGetObject` tags a `String[]` as
-     * `Ljava/lang/String;`, `core/op/ArrayLengthOpTest.canGetLengthForStringArray` puts Strings in a `[I`),
-     * because a Dalvik register carries no type at all -- the tag is smalivm's own metadata. So the rule is
-     * **object over tag**: where an object
-     * exists it is the authority for component type and length, and a register tag is consulted only when
-     * there is no object (an `Unknown` array). Deriving a fact from the tag when an object was available
-     * is how a test passes for the wrong reason -- it is what makes the oracle's
-     * `array.type.replaceFirst("\\[", "")` accidentally right on these fixtures.
-     *
-     * Element raws are still not required to match [componentType]; that half is a genuine parity
-     * requirement.
+     * [contents] is the Java array mirroring these elements, or null when the array has none. [mirrorDirty]
+     * marks guest writes the mirror has not yet received.
      */
     class TrackedArray private constructor(
         type: VirtualType,
         private val elements: PersistentList<Value>,
-        val mirror: HostGraphContents?,
+        override val contents: HostGraphContents?,
         internal val mirrorDirty: Boolean,
         @Suppress("UNUSED_PARAMETER") persistent: Unit,
-    ) : HeapObject(type) {
+    ) : HeapObject(type), HostBacked {
         internal constructor(
             type: VirtualType,
             elements: Array<Value>,
-            mirror: HostGraphContents? = null,
-        ) : this(type, elements.toList().toPersistentList(), mirror, mirrorDirty = false, Unit)
+            contents: HostGraphContents? = null,
+        ) : this(type, elements.toList().toPersistentList(), contents, mirrorDirty = false, Unit)
 
         val length: Int get() = elements.size
 
@@ -101,30 +79,27 @@ sealed class HeapObject(val type: VirtualType) {
 
         internal fun elementsRoot(): PersistentList<Value> = elements
 
-        internal fun withElement(index: Int, value: Value): TrackedArray =
-            TrackedArray(type, elements.replacingAt(index, value), mirror, mirror is HostGraphContents.Known, Unit)
-
         internal fun withElements(startIndex: Int, values: List<Value>): TrackedArray {
             require(startIndex >= 0 && startIndex + values.size <= length) {
                 "Array update [$startIndex, ${startIndex + values.size}) is outside length $length"
             }
             var updated = elements
             for ((offset, value) in values.withIndex()) updated = updated.replacingAt(startIndex + offset, value)
-            return TrackedArray(type, updated, mirror, mirror is HostGraphContents.Known, Unit)
+            return TrackedArray(type, updated, contents, contents is HostGraphContents.Known, Unit)
         }
 
-        internal fun withMirror(contents: HostGraphContents?): TrackedArray =
-            TrackedArray(type, elements, contents, mirrorDirty && contents is HostGraphContents.Known, Unit)
+        internal fun withContents(next: HostGraphContents): TrackedArray =
+            TrackedArray(type, elements, next, mirrorDirty && next is HostGraphContents.Known, Unit)
 
-        internal fun withSynchronizedMirror(contents: HostGraphContents?): TrackedArray =
-            if (contents == mirror && !mirrorDirty) this
-            else TrackedArray(type, elements, contents, mirrorDirty = false, Unit)
+        internal fun withSynchronizedMirror(next: HostGraphContents?): TrackedArray =
+            if (next == contents && !mirrorDirty) this
+            else TrackedArray(type, elements, next, mirrorDirty = false, Unit)
 
         internal fun withElementsRoot(
             values: PersistentList<Value>,
-            contents: HostGraphContents?,
+            next: HostGraphContents?,
             dirty: Boolean = mirrorDirty,
-        ): TrackedArray = TrackedArray(type, values, contents, dirty && contents is HostGraphContents.Known, Unit)
+        ): TrackedArray = TrackedArray(type, values, next, dirty && next is HostGraphContents.Known, Unit)
 
         internal fun contentsRootToken(): Any = elements
 
@@ -132,29 +107,18 @@ sealed class HeapObject(val type: VirtualType) {
 
         internal companion object {
             fun fromPersistent(type: VirtualType, elements: PersistentList<Value>): TrackedArray =
-                TrackedArray(type, elements, mirror = null, mirrorDirty = false, Unit)
+                TrackedArray(type, elements, contents = null, mirrorDirty = false, Unit)
         }
     }
 
     /**
-     * An ordinary tracked guest object -- what `new-instance` allocates (Plan 9 Task 17, the case Task
-     * 13 surfaced as the hierarchy's unnamed prerequisite: arrays and throwables existed, a plain
-     * object did not).
+     * An ordinary tracked guest object, what `new-instance` allocates.
      *
-     * [uninitialized] is **resolved decision 8's flag**: `true` from allocation until an `<init>` call
-     * whose receiver is this object's ref returns. Constructor completion creates a replacement object
-     * version with this value false; it never mutates an object held by an earlier frame.
+     * [uninitialized] is true from allocation until an `<init>` call whose receiver is this object's ref returns.
+     * Constructor completion creates a replacement version; it never mutates an object an earlier frame holds.
      *
-     * [fields] are keyed by the fully-qualified descriptor of the class that declares each field. Forks
-     * share the persistent root; one field write creates one replacement object version.
-     *
-     * Identity is the heap id, NEVER the type -- adjudication 8. The oracle's
-     * `type/UninitializedInstance.java` compares type only, so two unrelated `new-instance Lfoo;`
-     * read as one value there and initializing one rewrites every register holding the other
-     * (`ExecutionState.update` matches by `equals`). Registered as an intended divergence
-     * (`Fixtures.intendedDivergences`, `ratchet-alias-unrelated-allocation`); pinned at the store by
-     * `HeapStoreTest.twoPathsAllocatingObjectsOfOneTypeGetDistinctIdsAndDoNotAgree` and end-to-end by
-     * `NewInstanceOpTest.twoAllocationsOfOneTypeAreDistinctUnrelatedObjects`.
+     * [fields] are keyed by the fully-qualified descriptor of the class that declares each field. Identity is the
+     * heap id, never the type: two `new-instance` of one type are two unrelated objects.
      */
     class TrackedObject private constructor(
         type: VirtualType,
@@ -201,9 +165,9 @@ sealed class HeapObject(val type: VirtualType) {
      */
     class GuestThrowable internal constructor(
         type: VirtualType,
-        val contents: HostGraphContents,
+        override val contents: HostGraphContents,
         val cause: Value? = null,
-    ) : HeapObject(type) {
+    ) : HeapObject(type), HostBacked {
         internal fun withContents(next: HostGraphContents): GuestThrowable =
             if (next == contents) this else GuestThrowable(type, next, cause)
 
@@ -214,7 +178,25 @@ sealed class HeapObject(val type: VirtualType) {
     }
 }
 
-internal fun Method.toReflectedMethodMetadataOrNull(): ReflectedMethodMetadata? = try {
+/** A heap object whose Java state can live in the path's host graph. */
+sealed interface HostBacked {
+    /** Where the host graph holds this object's Java state; null only for an array with no Java mirror. */
+    val contents: HostGraphContents?
+}
+
+/** This object with its Java state at [next]; every guest-visible cell is unchanged. */
+internal fun HostBacked.withContents(next: HostGraphContents): HeapObject = when (this) {
+    is HeapObject.HostObject -> withContents(next)
+    is HeapObject.GuestThrowable -> withContents(next)
+    is HeapObject.TrackedArray -> withContents(next)
+}
+
+/** The graph node holding this object's Java state, or null when the graph holds none for it. */
+internal val HostBacked.knownNodeId: HostGraphNodeId?
+    get() = (contents as? HostGraphContents.Known)?.nodeId
+
+/** Null when [Method]'s signature has no VM descriptor; the metadata is then unknown, not absent. */
+internal fun Method.toReflectedMethodMetadataOrNull(): ReflectedMethodMetadata? = hostBoundary({ null }) {
     val method = ImmutableMethodReference(
         virtualTypeOfHostClass(declaringClass).descriptor,
         name,
@@ -222,8 +204,4 @@ internal fun Method.toReflectedMethodMetadataOrNull(): ReflectedMethodMetadata? 
         virtualTypeOfHostClass(returnType).descriptor,
     )
     ReflectedMethodMetadata(method, modifiers, declaringClass.modifiers)
-} catch (fatal: VirtualMachineError) {
-    throw fatal
-} catch (_: Throwable) {
-    null
 }

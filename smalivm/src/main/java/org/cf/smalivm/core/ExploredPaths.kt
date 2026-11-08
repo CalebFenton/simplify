@@ -64,7 +64,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
     /** The reflected field [register] holds over the union of nodes at [addresses]. */
     fun reflectedField(addresses: IntArray, register: Int): Agreement<ReflectedFieldMetadata> {
         val field = agreement(addresses) { node ->
-            heapRefIn(node.frame, register)?.let { node.frame.trackedFieldAt(it)?.metadata }
+            heapRefIn(node.frame, register)?.let { node.frame.heap.trackedFieldAt(it)?.metadata }
         }
         return when (field) {
             is Agreement.Agreed -> Agreement.Agreed(
@@ -88,7 +88,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
     fun knownString(address: Int, register: Int): Agreement<String> = agreement(intArrayOf(address)) { node ->
         when (val raw = (valueIn(node.frame, register) as? Value.Known)?.raw) {
             is String -> raw
-            is HeapRef -> node.frame.hostObjectAt(raw) as? String
+            is HeapRef -> node.frame.heap.hostObjectAt(raw) as? String
             else -> null
         }
     }
@@ -122,8 +122,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
 
     /**
      * The object [ref] denotes, joined over the returning paths: a surviving [Value.Known] element or field means
-     * every returning path agrees about it. [Agreement.Absent] when a returning path has no object at [ref];
-     * [Agreement.Disagree] when the paths disagree about its kind, declared type, array length or initialization.
+     * every returning path agrees about it. [Agreement.Absent] when a returning path has no object at [ref].
      * The object is synthetic and in no path's heap; read it, never write it.
      */
     fun terminatingHeapObject(ref: HeapRef): Agreement<HeapObject> {
@@ -132,8 +131,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
         val objects = frames.map { it.heapObject(ref) ?: return Agreement.Absent }
         val graphToken = frames.first().hostGraphVersionToken()
         val sameGraph = frames.all { it.hostGraphVersionToken() === graphToken }
-        val joined = HeapStore.mergeObject(objects, graph.superclasses, sameGraph) ?: return Agreement.Disagree
-        return Agreement.Agreed(joined)
+        return Agreement.Agreed(HeapStore.mergeObject(objects, graph.superclasses, sameGraph))
     }
 
     // --- effects ---

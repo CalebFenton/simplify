@@ -132,7 +132,7 @@ class FieldGetAccessMatrixTest {
         val firstAttempts = getNodes.filter { it.frame.initState(DECLARING) == ClassInitState.UNINITIALIZED }
         val accessibilities = firstAttempts.map { node ->
             val ref = (node.frame.peek(0) as Value.Known).raw as HeapRef
-            node.frame.trackedFieldAt(ref)!!.accessibility
+            node.frame.heap.trackedFieldAt(ref)!!.accessibility
         }.toSet()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -223,12 +223,12 @@ class FieldGetAccessMatrixTest {
         val duplicate = frame.allocateTrackedField(metadata)
         val firstRef = first.raw as HeapRef
 
-        assertTrue(frame.setTrackedFieldAccessibility(firstRef, FieldAccessibility.OVERRIDDEN))
+        assertTrue(frame.heap.setTrackedFieldAccessibility(firstRef, FieldAccessibility.OVERRIDDEN))
 
         assertEquals(first, alias)
         assertNotEquals(first.raw, duplicate.raw)
-        assertEquals(FieldAccessibility.OVERRIDDEN, frame.trackedFieldAt(firstRef)!!.accessibility)
-        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, sibling.trackedFieldAt(firstRef)!!.accessibility)
+        assertEquals(FieldAccessibility.OVERRIDDEN, frame.heap.trackedFieldAt(firstRef)!!.accessibility)
+        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, sibling.heap.trackedFieldAt(firstRef)!!.accessibility)
     }
 
     @Test
@@ -273,14 +273,15 @@ class FieldGetAccessMatrixTest {
 
     @Test
     fun executableHeapMergeRejectsAccessibilityDisagreementBeforeInvocation() {
-        val first = HeapStore(HeapIds())
+        val caller = HeapStore(HeapIds())
         val metadata = virtualField(FieldVisibility.PRIVATE, FieldStorage.STATIC)
-        val ref = first.allocateTrackedField(metadata)
-        val sibling = first.copy()
+        val ref = caller.allocateTrackedField(metadata)
+        val first = caller.copy()
+        val sibling = caller.copy()
         assertTrue(first.setTrackedFieldAccessibility(ref, FieldAccessibility.OVERRIDDEN))
 
         assertThrows<IllegalArgumentException> {
-            HeapStore.merge(listOf(first, sibling), classIndex)
+            caller.merged(listOf(first, sibling), classIndex)
         }
     }
 
@@ -396,16 +397,16 @@ class FieldGetAccessMatrixTest {
         val vm = VmServices(classIndex, policy)
         val entry = view(HOST_PACKAGE_CALLER, "readHostMutable(Ljava/lang/Object;)Ljava/lang/Object;")
         val frame = Frame.entryFrame(entry)
-        val fixtureRef = frame.allocateHostObject(HOST_FIXTURE, HostFieldFixture())
+        val fixtureRef = frame.heap.allocateHostObject(HOST_FIXTURE, HostFieldFixture())
         frame.assign(entry.parameters.single().register, Value.Known(fixtureRef, HOST_FIXTURE))
         val session = vm.newSession(entry, entryFrame = frame)
 
         val graph = session.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val terminal = session.currentNode!!.frame
-        val receiver = terminal.hostObjectAt(fixtureRef) as HostFieldFixture
+        val receiver = terminal.heap.hostObjectAt(fixtureRef) as HostFieldFixture
 
-        assertSame(receiver.mutable, terminal.hostObjectAt(returned.raw as HeapRef))
+        assertSame(receiver.mutable, terminal.heap.hostObjectAt(returned.raw as HeapRef))
     }
 
     @Test
@@ -476,7 +477,7 @@ class FieldGetAccessMatrixTest {
         val graph = session.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
 
-        assertSame(java.util.Collections.EMPTY_LIST, session.currentNode!!.frame.hostObjectAt(returned.raw as HeapRef))
+        assertSame(java.util.Collections.EMPTY_LIST, session.currentNode!!.frame.heap.hostObjectAt(returned.raw as HeapRef))
     }
 
     @Test
@@ -579,11 +580,11 @@ class FieldGetAccessMatrixTest {
                 requireNotNull(classIndex.currentResolver().instanceFieldDefaults(receiverType)),
             )
             val receiverRef = receiver.raw as HeapRef
-            assertTrue(frame.writeField(receiverRef, metadata.descriptor, Value.Known(expected, INT)))
+            assertTrue(frame.heap.setField(receiverRef, metadata.descriptor, Value.Known(expected, INT)))
             frame.assign(1, receiver)
         } else {
-            frame.completeClassInit(metadata.declaringType)
-            frame.writeStaticField(metadata.descriptor, Value.Known(expected, INT))
+            frame.classes.complete(metadata.declaringType)
+            frame.classes.setStaticField(metadata.descriptor, Value.Known(expected, INT))
             frame.assign(1, Value.Known(null, OBJECT))
         }
         return invokeFieldGetOnce(vm, entry, frame).run()
@@ -656,7 +657,7 @@ class FieldGetAccessMatrixTest {
     )
 
     private fun initializedSnapshot(): ClassInitStatusSnapshot =
-        ClassInitStore().also { it.complete(DECLARING) }.statusSnapshot()
+        ClassStore().also { it.complete(DECLARING) }.statusSnapshot()
 
     private fun virtualField(
         visibility: FieldVisibility,
@@ -739,7 +740,7 @@ class FieldGetAccessMatrixTest {
     private class ReturnResultTestOp(address: Int) : Op(address) {
         override val name: String = "field-get-test-return"
         override fun execute(frame: Frame): OpExecution =
-            OpExecution.single(OpArm.Return.fromValue(frame.takeResult()))
+            OpExecution.single(OpArm.Return.fromValue(frame.takeResult()?.value))
     }
 
     internal companion object {

@@ -178,7 +178,7 @@ class ReflectionPolicyIntegrationTest {
         val view = classIndex.requireMethodView(FIXTURE, descriptor)
         val vm = VmServices(classIndex)
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(arguments.map(::HostSeed))
+        val admitted = frame.heap.admitHostSeeds(arguments.map(::HostSeed))
         view.parameters.zip(admitted).forEach { (parameter, value) -> frame.assign(parameter.register, value) }
         return vm.newSession(view, entryFrame = frame).run()
     }

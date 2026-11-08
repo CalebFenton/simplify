@@ -113,7 +113,7 @@ class HostExceptionBoundaryBehaviorTest {
         val view = view("nonThrowableBecomesInternalError(Ljava/lang/Object;)Ljava/lang/Throwable;")
         val vm = VmServices(CoreTester.classIndex)
         val frame = Frame.entryFrame(view)
-        val source = frame.admitHostSeeds(
+        val source = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(raw, OBJECT))),
         ).single() as Value.Known
         frame.assign(view.parameters.single().register, source)
@@ -164,7 +164,7 @@ class HostExceptionBoundaryBehaviorTest {
         val vm = reflectionVm(MUTATE_THEN_THROW, STRING_BUILDER_TO_STRING)
         val view = view("mutationSurvivesTargetThrow(Ljava/lang/StringBuilder;)Ljava/lang/String;")
         val frame = Frame.entryFrame(view)
-        val builder = frame.allocateHostObject(STRING_BUILDER, StringBuilder("before"))
+        val builder = frame.heap.allocateHostObject(STRING_BUILDER, StringBuilder("before"))
         frame.assign(view.parameters.single().register, Value.Known(builder, STRING_BUILDER))
 
         val graph = vm.newSession(view, entryFrame = frame).run()

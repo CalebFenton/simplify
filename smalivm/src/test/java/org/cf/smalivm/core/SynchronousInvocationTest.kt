@@ -417,12 +417,12 @@ class SynchronousInvocationTest {
         val view = view("Linvoke_backend_test;", "dirtyArrayNeedsInit([I)I")
         val frame = Frame.entryFrame(view)
         val raw = intArrayOf(0)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(raw, VirtualType.of("[I")))),
         ).single() as Value.Known
         val ref = admitted.raw as HeapRef
         frame.assign(view.parameters.single().register, admitted)
-        frame.writeArrayElement(ref, 0, Value.Known(7, intType))
+        frame.heap.setArrayElement(ref, 0, Value.Known(7, intType))
         val session = vm.newSession(view, Limits(), frame)
 
         val graph = session.run()
@@ -430,7 +430,7 @@ class SynchronousInvocationTest {
         assertEquals(2, executions)
         assertEquals(Value.Known(9, intType), graph.outcomes.single().returnedValue())
         assertEquals(0, raw[0])
-        assertEquals(7, (requireNotNull(session.currentNode).frame.hostObjectAt(ref) as IntArray)[0])
+        assertEquals(7, (requireNotNull(session.currentNode).frame.heap.hostObjectAt(ref) as IntArray)[0])
     }
 
     private fun returning(

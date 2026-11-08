@@ -49,15 +49,15 @@ class FrameTest {
         val value = Value.Unknown(VirtualType.of("Ljava/lang/Throwable;"))
         val refined = FrameValue.refined(value, ThrowableDomain.any())
         val original = frame()
-        original.assignFrameValue(0, refined)
+        original.assign(0, refined)
         original.setResult(refined)
         original.setCaught(refined)
 
         val copied = original.copy()
 
         assertEquals(refined, copied.readFrameValue(0))
-        assertEquals(refined, copied.takeResultFrameValue())
-        assertEquals(refined, copied.takeCaughtFrameValue())
+        assertEquals(refined, copied.takeResult())
+        assertEquals(refined, copied.takeCaught())
         assertSame(value, copied.peek(0), "the public projection must preserve the Value instance")
         assertEquals(refined, original.readFrameValue(0), "consuming copied slots must not change the source")
     }
@@ -85,17 +85,17 @@ class FrameTest {
         val value = Value.Unknown(VirtualType.of("Ljava/lang/Throwable;"))
         val refined = FrameValue.refined(value, ThrowableDomain.any())
         val source = Frame.entryFrame(method)
-        source.assignFrameValue(0, refined)
+        source.assign(0, refined)
         source.setResult(refined)
         source.setCaught(refined)
 
         val session = VmServices(classIndex).newSession(method, entryFrame = source)
         val entry = session.frontier.single().frame
 
-        assertTrue(source.peekFrameValue(0) is FrameValue.RefinedThrowable)
-        assertTrue(entry.peekFrameValue(0) is FrameValue.Plain)
-        assertTrue(entry.takeResultFrameValue() is FrameValue.Plain)
-        assertTrue(entry.takeCaughtFrameValue() is FrameValue.Plain)
+        assertTrue(source.readFrameValue(0) is FrameValue.RefinedThrowable)
+        assertTrue(entry.readFrameValue(0) is FrameValue.Plain)
+        assertTrue(entry.takeResult() is FrameValue.Plain)
+        assertTrue(entry.takeCaught() is FrameValue.Plain)
         assertSame(value, entry.peek(0))
     }
 
@@ -228,10 +228,10 @@ class FrameTest {
         child.read(0)
         assertEquals(emptySet<Int>(), f.registersRead(), "the child's read must not appear in the parent's liveness")
 
-        assertEquals(Value.Known(9, int), child.takeResult(), "child must see the result pending at copy time")
+        assertEquals(Value.Known(9, int), child.takeResult()?.value, "child must see the result pending at copy time")
         assertEquals(
             Value.Known(9, int),
-            f.takeResult(),
+            f.takeResult()?.value,
             "consuming the child's copy of a slot must not clear the parent's own copy",
         )
     }
@@ -255,14 +255,14 @@ class FrameTest {
     fun slotsAreProducedThenConsumedOnce() {
         // spec §4.2: a slot is produced, moved once, then dead.
         val f = frame()
-        assertNull(f.takeResult())
+        assertNull(f.takeResult()?.value)
         f.setResult(Value.Known(1, int))
-        assertEquals(Value.Known(1, int), f.takeResult())
-        assertNull(f.takeResult(), "a consumed slot is dead")
+        assertEquals(Value.Known(1, int), f.takeResult()?.value)
+        assertNull(f.takeResult()?.value, "a consumed slot is dead")
 
         f.setCaught(Value.Known("boom", runtimeException))
-        assertEquals(Value.Known("boom", runtimeException), f.takeCaught())
-        assertNull(f.takeCaught())
+        assertEquals(Value.Known("boom", runtimeException), f.takeCaught()?.value)
+        assertNull(f.takeCaught()?.value)
     }
 
     @Test
@@ -276,7 +276,7 @@ class FrameTest {
         val f = frame()
         assertNull(f.returnValueOrNull())
         assertNull(f.thrownOrNull())
-        f.setReturnValue(Value.Known(5, int))
+        f.setReturnValue(FrameValue.plain(Value.Known(5, int)))
         assertEquals(Value.Known(5, int), f.returnValueOrNull())
         f.setThrown(Value.Known("boom", runtimeException))
         assertEquals(Value.Known("boom", runtimeException), f.thrownOrNull())
@@ -339,27 +339,26 @@ class FrameTest {
 
     @Test
     fun aFramesCopyIsolatesHeapWritesAsWellAsRegisterWrites() {
-        // Frame.copy() is the ONE primitive that isolates a forked successor (its own KDoc invariant 3).
-        // Before the heap existed that meant registers and slots; an array write must be isolated by the
-        // same call, or `commit`'s per-successor copy would leak heap mutation between siblings -- the
-        // audit's shared-mutated-state defect with a new subject.
+        // Frame.copy() is the one primitive that isolates a forked successor (its own KDoc invariant 3). An
+        // array write must be isolated by the same call, or each successor's copy would leak heap mutation
+        // between siblings.
         val f = frame("returnFive()I")
         val array = f.allocateArray(VirtualType.of("[I"), 1)
         val ref = array.raw as HeapRef
         val forked = f.copy()
-        forked.writeArrayElement(ref, 0, Value.Known(7, int))
-        assertEquals(Value.Known(0, int), f.arrayAt(ref)!!.element(0))
+        forked.heap.setArrayElement(ref, 0, Value.Known(7, int))
+        assertEquals(Value.Known(0, int), f.heap.arrayAt(ref)!!.element(0))
     }
 
     @Test
     fun opArmReconciliationKeepsTheStaticOwnerThatTheCallPartitionMergeKeeps() {
-        // Oracle: `ClassInitStore.merge` is the one rule for joining static cells across paths. A host
+        // Oracle: `ClassStore.merge` is the one rule for joining static cells across paths. A host
         // projection every arm holds unchanged stays host-owned; an arm that wrote the field makes it guest-owned.
         val descriptor = "Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;"
         val type = VirtualType.of("Ljava/lang/Boolean;")
         val projected = Value.Known(java.lang.Boolean.TRUE, type)
         val source = frame()
-        source.writeHostProjection(descriptor, projected)
+        source.classes.setHostProjection(descriptor, projected)
         val footprint = ReconciliationFootprint(
             persistentSetOf(),
             persistentMapOf(),
@@ -370,12 +369,12 @@ class FrameTest {
         val untouched = source.reconcileOpArms(listOf(source.copy(), source.copy()), footprint, classIndex)
         assertEquals(
             StaticCell(projected, StaticCellProvenance.HOST_PROJECTION),
-            untouched.staticCell(descriptor),
+            untouched.classes.staticCell(descriptor),
         )
 
         val writer = source.copy()
-        writer.writeStaticField(descriptor, projected)
+        writer.classes.setStaticField(descriptor, projected)
         val written = source.reconcileOpArms(listOf(source.copy(), writer), footprint, classIndex)
-        assertEquals(StaticCell(projected, StaticCellProvenance.GUEST_WRITE), written.staticCell(descriptor))
+        assertEquals(StaticCell(projected, StaticCellProvenance.GUEST_WRITE), written.classes.staticCell(descriptor))
     }
 }

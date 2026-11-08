@@ -93,7 +93,7 @@ class HeapConsensusTest {
         val cause = frame.allocateThrowable(causeType, NullPointerException("cause"))
         val wrapper = frame.allocateThrowable(
             wrapperType,
-            ExceptionInInitializerError(frame.hostObjectAt(cause.raw as HeapRef) as Throwable),
+            ExceptionInInitializerError(frame.heap.hostObjectAt(cause.raw as HeapRef) as Throwable),
             cause,
         )
 

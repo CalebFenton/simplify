@@ -129,7 +129,7 @@ private fun Value.toProbeArgument(frame: Frame): ProbeArgument = ProbeArgument(
     isNullReference = readsAsNullReference,
     isTrackedReference = frame.isTrackedReference(this),
     reflectedTarget = ((this as? Value.Known)?.raw as? HeapRef)
-        ?.let { frame.hostObjectAt(it) as? Executable }
+        ?.let { frame.heap.hostObjectAt(it) as? Executable }
         ?.reflectedTargetOrNull(),
 )
 

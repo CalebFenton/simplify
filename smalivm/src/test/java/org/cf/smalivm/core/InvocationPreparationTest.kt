@@ -303,7 +303,7 @@ class InvocationPreparationTest {
         )
         val view = view("Linvoke_task20;", "zeroBecomesNull()Ljava/lang/Object;")
         val frame = Frame.entryFrame(view).also {
-            it.completeClassInit(type("Linvoke_task20;"))
+            it.classes.complete(type("Linvoke_task20;"))
         }
 
         vm.newSession(view, Limits(), frame).run()

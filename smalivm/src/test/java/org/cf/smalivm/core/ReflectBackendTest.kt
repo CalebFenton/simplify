@@ -156,7 +156,7 @@ class ReflectBackendTest {
 
         val graph = session.run()
         val terminal = session.currentNode!!.frame
-        val raw = terminal.hostObjectAt(ref) as ReflectOverloadedConstructor
+        val raw = terminal.heap.hostObjectAt(ref) as ReflectOverloadedConstructor
 
         assertEquals(
             listOf(Outcome.Returned(null)),
@@ -183,7 +183,7 @@ class ReflectBackendTest {
         val frame = Frame.entryFrame(entry)
         val receiver = frame.allocateObject(holderType, emptyMap())
         val receiverRef = receiver.raw as HeapRef
-        val argumentRef = frame.allocateHostObject(builderType, StringBuilder("argument"))
+        val argumentRef = frame.heap.allocateHostObject(builderType, StringBuilder("argument"))
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(argumentRef, builderType))
 
@@ -316,9 +316,9 @@ class ReflectBackendTest {
         val frame = Frame.entryFrame(entry)
         val originalBuilder = StringBuilder("vm")
         val originalList = arrayListOf<String>()
-        val builderRef = frame.allocateHostObject(builderType, originalBuilder)
+        val builderRef = frame.heap.allocateHostObject(builderType, originalBuilder)
         val listType = type("Ljava/util/List;")
-        val listRef = frame.allocateHostObject(listType, originalList)
+        val listRef = frame.heap.allocateHostObject(listType, originalList)
         frame.assign(0, Value.Known(builderRef, builderType))
         frame.assign(1, Value.Known(listRef, listType))
 
@@ -326,8 +326,8 @@ class ReflectBackendTest {
         session.run()
         val terminal = session.currentNode!!.frame
 
-        assertEquals("vm-owned", terminal.hostObjectAt(builderRef).toString())
-        assertEquals(listOf("owned"), terminal.hostObjectAt(listRef))
+        assertEquals("vm-owned", terminal.heap.hostObjectAt(builderRef).toString())
+        assertEquals(listOf("owned"), terminal.heap.hostObjectAt(listRef))
         assertEquals("vm", originalBuilder.toString())
         assertTrue(originalList.isEmpty())
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
@@ -394,7 +394,7 @@ class ReflectBackendTest {
             val vm = vm(exactSafe = setOf(methodInvoke) + reflectedAuthorization)
             val frame = Frame.entryFrame(callerView())
             val hostMethod = ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal")
-            frame.assign(0, Value.Known(frame.allocateHostObject(methodType, hostMethod), methodType))
+            frame.assign(0, Value.Known(frame.heap.allocateHostObject(methodType, hostMethod), methodType))
             frame.assign(1, Value.Known(null, objectType))
             frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
 
@@ -442,7 +442,7 @@ class ReflectBackendTest {
                 ),
             )
             val frame = Frame.entryFrame(callerView())
-            frame.assign(0, Value.Known(frame.allocateHostObject(methodType, hostMethod), methodType))
+            frame.assign(0, Value.Known(frame.heap.allocateHostObject(methodType, hostMethod), methodType))
             frame.assign(1, receiver)
             frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
 
@@ -534,7 +534,7 @@ class ReflectBackendTest {
         val voidTarget = method(fixtureType, "appendVoid", "(Ljava/lang/StringBuilder;)V")
         val (voidSession, ref) = hostArgumentCall(vm(exactSafe = setOf(voidTarget)), voidTarget, StringBuilder("v"), builderType)
         assertEquals(listOf(Outcome.Returned(null)), voidSession.run().outcomes)
-        assertEquals("v-void", voidSession.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals("v-void", voidSession.currentNode!!.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -576,13 +576,13 @@ class ReflectBackendTest {
         val entry = view("Lcalls/caller;", "callsThrowingCalleeWithCatch()I")
         val frame = Frame.entryFrame(entry)
         val original = StringBuilder("before")
-        val ref = frame.allocateHostObject(builderType, original)
+        val ref = frame.heap.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))
         val session = owner.newSession(entry, Limits(), frame, listOf(reflection, later), ::realOrInjected)
 
         session.run()
 
-        assertEquals("before-thrown", session.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals("before-thrown", session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
         assertEquals("before", original.toString())
         assertEquals(0, later.probes)
     }
@@ -666,7 +666,7 @@ class ReflectBackendTest {
 
         val graph = session.run()
 
-        assertEquals("v-void", session.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals("v-void", session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
         assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
         assertEquals(SideEffectLevel.NONE, graph.nodePile(0).single().activation.declaredEffect)
     }
@@ -683,7 +683,7 @@ class ReflectBackendTest {
         val owner = VmServices(classIndex, policy)
         val entry = callerView()
         val frame = Frame.entryFrame(entry)
-        val ref = frame.allocateHostObject(objectType, Any())
+        val ref = frame.heap.allocateHostObject(objectType, Any())
         frame.assign(0, Value.Known(ref, objectType))
 
         val graph = invoke(owner, target, InvokeKind.STATIC, frame = frame, registers = intArrayOf(0)).run()
@@ -754,7 +754,7 @@ class ReflectBackendTest {
             graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
-        assertEquals(expected, terminal.hostObjectAt(ref))
+        assertEquals(expected, terminal.heap.hostObjectAt(ref))
         assertEquals(probedId + 1, probeNextHeapId(terminal))
         assertEquals(type, terminal.heapObject(ref)!!.type)
     }
@@ -793,7 +793,7 @@ class ReflectBackendTest {
     ): Pair<ExecutionSession, HeapRef> {
         val entry = callerView()
         val frame = Frame.entryFrame(entry)
-        val ref = frame.allocateHostObject(declaredType, raw)
+        val ref = frame.heap.allocateHostObject(declaredType, raw)
         frame.assign(0, Value.Known(ref, declaredType))
         return invoke(vm, target, kind, frame = frame, registers = intArrayOf(0)) to ref
     }
@@ -891,7 +891,7 @@ class ReflectBackendTest {
 
     private fun returnResult(address: Int) = object : Op(address) {
         override val name = "return-reflection-test-result"
-        override fun execute(frame: Frame) = OpExecution.single(OpArm.Return.fromValue(frame.takeResult()))
+        override fun execute(frame: Frame) = OpExecution.single(OpArm.Return.fromValue(frame.takeResult()?.value))
     }
 
     private fun vm(

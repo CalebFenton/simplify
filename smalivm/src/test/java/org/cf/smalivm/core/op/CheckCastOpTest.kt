@@ -256,7 +256,7 @@ class CheckCastOpTest {
         val thrown = graph.nodePile(ADDRESS_HANDLER).single().frame.heapObject(ref as HeapRef)
         assertTrue(thrown is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $thrown")
         assertNull(
-            (graph.nodePile(ADDRESS_HANDLER).single().frame.hostObjectAt(ref) as Throwable).message,
+            (graph.nodePile(ADDRESS_HANDLER).single().frame.heap.hostObjectAt(ref) as Throwable).message,
             "ART's text names the object's runtime class, which an Unknown does not have",
         )
     }

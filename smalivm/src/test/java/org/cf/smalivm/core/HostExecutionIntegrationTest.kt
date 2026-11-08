@@ -30,7 +30,7 @@ class HostExecutionIntegrationTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(length)))
         val view = classIndex.requireMethodView(fixture, descriptor)
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(arrayListOf("affected"), VirtualType.OBJECT)),
                 HostSeed(Value.Known(StringBuilder("visible"), VirtualType.of("Ljava/lang/StringBuilder;"))),
@@ -109,7 +109,7 @@ class HostExecutionIntegrationTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(length)))
         val view = classIndex.requireMethodView(fixture, descriptor)
         val frame = Frame.entryFrame(view)
-        val builder = frame.admitHostSeeds(
+        val builder = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(StringBuilder("visible"), VirtualType.of("Ljava/lang/StringBuilder;")))),
         ).single() as Value.Known
         frame.assign(view.parameters[0].register, argument(frame))

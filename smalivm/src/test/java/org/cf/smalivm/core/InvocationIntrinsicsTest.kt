@@ -40,10 +40,10 @@ class InvocationIntrinsicsTest {
         assertNotEquals(sourceRef, cloneRef)
         assertNotEquals(sentinelRef, cloneRef)
         assertEquals(intArrayType, clone.type)
-        assertEquals(Value.Known(77, intType), session.currentNode!!.frame.arrayAt(sentinelRef)!!.element(0))
+        assertEquals(Value.Known(77, intType), session.currentNode!!.frame.heap.arrayAt(sentinelRef)!!.element(0))
         assertEquals(
             listOf(Value.Known(1, intType), Value.Unknown(intType), Value.Known(3, intType)),
-            (session.currentNode!!.frame.arrayAt(cloneRef)!!).elements(),
+            (session.currentNode!!.frame.heap.arrayAt(cloneRef)!!).elements(),
         )
 
         val later = session.currentNode!!.frame.allocateArray(intArrayType, 0).raw as HeapRef
@@ -71,8 +71,8 @@ class InvocationIntrinsicsTest {
 
             assertNotEquals(sourceRef, cloneRef, target.toString())
             assertEquals(
-                session.currentNode!!.frame.arrayAt(sourceRef)!!.elements(),
-                session.currentNode!!.frame.arrayAt(cloneRef)!!.elements(),
+                session.currentNode!!.frame.heap.arrayAt(sourceRef)!!.elements(),
+                session.currentNode!!.frame.heap.arrayAt(cloneRef)!!.elements(),
                 target.toString(),
             )
         }
@@ -92,9 +92,9 @@ class InvocationIntrinsicsTest {
         val cloneRef = (clone as Value.Known).raw as HeapRef
         val terminal = session.currentNode!!.frame
 
-        assertTrue(terminal.writeArrayElement(cloneRef, 0, Value.Known(99, intType)))
-        assertEquals(Value.Known(7, intType), terminal.arrayAt(sourceRef)!!.element(0))
-        assertEquals(Value.Known(99, intType), terminal.arrayAt(cloneRef)!!.element(0))
+        assertTrue(terminal.heap.setArrayElement(cloneRef, 0, Value.Known(99, intType)))
+        assertEquals(Value.Known(7, intType), terminal.heap.arrayAt(sourceRef)!!.element(0))
+        assertEquals(Value.Known(99, intType), terminal.heap.arrayAt(cloneRef)!!.element(0))
     }
 
     @Test
@@ -218,7 +218,7 @@ class InvocationIntrinsicsTest {
         assertEquals(probedBefore + 1, probeNextHeapId(terminal))
         val initialized = terminal.heapObject(receiverRef) as HeapObject.TrackedObject
         assertFalse(initialized.uninitialized)
-        assertNull(terminal.hostObjectAt(receiverRef), "Object.<init> must not replace the tracked receiver")
+        assertNull(terminal.heap.hostObjectAt(receiverRef), "Object.<init> must not replace the tracked receiver")
     }
 
     @Test
@@ -247,7 +247,7 @@ class InvocationIntrinsicsTest {
         )
         assertEquals(Value.Known(0, intType), initialized.field(ENUM_ORDINAL_FIELD))
         assertEquals(Value.Known(9, intType), initialized.field("Lextends_enum;->value:I"))
-        assertNull(terminal.hostObjectAt(receiverRef), "enum construction must not install a host enum constant")
+        assertNull(terminal.heap.hostObjectAt(receiverRef), "enum construction must not install a host enum constant")
         assertTrue(vm.invocationServices.emulators.find(ENUM_INIT)!!.handler is EnumInitEmulator)
     }
 
@@ -299,7 +299,7 @@ class InvocationIntrinsicsTest {
                 assertFalse(initialized.uninitialized)
                 assertEquals(Value.Known(names[index], stringType), initialized.field(ENUM_NAME_FIELD))
                 assertEquals(Value.Known(ordinals[index], intType), initialized.field(ENUM_ORDINAL_FIELD))
-                assertNull(frame.hostObjectAt(refs[index]))
+                assertNull(frame.heap.hostObjectAt(refs[index]))
             }
             assertNotEquals(refs[0], refs[1])
         }
@@ -339,7 +339,7 @@ class InvocationIntrinsicsTest {
                 assertEquals(enumTypes[index], initialized.type)
                 assertEquals(Value.Known(name, stringType), initialized.field(ENUM_NAME_FIELD))
                 assertEquals(Value.Known(ordinals[index], intType), initialized.field(ENUM_ORDINAL_FIELD))
-                assertNull(frame.hostObjectAt(refs[index]))
+                assertNull(frame.heap.hostObjectAt(refs[index]))
             }
         }
     }

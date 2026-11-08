@@ -112,8 +112,8 @@ class OpArmStateTest {
 
         assertEquals(Value.Unknown(INT), source.frame.getField(ref, "field0:I"))
         assertEquals(Value.Unknown(INT), source.frame.getStaticField(OWNER, NAMED_STATIC))
-        assertEquals(Value.Unknown(INT), source.frame.arrayAt(arrayRef)!!.element(0))
-        assertEquals(Value.Known(0, INT), source.frame.arrayAt(arrayRef)!!.element(1))
+        assertEquals(Value.Unknown(INT), source.frame.heap.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(0, INT), source.frame.heap.arrayAt(arrayRef)!!.element(1))
     }
 
     @Test
@@ -130,7 +130,7 @@ class OpArmStateTest {
         val ref = array.raw as HeapRef
         val old = Value.Known("old", component)
         val stored = Value.Known("new", component)
-        frame.writeArrayElement(ref, 0, old)
+        frame.heap.setArrayElement(ref, 0, old)
         frame.assign(view.parameters[0].register, Value.Known("new", VirtualType.of("Ljava/lang/String;")))
         frame.assign(view.parameters[1].register, array)
         val session = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame)
@@ -162,7 +162,7 @@ class OpArmStateTest {
 
         // Normal arm: an unknown index joins every slot with 7. Exceptional arm: the array is unchanged. The
         // source summary therefore holds join(0, 7) in every real cell.
-        val summary = graph.nodePile(0).single().frame.arrayAt(frame.peek(0)!!.let { (it as Value.Known).raw as HeapRef })!!
+        val summary = graph.nodePile(0).single().frame.heap.arrayAt(frame.peek(0)!!.let { (it as Value.Known).raw as HeapRef })!!
         assertEquals(List(length) { Value.Unknown(INT) }, summary.elements())
     }
 
@@ -228,7 +228,7 @@ class OpArmStateTest {
 
         val array = graph.trusted()!!.terminatingConsensus(0) as Value.Known
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single()
-        assertEquals(List(length) { Value.Known(0, INT) }, returned.terminalFrame.arrayAt(array.raw as HeapRef)!!.elements())
+        assertEquals(List(length) { Value.Known(0, INT) }, returned.terminalFrame.heap.arrayAt(array.raw as HeapRef)!!.elements())
     }
 
     /** Every guest throwable in [frame]'s heap, in allocation order. */
@@ -247,9 +247,9 @@ class OpArmStateTest {
         repeat(1_000) {
             frame.allocateArray(INT_ARRAY, 8)
             frame.allocateObject(OWNER, mapOf("unrelated:I" to Value.Known(it, INT)))
-            frame.writeStaticField("Lspine/spine;->unrelated$it:I", Value.Known(it, INT))
+            frame.classes.setStaticField("Lspine/spine;->unrelated$it:I", Value.Known(it, INT))
         }
-        frame.writeStaticField(NAMED_STATIC, Value.Known(1, INT))
+        frame.classes.setStaticField(NAMED_STATIC, Value.Known(1, INT))
         return LargeForkFrame(view, frame, ref)
     }
 

@@ -25,8 +25,8 @@ class SelectedHostCall private constructor(
     internal fun sourceHeapRef(raw: Any): HeapRef? = sourceHeapRefs[raw]
 
     internal fun installConstructedHostObject(frame: Frame, ref: HeapRef, raw: Any) {
-        frame.verifyHostGraphCheckpoint(checkpoint)
-        require(frame.installConstructedHostObject(ref, raw)) {
+        frame.heap.verifyHostGraphCheckpoint(checkpoint)
+        require(frame.heap.installConstructedHostObject(ref, raw)) {
             "Cannot install reflected constructor result at $ref"
         }
     }
@@ -36,7 +36,7 @@ class SelectedHostCall private constructor(
 
     /** Finalizes array copy-back and exact graph comparison on every non-fatal execution path. */
     internal fun finalize(frame: Frame): HostGraphComparison {
-        frame.verifyHostGraphCheckpoint(checkpoint)
+        frame.heap.verifyHostGraphCheckpoint(checkpoint)
         hostBoundary({ failure ->
             frame.finalizeHostGraph(checkpoint)
             throw failure
@@ -48,7 +48,7 @@ class SelectedHostCall private constructor(
 
     /** Validates every mirror before applying any lattice update. */
     private fun copyArraysBack(frame: Frame) {
-        val transaction = frame.heapTransactionCheckpoint()
+        val transaction = frame.heap.transactionCheckpoint()
         try {
             val pending = arrays.map { materialized ->
                 val component = requireNotNull(materialized.type.componentType)
@@ -69,12 +69,12 @@ class SelectedHostCall private constructor(
             for (raw in pending.flatMap(PendingArray::raws)) {
                 if (
                     raw != null && !raw.isDirectHostImmutable() && sourceNodeId(raw) == null &&
-                    frame.hostNodeId(raw) == null && seenNewRoots.put(raw, true) == null
+                    frame.heap.hostNodeId(raw) == null && seenNewRoots.put(raw, true) == null
                 ) {
                     newRoots += raw
                 }
             }
-            val batchImports = frame.admitReturnedHostValues(newRoots)
+            val batchImports = frame.heap.importHostObjects(newRoots)
 
             val converted = pending.map { array ->
                 ArrayReplacement(
@@ -90,10 +90,10 @@ class SelectedHostCall private constructor(
                     },
                 )
             }
-            frame.applyArrayReplacementsAtomically(converted)
+            frame.heap.applyArrayReplacementsAtomically(converted)
         } catch (failure: Throwable) {
             hostBoundary({ rollbackFailure -> if (rollbackFailure !== failure) failure.addSuppressed(rollbackFailure) }) {
-                frame.rollbackFailedCopyback(transaction, arrays.map { it.ref }.toSet())
+                frame.heap.rollbackFailedCopyback(transaction, arrays.map { it.ref }.toSet())
             }
             throw failure
         }
@@ -113,9 +113,9 @@ class SelectedHostCall private constructor(
             else -> Value.Known(raw, virtualTypeOfHostClass(raw.javaClass))
         }
         else -> {
-            val nodeId = sourceNodeId(raw) ?: frame.hostNodeId(raw)
+            val nodeId = sourceNodeId(raw) ?: frame.heap.hostNodeId(raw)
             val ref = if (nodeId != null) {
-                frame.refForHostNode(nodeId) ?: frame.importHostNode(nodeId, component, raw)
+                frame.heap.refForNode(nodeId) ?: frame.heap.importHostNode(nodeId, component, raw)
             } else {
                 requireNotNull(batchImports[raw]) { "New host value was not admitted in the copy-back batch" }
             }
@@ -176,7 +176,7 @@ class SelectedHostCall private constructor(
                     emulatorValues = null,
                 )
             } catch (failure: Throwable) {
-                frame.restoreHostGraph(checkpoint)
+                frame.heap.restoreHostGraph(checkpoint)
                 throw failure
             }
         }
@@ -226,7 +226,7 @@ class SelectedHostCall private constructor(
                     call.parameterTypes,
                     receiver,
                     arguments,
-                    frame.classInitStatusSnapshot(),
+                    frame.classes.statusSnapshot(),
                 )
                 return selectedCall(
                     call,
@@ -238,7 +238,7 @@ class SelectedHostCall private constructor(
                     emulatorValues = EmulatorValues(invocation),
                 )
             } catch (failure: Throwable) {
-                frame.restoreHostGraph(checkpoint)
+                frame.heap.restoreHostGraph(checkpoint)
                 throw failure
             }
         }
@@ -255,10 +255,10 @@ class SelectedHostCall private constructor(
             materializer.includeAllMirrors()
             val sourceNodes = IdentityHashMap<Any, HostGraphNodeId>()
             val sourceRefs = IdentityHashMap<Any, HeapRef>()
-            for ((id, raw) in frame.hostGraphObjects()) {
+            for ((id, raw) in frame.heap.hostGraphObjects()) {
                 val nodeId = HostGraphNodeId(id)
                 sourceNodes[raw] = nodeId
-                frame.refForHostNode(nodeId)?.let { sourceRefs[raw] = it }
+                frame.heap.refForNode(nodeId)?.let { sourceRefs[raw] = it }
             }
             return SelectedHostCall(
                 call.target,
@@ -304,7 +304,7 @@ private class ArrayMaterializer(
     private val materializedByRef = mutableMapOf<HeapRef, Any>()
 
     fun includeAllMirrors() {
-        for (mirror in frame.mirroredArrays()) {
+        for (mirror in frame.heap.mirroredArrays()) {
             if (materializedByRef.putIfAbsent(mirror.ref, mirror.raw) == null) {
                 arrays += SelectedHostCall.MaterializedArray(
                     mirror.ref,
@@ -332,9 +332,9 @@ private class ArrayMaterializer(
             return raw
         }
         return when (val heapObject = requireNotNull(frame.heapObject(raw)) { "No heap object for $raw" }) {
-            is HeapObject.HostObject -> frame.hostObjectAt(raw)
+            is HeapObject.HostObject -> frame.heap.hostObjectAt(raw)
                 ?: throw SelectedHostCallUnavailable("Host object $raw has unknown contents")
-            is HeapObject.GuestThrowable -> frame.hostObjectAt(raw)
+            is HeapObject.GuestThrowable -> frame.heap.hostObjectAt(raw)
                 ?: throw SelectedHostCallUnavailable("Guest throwable $raw has unknown contents")
             is HeapObject.TrackedArray -> materialize(raw, heapObject)
             is HeapObject.TrackedField ->
@@ -346,8 +346,8 @@ private class ArrayMaterializer(
 
     private fun materialize(ref: HeapRef, tracked: HeapObject.TrackedArray): Any {
         materializedByRef[ref]?.let { return it }
-        when (tracked.mirror) {
-            is HostGraphContents.Known -> frame.hostObjectAt(ref)?.let {
+        when (tracked.contents) {
+            is HostGraphContents.Known -> frame.heap.hostObjectAt(ref)?.let {
                 materializedByRef[ref] = it
                 arrays += SelectedHostCall.MaterializedArray(ref, tracked.type, tracked.length, tracked.elements(), it)
                 return it
@@ -363,7 +363,7 @@ private class ArrayMaterializer(
             throw SelectedHostCallUnavailable("No JVM array component for $component", e)
         }
         materializedByRef[ref] = raw
-        frame.setArrayMirror(ref, raw)
+        frame.heap.setArrayMirror(ref, raw)
         arrays += SelectedHostCall.MaterializedArray(ref, tracked.type, tracked.length, tracked.elements(), raw)
         for (index in 0 until tracked.length) {
             val element = tracked.element(index)

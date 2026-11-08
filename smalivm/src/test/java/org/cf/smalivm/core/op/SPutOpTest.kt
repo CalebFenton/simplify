@@ -151,8 +151,7 @@ class SPutOpTest {
     }
 
     /**
-     * **Per-path static storage, observed through the ops** -- the behavioural pin
-     * `ClassInitStore.copy`'s ⚠️ note names (its unit twin is
+     * **Per-path static storage, observed through the ops** (its unit twin is
      * `ClassInitTest.aCopyDoesNotShareStaticFieldValuesWithItsOriginal`): copying the lifecycle map
      * but not the VALUES map would make a `sput` on one arm of an `if` visible on the other, silently
      * -- every class-init test still passes under that mutation. The fixture forks on an unknown

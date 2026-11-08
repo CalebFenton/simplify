@@ -441,7 +441,7 @@ class HostGraphComparatorTest {
         // AtomicInteger is a JDK class but not a recognized container, so its fields are not walked even
         // when they hold equal values.
         assertEquals(
-            HostGraphComparison.Unprovable,
+            HostGraphComparison.Unprovable(),
             compareGraphs(AtomicInteger(7), AtomicInteger(7)),
         )
     }

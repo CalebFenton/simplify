@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentMapOf
 
 /** Immutable class-initialization status supplied to a selected emulator. */
-class ClassInitStatusSnapshot internal constructor(private val classes: ClassInitStore) {
+class ClassInitStatusSnapshot internal constructor(private val classes: ClassStore) {
     fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
 
     internal fun actionFor(type: VirtualType): ClassInitAction = classes.actionFor(type)
@@ -69,31 +69,22 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
 }
 
 /**
- * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside the frame's
- * registers and [HeapStore], implementing the [ClassState] contract.
+ * One path's class state (spec §4.2, the [ClassState] contract): each class's initialization lifecycle and every
+ * static field cell. Both are per class and per path, threaded across both call boundaries and shared per fork: a
+ * class initialized on only some callee paths must stay uninitialized on the others, and a fork must not see its
+ * sibling's static writes. [copy] shares immutable roots in constant time.
  *
- * Per path, never session-global: a class initialized on only some callee paths must stay uninitialized on
- * the others, or later accesses skip initialization on paths where it never ran. [copy] shares immutable
- * roots in constant time.
- *
- * There is deliberately no cross-path join of incompatible lifecycle state. Callers group callee terminals by
+ * There is no cross-path join of incompatible lifecycle state. Callers group callee terminals by
  * [compatibilityKey] before merging values, so INITIALIZED and absent/UNINITIALIZED stay on separate caller
  * paths, and [merge] rejects different keys.
  *
- * Keyed by descriptor string: [VirtualType] is structural on its descriptor, so the two are equivalent keys.
+ * Lifecycle records are keyed by type descriptor. Static cells are keyed by the fully-qualified descriptor from
+ * [ClassIndex.fieldDescriptorOf] (`Lcom/example/Foo;->bar:I`), so a shadowed static, or two same-named statics of
+ * different types in one hierarchy, never share a cell. Each cell keeps its provenance, so a host projection never
+ * silently becomes guest storage.
  */
-internal class ClassInitStore private constructor(
+internal class ClassStore private constructor(
     private var states: CompatibilityMapKey<String, ClassInitRecord>,
-    /**
-     * This path's static field cells, keyed by the fully-qualified descriptor from
-     * [ClassIndex.fieldDescriptorOf] (`Lcom/example/Foo;->bar:I`), so a shadowed static, or two same-named
-     * statics of different types in one hierarchy, never share a cell.
-     *
-     * Statics live beside [states] because they have the same scoping: per class, per path, threaded across
-     * both call boundaries ([Frame.calleeEntryFrame] in, [Frame.resumedWith] back) and shared per fork. A
-     * `<clinit>`'s caller must see its writes; a fork must not see its sibling's. Each cell keeps its value
-     * and provenance, so a host projection never silently becomes guest storage.
-     */
     private var statics: PersistentMap<String, StaticCell>,
 ) : ClassState {
     constructor() : this(CompatibilityMapKey.empty(), persistentMapOf())
@@ -157,7 +148,7 @@ internal class ClassInitStore private constructor(
     }
 
     /** Writes each of [descriptors] joined over [arms] under the same value and owner rule as [merge]. */
-    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: TypeHierarchy) {
+    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassStore>, superclasses: TypeHierarchy) {
         for (descriptor in descriptors) {
             setStaticCell(descriptor, mergeStaticCells(arms.map { it.statics[descriptor] }, superclasses))
         }
@@ -228,7 +219,7 @@ internal class ClassInitStore private constructor(
     }
 
     /** A new wrapper over both persistent roots. A later write replaces only the writing path's root. */
-    fun copy(): ClassInitStore = ClassInitStore(states, statics)
+    fun copy(): ClassStore = ClassStore(states, statics)
 
     /** Exact lifecycle partition key. Missing means UNINITIALIZED and is therefore distinct from INITIALIZED. */
     fun compatibilityKey(): ClassInitCompatibilityKey = ClassInitCompatibilityKey(states)
@@ -242,11 +233,11 @@ internal class ClassInitStore private constructor(
 
     internal fun statusSnapshot(): ClassInitStatusSnapshot = ClassInitStatusSnapshot(copy())
 
-    override fun toString(): String = "ClassInitStore($states, statics=$statics)"
+    override fun toString(): String = "ClassStore($states, statics=$statics)"
 
     companion object {
         /** Joins one exact-lifecycle call partition. Callers must partition incompatible states first. */
-        fun merge(stores: List<ClassInitStore>, superclasses: TypeHierarchy): ClassInitStore {
+        fun merge(stores: List<ClassStore>, superclasses: TypeHierarchy): ClassStore {
             require(stores.isNotEmpty())
             val first = stores.first()
             if (stores.all { it.states === first.states && it.statics === first.statics }) return first.copy()
@@ -264,7 +255,7 @@ internal class ClassInitStore private constructor(
                     )
                 }
             }
-            return ClassInitStore(mergedStates, mergedStatics)
+            return ClassStore(mergedStates, mergedStatics)
         }
 
         private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: TypeHierarchy): StaticCell {

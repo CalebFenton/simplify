@@ -42,7 +42,7 @@ object CoreTester {
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val frame = Frame.entryFrame(view)
         val entries = initialRegisters.entries.toList()
-        val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
+        val admitted = frame.heap.admitHostSeeds(entries.map { HostSeed(it.value) })
         entries.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
         return vmServices.newSession(view, limits, frame).run()
     }
@@ -276,7 +276,7 @@ object CoreTester {
                     val host = graph.addresses().asSequence()
                         .flatMap { graph.nodePile(it).asSequence() }
                         .filter { it.outcome is Outcome.Threw }
-                        .mapNotNull { it.terminalFrame.hostObjectAt(raw) as? Throwable }
+                        .mapNotNull { it.terminalFrame.heap.hostObjectAt(raw) as? Throwable }
                         .firstOrNull()
                     host?.message ?: throw AssertionError("no tracked throwable at $raw")
                 }
@@ -407,7 +407,7 @@ object CoreTester {
                 )
             }
         }
-        val admitted = frame.admitHostSeeds(seeds.map { it.second })
+        val admitted = frame.heap.admitHostSeeds(seeds.map { it.second })
         seeds.zip(admitted).forEach { (seed, value) -> frame.assign(seed.first, value) }
         seedStaticFields(frame, initial)
         return vmServices.newSession(view, limits, frame).run()
@@ -423,8 +423,8 @@ object CoreTester {
             .filter { it.outcome is Outcome.Returned && it.activation.returnSite == null }
             .toList()
         if (returned.isEmpty()) return null
-        val first = returned.first().terminalFrame.hostObjectAt(ref) ?: return null
-        return if (returned.all { it.terminalFrame.hostObjectAt(ref) === first }) first else null
+        val first = returned.first().terminalFrame.heap.hostObjectAt(ref) ?: return null
+        return if (returned.all { it.terminalFrame.heap.hostObjectAt(ref) === first }) first else null
     }
 
     /**
@@ -446,9 +446,9 @@ object CoreTester {
      * than softened there.
      */
     private fun seedStaticFields(frame: Frame, initial: CoreState) {
-        for ((descriptor, value) in initial.staticFields) frame.writeStaticField(descriptor, value)
+        for ((descriptor, value) in initial.staticFields) frame.classes.setStaticField(descriptor, value)
         for (owner in initial.staticFields.keys.map(::declaringClassOf).distinct()) {
-            frame.completeClassInit(owner)
+            frame.classes.complete(owner)
         }
     }
 

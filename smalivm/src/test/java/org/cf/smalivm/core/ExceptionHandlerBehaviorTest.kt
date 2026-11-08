@@ -264,7 +264,7 @@ class ExceptionHandlerBehaviorTest {
         val value = Value.Unknown(THROWABLE)
         val residual = requireNotNull(ThrowableDomain.any().exclude(RUNTIME))
         val reused = Frame.entryFrame(view).also {
-            it.assignFrameValue(parameter, FrameValue.refined(value, residual))
+            it.assign(parameter, FrameValue.refined(value, residual))
         }
         val plain = Frame.entryFrame(view).also { it.assign(parameter, value) }
 
@@ -284,7 +284,7 @@ class ExceptionHandlerBehaviorTest {
         val value = Value.Unknown(THROWABLE)
         val residual = requireNotNull(ThrowableDomain.any().exclude(RUNTIME))
         val source = Frame.entryFrame(view).also {
-            it.assignFrameValue(parameter, FrameValue.refined(value, residual))
+            it.assign(parameter, FrameValue.refined(value, residual))
         }
         val projected = requireNotNull(source.peek(parameter))
         val reassigned = Frame.entryFrame(view).also { it.assign(parameter, projected) }

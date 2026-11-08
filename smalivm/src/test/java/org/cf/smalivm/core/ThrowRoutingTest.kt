@@ -70,7 +70,7 @@ class ThrowRoutingTest {
         val frame = terminal.terminalFrame
         assertEquals(escaped, frame.read(0))
         assertEquals(escaped, frame.thrownOrNull())
-        assertTrue(frame.hostObjectAt(escaped.raw as HeapRef) is NullPointerException)
+        assertTrue(frame.heap.hostObjectAt(escaped.raw as HeapRef) is NullPointerException)
         assertEquals(listOf(0, 1, 5, 6), graph.addresses().filter(graph::wasReached))
     }
 

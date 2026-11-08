@@ -40,7 +40,7 @@ class StaticFieldAccessTest {
      * then overwrites another: `sget alwaysZero` (prepared 0) -> `sput testInt1` (0), then
      * `sput testInt2` (1). JVMS §5.4.2 preparation running BEFORE the initializer is the whole
      * content -- a build that seeded on completion would read `Top` inside the `<clinit>` and then
-     * clobber its writes (`ClassInitStore.prepare`'s KDoc names this test as its pin). Also the
+     * clobber its writes. Also the
      * mutate-to-prove witness for `sget`'s class-init trigger (MEASURED,
      * `Fx_StaticFieldDoesInitialize`): an op that skips `OpArm.InitClass` never runs the
      * `<clinit>`, and all three field expectations plus the register go red.
@@ -100,8 +100,8 @@ class StaticFieldAccessTest {
      *     the same value (`assertEquals(item, fieldItem)`) -- for tracked objects, `Value.Known`
      *     equality is heap-id equality, so this IS the identity claim;
      *  4. the named nested activations ran in the named order, so the agreement in (3) held across a
-     *     call boundary and back (`ClassInitStore`'s threading -- the store rides
-     *     `Frame.calleeEntryFrame` in and `Frame.resumedWith` back).
+     *     call boundary and back (the class store rides `Frame.calleeEntryFrame` in and
+     *     `Frame.mergedCalleeState` back).
      */
     private fun assertOneMutatedSharedObject(
         graph: ExecutionGraph,
