@@ -42,8 +42,8 @@ stops changing or reaches `--max-passes`. It does not rename classes or methods.
 an interactive debugger for the same execution engine.
 
 An optimization runs only when the analysis of a method is complete. A method whose analysis hits a limit is
-reported as skipped and left unchanged. Exceptions, synchronization, volatile accesses, and array writes are
-observable, so their operations stay. For example, save this as `example/Example.smali`:
+reported as skipped and left unchanged. Exceptions, synchronization, volatile accesses, and writes to objects
+other code can see are observable, so their operations stay. For example, save this as `example/Example.smali`:
 
 ```smali
 .class public LExample;
