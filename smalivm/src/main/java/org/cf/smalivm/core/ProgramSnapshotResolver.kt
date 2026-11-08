@@ -54,14 +54,23 @@ internal class ProgramSnapshotResolver internal constructor(
 
     /**
      * Looks [methodDescriptor] up from [definingClass]: the class and its superclasses, then the maximally-specific
-     * superinterface methods. It answers symbolic resolution and, given a receiver's class, virtual selection.
+     * superinterface methods. It answers symbolic resolution; [resolveInvocation] selects on a receiver's class.
      *
-     * An absent class and an absent member are the guest `NoClassDefFoundError` and `NoSuchMethodError`. A
-     * declared method with no body (abstract, native, a framework declaration, an array pseudo-method) is
-     * [MethodLookup.NoBody]; a backend executes it. `<clinit>` is not inherited, so class initialization asks
-     * [lookupClassInitializer] instead.
+     * An absent class and an absent member are guest resolution failures. A declared method with no body
+     * (abstract, native, a framework declaration, an array pseudo-method) is [MethodLookup.NoBody]; a backend
+     * executes it. `<clinit>` is not inherited, so class initialization asks [lookupClassInitializer] instead.
      */
-    fun lookupMethod(definingClass: VirtualType, methodDescriptor: String): MethodLookup {
+    fun lookupMethod(definingClass: VirtualType, methodDescriptor: String): MethodLookup =
+        lookupMethod(definingClass, methodDescriptor, selection = false)
+
+    /**
+     * [lookupMethod] for a receiver whose class is exactly [receiverClass], as ART selects through its vtable or
+     * interface table: an abstract answer means no implementation exists, so it is [MethodLookup.AbstractSelection].
+     */
+    private fun selectMethod(receiverClass: VirtualType, methodDescriptor: String): MethodLookup =
+        lookupMethod(receiverClass, methodDescriptor, selection = true)
+
+    private fun lookupMethod(definingClass: VirtualType, methodDescriptor: String, selection: Boolean): MethodLookup {
         if (!hierarchy.isLoadable(definingClass)) return MethodLookup.NoSuchClass
         // An array's members are `length`, `clone()` and Object's members (JLS 10.7), so existence is asked of
         // Object. An existing member answers NoBody rather than Object's body: array `clone()` is a runtime
@@ -78,6 +87,9 @@ internal class ProgramSnapshotResolver internal constructor(
         if (search.missingClass) return MethodLookup.NoSuchClass
         val method = search.method ?: return MethodLookup.NoSuchMethod
         if (search.defaultConflict) return MethodLookup.DefaultConflict(resolvedSnapshotMethod(method, definingClass))
+        if (selection && AccessFlags.ABSTRACT.isSet(method.declaration.accessFlags)) {
+            return MethodLookup.AbstractSelection(resolvedSnapshotMethod(method))
+        }
         return lookupOf(method)
     }
 
@@ -108,11 +120,11 @@ internal class ProgramSnapshotResolver internal constructor(
                     null
                 }
                 InvocationLookup.Resolved(
-                    if (parent == null) MethodLookup.NoSuchMethod else lookupMethod(parent, target.nameAndProto),
+                    if (parent == null) MethodLookup.NoSuchMethod else selectMethod(parent, target.nameAndProto),
                 )
             }
             InvokeKind.VIRTUAL, InvokeKind.INTERFACE -> if (receiverType != null) {
-                InvocationLookup.Resolved(lookupMethod(receiverType, target.nameAndProto))
+                InvocationLookup.Resolved(selectMethod(receiverType, target.nameAndProto))
             } else {
                 val candidates = dispatchCandidates(target.definingClass, target.nameAndProto)
                 val candidateNames = java.util.Collections.unmodifiableSet(LinkedHashSet(candidates.keys))
@@ -196,14 +208,14 @@ internal class ProgramSnapshotResolver internal constructor(
      * [StaticFieldLookup.Resolved] names the declaring class, so every spelling of one inherited static reads one
      * cell, and that class is the one a trigger initializes.
      *
-     * A class absent anywhere in the search is [StaticFieldLookup.NoSuchClass], the guest `NoClassDefFoundError`.
+     * A class absent anywhere in the search is [StaticFieldLookup.NoSuchClass], a guest resolution failure.
      * A primitive or array [referencedClass] declares no statics.
      */
     fun resolveStaticField(referencedClass: VirtualType, name: String, fieldTypeDescriptor: String): StaticFieldLookup {
         if (!referencedClass.isReference || referencedClass.isArray) {
             return StaticFieldLookup.NoSuchField(ClassIndex.fieldDescriptorOf(referencedClass, name, fieldTypeDescriptor))
         }
-        if (!hierarchy.isLoadable(referencedClass)) return StaticFieldLookup.NoSuchClass(referencedClass)
+        if (!hierarchy.isLoadable(referencedClass)) return staticFieldClassMissing(referencedClass)
         val pending = ArrayDeque<String>()
         val searched = HashSet<String>()
         pending.addLast(referencedClass.descriptor)
@@ -211,7 +223,7 @@ internal class ProgramSnapshotResolver internal constructor(
             val descriptor = pending.removeLast()
             if (!searched.add(descriptor)) continue
             val owner = VirtualType.of(descriptor)
-            val declaration = hierarchy.declarations[descriptor] ?: return StaticFieldLookup.NoSuchClass(owner)
+            val declaration = hierarchy.declarations[descriptor] ?: return staticFieldClassMissing(owner)
             val wanted = ClassIndex.fieldDescriptorOf(owner, name, fieldTypeDescriptor)
             declaredStaticFields(owner).firstOrNull { it.descriptor == wanted }?.let { declared ->
                 return StaticFieldLookup.Resolved(
@@ -240,7 +252,7 @@ internal class ProgramSnapshotResolver internal constructor(
     ): InstanceFieldLookup {
         val requested = ClassIndex.fieldDescriptorOf(referencedClass, name, fieldTypeDescriptor)
         if (!referencedClass.isReference || referencedClass.isArray) return InstanceFieldLookup.NoSuchField(requested)
-        if (!hierarchy.isLoadable(referencedClass)) return InstanceFieldLookup.NoSuchClass(referencedClass)
+        if (!hierarchy.isLoadable(referencedClass)) return instanceFieldClassMissing(referencedClass)
         var current: VirtualType? = referencedClass
         while (current != null) {
             val definingClass = current
@@ -256,11 +268,17 @@ internal class ProgramSnapshotResolver internal constructor(
             current = try {
                 hierarchy.superclassOf(definingClass)
             } catch (_: ClassLoadFailure) {
-                return InstanceFieldLookup.NoSuchClass(definingClass)
+                return instanceFieldClassMissing(definingClass)
             }
         }
         return InstanceFieldLookup.NoSuchField(requested)
     }
+
+    private fun staticFieldClassMissing(type: VirtualType): StaticFieldLookup.NoSuchClass =
+        StaticFieldLookup.NoSuchClass(type, GuestThrowables.unresolvedClass(type, hierarchy))
+
+    private fun instanceFieldClassMissing(type: VirtualType): InstanceFieldLookup.NoSuchClass =
+        InstanceFieldLookup.NoSuchClass(type, GuestThrowables.unresolvedClass(type, hierarchy))
 
     /**
      * Every instance cell a new object owns, inherited declarations included, each holding its declared type's
@@ -487,6 +505,7 @@ internal class ProgramSnapshotResolver internal constructor(
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
             is MethodLookup.DefaultConflict -> lookup.method
+            is MethodLookup.AbstractSelection -> lookup.method
             MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> return null
         }
         return "${method.target.definingClass.descriptor}->${method.target.nameAndProto}"

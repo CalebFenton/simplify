@@ -527,7 +527,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                     context = null,
                     malformedInitializer = ancestor,
                 )
-                is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass ->
+                is MethodLookup.DefaultConflict, is MethodLookup.AbstractSelection, MethodLookup.NoSuchClass ->
                     error("The declared <clinit> of loaded class ${ancestor.descriptor} resolved to $lookup")
             }
         }

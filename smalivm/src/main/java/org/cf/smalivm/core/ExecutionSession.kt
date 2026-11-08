@@ -822,14 +822,16 @@ class ExecutionSession internal constructor(
             if (receiverIsNull(transition.kind, preparation.invocation.receiver)) {
                 return@planContained planInvokeNullReceiver(node, transition)
             }
-            if (preparation.lookup is MethodLookup.DefaultConflict) {
-                return@planContained planThrow(
-                    node,
-                    normalizeThrow(
-                        ThrowEvidence.Fresh(GuestThrowables.conflictingDefaultMethods(preparation.invocation.target)),
-                        node.frame,
-                    ),
-                )
+            // ART's `ThrowInvocationTimeError`: a linked method that cannot be invoked throws after the null check.
+            val invocationTimeError = when (val lookup = preparation.lookup) {
+                is MethodLookup.DefaultConflict ->
+                    GuestThrowables.conflictingDefaultMethods(preparation.invocation.target)
+                is MethodLookup.AbstractSelection -> GuestThrowables.abstractMethod(lookup.method.target, receiverType)
+                else -> null
+            }
+            if (invocationTimeError != null) {
+                val evidence = ThrowEvidence.Fresh(invocationTimeError)
+                return@planContained planThrow(node, normalizeThrow(evidence, node.frame))
             }
             val initType = invoker.applicableClassInitTarget(preparation.invocation)
             if (initType != null) {

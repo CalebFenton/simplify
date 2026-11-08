@@ -1878,6 +1878,15 @@ interpreter tiers also agree with each other. So `[JVMS]` §5.4.3.2 (field resol
 Plan 9 section below is discharged, and **the measurement agreed with the extrapolation** — worth recording,
 because the tier rule's value comes from being applied when it might not have.
 
+#### A class on an inheritance cycle answers `ClassCircularityError`
+
+**[ART]** source read, not measured on a device. `ClassLinker::LoadSuperAndInterfaces` rejects a class that
+extends or implements itself (*"Class foo.Bar extends itself"*), and `EnsureResolved` rejects a longer cycle with
+the pretty descriptor of the class being resolved. `ClassCircularityError` is a `LinkageError`, so it stays
+outside a `catch (Exception)` like the rest of the family. The engine keeps such classes out of the loaded set
+and throws it for every method, field and type reference to one. `Class.forName` wraps every lookup failure in
+`ClassNotFoundException` (`Class_classForName`), so it answers that instead.
+
 #### A missing METHOD on a PRESENT class is the same family, one member along
 
 **Measured — `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`, cross-validated `[DEVICE](Tier B, nterp default, API 36)`**

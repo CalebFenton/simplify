@@ -30,7 +30,7 @@ internal class InstanceOfOp(
     override val registersAssigned: Set<Int> = destinationRegisters(destRegister, isWide = false)
 
     override fun execute(frame: Frame): OpExecution {
-        if (targetType is TypeOperand.Absent) return resolutionFailure(targetType.type)
+        if (targetType is TypeOperand.Absent) return resolutionFailure(targetType.failure)
         val source = frame.read(sourceRegister)
         val result = when (castOutcome(source, targetType.type, hierarchy) { frame.heapObject(it)?.type }) {
             // Null is an instance of nothing.

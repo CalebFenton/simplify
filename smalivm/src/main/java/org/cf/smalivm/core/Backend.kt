@@ -313,7 +313,7 @@ internal class ApplicationBytecodeBackend(private val resolver: ProgramSnapshotR
         }
         MethodLookup.NoSuchClass -> BackendProbe.Declined("${call.target.definingClass} is not loaded")
         MethodLookup.NoSuchMethod -> BackendProbe.Declined("${call.target} is not loaded")
-        is MethodLookup.NoBody, is MethodLookup.DefaultConflict ->
+        is MethodLookup.NoBody, is MethodLookup.DefaultConflict, is MethodLookup.AbstractSelection ->
             BackendProbe.Declined("${call.target} has no application bytecode body")
     }
 
@@ -334,7 +334,7 @@ internal class FrameworkBytecodeBackend(private val resolver: ProgramSnapshotRes
         }
         MethodLookup.NoSuchClass -> BackendProbe.Declined("${call.target.definingClass} is not loaded")
         MethodLookup.NoSuchMethod -> BackendProbe.Declined("${call.target} is not loaded")
-        is MethodLookup.NoBody, is MethodLookup.DefaultConflict ->
+        is MethodLookup.NoBody, is MethodLookup.DefaultConflict, is MethodLookup.AbstractSelection ->
             BackendProbe.Declined("${call.target} has no framework bytecode body")
     }
 

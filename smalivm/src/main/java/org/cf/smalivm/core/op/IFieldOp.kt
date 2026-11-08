@@ -17,7 +17,7 @@ import org.cf.smalivm.core.resolutionFailure
 
 /** The resolution failure to throw instead of the access, or null when the field resolved. */
 private fun resolutionPreamble(field: InstanceFieldLookup): OpExecution? = when (field) {
-    is InstanceFieldLookup.NoSuchClass -> resolutionFailure(field.type)
+    is InstanceFieldLookup.NoSuchClass -> resolutionFailure(field.failure)
     is InstanceFieldLookup.NoSuchField -> noSuchFieldFailure(field.descriptor)
     is InstanceFieldLookup.Resolved -> null
 }

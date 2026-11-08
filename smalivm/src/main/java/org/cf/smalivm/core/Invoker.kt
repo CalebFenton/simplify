@@ -38,7 +38,7 @@ class Invoker internal constructor(
         resolved as InvocationLookup.Resolved
         val method = when (val lookup = resolved.lookup) {
             MethodLookup.NoSuchClass -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.noClassDefFound(call.target.definingClass),
+                GuestThrowables.unresolvedClass(call.target.definingClass, resolver.hierarchy),
             )
             MethodLookup.NoSuchMethod -> return InvocationPreparation.ThrowResolution(
                 GuestThrowables.noSuchMethod(call.target, call.kind),
@@ -46,6 +46,7 @@ class Invoker internal constructor(
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
             is MethodLookup.DefaultConflict -> lookup.method
+            is MethodLookup.AbstractSelection -> lookup.method
         }
 
         val words = method.target.argumentWords(call.kind)
@@ -166,7 +167,8 @@ sealed interface InvocationPreparation {
         val isSynchronized: Boolean get() = when (lookup) {
             is MethodLookup.Runnable -> lookup.method.isSynchronized
             is MethodLookup.NoBody -> lookup.method.isSynchronized
-            is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass, MethodLookup.NoSuchMethod -> false
+            is MethodLookup.DefaultConflict, is MethodLookup.AbstractSelection, MethodLookup.NoSuchClass,
+            MethodLookup.NoSuchMethod -> false
         }
     }
 

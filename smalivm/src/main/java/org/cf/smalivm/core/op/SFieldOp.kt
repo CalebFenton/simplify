@@ -20,7 +20,7 @@ import org.cf.smalivm.core.Value
  * resuming at this address.
  */
 private fun preamble(frame: Frame, field: StaticFieldLookup): OpExecution? = when (field) {
-    is StaticFieldLookup.NoSuchClass -> resolutionFailure(field.type)
+    is StaticFieldLookup.NoSuchClass -> resolutionFailure(field.failure)
     is StaticFieldLookup.NoSuchField -> noSuchFieldFailure(field.descriptor)
     is StaticFieldLookup.Resolved -> frame.classInitTrigger(field.definingClass)
 }

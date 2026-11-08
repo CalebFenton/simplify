@@ -9,6 +9,7 @@ internal enum class SynthesizedThrowable(
     descriptor: String,
     val host: (message: String?, cause: Throwable?) -> Throwable,
 ) {
+    ABSTRACT_METHOD("Ljava/lang/AbstractMethodError;", { message, _ -> AbstractMethodError(message) }),
     ARITHMETIC("Ljava/lang/ArithmeticException;", { message, _ -> ArithmeticException(message) }),
     ARRAY_INDEX_OUT_OF_BOUNDS(
         "Ljava/lang/ArrayIndexOutOfBoundsException;",
@@ -16,6 +17,7 @@ internal enum class SynthesizedThrowable(
     ),
     ARRAY_STORE("Ljava/lang/ArrayStoreException;", { message, _ -> ArrayStoreException(message) }),
     CLASS_CAST("Ljava/lang/ClassCastException;", { message, _ -> ClassCastException(message) }),
+    CLASS_CIRCULARITY("Ljava/lang/ClassCircularityError;", { message, _ -> ClassCircularityError(message) }),
     EXCEPTION_IN_INITIALIZER(
         "Ljava/lang/ExceptionInInitializerError;",
         { _, cause -> if (cause == null) ExceptionInInitializerError() else ExceptionInInitializerError(cause) },
@@ -119,6 +121,24 @@ internal object GuestThrowables {
         ThrowableRecipe(SynthesizedThrowable.NO_CLASS_DEF_FOUND, "Failed resolution of: ${absentType.descriptor}")
 
     /**
+     * A reference to [type], whose base class is not in the loaded set. A class on an inheritance cycle fails to
+     * load with ART's `ClassCircularityError`: `LoadSuperAndInterfaces` names a direct self-reference, and a longer
+     * cycle fails in `EnsureResolved`, which names the class being resolved. Any other absent class is
+     * [noClassDefFound].
+     */
+    fun unresolvedClass(type: VirtualType, hierarchy: HierarchySnapshot): ThrowableRecipe {
+        val circularity = hierarchy.circularityOf(type) ?: return noClassDefFound(type)
+        var base = type
+        while (base.isArray) base = requireNotNull(base.componentType)
+        val message = when (circularity) {
+            ClassCircularity.EXTENDS_ITSELF -> "Class ${prettyDescriptor(base)} extends itself"
+            ClassCircularity.IMPLEMENTS_ITSELF -> "Class ${prettyDescriptor(base)} implements itself"
+            ClassCircularity.THROUGH_ANOTHER_CLASS -> prettyDescriptor(base)
+        }
+        return ThrowableRecipe(SynthesizedThrowable.CLASS_CIRCULARITY, message)
+    }
+
+    /**
      * A trigger of [failedClass], whose initialization failed earlier with [storedFailure]. ART
      * `ClassLinker::ThrowEarlierClassFailure` throws `NoClassDefFoundError(PrettyDescriptor)` with the stored
      * error as its cause.
@@ -143,6 +163,18 @@ internal object GuestThrowables {
     fun conflictingDefaultMethods(method: MethodDescriptor): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.INCOMPATIBLE_CLASS_CHANGE,
         "Conflicting default method implementations ${method.definingClass.descriptor}->${method.nameAndProto}",
+    )
+
+    /**
+     * ART's `ThrowAbstractMethodError` when the method selected for a receiver of class [receiverClass] is the
+     * abstract [method]: `abstract method "<PrettyMethod>" on receiver <PrettyClass>`. A receiver whose class the
+     * engine does not know omits the message.
+     */
+    fun abstractMethod(method: MethodDescriptor, receiverClass: VirtualType?): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.ABSTRACT_METHOD,
+        receiverClass?.let {
+            "abstract method \"${prettyMethod(method)}\" on receiver java.lang.Class<${prettyDescriptor(it)}>"
+        },
     )
 
     fun internalError(message: String): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.INTERNAL_ERROR, message)
@@ -189,12 +221,13 @@ internal object GuestThrowables {
 }
 
 /**
- * A type operand naming a class absent from the loaded set: a guest `NoClassDefFoundError`, thrown before the
- * op reads any register. It is an `Error`, so a guest `catch (Exception)` does not catch it. Definite rather
- * than forked, because the loaded class set is the whole program.
+ * A reference to a class absent from the loaded set throws [failure], the error
+ * [GuestThrowables.unresolvedClass] chose, before the op reads any register. It is an `Error`, so a guest
+ * `catch (Exception)` does not catch it. Definite rather than forked, because the loaded class set is the whole
+ * program.
  */
-internal fun resolutionFailure(absentType: VirtualType): OpExecution =
-    OpExecution.single(GuestThrowables.throwing(GuestThrowables.noClassDefFound(absentType)))
+internal fun resolutionFailure(failure: ThrowableRecipe): OpExecution =
+    OpExecution.single(GuestThrowables.throwing(failure))
 
 /** A field reference whose class resolved but declares no such field: a guest `NoSuchFieldError`. */
 internal fun noSuchFieldFailure(fieldDescriptor: String): OpExecution =

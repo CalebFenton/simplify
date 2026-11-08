@@ -125,7 +125,10 @@ private class Decoding(
 
     /** A type operand, present when the class is in the loaded set. */
     fun typeOperand(type: VirtualType): TypeOperand<Unit> =
-        if (resolver.hierarchy.isLoadable(type)) TypeOperand.Present(type, Unit) else TypeOperand.Absent(type)
+        if (resolver.hierarchy.isLoadable(type)) TypeOperand.Present(type, Unit) else absent(type)
+
+    fun absent(type: VirtualType): TypeOperand.Absent =
+        TypeOperand.Absent(type, GuestThrowables.unresolvedClass(type, resolver.hierarchy))
 }
 
 /**
@@ -328,7 +331,7 @@ internal object OpBuilder {
     /**
      * The class is loaded first, because the host loader also resolves host-only classes the class model does
      * not contain. When the load fails, the class model decides which failure it is: a class absent from it
-     * is a guest `NoClassDefFoundError`, and a class it contains that the host cannot load (many framework
+     * is a guest resolution failure, and a class it contains that the host cannot load (many framework
      * `java.*` classes) is an engine limitation, so the instruction is unsupported.
      */
     private fun constClass(d: Decoding): Op {
@@ -337,7 +340,7 @@ internal object OpBuilder {
         val type = VirtualType.of(descriptor)
         return when {
             hostClass != null -> ConstClassOp(d.address, d.registerA, TypeOperand.Present(type, hostClass))
-            !d.resolver.hierarchy.isLoadable(type) -> ConstClassOp(d.address, d.registerA, TypeOperand.Absent(type))
+            !d.resolver.hierarchy.isLoadable(type) -> ConstClassOp(d.address, d.registerA, d.absent(type))
             else -> d.unsupported
         }
     }
@@ -374,7 +377,7 @@ internal object OpBuilder {
     private fun newInstance(d: Decoding): Op {
         val type = d.typeReference
         val fields = d.resolver.instanceFieldDefaults(type)
-        val instance = if (fields != null) TypeOperand.Present(type, fields) else TypeOperand.Absent(type)
+        val instance = if (fields != null) TypeOperand.Present(type, fields) else d.absent(type)
         return NewInstanceOp(d.address, d.name, d.registerA, instance)
     }
 
