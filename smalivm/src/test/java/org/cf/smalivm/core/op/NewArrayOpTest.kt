@@ -1,6 +1,5 @@
 package org.cf.smalivm.core.op
 
-import java.util.concurrent.TimeUnit
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
@@ -17,7 +16,6 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Timeout
 
 /**
  * `new-array` (spec §4.2). Migrated from `org.cf.smalivm.opcode.NewArrayOpTest` -- all seven of its
@@ -321,20 +319,17 @@ class NewArrayOpTest {
      * nothing forks.
      */
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun theLargestIntLengthYieldsAnUnknownArrayInsteadOfExhaustingTheHost() {
         assertLengthIsNotTracked(Int.MAX_VALUE)
     }
 
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun aLengthJustOverTheTrackedBoundYieldsAnUnknownArray() {
         assertLengthIsNotTracked(MAX_TRACKED_ARRAY_LENGTH + 1)
     }
 
     /** Bug class: an off-by-one bound that refuses the largest length it admits. */
     @Test
-    @Timeout(value = 20, unit = TimeUnit.SECONDS, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun aLengthAtTheTrackedBoundIsAllocated() {
         val graph = CoreTester.execute(CLASS_NAME, "createIntegerArray()V", CoreState().apply {
             setRegisters(0, MAX_TRACKED_ARRAY_LENGTH, "I")

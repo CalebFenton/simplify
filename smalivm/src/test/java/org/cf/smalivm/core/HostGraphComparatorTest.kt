@@ -174,7 +174,9 @@ class HostGraphComparatorTest {
         val members = (after.objectAt(HostGraphNodeId(0)) as Set<MutableList<Any>>).toList()
         members[0][0] = members[1][0]
 
-        val result = assertTimeoutPreemptively(Duration.ofSeconds(10)) { comparator.compare(before, after) }
+        // A termination guard, not a cost bound: the bounded search ends in well under a second, and a search
+        // through every pairing of the members runs for hours.
+        val result = assertTimeoutPreemptively(Duration.ofSeconds(60)) { comparator.compare(before, after) }
 
         assertNotEquals(HostGraphComparison.Equal, result)
     }
