@@ -430,6 +430,33 @@ class MethodTryRegionEditTest {
     }
 
     @Test
+    fun fillArrayDataReachesItsHandlerInRegisterValidation() {
+        // ART's opcode table flags fill-array-data kThrow (null or too-short array), so its handler is reachable.
+        val index = index(FILL_FLOW_SOURCE)
+        val view = requireNotNull(index.methodView(FILL_FLOW_METHOD))
+        val edit = VmServices(index).methodEditor.beginEdit(view)
+        val fill = opcodeAddress(view, Opcode.FILL_ARRAY_DATA)
+        val handler = opcodeAddress(view, Opcode.MOVE_EXCEPTION)
+        edit.setTryRegions(
+            listOf(
+                TryRegionSpec(
+                    edit.pendingAnchorForCodeAddress(fill),
+                    edit.pendingAnchorForCodeAddress(view.nextAddress(fill)),
+                    listOf(CatchHandlerSpec.CatchAll(edit.pendingAnchorForCodeAddress(handler))),
+                ),
+            ),
+        )
+
+        val result = edit.commit()
+
+        // const/4 @0, new-array @1, fill-array-data @3, const/4 @6, return @7, move-exception @8, `return v1` @9.
+        assertEquals(
+            MethodEditRejectionReason.ReadBeforeAssignment(codeAddress = 9, register = 1),
+            (result as? MethodEditCommitResult.Rejected)?.reason,
+        )
+    }
+
+    @Test
     fun dexWriterPreservesAdjacentSplitRangesWithEqualHandlers() {
         val index = index()
         val implementation = ImmutableMethodImplementation(
@@ -628,6 +655,27 @@ class MethodTryRegionEditTest {
                 return v0
                 move-exception v0
                 return v1
+            .end method
+        """
+
+        const val FILL_FLOW_METHOD = "Ltask57/FillFlow;->run()I"
+        const val FILL_FLOW_SOURCE = """
+            .class public Ltask57/FillFlow;
+            .super Ljava/lang/Object;
+
+            .method public static run()I
+                .registers 2
+                const/4 v0, 0x1
+                new-array v0, v0, [I
+                fill-array-data v0, :data
+                const/4 v0, 0x0
+                return v0
+                move-exception v0
+                return v1
+                :data
+                .array-data 4
+                    0x1
+                .end array-data
             .end method
         """
     }

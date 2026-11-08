@@ -34,6 +34,9 @@ internal data class RegisterOperand(val access: RegisterAccess, val category: Va
     val writes: Boolean get() = access != RegisterAccess.READ
 }
 
+/** Invokes and `filled-new-array` name argument words rather than fixed register fields. */
+internal fun Instruction.hasArgumentWords(): Boolean = this is FiveRegisterInstruction || this is RegisterRangeInstruction
+
 /**
  * How each opcode reads and writes registers, per the Dalvik bytecode reference. Fixed-register formats get one
  * operand per register field in A, B, C order. Invokes and `filled-new-array` get one read per argument value; a
@@ -41,10 +44,32 @@ internal data class RegisterOperand(val access: RegisterAccess, val category: Va
  */
 internal object RegisterEffects {
     fun operands(instruction: Instruction): List<RegisterOperand> {
-        if (instruction is FiveRegisterInstruction || instruction is RegisterRangeInstruction) {
-            return argumentOperands(instruction)
-        }
+        if (instruction.hasArgumentWords()) return argumentOperands(instruction)
         return FIXED_OPERANDS[instruction.opcode] ?: error("No register model for ${instruction.opcode}")
+    }
+
+    /** Every register word [instruction] reads, ascending: both words of a wide operand and every argument word. */
+    fun registersRead(instruction: Instruction): IntArray {
+        if (instruction.hasArgumentWords()) return instruction.registerOperands().toSortedSet().toIntArray()
+        return registerWords(instruction, RegisterOperand::reads)
+    }
+
+    /** Every register word [instruction] writes, ascending; invokes and `filled-new-array` write none. */
+    fun registersWritten(instruction: Instruction): IntArray {
+        if (instruction.hasArgumentWords()) return IntArray(0)
+        return registerWords(instruction, RegisterOperand::writes)
+    }
+
+    private fun registerWords(instruction: Instruction, selected: (RegisterOperand) -> Boolean): IntArray {
+        val registers = instruction.registerOperands()
+        val result = sortedSetOf<Int>()
+        operands(instruction).forEachIndexed { index, operand ->
+            val register = registers.getOrNull(index) ?: return@forEachIndexed
+            if (!selected(operand)) return@forEachIndexed
+            result += register
+            if (operand.category == ValueCategory.WIDE) result += register + 1
+        }
+        return result.toIntArray()
     }
 
     /** The three-address form of a `binop/2addr` opcode. */

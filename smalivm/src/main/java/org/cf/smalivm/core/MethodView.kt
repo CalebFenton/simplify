@@ -92,6 +92,15 @@ class MethodView private constructor(
     val terminalInstructionAddresses: IntArray get() = storedTerminalInstructionAddresses.copyOf()
 
     /**
+     * This method's control flow, built once per view; null when ART's verifier would reject the body's control
+     * structure: a target that is not an instruction, a payload of the wrong kind, overlapping try ranges, or a
+     * reachable instruction that falls off the code.
+     */
+    val controlFlow: MethodControlFlow? by lazy {
+        MethodControlFlow.of(methodBody)?.takeUnless(MethodControlFlow::hasReachableFallOff)
+    }
+
+    /**
      * Addresses holding a payload pseudo-instruction — `.array-data` and the two switch tables. These are
      * **data, not code**: nothing branches *through* them and the core never executes one, so
      * `wasReached` is false there on every run. **SPEC**, and stated twice: [BC]'s "General design" says

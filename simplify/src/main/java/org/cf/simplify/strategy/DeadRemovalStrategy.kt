@@ -2,6 +2,7 @@ package org.cf.simplify.strategy
 
 import java.util.ArrayDeque
 import org.cf.smalivm.core.MethodControlFlow
+import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.SideEffectLevel
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.DualReferenceInstruction
@@ -20,15 +21,15 @@ class DeadRemovalStrategy : OptimizationStrategy {
 
     override fun perform(input: StrategyInput) {
         val graph = input.graph
+        val method = input.method
         val flow = input.controlFlow ?: return
         if (flow.size == 0) return
-        val analysis = Analysis(flow)
+        val analysis = Analysis(method, flow)
         // Registers an unexplored structural successor reads are not a proof of no reads. Keep assignments
         // unless every structurally reachable instruction ran.
         val livenessComplete = (0 until flow.size).none { flow.isReachable(it) && graph.isDead(flow.addressAt(it)) }
         if (livenessComplete) analysis.computeLiveness()
 
-        val method = flow.method
         val removals = linkedSetOf<Int>()
         fun remove(address: Int, category: String) {
             if (removals.add(address)) input.recordOptimization(category)
@@ -64,7 +65,7 @@ class DeadRemovalStrategy : OptimizationStrategy {
         if (removals.isNotEmpty()) input.transaction.removeInstructions(removals)
     }
 
-    private class Analysis(val flow: MethodControlFlow) {
+    private class Analysis(val method: MethodView, val flow: MethodControlFlow) {
         private val size = flow.size
         private val normal = Array(size) { flow.normalSuccessors(it) }
         private val exceptional = Array(size) { flow.exceptionalSuccessors(it) }
@@ -78,13 +79,12 @@ class DeadRemovalStrategy : OptimizationStrategy {
         fun isProtected(index: Int): Boolean = protected[index]
 
         fun isPayloadPadding(index: Int): Boolean {
-            val next = flow.method.nextAddress(flow.addressAt(index))
-            return flow.method.hasAddress(next) && flow.method.isPayload(next)
+            val next = method.nextAddress(flow.addressAt(index))
+            return method.hasAddress(next) && method.isPayload(next)
         }
 
         /** A constructor's `invoke-direct` of `<init>` on its own receiver initializes `this` and must stay. */
         fun isSelfInitialization(index: Int): Boolean {
-            val method = flow.method
             if (!method.signature.substringAfter("->").startsWith("<init>(")) return false
             val instruction = flow.instructionAt(index)
             if (instruction.opcode != Opcode.INVOKE_DIRECT && instruction.opcode != Opcode.INVOKE_DIRECT_RANGE) return false
@@ -93,29 +93,30 @@ class DeadRemovalStrategy : OptimizationStrategy {
         }
 
         /**
-         * Unreachable instructions that stay because something still names them: the code from each handler entry up
-         * to its first non-continuing instruction, the successors of a kept switch, and the method's terminals.
+         * Unreachable instructions that stay because something still names them: the fall-through chain from each
+         * handler entry, the successors of a kept switch, and the method's terminals.
          */
         private fun protectedInstructions(): BooleanArray {
             val result = BooleanArray(size)
             for (index in 0 until size) {
                 if (flow.isHandlerEntry(index)) {
-                    for (covered in index until size) {
+                    var covered: Int? = index
+                    while (covered != null) {
                         result[covered] = true
-                        if (!flow.instructionAt(covered).opcode.canContinue()) break
+                        covered = flow.fallthroughSuccessor(covered)
                     }
                 }
                 if (flow.instructionAt(index).opcode in SWITCHES) for (target in normal[index]) result[target] = true
             }
-            for (terminal in flow.method.terminalInstructionAddresses) flow.indexOf(terminal)?.let { result[it] = true }
+            for (terminal in method.terminalInstructionAddresses) flow.indexOf(terminal)?.let { result[it] = true }
             return result
         }
 
         fun computeLiveness() {
             val interner = RegisterSetInterner()
             for (i in 0 until size) {
-                reads[i] = RegisterSet.from(flow.registersRead(i), flow.method.registerCount, interner)
-                assigned[i] = RegisterSet.from(flow.registersWritten(i), flow.method.registerCount, interner)
+                reads[i] = RegisterSet.from(flow.registersRead(i), method.registerCount, interner)
+                assigned[i] = RegisterSet.from(flow.registersWritten(i), method.registerCount, interner)
             }
             val work = ArrayDeque<Int>()
             val queued = BooleanArray(size)

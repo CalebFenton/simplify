@@ -12,10 +12,10 @@ import java.util.Collections
  */
 class StrategyInput internal constructor(
     val graph: TrustedGraphView,
-    val controlFlow: MethodControlFlow?,
     val transaction: MethodEditTransaction,
 ) {
     val method: MethodView get() = graph.methodView
+    val controlFlow: MethodControlFlow? get() = method.controlFlow
     private val counts = linkedMapOf<String, Int>()
     val optimizationCounts: Map<String, Int> get() = Collections.unmodifiableMap(counts)
 

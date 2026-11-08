@@ -23,7 +23,7 @@ class MethodControlFlowTest {
     }
 
     private fun flow(descriptor: String): MethodControlFlow? =
-        MethodControlFlow.of(classIndex.requireMethodView("LFlow;", descriptor))
+        classIndex.requireMethodView("LFlow;", descriptor).controlFlow
 
     private fun successors(flow: MethodControlFlow, index: Int) = flow.normalSuccessors(index).toSortedSet()
 
