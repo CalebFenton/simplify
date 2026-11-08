@@ -16,12 +16,12 @@ class ClassForNameIntegrationTest {
 
     @Test
     fun oneArgumentOverloadHasTheOnlyDefaultClassForNameRegistration() {
-        val oneArgument = MethodDescriptor(
+        val oneArgument = MethodSignature(
             VirtualType.of("Ljava/lang/Class;"),
             "forName",
             "(Ljava/lang/String;)Ljava/lang/Class;",
         )
-        val threeArguments = MethodDescriptor(
+        val threeArguments = MethodSignature(
             VirtualType.of("Ljava/lang/Class;"),
             "forName",
             "(Ljava/lang/String;ZLjava/lang/ClassLoader;)Ljava/lang/Class;",
@@ -63,7 +63,7 @@ class ClassForNameIntegrationTest {
         val graph = session.run()
         val invokeAddress = invokeAddress(session.methodView)
         val invokes = graph.nodePile(invokeAddress)
-        val initializerNodes = graphNodes(invokes.first()).filter { it.view.signature == "$FIXTURE-><clinit>()V" }
+        val initializerNodes = graphNodes(invokes.first()).filter { it.view.signature.toString() == "$FIXTURE-><clinit>()V" }
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
 
         assertEquals(2, invokes.size, "Class.forName must retry at the same invoke address")

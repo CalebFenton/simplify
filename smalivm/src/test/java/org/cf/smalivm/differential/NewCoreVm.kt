@@ -16,6 +16,7 @@ import org.cf.smalivm.core.RegisterOccupancy
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
+import org.cf.smalivm.core.requireMethodView
 
 /** Projects immutable method snapshots and explored execution evidence for regression/device tests. */
 class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTest {

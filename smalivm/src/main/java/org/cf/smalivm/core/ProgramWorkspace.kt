@@ -44,7 +44,7 @@ class ProgramWorkspace private constructor(
 
     internal fun newProgramRevision(): ProgramRevision = revisionAuthority.newProgramRevision()
 
-    internal fun newApplicationMethodRevision(methodSignature: String): ApplicationMethodRevision =
+    internal fun newApplicationMethodRevision(methodSignature: MethodSignature): ApplicationMethodRevision =
         revisionAuthority.newApplicationMethodRevision(methodSignature)
 
     internal companion object {
@@ -67,6 +67,6 @@ internal class ProgramRevisionAuthority private constructor(
     fun newProgramRevision(): ProgramRevision =
         ProgramRevision.create(programIdentity, nextProgramSequence++)
 
-    fun newApplicationMethodRevision(methodSignature: String): ApplicationMethodRevision =
+    fun newApplicationMethodRevision(methodSignature: MethodSignature): ApplicationMethodRevision =
         ApplicationMethodRevision(programIdentity, methodSignature)
 }

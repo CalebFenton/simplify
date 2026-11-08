@@ -41,7 +41,7 @@ internal object SynchronousInvocationFixtures {
     fun nativePlan(invoker: Invoker): InvocationPlan {
         val preparation = invoker.prepare(
             Invocation(
-                MethodDescriptor(VirtualType.of(CALLEE), "nativeCallee", "()I"),
+                MethodSignature(VirtualType.of(CALLEE), "nativeCallee", "()I"),
                 InvokeKind.STATIC,
                 emptyList(),
             ),
@@ -64,7 +64,7 @@ internal object SynchronousInvocationFixtures {
 
 /** Registers [handler] for exactly [target] on this VM. It accepts unknown arguments, so it runs whenever selected. */
 internal fun VmServices.emulate(
-    target: MethodDescriptor,
+    target: MethodSignature,
     effect: SideEffectLevel = SideEffectLevel.NONE,
     handler: EmulatorHandler,
 ) = invocationServices.emulators.register(
@@ -81,7 +81,7 @@ internal fun VmServices.emulate(
  * emulator backend first, which consults this never-matching predicate unless an exact registration for
  * [target] answers first.
  */
-internal fun VmServices.countSelections(target: MethodDescriptor): () -> Int {
+internal fun VmServices.countSelections(target: MethodSignature): () -> Int {
     var selections = 0
     invocationServices.emulators.register(
         EmulatorRegistration(

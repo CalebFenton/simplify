@@ -27,13 +27,10 @@ class ProgramSnapshot private constructor(
      * Full signatures of application methods with a body, in deterministic lexical order. Verifier-rejected code
      * has no body.
      */
-    fun concreteApplicationMethodSignatures(): List<String> = concreteApplicationMethodSignatures
+    fun concreteApplicationMethodSignatures(): List<MethodSignature> = concreteApplicationMethodSignatures
 
-    internal fun applicationMethod(methodSignature: String): ApplicationMethodDefinition? {
-        val definingClass = methodSignature.substringBefore("->")
-        val descriptor = methodSignature.substringAfter("->")
-        return applicationClasses[definingClass]?.methodsByDescriptor?.get(descriptor)
-    }
+    internal fun applicationMethod(method: MethodSignature): ApplicationMethodDefinition? =
+        applicationClasses[method.definingClass.descriptor]?.methodsByDescriptor?.get(method.nameAndProto)
 
     internal fun owns(view: MethodView): Boolean {
         if (view.programRevision !== programRevision) return false
@@ -92,7 +89,7 @@ class ProgramSnapshot private constructor(
                     "Plan 13 cannot change application class structure: $type"
                 }
                 for (method in definition.methods) {
-                    val previousMethod = requireNotNull(previous.methodsByDescriptor[methodDescriptor(method)])
+                    val previousMethod = requireNotNull(previous.methodsByDescriptor[method.methodSignature.nameAndProto])
                     require(method === previousMethod || method.methodRevision !== previousMethod.methodRevision) {
                         "Changed method must have a new application method revision: ${method.methodSignature}"
                     }
@@ -109,11 +106,6 @@ class ProgramSnapshot private constructor(
                 current.programRevision,
             )
         }
-
-        private fun methodDescriptor(method: ApplicationMethodDefinition): String =
-            method.declaration.name +
-                method.declaration.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") +
-                method.declaration.returnType
 
         private fun create(
             programIdentity: ProgramIdentity,

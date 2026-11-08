@@ -76,7 +76,7 @@ class LauncherTest {
     }
 
     @Test fun includeExcludeAndZeroPassLimitControlActualExecution() {
-        val visited = mutableListOf<String>()
+        val visited = mutableListOf<MethodSignature>()
         val strategy = OptimizationStrategy { visited += it.graph.methodView.signature }
         val output = temporaryDirectory.resolve("filtered.dex")
         Launcher(listOf(strategy)).run(arrayOf(fixture, "--include-types", "aNoOp|changed", "--exclude-types", "changed", "--output", output.toString(), "--quiet"))
@@ -126,7 +126,7 @@ class LauncherTest {
 
     @Test fun ignoredFailureContinuesOtherMethodsWhileFatalFailurePublishesNoOutput() {
         val errors = ByteArrayOutputStream()
-        val visited = mutableListOf<String>()
+        val visited = mutableListOf<MethodSignature>()
         val strategy = OptimizationStrategy {
             val signature = it.graph.methodView.signature
             if (signature == OptimizerTest.NO_OP) throw IllegalStateException("method failure")
@@ -222,15 +222,15 @@ class LauncherTest {
     }
 
     @Test fun supportLibraryFilterRequiresExplicitOptIn() {
-        val visited = mutableListOf<String>()
+        val visited = mutableListOf<MethodSignature>()
         val strategy = OptimizationStrategy { visited += it.graph.methodView.signature }
         val output = temporaryDirectory.resolve("support.dex")
         val args = arrayOf("src/test/resources/task69", "--output", output.toString(), "--quiet")
         Launcher(listOf(strategy)).run(args)
-        assertEquals(listOf("Ltask69/Application;->value()I"), visited)
+        assertEquals(listOf("Ltask69/Application;->value()I"), visited.map { it.toString() })
         visited.clear()
         Launcher(listOf(strategy)).run(args + "--include-support")
-        assertEquals(listOf("Landroid/support/v7/Support;->value()I", "Ltask69/Application;->value()I"), visited)
+        assertEquals(listOf("Landroid/support/v7/Support;->value()I", "Ltask69/Application;->value()I"), visited.map { it.toString() })
     }
 
     @Test fun outputNamesPreserveInputTypeConventions() {

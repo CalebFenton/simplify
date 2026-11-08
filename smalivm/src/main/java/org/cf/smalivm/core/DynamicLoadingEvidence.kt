@@ -30,7 +30,7 @@ class DynamicLoadingEvidence private constructor(
             DynamicLoadingEvidence(methodSignatures.toPersistentSet())
 
         fun fromBody(
-            methodSignature: String,
+            methodSignature: MethodSignature,
             body: MethodBody,
             hierarchy: HierarchySnapshot? = null,
         ): DynamicLoadingEvidence {
@@ -43,7 +43,7 @@ class DynamicLoadingEvidence private constructor(
                     else -> reference.name == "loadClass" && hierarchy?.isClassLoaderSubtype(reference.definingClass) == true
                 }
             }
-            return if (present) of(methodSignature) else EMPTY
+            return if (present) of(methodSignature.toString()) else EMPTY
         }
 
         private fun HierarchySnapshot.isClassLoaderSubtype(descriptor: String): Boolean = try {

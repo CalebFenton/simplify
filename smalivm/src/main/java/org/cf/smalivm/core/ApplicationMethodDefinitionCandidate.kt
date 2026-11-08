@@ -10,7 +10,7 @@ internal class ApplicationMethodDefinitionCandidate private constructor(
     val dexReferenceClosure: DexReferenceClosure,
     val baselineRegisterCount: Int,
 ) {
-    val methodSignature: String = com.android.tools.smali.dexlib2.formatter.DexFormatter.INSTANCE.getMethodDescriptor(declaration)
+    val methodSignature: MethodSignature = MethodSignature.of(declaration)
 
     companion object {
         fun from(

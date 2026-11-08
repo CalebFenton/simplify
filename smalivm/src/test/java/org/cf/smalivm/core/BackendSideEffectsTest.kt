@@ -121,7 +121,7 @@ class BackendSideEffectsTest {
         val seeded: Map<Int, Value>,
     )
 
-    private fun method(owner: VirtualType, name: String, proto: String) = MethodDescriptor(owner, name, proto)
+    private fun method(owner: VirtualType, name: String, proto: String) = MethodSignature(owner, name, proto)
 
     private companion object {
         const val FIXTURE = "Lbackend_side_effect_test;"

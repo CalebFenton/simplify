@@ -636,15 +636,7 @@ class MethodEditTransactionTest {
         val method = DexFileFactory.loadDexFile(
             dexFile.toFile(),
             Opcodes.forApi(snapshot.outputApiPolicy.apiLevel),
-        ).classes.flatMap { it.methods }.single { method ->
-            buildString {
-                append(method.definingClass)
-                append("->")
-                append(method.name)
-                method.parameterTypes.joinTo(this, separator = "", prefix = "(", postfix = ")")
-                append(method.returnType)
-            } == methodSignature
-        }
+        ).classes.flatMap { it.methods }.single { MethodSignature.of(it) == MethodSignature.parse(methodSignature) }
         return requireNotNull(method.implementation).debugItems.filterIsInstance<LineNumber>().toList()
     }
 

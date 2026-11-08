@@ -34,7 +34,7 @@ internal data class TrackedFieldEmulatorValue(
 
 /** Immutable input for one emulator handler. */
 class EmulatorInvocation internal constructor(
-    val target: MethodDescriptor,
+    val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
     val returnType: VirtualType,
@@ -56,7 +56,7 @@ internal fun defaultEmulatorRegistrations(
     resolver: ProgramSnapshotResolver,
     reflectionPolicy: ReflectionPolicy,
 ): List<EmulatorRegistration> {
-    val textUtilsTarget = MethodDescriptor(
+    val textUtilsTarget = MethodSignature(
         VirtualType.of("Landroid/text/TextUtils;"),
         "isEmpty",
         "(Ljava/lang/CharSequence;)Z",
@@ -83,7 +83,7 @@ internal fun defaultEmulatorRegistrations(
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(
-                MethodDescriptor(
+                MethodSignature(
                     VirtualType.of("Ljava/lang/reflect/Field;"),
                     "get",
                     "(Ljava/lang/Object;)Ljava/lang/Object;",
@@ -106,7 +106,7 @@ internal fun defaultEmulatorRegistrations(
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(
-                MethodDescriptor(
+                MethodSignature(
                     VirtualType.of("Ljava/lang/Class;"),
                     "forName",
                     "(Ljava/lang/String;)Ljava/lang/Class;",
@@ -134,10 +134,10 @@ internal fun defaultEmulatorRegistrations(
         ),
         // An override of getCause is ordinary bytecode; only the Throwable implementations read the cause slot.
         throwableCauseRegistration(
-            MethodDescriptor(GuestThrowables.THROWABLE, "getCause", "()Ljava/lang/Throwable;"),
+            MethodSignature(GuestThrowables.THROWABLE, "getCause", "()Ljava/lang/Throwable;"),
         ),
         throwableCauseRegistration(
-            MethodDescriptor(
+            MethodSignature(
                 SynthesizedThrowable.EXCEPTION_IN_INITIALIZER.type,
                 "getException",
                 "()Ljava/lang/Throwable;",
@@ -155,7 +155,7 @@ internal fun defaultEmulatorRegistrations(
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(
-                MethodDescriptor(
+                MethodSignature(
                     VirtualType.of("Ljava/lang/Class;"),
                     "getComponentType",
                     "()Ljava/lang/Class;",
@@ -166,14 +166,14 @@ internal fun defaultEmulatorRegistrations(
             ClassGetComponentTypeEmulator(),
         ),
         EmulatorRegistration(
-            EmulatorMatcher.Exact(MethodDescriptor(VirtualType.OBJECT, "<init>", "()V")),
+            EmulatorMatcher.Exact(MethodSignature(VirtualType.OBJECT, "<init>", "()V")),
             EmulatorCapability(handlesUnknownArguments = false, receivesTrackedReferences = true),
             SideEffectLevel.NONE,
             ObjectInitEmulator(),
         ),
         EmulatorRegistration(
             EmulatorMatcher.Exact(
-                MethodDescriptor(
+                MethodSignature(
                     VirtualType.of("Ljava/lang/Enum;"),
                     "<init>",
                     "(Ljava/lang/String;I)V",
@@ -186,7 +186,7 @@ internal fun defaultEmulatorRegistrations(
     )
 }
 
-private fun throwableCauseRegistration(target: MethodDescriptor) = EmulatorRegistration(
+private fun throwableCauseRegistration(target: MethodSignature) = EmulatorRegistration(
     EmulatorMatcher.Exact(target),
     EmulatorCapability(handlesUnknownArguments = true, receivesTrackedReferences = true),
     SideEffectLevel.NONE,

@@ -4,7 +4,8 @@
 
 SmaliVM separates method structure, execution evidence, and editing:
 
-- `ClassIndex.requireMethodView(className, methodDescriptor)` returns the current immutable method.
+- `ClassIndex.requireMethodView(signature)` returns the current immutable method for a `MethodSignature`, which
+  `MethodSignature.parse` reads from the smali spelling `Lpkg/Owner;->name(params)return`.
   `VmServices.newSession(view)` captures the entire program revision, including future callees and
   class initializers. A preexisting session does not switch revisions when an edit commits.
 - A default constructor session starts with a fresh uninitialized receiver and declared instance-field

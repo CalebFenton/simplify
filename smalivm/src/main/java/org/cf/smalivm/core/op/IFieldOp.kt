@@ -25,7 +25,7 @@ private fun resolutionPreamble(field: InstanceFieldLookup): OpExecution? = when 
 /** ART's `ThrowNullPointerExceptionForFieldAccess`, which names the field and the running method. */
 private fun throwingNullReceiver(field: InstanceFieldLookup.Resolved, frame: Frame, isRead: Boolean): OpArm.Throw =
     GuestThrowables.throwing(
-        GuestThrowables.nullFieldAccess(field, ReflectionPolicy.parseMethod(frame.view.signature), isRead),
+        GuestThrowables.nullFieldAccess(field, frame.view.signature, isRead),
     )
 
 /** Heap-backed instance-field read for all `iget*` forms. */

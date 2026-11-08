@@ -4,16 +4,18 @@ import java.io.File
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.Frame
+import org.cf.smalivm.core.MethodSignature
 import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
+import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
 import org.cf.smalivm.core.canTrustConsensus
 import org.cf.smalivm.core.joinAll
 
 /** Embedding examples that execute the guest smali of org.cf.demosmali in smalivm. */
 object Main {
-    private const val GUEST_CLASS = "Lorg/cf/demosmali/Main;"
+    private val GUEST_CLASS = VirtualType.of("Lorg/cf/demosmali/Main;")
 
     @JvmStatic
     fun main(args: Array<String>) {
@@ -65,10 +67,10 @@ object Main {
         } ?: error("Demo fixtures not found. Pass the path to demoapp/resources (or a DEX/APK containing the demo classes).")
     }
 
-    private fun method(services: VmServices, descriptor: String): MethodView =
-        requireNotNull(services.classIndex.methodView("$GUEST_CLASS->$descriptor")) {
-            "Input is missing demo method $GUEST_CLASS->$descriptor"
-        }
+    private fun method(services: VmServices, member: String): MethodView {
+        val signature = MethodSignature.parseMember(GUEST_CLASS, member)
+        return requireNotNull(services.classIndex.methodView(signature)) { "Input is missing demo method $signature" }
+    }
 
     private fun execute(services: VmServices, method: MethodView, frame: Frame, label: String): ExecutionGraph {
         val graph = services.newSession(method, entryFrame = frame).run()

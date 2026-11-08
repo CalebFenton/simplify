@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import com.android.tools.smali.dexlib2.formatter.DexFormatter
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 
 /** Immutable bundled-framework method declaration and optional modeled body. */
@@ -10,5 +9,5 @@ class FrameworkMethodDefinition internal constructor(
     val body: MethodBody?,
     val dynamicLoadingEvidence: DynamicLoadingEvidence,
 ) {
-    val methodSignature: String get() = DexFormatter.INSTANCE.getMethodDescriptor(declaration)
+    val methodSignature: MethodSignature = MethodSignature.of(declaration)
 }

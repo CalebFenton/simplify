@@ -629,9 +629,9 @@ class MethodEditControlMetadataTest {
         val editedMethod = ApplicationMethodDefinition.withBody(
             method,
             body,
-            index.programWorkspace.newApplicationMethodRevision(methodSignature),
+            index.programWorkspace.newApplicationMethodRevision(method.methodSignature),
         )
-        val definingClass = methodSignature.substringBefore("->")
+        val definingClass = method.methodSignature.definingClass.descriptor
         val editedClass = requireNotNull(snapshot.applicationClass(definingClass)).withMethod(editedMethod)
         val candidate = ProgramSnapshot.candidate(
             snapshot,

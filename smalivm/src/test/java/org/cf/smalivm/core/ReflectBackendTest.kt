@@ -263,7 +263,7 @@ class ReflectBackendTest {
                 Value.Known("receiver", fixtureType),
                 emptyList(),
             )
-            val lookup = MethodLookup.NoBody(ResolvedMethod(target, intType, emptyList(), isSynchronized = false))
+            val lookup = MethodLookup.NoBody(ResolvedMethod(target, isSynchronized = false))
 
             val plan = invoker.plan(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
 
@@ -386,7 +386,7 @@ class ReflectBackendTest {
         val methodInvoke = method(methodType, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
         val reflected = method(fixtureType, "mutateExternal", "()V")
         val cases = listOf(
-            emptySet<MethodDescriptor>() to 0,
+            emptySet<MethodSignature>() to 0,
             setOf(reflected) to 1,
         )
         for ((reflectedAuthorization, expectedMutations) in cases) {
@@ -766,7 +766,7 @@ class ReflectBackendTest {
      */
     private fun constructorSession(
         vm: VmServices,
-        target: MethodDescriptor,
+        target: MethodSignature,
         arguments: List<Value>,
     ): Triple<ExecutionSession, HeapRef, Int> {
         val entry = callerView()
@@ -786,7 +786,7 @@ class ReflectBackendTest {
 
     private fun hostReceiverCall(
         vm: VmServices,
-        target: MethodDescriptor,
+        target: MethodSignature,
         kind: InvokeKind,
         declaredType: VirtualType,
         raw: Any,
@@ -800,14 +800,14 @@ class ReflectBackendTest {
 
     private fun hostArgumentCall(
         vm: VmServices,
-        target: MethodDescriptor,
+        target: MethodSignature,
         raw: Any,
         declaredType: VirtualType,
     ): Pair<ExecutionSession, HeapRef> = hostReceiverCall(vm, target, InvokeKind.STATIC, declaredType, raw)
 
     private fun invoke(
         vm: VmServices,
-        target: MethodDescriptor,
+        target: MethodSignature,
         kind: InvokeKind,
         values: List<Value> = emptyList(),
         frame: Frame? = null,
@@ -830,7 +830,7 @@ class ReflectBackendTest {
     }
 
     private fun realOrInjected(address: Int, view: MethodView, resolver: ProgramSnapshotResolver): Op =
-        if (view.signature == "Lcalls/caller;->callsThrowingCalleeWithCatch()I" && address == 0) {
+        if (view.signature.toString() == "Lcalls/caller;->callsThrowingCalleeWithCatch()I" && address == 0) {
             invokeOp(
                 address,
                 method(fixtureType, "mutateThenThrow", "(Ljava/lang/StringBuilder;)V"),
@@ -843,7 +843,7 @@ class ReflectBackendTest {
 
     private fun executeDirect(
         backend: ReflectBackend,
-        target: MethodDescriptor,
+        target: MethodSignature,
         arguments: List<Value> = emptyList(),
     ): SynchronousCallResult {
         val frame = Frame.entryFrame(callerView())
@@ -860,7 +860,7 @@ class ReflectBackendTest {
         return backend.execute(selected).also { selected.finalize(frame) }
     }
 
-    private fun metadata(target: MethodDescriptor, kind: InvokeKind) = BackendInvocation(
+    private fun metadata(target: MethodSignature, kind: InvokeKind) = BackendInvocation(
         target,
         fixtureType,
         kind,
@@ -883,7 +883,7 @@ class ReflectBackendTest {
         return result
     }
 
-    private fun invokeOp(address: Int, target: MethodDescriptor, registers: IntArray, kind: InvokeKind) =
+    private fun invokeOp(address: Int, target: MethodSignature, registers: IntArray, kind: InvokeKind) =
         object : Op(address) {
             override val name = "invoke-reflection-test"
             override fun execute(frame: Frame) = OpExecution.single(OpArm.Invoke(target, registers, kind))
@@ -895,8 +895,8 @@ class ReflectBackendTest {
     }
 
     private fun vm(
-        exactSafe: Set<MethodDescriptor> = emptySet(),
-        exactUnsafe: Set<MethodDescriptor> = emptySet(),
+        exactSafe: Set<MethodSignature> = emptySet(),
+        exactUnsafe: Set<MethodSignature> = emptySet(),
         safeClasses: Set<VirtualType> = emptySet(),
     ) = VmServices(
         classIndex,
@@ -904,7 +904,7 @@ class ReflectBackendTest {
     )
 
     private fun method(owner: String, name: String, proto: String) = method(type(owner), name, proto)
-    private fun method(owner: VirtualType, name: String, proto: String) = MethodDescriptor(owner, name, proto)
+    private fun method(owner: VirtualType, name: String, proto: String) = MethodSignature(owner, name, proto)
     private fun type(descriptor: String) = VirtualType.of(descriptor)
     private fun view(owner: String, descriptor: String) = classIndex.requireMethodView(owner, descriptor)
     private fun callerView() = view("Linvoke_virtual_test;", "invokeRangeManyParameters()V")

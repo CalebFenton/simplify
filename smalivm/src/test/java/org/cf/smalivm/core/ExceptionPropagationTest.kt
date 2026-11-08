@@ -137,7 +137,7 @@ class ExceptionPropagationTest {
         val narrowed = requireNotNull(exact.narrowUpperBound(runtime))
         val calleeSignature = "Linvoke_review_callee;->throwsNpe()V"
         val session = CoreTester.vmServices.newSession(caller, Limits(), frame) { address, currentView, resolver ->
-            if (currentView.signature == calleeSignature && address == 0) {
+            if (currentView.signature.toString() == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "same-ref-different-constraints"
 
@@ -203,7 +203,7 @@ class ExceptionPropagationTest {
         val first = requireNotNull(ThrowableDomain.any().exclude(exception))
         val second = requireNotNull(ThrowableDomain.any().exclude(runtime))
         val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
-            if (currentView.signature == calleeSignature && address == 0) {
+            if (currentView.signature.toString() == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "distinct-symbolic-residuals"
 
@@ -236,7 +236,7 @@ class ExceptionPropagationTest {
         val calleeSignature = "$OWNER->throwNpe()V"
         val domain = ThrowableDomain.any()
         val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
-            if (currentView.signature == calleeSignature && address == 0) {
+            if (currentView.signature.toString() == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "same-domain-different-symbolic-values"
 
@@ -268,7 +268,7 @@ class ExceptionPropagationTest {
         val owner = VirtualType.of(OWNER)
         val state = ClassIndex.fieldDescriptorOf(owner, "state", "I")
         val returns = allNodes(graph).filter {
-            it.activation.view.signature == "$OWNER->recursionMergeWitness(I)Ljava/lang/Throwable;" &&
+            it.activation.view.signature.toString() == "$OWNER->recursionMergeWitness(I)Ljava/lang/Throwable;" &&
                 it.outcome is Outcome.Returned
         }
         val pairs = returns.associate { node ->
@@ -314,7 +314,7 @@ class ExceptionPropagationTest {
         val caller = view("manySymbolicHandlers()I")
         val calleeSignature = "$OWNER->throwNpe()V"
         val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
-            if (currentView.signature == calleeSignature && address == 0) {
+            if (currentView.signature.toString() == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "equivalent-symbolic-throws"
 

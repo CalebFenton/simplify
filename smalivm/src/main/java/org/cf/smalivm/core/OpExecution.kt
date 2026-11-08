@@ -59,7 +59,7 @@ internal sealed interface OpArm {
         }
     }
     data class Invoke(
-        val target: MethodDescriptor,
+        val target: MethodSignature,
         val argumentRegisters: IntArray,
         val kind: InvokeKind,
     ) : OpArm {
@@ -75,12 +75,7 @@ internal sealed interface OpArm {
         }
     }
     data class InitClass(val type: VirtualType) : OpArm
-    data class ProjectStatic(
-        val register: Int,
-        val definingClass: VirtualType,
-        val fieldDescriptor: String,
-        val fieldType: VirtualType,
-    ) : OpArm
+    data class ProjectStatic(val register: Int, val field: FieldSignature) : OpArm
     data class Abort(val reason: AbortReason) : OpArm
 }
 

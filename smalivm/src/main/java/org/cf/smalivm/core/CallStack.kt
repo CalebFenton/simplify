@@ -326,7 +326,7 @@ class CallStack internal constructor(
      */
     val depth: Int get() = frames.size - 1
 
-    override fun toString(): String = "CallStack(${frames.joinToString(" <- ") { it.view.signature }})"
+    override fun toString(): String = "CallStack(${frames.joinToString(" <- ") { it.view.signature.toString() }})"
 
     internal companion object {
         fun of(top: Activation): CallStack = CallStack(generateSequence(top) { it.caller }.toList())

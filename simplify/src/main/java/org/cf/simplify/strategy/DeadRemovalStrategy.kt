@@ -85,7 +85,7 @@ class DeadRemovalStrategy : OptimizationStrategy {
 
         /** A constructor's `invoke-direct` of `<init>` on its own receiver initializes `this` and must stay. */
         fun isSelfInitialization(index: Int): Boolean {
-            if (!method.signature.substringAfter("->").startsWith("<init>(")) return false
+            if (!method.signature.isConstructor) return false
             val instruction = flow.instructionAt(index)
             if (instruction.opcode != Opcode.INVOKE_DIRECT && instruction.opcode != Opcode.INVOKE_DIRECT_RANGE) return false
             if (invokedMethod(instruction)?.name != "<init>") return false

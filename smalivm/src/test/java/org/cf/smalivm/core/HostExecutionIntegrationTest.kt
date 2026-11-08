@@ -22,7 +22,7 @@ class HostExecutionIntegrationTest {
         val classIndex = CoreTester.classIndex
         val fixture = "Linvoke_backend_test;"
         val descriptor = "opaqueThenAuthorizedLength(Ljava/lang/Object;Ljava/lang/StringBuilder;)I"
-        val length = MethodDescriptor(
+        val length = MethodSignature(
             VirtualType.of("Ljava/lang/StringBuilder;"),
             "length",
             "()I",
@@ -101,7 +101,7 @@ class HostExecutionIntegrationTest {
         val classIndex = CoreTester.classIndex
         val fixture = "Linvoke_backend_test;"
         val descriptor = "opaqueThenAuthorizedLength(Ljava/lang/Object;Ljava/lang/StringBuilder;)I"
-        val length = MethodDescriptor(
+        val length = MethodSignature(
             VirtualType.of("Ljava/lang/StringBuilder;"),
             "length",
             "()I",

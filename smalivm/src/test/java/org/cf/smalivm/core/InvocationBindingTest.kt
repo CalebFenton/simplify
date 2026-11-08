@@ -52,7 +52,7 @@ class InvocationBindingTest {
     }
 
     private fun bindings(arguments: List<Value>): List<ParameterBinding> {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             type("Linvoke_review_callee;"),
             "bindingMatrix",
             "(ZBCSIJFDLjava/lang/Object;)V",

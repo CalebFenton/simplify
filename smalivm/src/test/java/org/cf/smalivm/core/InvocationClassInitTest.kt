@@ -28,7 +28,7 @@ class InvocationClassInitTest {
 
         val vm = VmServices(classIndex)
         val emulatedStates = mutableListOf<ClassInitState>()
-        vm.emulate(MethodDescriptor(type(TARGET), "staticTouch", "()V")) { call ->
+        vm.emulate(MethodSignature(type(TARGET), "staticTouch", "()V")) { call ->
             emulatedStates += call.classInitStatus.stateOf(type(TARGET))
             SynchronousCallResult.Returned(HostReturn.Void)
         }
@@ -83,7 +83,7 @@ class InvocationClassInitTest {
     fun explicitClinitInvocationDoesNotRecursivelyTriggerItself() {
         val graph = CoreTester.vmServices.newSession(view("Lclass_init/trigger;", "callsWitnessClinitDirectly()I")).run()
         val clinitEntries = allNodes(graph).filter {
-            it.isCallEntry && it.view.signature == "Lclass_init/witness;-><clinit>()V"
+            it.isCallEntry && it.view.signature.toString() == "Lclass_init/witness;-><clinit>()V"
         }
 
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -101,7 +101,7 @@ class InvocationClassInitTest {
         val retry = debugger.stepOver()!!
 
         val initializer = trigger.children.single()
-        assertEquals("$TARGET-><clinit>()V", initializer.view.signature)
+        assertEquals("$TARGET-><clinit>()V", initializer.view.signature.toString())
         assertEquals(type(TARGET), initializer.activation.classInitContext?.activeInitializer?.type)
         assertTrue(initializer.progress is OpProgress.Executed)
         assertNotSame(trigger, retry)
@@ -119,7 +119,7 @@ class InvocationClassInitTest {
         val continuation = debugger.stepOver()!!
 
         val callee = invoke.children.single()
-        assertEquals("$TARGET->virtualTouch()V", callee.view.signature)
+        assertEquals("$TARGET->virtualTouch()V", callee.view.signature.toString())
         assertEquals(null, callee.activation.classInitContext)
         assertTrue(allDescendants(invoke).none { it.activation.classInitContext != null })
         assertSame(invoke.activation, continuation.activation)
@@ -145,7 +145,7 @@ class InvocationClassInitTest {
 
         val vm = VmServices(classIndex)
         val emulatedStates = mutableListOf<ClassInitState>()
-        vm.emulate(MethodDescriptor(noClinit, "touch", "()V")) { call ->
+        vm.emulate(MethodSignature(noClinit, "touch", "()V")) { call ->
             emulatedStates += call.classInitStatus.stateOf(noClinit)
             SynchronousCallResult.Returned(HostReturn.Void)
         }
@@ -211,7 +211,7 @@ class InvocationClassInitTest {
 
     /** The one node that entered [signature] at its first instruction; its frame is the state the callee starts in. */
     private fun calleeEntry(graph: ExecutionGraph, signature: String): ExecutionNode =
-        allNodes(graph).single { it.isCallEntry && it.view.signature == signature }
+        allNodes(graph).single { it.isCallEntry && it.view.signature.toString() == signature }
 
     private fun initializersRun(graph: ExecutionGraph): List<String> {
         val activations = mutableListOf<Activation>()

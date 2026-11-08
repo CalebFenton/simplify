@@ -28,13 +28,8 @@ class FrameworkCatalog private constructor(
         artifact.classes.values.flatMap(FrameworkClassArtifact::dynamicLoadingMethods),
     )
 
-    @Synchronized
-    fun method(methodSignature: String): FrameworkMethodDefinition? {
-        if (materializedMethods.containsKey(methodSignature)) return materializedMethods[methodSignature]
-        val method = declaredMethod(methodSignature.substringBefore("->"), methodSignature.substringAfter("->"))
-        materializedMethods[methodSignature] = method
-        return method
-    }
+    fun method(signature: MethodSignature): FrameworkMethodDefinition? =
+        declaredMethod(signature.definingClass.descriptor, signature.nameAndProto)
 
     @Synchronized
     internal fun declaredMethod(definingClass: String, descriptor: String): FrameworkMethodDefinition? {
@@ -43,7 +38,7 @@ class FrameworkCatalog private constructor(
         val signature = "$definingClass->$descriptor"
         if (materializedMethods.containsKey(signature)) return materializedMethods[signature]
         val method = classDefinition(definingClass)?.methods
-            ?.firstOrNull { methodDescriptor(it) == descriptor }
+            ?.firstOrNull { MethodSignature.of(it).nameAndProto == descriptor }
             ?.let(::buildMethod)
         materializedMethods[signature] = method
         return method
@@ -79,10 +74,6 @@ class FrameworkCatalog private constructor(
     internal companion object {
         fun fromArtifact(artifact: FrameworkArtifact): FrameworkCatalog = FrameworkCatalog(artifact)
 
-        private fun methodDescriptor(method: com.android.tools.smali.dexlib2.iface.Method): String =
-            method.name + method.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") +
-                method.returnType
-
         private fun isUnsupportedFrameworkStub(implementation: com.android.tools.smali.dexlib2.iface.MethodImplementation): Boolean =
             implementation.instructions.any { instruction ->
                 val value = ((instruction as? ReferenceInstruction)?.reference as? StringReference)?.string
@@ -90,7 +81,7 @@ class FrameworkCatalog private constructor(
             }
 
         private fun buildMethod(method: ImmutableMethod): FrameworkMethodDefinition {
-            val signature = com.android.tools.smali.dexlib2.formatter.DexFormatter.INSTANCE.getMethodDescriptor(method)
+            val signature = MethodSignature.of(method)
             val body = method.implementation
                 ?.takeUnless(::isUnsupportedFrameworkStub)
                 ?.let(MethodBody::import)

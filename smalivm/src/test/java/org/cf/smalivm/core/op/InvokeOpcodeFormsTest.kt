@@ -9,6 +9,7 @@ import org.cf.smalivm.core.currentResolver
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Test
+import org.cf.smalivm.core.requireMethodView
 
 class InvokeOpcodeFormsTest {
     @Test
@@ -42,12 +43,12 @@ class InvokeOpcodeFormsTest {
         val method: String,
         val opcode: String,
         val kind: InvokeKind,
-        val target: org.cf.smalivm.core.MethodDescriptor,
+        val target: org.cf.smalivm.core.MethodSignature,
         val registers: IntArray,
     )
 
     private fun target(owner: String, name: String, proto: String) =
-        org.cf.smalivm.core.MethodDescriptor(org.cf.smalivm.core.VirtualType.of(owner), name, proto)
+        org.cf.smalivm.core.MethodSignature(org.cf.smalivm.core.VirtualType.of(owner), name, proto)
 
     private companion object {
         const val TASK = "Linvoke_task20;"

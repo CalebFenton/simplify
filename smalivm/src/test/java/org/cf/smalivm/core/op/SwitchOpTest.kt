@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.cf.smalivm.core.requireMethodView
 
 /**
  * `packed-switch` and `sparse-switch` (`31t`), whose payload tables are **data** and are decoded at

@@ -23,7 +23,7 @@ class DirectHostObjectTest {
     private val intType = VirtualType.of("I")
     private val intArrayType = VirtualType.of("[I")
     private val objectArrayType = VirtualType.of("[Ljava/lang/Object;")
-    private val appendLong = MethodDescriptor(builderType, "append", "(J)Ljava/lang/StringBuilder;")
+    private val appendLong = MethodSignature(builderType, "append", "(J)Ljava/lang/StringBuilder;")
     private val hostCallsType = VirtualType.of("Lorg/cf/smalivm/core/DirectHostCallsFixture;")
 
     /** The production backends, authorized for the host fixture classes and the JDK calls the guest fixtures make. */
@@ -32,13 +32,13 @@ class DirectHostObjectTest {
         ReflectionPolicy(
             exactSafeMethods = setOf(
                 appendLong,
-                MethodDescriptor(VirtualType.of("Ljava/util/ArrayList;"), "add", "(Ljava/lang/Object;)Z"),
-                MethodDescriptor(VirtualType.of("Ljava/util/ArrayList;"), "get", "(I)Ljava/lang/Object;"),
+                MethodSignature(VirtualType.of("Ljava/util/ArrayList;"), "add", "(Ljava/lang/Object;)Z"),
+                MethodSignature(VirtualType.of("Ljava/util/ArrayList;"), "get", "(I)Ljava/lang/Object;"),
             ),
             safeClasses = setOf(hostCallsType, VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;")),
             methodEffects = mapOf(
                 appendLong to SideEffectLevel.NONE,
-                MethodDescriptor(hostCallsType, "appendThenThrow", "(Ljava/lang/StringBuilder;)V") to SideEffectLevel.NONE,
+                MethodSignature(hostCallsType, "appendThenThrow", "(Ljava/lang/StringBuilder;)V") to SideEffectLevel.NONE,
             ),
         ),
     )
@@ -1998,7 +1998,7 @@ class DirectHostObjectTest {
     }
 
     private fun prepared(parameterTypes: List<VirtualType>, arguments: List<Value>) = PreparedInvocation(
-        MethodDescriptor(VirtualType.of("Lcalls/callee;"), "host", "()V"),
+        MethodSignature(VirtualType.of("Lcalls/callee;"), "host", "()V"),
         VirtualType.of("Lcalls/caller;"),
         InvokeKind.STATIC,
         VirtualType.of("V"),

@@ -11,6 +11,8 @@ import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.cf.simplify.methodView
+import org.cf.simplify.optimize
 
 class ConstantPropagationStrategyTest {
     @TempDir lateinit var temporaryDirectory: Path

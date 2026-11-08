@@ -2,6 +2,7 @@ package org.cf.sdbg
 
 import org.cf.sdbg.command.CliCommands
 import org.cf.smalivm.core.Breakpoint
+import org.cf.smalivm.core.MethodSignature
 import org.jline.terminal.impl.DumbTerminal
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -62,7 +63,7 @@ class DebuggerCommandsTest {
         assertEquals(listOf("0:>\tconst/4@0"), execute("next"))
         assertEquals(listOf("1:>\tconst/4@1"), execute("next"))
         assertEquals(listOf("2:>\tinvoke-static {v0, v1}, $ADD"), execute("next"))
-        assertEquals(EXERCISE, debugger.cursor!!.view.signature)
+        assertEquals(EXERCISE, debugger.cursor!!.view.signature.toString())
         assertEquals(3, debugger.currentInstructionIndex)
     }
 
@@ -73,7 +74,7 @@ class DebuggerCommandsTest {
         execute("next")
         execute("next")
         assertEquals(listOf("2:>\tinvoke-static {v0, v1}, $ADD"), execute("next"))
-        assertEquals(ADD, debugger.cursor!!.view.signature)
+        assertEquals(ADD, debugger.cursor!!.view.signature.toString())
         assertEquals(0, debugger.currentInstructionIndex)
         execute("continue")
         assertTrue(debugger.isFinished, "Continue must leave the breakpoint it just stopped at")
@@ -84,16 +85,17 @@ class DebuggerCommandsTest {
         start(FIXTURE, EXERCISE)
         val cursor = debugger.cursor
         for ((target, reason) in listOf(
-            "add(II" to "malformed method 'add(II'; expected name(params)return",
-            "add(IX)I" to "malformed method 'add(IX)I'; expected name(params)return",
-            "add(IV)I" to "malformed method 'add(IV)I'; expected name(params)return",
-            "add(II)" to "malformed method 'add(II)'; expected name(params)return",
-            "LDebugFixture" to "malformed class descriptor 'LDebugFixture'; expected Lpkg/Name;",
-            "LDebug.Fixture;->add(II)I" to "malformed owner 'LDebug.Fixture;'; expected Lpkg/Name;",
-            "LDebugFixture;->total" to "malformed member 'total'; expected name(params)return or name:type",
-            "nonsense" to "'nonsense' is not a class descriptor, method, or Lpkg/Name;->member reference",
+            "add(II" to "'add(II' is not a class, method, or field reference: expected ')' after the parameter types",
+            "add(IX)I" to "'add(IX)I' is not a class, method, or field reference: 'X' is not a type descriptor",
+            "add(IV)I" to "'add(IV)I' is not a class, method, or field reference: a parameter type cannot be V",
+            "add(II)" to "'add(II)' is not a class, method, or field reference: expected a type descriptor",
+            "LDebugFixture" to "'LDebugFixture' is not a class, method, or field reference: unterminated class descriptor 'LDebugFixture'",
+            "LDebug.Fixture;->add(II)I" to
+                "'LDebug.Fixture;->add(II)I' is not a class, method, or field reference: 'LDebug.Fixture;' is not a type descriptor",
+            "LDebugFixture;->total" to "'LDebugFixture;->total' is not a class, method, or field reference: expected '(' after the member name",
+            "nonsense" to "'nonsense' is not a class, method, or field reference: expected '(' after the member name",
             "LDebugFixture;" to "expected a method, got class LDebugFixture;",
-            "LDebugFixture;->total:I" to "expected a method, got field LDebugFixture;->total",
+            "LDebugFixture;->total:I" to "expected a method, got field LDebugFixture;->total:I",
             "-1" to "index out of range",
             "6" to "index out of range",
             "2147483648" to "index out of range",
@@ -105,12 +107,12 @@ class DebuggerCommandsTest {
         assertTrue(debugger.breakpoints.isEmpty())
 
         for ((target, reason) in listOf(
-            "1,x" to "'1,x' is not a class descriptor, method, or Lpkg/Name;->member reference",
+            "1,x" to "'1,x' is not a class, method, or field reference: expected '(' after the member name",
             "3,1" to "instruction range out of bounds",
             "6" to "instruction range out of bounds",
             "0,2147483648" to "instruction range out of bounds",
-            "LDebugFixture" to "malformed class descriptor 'LDebugFixture'; expected Lpkg/Name;",
-            "LDebugFixture;->total:I" to "expected a class or method, got field LDebugFixture;->total",
+            "LDebugFixture" to "'LDebugFixture' is not a class, method, or field reference: unterminated class descriptor 'LDebugFixture'",
+            "LDebugFixture;->total:I" to "expected a class or method, got field LDebugFixture;->total:I",
             "LMissing;" to "class descriptor not found",
             "missing()V" to "method signature not found",
         )) {
@@ -122,7 +124,7 @@ class DebuggerCommandsTest {
             "v2" to "register out of range",
             "p2147483648" to "register out of range",
             "LDebugFixture;" to "expected a register, parameter, or Lpkg/Name;->field:type",
-            "LDebugFixture;->total:V" to "malformed field 'total:V'; expected name:type",
+            "LDebugFixture;->total:V" to "'LDebugFixture;->total:V' is not a class, method, or field reference: a field type cannot be V",
             "LDebugFixture;->missing:I" to "static field not found",
         )) {
             assertEquals(listOf("invalid target; $reason"), execute("print", target), target)
@@ -137,7 +139,7 @@ class DebuggerCommandsTest {
         assertEquals(listOf("breakpoint set for $EXERCISE @ 0"), execute("break", "0"))
         assertEquals(listOf("hit breakpoint $EXERCISE @ 0"), execute("continue"))
         assertSame(cursor, debugger.cursor, "A breakpoint on the starting instruction stops before it runs")
-        assertEquals(setOf(Breakpoint(EXERCISE, 0)), debugger.breakpoints)
+        assertEquals(setOf(Breakpoint(MethodSignature.parse(EXERCISE), 0)), debugger.breakpoints)
     }
 
     @Test
@@ -205,7 +207,7 @@ class DebuggerCommandsTest {
         execute("step")
         val signature = "Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;"
         val cursor = requireNotNull(debugger.cursor)
-        assertEquals(signature, cursor.view.signature)
+        assertEquals(signature, cursor.view.signature.toString())
         assertEquals(0, debugger.currentInstructionIndex)
 
         val indexes = Regex("^(\\d+):[b>]*\\s+")

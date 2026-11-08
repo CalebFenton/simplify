@@ -1,6 +1,6 @@
 package org.cf.smalivm.differential
 
-import org.cf.smalivm.core.MethodDescriptor
+import org.cf.smalivm.core.MethodSignature
 import org.cf.smalivm.core.ReflectionDecision
 import org.cf.smalivm.core.ReflectionPolicy
 import org.cf.smalivm.core.ReflectionRule
@@ -136,7 +136,7 @@ class DeviceDifferentialTest {
             val device: NormalizedResult,
             val core: NormalizedResult,
             val reason: String,
-            val deniedHostMethod: MethodDescriptor? = null,
+            val deniedHostMethod: MethodSignature? = null,
         )
 
         private fun returned(kind: ValueKind, repr: String?) = NormalizedResult(
@@ -166,7 +166,7 @@ class DeviceDifferentialTest {
                 "ART executes String.valueOf(I) for integer 1. safe_classes.cfg does not list String, " +
                     "and safe_methods.cfg allows only String.<init>([B) and length(), not " +
                     "valueOf(I). DEFAULT_DENY stops backend fallback, so V1 returns Unknown(String).",
-                deniedHostMethod = MethodDescriptor(
+                deniedHostMethod = MethodSignature(
                     VirtualType.of("Ljava/lang/String;"), "valueOf", "(I)Ljava/lang/String;",
                 ),
             ),

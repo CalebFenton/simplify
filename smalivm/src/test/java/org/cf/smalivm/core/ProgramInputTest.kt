@@ -11,6 +11,8 @@ import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
+import com.android.tools.smali.dexlib2.immutable.ImmutableField
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -108,6 +110,26 @@ class ProgramInputTest {
         val failure = assertThrows<ProgramInputException> { ClassIndex.open(root.toFile()) }
 
         assertTrue(failure.message!!.contains("Broken.smali"), failure.message)
+    }
+
+    @Test
+    fun aDexMemberWithAMalformedSignatureIsAnInputError() {
+        // ART's DEX file verifier refuses a method or field id whose name is not a MemberName or whose type is
+        // not a type descriptor (`dex_file_verifier.cc`, CheckInterMethodIdItem and CheckInterFieldIdItem).
+        val method = ImmutableMethod("Linput/Bad;", "a.b", emptyList(), "V", Modifier.PUBLIC or Modifier.ABSTRACT, null, null, null)
+        val field = ImmutableField("Linput/Bad;", "a.b", "I", Modifier.PUBLIC, null, null, null)
+        for ((methods, fields) in listOf(listOf(method) to emptyList(), emptyList<ImmutableMethod>() to listOf(field))) {
+            val dex = root.resolve("bad-${methods.size}.dex")
+            val definition = ImmutableClassDef(
+                "Linput/Bad;", Modifier.PUBLIC or Modifier.ABSTRACT, "Ljava/lang/Object;", emptyList(), null, emptySet(),
+                fields, methods,
+            )
+            DexFileFactory.writeDexFile(dex.toString(), ImmutableDexFile(Opcodes.forApi(SmaliParser.DEX_API_LEVEL), listOf(definition)))
+
+            val failure = assertThrows<ProgramInputException> { ClassIndex.open(dex.toFile()) }
+
+            assertTrue(failure.message!!.contains("malformed signature"), failure.message)
+        }
     }
 
     private fun archive(name: String, vararg entries: Pair<String, String>): Path {

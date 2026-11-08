@@ -107,7 +107,7 @@ class SnapshotReExecutionTest {
         val capturedSnapshot = index.currentSnapshot
         val resolver = index.resolver(capturedSnapshot)
         val frameworkCaller = requireNotNull(index.methodView(FRAMEWORK_CALLER))
-        val capturedFrameworkMethod = requireNotNull(capturedSnapshot.frameworkCatalog.method(FRAMEWORK_METHOD))
+        val capturedFrameworkMethod = requireNotNull(capturedSnapshot.frameworkCatalog.method(MethodSignature.parse(FRAMEWORK_METHOD)))
         val hostDecline = object : Backend {
             override val name: String = "declining-host"
 

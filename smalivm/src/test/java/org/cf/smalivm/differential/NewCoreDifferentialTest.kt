@@ -10,6 +10,7 @@ import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.cf.smalivm.core.requireMethodView
 
 class NewCoreDifferentialTest {
 
