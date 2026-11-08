@@ -667,7 +667,7 @@ class ClassIndexTest {
             is HeapRef -> graph.addresses().asSequence()
                 .flatMap { graph.nodePile(it).asSequence() }
                 .filter { it.outcome is Outcome.Threw }
-                .firstNotNullOf { (it.endingFrame ?: it.frame).hostObjectAt(raw) as? Throwable }
+                .firstNotNullOf { it.terminalFrame.hostObjectAt(raw) as? Throwable }
                 .message
             is Throwable -> raw.message
             else -> error("no throwable behind $raw")
