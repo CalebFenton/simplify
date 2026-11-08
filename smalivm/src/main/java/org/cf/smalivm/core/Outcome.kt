@@ -10,7 +10,7 @@ package org.cf.smalivm.core
  * an ordinary callee also lets the caller continue past the call through a conservative `STRONG` opaque
  * continuation instead of ending the caller's path.
  */
-enum class AbortReason {
+public enum class AbortReason {
     ADDRESS_LIMIT, METHOD_LIMIT, CALL_DEPTH, TIMEOUT,
 
     /**
@@ -43,7 +43,7 @@ enum class AbortReason {
     ;
 
     /** Whether a path aborted for this reason makes its address's side-effect level `STRONG`. */
-    val impliesStrongEffect: Boolean get() = this == UNSUPPORTED_OP
+    internal val impliesStrongEffect: Boolean get() = this == UNSUPPORTED_OP
 }
 
 /**
@@ -54,13 +54,14 @@ enum class AbortReason {
  * multiset: path multiplicity is semantic, but traversal order is not. This does not promise deep immutability
  * of a [Value]'s payload.
  */
-sealed interface Outcome {
+public sealed interface Outcome {
     /** Normal return; [value] is null for void methods. */
-    data class Returned(val value: Value?) : Outcome
-    data class Threw(val exception: Value) : Outcome
+    public data class Returned(val value: Value?) : Outcome
+    /** Abrupt completion with [exception]. */
+    public data class Threw(val exception: Value) : Outcome
 
     /** [cause] is the host throwable, present exactly when [reason] is [AbortReason.HOST_FAILURE]. */
-    data class Aborted(val reason: AbortReason, val cause: Throwable? = null) : Outcome {
+    public data class Aborted(val reason: AbortReason, val cause: Throwable? = null) : Outcome {
         init {
             require((reason == AbortReason.HOST_FAILURE) == (cause != null)) {
                 "A host-failure abort carries its throwable and no other abort does: $reason, $cause"

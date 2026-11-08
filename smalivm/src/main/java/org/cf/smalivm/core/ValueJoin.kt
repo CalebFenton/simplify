@@ -19,7 +19,7 @@ package org.cf.smalivm.core
  * [hierarchy] has no default: `joinTypes` is the one function every consensus query routes through, so a
  * call site that silently fell back to the hierarchy-free rule would lose precision with nothing failing.
  */
-fun join(a: Value, b: Value, hierarchy: TypeHierarchy): Value {
+internal fun join(a: Value, b: Value, hierarchy: TypeHierarchy): Value {
     if (a is Value.Top || b is Value.Top) return Value.Top
     val left = a.asNullAgainst(b)
     val right = b.asNullAgainst(a)
@@ -48,7 +48,7 @@ private fun Value.asNullAgainst(other: Value): Value {
 private val INT = VirtualType.of("I")
 
 /** Folds ⊔ over [values]: the per-address consensus read. Returns null for no input. */
-fun joinAll(values: Iterable<Value>, hierarchy: TypeHierarchy): Value? =
+public fun joinAll(values: Iterable<Value>, hierarchy: TypeHierarchy): Value? =
     values.fold(null as Value?) { acc, v ->
         if (acc == null) v else join(acc, v, hierarchy)
     }

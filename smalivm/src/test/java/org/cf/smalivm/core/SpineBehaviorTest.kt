@@ -1,13 +1,13 @@
 package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Assertions.*
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 /**
- * First light: the clean core executing real Dalvik bytecode end to end, asserted only through the
- * public query surface. Bug class this guards: a VM that cannot be driven and observed without
- * reaching into its internals (the reason ~108 tests had to be commented out). Oracle: the smali
- * source of Lspine/spine; and Dalvik semantics for each opcode.
+ * The core executing real Dalvik bytecode end to end, observed only through the public query surface.
+ * Oracle: the smali source of `Lspine/spine;` and Dalvik semantics for each opcode.
  */
 class SpineBehaviorTest {
     private val spine = "Lspine/spine;"
@@ -15,14 +15,16 @@ class SpineBehaviorTest {
     private val long = VirtualType.of("J")
     private val string = VirtualType.of("Ljava/lang/String;")
 
-    @Test
-    fun constantIsPropagatedToTheReturn() {
-        CoreTester.assertReturns(spine, "returnFive()I", Value.Known(5, int))
-    }
-
-    @Test
-    fun nopsDoNotDisturbTheConstant() {
-        CoreTester.assertReturns(spine, "nopThenConst()I", Value.Known(42, int))
+    @TestFactory
+    fun constantReachesTheReturnRegister(): List<DynamicTest> = listOf(
+        Triple("returnFive()I", Value.Known(5, int), 0),
+        Triple("nopThenConst()I", Value.Known(42, int), 0),
+        Triple("moveChain()I", Value.Known(9, int), 2),
+        Triple("returnWide()J", Value.Known(0x123456789L, long), 0),
+        Triple("returnWideSixteen()J", Value.Known(0x2aL, long), 0),
+        Triple("returnString()Ljava/lang/String;", Value.Known("spine", string), 0),
+    ).map { (method, expected, register) ->
+        DynamicTest.dynamicTest(method) { CoreTester.assertReturns(spine, method, expected, register) }
     }
 
     @Test
@@ -36,26 +38,6 @@ class SpineBehaviorTest {
     }
 
     @Test
-    fun valueSurvivesAChainOfMoves() {
-        CoreTester.assertReturns(spine, "moveChain()I", Value.Known(9, int), register = 2)
-    }
-
-    @Test
-    fun wideConstantSurvivesReturnWide() {
-        CoreTester.assertReturns(spine, "returnWide()J", Value.Known(0x123456789L, long))
-    }
-
-    @Test
-    fun sizedWideConstantSurvivesReturnWide() {
-        CoreTester.assertReturns(spine, "returnWideSixteen()J", Value.Known(0x2aL, long))
-    }
-
-    @Test
-    fun stringConstantIsPropagated() {
-        CoreTester.assertReturns(spine, "returnString()Ljava/lang/String;", Value.Known("spine", string))
-    }
-
-    @Test
     fun voidMethodReturnsNoValue() {
         val graph = CoreTester.execute(spine, "returnNothing()V")
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
@@ -64,7 +46,6 @@ class SpineBehaviorTest {
 
     @Test
     fun seededRegisterIsVisibleToTheMethod() {
-        // The input-state ergonomics every later plan's behavioral tests need.
         val thrown = Value.Known(IllegalStateException("boom"), VirtualType.of("Ljava/lang/RuntimeException;"))
         val graph = CoreTester.execute(
             spine,
@@ -90,21 +71,14 @@ class SpineBehaviorTest {
 
     @Test
     fun assertVisitedRefusesToReadCoverageFromATruncatedRun() {
-        // Bug class this guards, in the HARNESS rather than the engine: `wasReached` is ungated, and on
-        // a Partial run a `false` means either "genuinely unreachable" or "the run stopped before
-        // getting here" -- indistinguishably. A harness that skipped the completion check would let a
-        // later plan's test state a narrower expected set, watch it PASS, and record a truncated
-        // exploration as a dead-code proof. unsupportedWideFilledArray() aborts at its malformed [J operand,
-        // return is never reached; the narrower set below is what such a test would wrongly assert.
-        // Oracle: spec §9's completion-gated trust, applied to the query a dead-code strategy reads
-        // first (ExecutionGraph.wasReached's own contract).
-        val reachedBeforeTheAbort = intArrayOf(0, 1) // const/4, filled-new-array; return at 4 is not
+        // On a Partial run `wasReached == false` cannot tell unreachable code from code the run never got to,
+        // so the harness must refuse before comparing addresses. unsupportedWideFilledArray() aborts at its
+        // malformed [J operand, so its return at 4 is never reached.
+        val reachedBeforeTheAbort = intArrayOf(0, 1)
         val failure = assertThrows(AssertionError::class.java) {
             CoreTester.assertVisited(spine, "unsupportedWideFilledArray()I", reachedBeforeTheAbort)
         }
-        // Pins WHICH assertion fired. Without this the test would pass just as happily if the address
-        // sets disagreed, which would prove nothing about the guard -- and the expected set above is
-        // deliberately the CORRECT one, so the address comparison would succeed on its own.
+        // The expected set is the correct one, so only the completion check can have fired.
         assertTrue(
             failure.message!!.contains("explored everything"),
             "must fail on the completion check, not on the address comparison: ${failure.message}",
@@ -113,9 +87,7 @@ class SpineBehaviorTest {
 
     @Test
     fun aMalformedUnsupportedInstructionIsNotTrustedForConsensus() {
-        // The whole point of completion-gated trust: a partial exploration must be visibly partial.
-        // Since the gate landed, "visibly" is also type-level -- trusted() is null -- and the effect
-        // level has to be asked for by its ungated name. See TrustedGraphViewTest for the gate itself.
+        // A partial exploration hands out no trusted view; the effect level is read through the ungated `explored`.
         val graph = CoreTester.execute(spine, "unsupportedWideFilledArray()I")
         assertFalse(graph.completion().canTrustConsensus)
         assertNull(graph.trusted(), "a partial exploration hands out no view whose answers look actionable")

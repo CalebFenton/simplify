@@ -602,7 +602,7 @@ class MethodEditControlMetadataTest {
         ImmutableRestartLocal(codeAddress, 0, "value", "I", "TI;"),
         ImmutablePrologueEnd(codeAddress),
         ImmutableEpilogueBegin(codeAddress),
-        ImmutableSetSourceFile(codeAddress, "task56.smali"),
+        ImmutableSetSourceFile(codeAddress, "control.smali"),
     )
 
     private fun assertDebugItemsAtStart(body: MethodBody) {
@@ -714,7 +714,7 @@ class MethodEditControlMetadataTest {
             )
         }
         val signature = if (arrayPayload) "run([I[I)V" else "run(I)V"
-        val type = if (arrayPayload) "Ltask56/SharedArray;" else "Ltask56/SharedSwitch;"
+        val type = if (arrayPayload) "Lcontrol/SharedArray;" else "Lcontrol/SharedSwitch;"
         return dexIndex(type, signature, implementation)
     }
 
@@ -761,7 +761,7 @@ class MethodEditControlMetadataTest {
 
     private fun index(source: String): ClassIndex {
         val directory = Files.createDirectory(root.resolve("source-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private fun reload(index: ClassIndex): ClassIndex {
@@ -790,32 +790,32 @@ class MethodEditControlMetadataTest {
             Opcode.PACKED_SWITCH,
             Opcode.SPARSE_SWITCH,
         )
-        const val GOTO = "Ltask56/Control;->gotoShort()I"
-        const val GOTO_16 = "Ltask56/Control;->goto16()I"
-        const val GOTO_32 = "Ltask56/Control;->goto32()I"
-        const val CONDITIONAL = "Ltask56/Control;->conditional()I"
-        const val TWO_REGISTER_CONDITIONAL = "Ltask56/Control;->twoRegisterConditional()I"
-        const val ARRAY = "Ltask56/Control;->arrayPayload()I"
-        const val PACKED = "Ltask56/Control;->packedPayload()I"
-        const val SPARSE = "Ltask56/Control;->sparsePayload()I"
-        const val EXPANDED_CONDITIONAL = "Ltask56/Expand;->run()I"
-        const val TEMPLATE_BRANCH = "Ltask56/Templates;->branch()V"
-        const val TEMPLATE_ARRAY = "Ltask56/Templates;->arrayPayload()I"
-        const val TEMPLATE_PACKED = "Ltask56/Templates;->packedPayload()I"
-        const val TEMPLATE_SPARSE = "Ltask56/Templates;->sparsePayload()I"
-        const val SHARED_SWITCH = "Ltask56/SharedSwitch;->run(I)V"
-        const val SHARED_ARRAY = "Ltask56/SharedArray;->run([I[I)V"
-        const val TRY_PRESERVE = "Ltask56/Try;->preserve()V"
-        const val TRY_REMOVE = "Ltask56/Try;->remove()V"
-        const val MALFORMED_TRY = "Ltask56/Malformed;->run()V"
-        const val PAYLOAD_FLOW = "Ltask56/PayloadFlow;->run(I)V"
-        const val DEBUG_METHOD = "Ltask56/Debug;->run()V"
-        const val FORWARD_WIDEN = "Ltask56/Widen;->forward()V"
-        const val BACKWARD_WIDEN = "Ltask56/Widen;->backward()V"
-        const val LABEL_METHOD = "Ltask56/Label;->run()I"
+        const val GOTO = "Lcontrol/Control;->gotoShort()I"
+        const val GOTO_16 = "Lcontrol/Control;->goto16()I"
+        const val GOTO_32 = "Lcontrol/Control;->goto32()I"
+        const val CONDITIONAL = "Lcontrol/Control;->conditional()I"
+        const val TWO_REGISTER_CONDITIONAL = "Lcontrol/Control;->twoRegisterConditional()I"
+        const val ARRAY = "Lcontrol/Control;->arrayPayload()I"
+        const val PACKED = "Lcontrol/Control;->packedPayload()I"
+        const val SPARSE = "Lcontrol/Control;->sparsePayload()I"
+        const val EXPANDED_CONDITIONAL = "Lcontrol/Expand;->run()I"
+        const val TEMPLATE_BRANCH = "Lcontrol/Templates;->branch()V"
+        const val TEMPLATE_ARRAY = "Lcontrol/Templates;->arrayPayload()I"
+        const val TEMPLATE_PACKED = "Lcontrol/Templates;->packedPayload()I"
+        const val TEMPLATE_SPARSE = "Lcontrol/Templates;->sparsePayload()I"
+        const val SHARED_SWITCH = "Lcontrol/SharedSwitch;->run(I)V"
+        const val SHARED_ARRAY = "Lcontrol/SharedArray;->run([I[I)V"
+        const val TRY_PRESERVE = "Lcontrol/Try;->preserve()V"
+        const val TRY_REMOVE = "Lcontrol/Try;->remove()V"
+        const val MALFORMED_TRY = "Lcontrol/Malformed;->run()V"
+        const val PAYLOAD_FLOW = "Lcontrol/PayloadFlow;->run(I)V"
+        const val DEBUG_METHOD = "Lcontrol/Debug;->run()V"
+        const val FORWARD_WIDEN = "Lcontrol/Widen;->forward()V"
+        const val BACKWARD_WIDEN = "Lcontrol/Widen;->backward()V"
+        const val LABEL_METHOD = "Lcontrol/Label;->run()I"
 
         const val CONTROL_SOURCE = """
-            .class public Ltask56/Control;
+            .class public Lcontrol/Control;
             .super Ljava/lang/Object;
 
             .method public static gotoShort()I
@@ -914,7 +914,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val CONDITIONAL_EXPANSION_SOURCE = """
-            .class public Ltask56/Expand;
+            .class public Lcontrol/Expand;
             .super Ljava/lang/Object;
 
             .method public static run()I
@@ -930,7 +930,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val TEMPLATE_SOURCE = """
-            .class public Ltask56/Templates;
+            .class public Lcontrol/Templates;
             .super Ljava/lang/Object;
 
             .method public static branch()V
@@ -973,7 +973,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val TRY_SOURCE = """
-            .class public Ltask56/Try;
+            .class public Lcontrol/Try;
             .super Ljava/lang/Object;
 
             .method public static preserve()V
@@ -1002,7 +1002,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val MALFORMED_BASE_SOURCE = """
-            .class public Ltask56/Malformed;
+            .class public Lcontrol/Malformed;
             .super Ljava/lang/Object;
 
             .method public static run()V
@@ -1012,7 +1012,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val PAYLOAD_FLOW_SOURCE = """
-            .class public Ltask56/PayloadFlow;
+            .class public Lcontrol/PayloadFlow;
             .super Ljava/lang/Object;
 
             .method public static run(I)V
@@ -1022,9 +1022,9 @@ class MethodEditControlMetadataTest {
             .end method
         """
 
-        const val CFG_VALID = "Ltask56/CfgValid;->run()I"
+        const val CFG_VALID = "Lcontrol/CfgValid;->run()I"
         const val CFG_VALID_SOURCE = """
-            .class public Ltask56/CfgValid;
+            .class public Lcontrol/CfgValid;
             .super Ljava/lang/Object;
 
             .method public static run()I
@@ -1039,9 +1039,9 @@ class MethodEditControlMetadataTest {
             .end method
         """
 
-        const val CFG_INVALID = "Ltask56/CfgInvalid;->run()I"
+        const val CFG_INVALID = "Lcontrol/CfgInvalid;->run()I"
         const val CFG_INVALID_SOURCE = """
-            .class public Ltask56/CfgInvalid;
+            .class public Lcontrol/CfgInvalid;
             .super Ljava/lang/Object;
 
             .method public static run()I
@@ -1057,7 +1057,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val DEBUG_BASE_SOURCE = """
-            .class public Ltask56/Debug;
+            .class public Lcontrol/Debug;
             .super Ljava/lang/Object;
 
             .method public static run()V
@@ -1068,7 +1068,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val GOTO_WIDEN_SOURCE = """
-            .class public Ltask56/Widen;
+            .class public Lcontrol/Widen;
             .super Ljava/lang/Object;
 
             .method public static forward()V
@@ -1089,7 +1089,7 @@ class MethodEditControlMetadataTest {
         """
 
         const val LABEL_SOURCE = """
-            .class public Ltask56/Label;
+            .class public Lcontrol/Label;
             .super Ljava/lang/Object;
 
             .method public static run()I

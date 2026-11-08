@@ -46,7 +46,7 @@ class ProgramDexWriterTest {
 
     @Test
     fun freshWriterRoundTripsOnlySnapshotApplicationDeclarations() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val snapshot = index.currentSnapshot
         val bytes = ProgramDexWriter().writeToBytes(snapshot)
         val dex = DexBackedDexFile(snapshot.outputApiPolicy.opcodes(), bytes)
@@ -130,7 +130,7 @@ class ProgramDexWriterTest {
 
     @Test
     fun snapshotWriterDoesNotRetainReferencesFromAnObsoleteApplicationMethodDefinition() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val initial = index.currentSnapshot
         val writer = ProgramDexWriter()
         writer.writeToBytes(initial)
@@ -219,7 +219,7 @@ class ProgramDexWriterTest {
 
     @Test
     fun shortStringPolicyRejectsAReferenceSetThatRequiresJumboIndexes() {
-        val baseline = task53ClassIndex(root, SOURCE).currentSnapshot
+        val baseline = classIndexFromSource(root, SOURCE).currentSnapshot
         val annotation = ImmutableAnnotation(
             AnnotationVisibility.RUNTIME,
             "Lwriter/ManyStrings;",
@@ -318,7 +318,7 @@ class ProgramDexWriterTest {
 
     @Test
     fun snapshotWriterRebindsTypedCatchHandlers() {
-        val snapshot = task53ClassIndex(root, TYPED_CATCH_SOURCE).currentSnapshot
+        val snapshot = classIndexFromSource(root, TYPED_CATCH_SOURCE).currentSnapshot
 
         val dex = DexBackedDexFile(snapshot.outputApiPolicy.opcodes(), ProgramDexWriter().writeToBytes(snapshot))
         val tryBlock = dex.classes.single().methods.single().implementation!!.tryBlocks.single()

@@ -1,11 +1,13 @@
 package org.cf.smalivm.core
 
 /** How an emulator registration selects a resolved method. */
-sealed interface EmulatorMatcher {
-    data class Exact(val target: MethodSignature) : EmulatorMatcher
+public sealed interface EmulatorMatcher {
+    /** Matches exactly [target]. */
+    public data class Exact(val target: MethodSignature) : EmulatorMatcher
 
-    class Predicate(
-        val id: String,
+    /** Matches methods the predicate accepts; [id] names it in diagnostics. */
+    public class Predicate(
+        internal val id: String,
         private val predicate: (MethodSignature) -> Boolean,
     ) : EmulatorMatcher {
         init {
@@ -17,13 +19,13 @@ sealed interface EmulatorMatcher {
 }
 
 /** Input capabilities declared by an emulator. */
-data class EmulatorCapability(
+public data class EmulatorCapability(
     val handlesUnknownArguments: Boolean,
     val receivesTrackedReferences: Boolean = false,
 )
 
 /** One atomic emulator registration. Replacement changes handler, capability, and effect together. */
-data class EmulatorRegistration(
+public data class EmulatorRegistration(
     val matcher: EmulatorMatcher,
     val capability: EmulatorCapability,
     val effect: SideEffectLevel,
@@ -31,7 +33,7 @@ data class EmulatorRegistration(
 )
 
 /** Deterministic per-VM emulator registrations. */
-class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = emptyList()) {
+public class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = emptyList()) {
     private val exactRegistrations = linkedMapOf<MethodSignature, EmulatorRegistration>()
     private val predicateRegistrations = linkedMapOf<String, PredicateRegistration>()
 
@@ -40,7 +42,7 @@ class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = em
     }
 
     /** Adds or replaces one registration without changing an existing matcher's position. */
-    fun register(registration: EmulatorRegistration) {
+    public fun register(registration: EmulatorRegistration) {
         when (val matcher = registration.matcher) {
             is EmulatorMatcher.Exact -> exactRegistrations[matcher.target] = registration
             is EmulatorMatcher.Predicate ->
@@ -49,12 +51,12 @@ class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = em
     }
 
     /** Finds an exact registration first, then the first matching predicate in registration order. */
-    fun find(target: MethodSignature): EmulatorRegistration? =
+    internal fun find(target: MethodSignature): EmulatorRegistration? =
         exactRegistrations[target]
             ?: predicateRegistrations.values.firstOrNull { it.matcher.matches(target) }?.registration
 
     /** Stable snapshot with exact registrations first, followed by predicate registration order. */
-    fun registrations(): List<EmulatorRegistration> =
+    internal fun registrations(): List<EmulatorRegistration> =
         exactRegistrations.values.toList() + predicateRegistrations.values.map(PredicateRegistration::registration)
 
     private class PredicateRegistration(

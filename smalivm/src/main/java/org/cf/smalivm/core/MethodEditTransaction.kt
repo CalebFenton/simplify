@@ -13,7 +13,7 @@ import org.cf.smalivm.core.MethodEditRejectionReason.*
  * One pending method edit batch. Every handle it hands out (anchors, logical registers, staged references) is
  * recorded in its open state, so membership in that state is what makes a handle belong to this batch.
  */
-class MethodEditTransaction internal constructor(
+public class MethodEditTransaction internal constructor(
     workspace: ProgramWorkspace,
     methodView: MethodView,
     revisionGuard: MethodEditRevisionGuard,
@@ -93,18 +93,21 @@ class MethodEditTransaction internal constructor(
     )
 
     /** False once [commit] or [discard] has run; every other operation then throws. */
-    val isOpen: Boolean get() = openState != null
+    public val isOpen: Boolean get() = openState != null
 
-    fun pendingAnchorForCodeAddress(codeAddress: Int): PendingCodeAnchor {
+    /** An anchor that resolves to the instruction now at [codeAddress] after commit. */
+    public fun pendingAnchorForCodeAddress(codeAddress: Int): PendingCodeAnchor {
         val anchor = PendingCodeAnchor()
         open().anchorRequests.add(codeAddress to anchor)
         return anchor
     }
 
-    fun logicalRegister(register: Int): LogicalRegister =
+    /** A logical handle for baseline [register] that survives register renumbering. */
+    public fun logicalRegister(register: Int): LogicalRegister =
         LogicalRegister(LogicalRegister.Allocation.Baseline(register)).also { open().logicalRegisters.add(it) }
 
-    fun reserveScratchRegisters(wordCount: Int): ScratchRegisterRange {
+    /** Reserves [wordCount] fresh scratch register words for this edit. */
+    public fun reserveScratchRegisters(wordCount: Int): ScratchRegisterRange {
         val open = open()
         require(wordCount in 1..DexLimits.MAX_REGISTER_COUNT) {
             "Scratch-register word count must be in 1..${DexLimits.MAX_REGISTER_COUNT}: $wordCount"
@@ -119,17 +122,20 @@ class MethodEditTransaction internal constructor(
         return ScratchRegisterRange(registers)
     }
 
-    fun stageType(descriptor: String): StagedDexReference.Type =
+    /** Stages a type reference for [descriptor]. */
+    public fun stageType(descriptor: String): StagedDexReference.Type =
         stageReference(StagedReferenceKey.Type(descriptor)) {
             StagedDexReference.Type(descriptor)
         } as StagedDexReference.Type
 
-    fun stageString(value: String): StagedDexReference.StringLiteral =
+    /** Stages a string reference for [value]. */
+    public fun stageString(value: String): StagedDexReference.StringLiteral =
         stageReference(StagedReferenceKey.StringValue(value)) {
             StagedDexReference.StringLiteral(value)
         } as StagedDexReference.StringLiteral
 
-    fun stageField(
+    /** Stages a field reference. */
+    public fun stageField(
         definingClass: String,
         name: String,
         type: String,
@@ -138,7 +144,8 @@ class MethodEditTransaction internal constructor(
             StagedDexReference.Field(definingClass, name, type)
         } as StagedDexReference.Field
 
-    fun stageMethod(
+    /** Stages a method reference. */
+    public fun stageMethod(
         definingClass: String,
         name: String,
         parameterTypes: List<String>,
@@ -150,7 +157,8 @@ class MethodEditTransaction internal constructor(
         } as StagedDexReference.Method
     }
 
-    fun stagePrototype(
+    /** Stages a method prototype reference. */
+    public fun stagePrototype(
         parameterTypes: List<String>,
         returnType: String,
     ): StagedDexReference.Prototype {
@@ -168,11 +176,11 @@ class MethodEditTransaction internal constructor(
         return open.stagedReferences.getOrPut(key) { create().also(open.stagedReferenceHandles::add) }
     }
 
-    fun setTryRegions(tryRegionSpecs: List<TryRegionSpec>) {
+    internal fun setTryRegions(tryRegionSpecs: List<TryRegionSpec>) {
         open().submittedTryRegions = tryRegionSpecs.toList()
     }
 
-    fun insertInstructionsBefore(
+    internal fun insertInstructionsBefore(
         codeAddress: Int,
         instructionTemplates: List<InstructionTemplate>,
     ): InsertedInstructionAnchors {
@@ -183,7 +191,8 @@ class MethodEditTransaction internal constructor(
         return InsertedInstructionAnchors(anchors)
     }
 
-    fun replaceInstruction(
+    /** Replaces the instruction at [codeAddress] with [instructionTemplates] at commit. */
+    public fun replaceInstruction(
         codeAddress: Int,
         instructionTemplates: List<InstructionTemplate>,
     ) {
@@ -191,12 +200,14 @@ class MethodEditTransaction internal constructor(
         open.commands.add(EditCommand.Replace(codeAddress, instructionTemplates.toList(), open.nextCommandSequence++))
     }
 
-    fun removeInstruction(codeAddress: Int) {
+    /** Removes the instruction at [codeAddress] at commit. */
+    public fun removeInstruction(codeAddress: Int) {
         val open = open()
         open.commands.add(EditCommand.Remove(codeAddress, open.nextCommandSequence++))
     }
 
-    fun removeInstructions(codeAddresses: Collection<Int>) {
+    /** Removes the instruction at each of [codeAddresses] at commit. */
+    public fun removeInstructions(codeAddresses: Collection<Int>) {
         val open = open()
         codeAddresses.toList().forEach { codeAddress ->
             open.commands.add(EditCommand.Remove(codeAddress, open.nextCommandSequence++))
@@ -204,7 +215,7 @@ class MethodEditTransaction internal constructor(
     }
 
     /** Validates and publishes the batch. The transaction closes whatever the outcome, including a thrown failure. */
-    fun commit(): MethodEditCommitResult {
+    public fun commit(): MethodEditCommitResult {
         val open = open()
         try {
             return commitOpen(open)
@@ -213,7 +224,8 @@ class MethodEditTransaction internal constructor(
         }
     }
 
-    fun discard() {
+    /** Closes the transaction without applying its commands. */
+    public fun discard() {
         open()
         openState = null
     }

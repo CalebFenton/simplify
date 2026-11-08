@@ -33,7 +33,7 @@ import com.android.tools.smali.dexlib2.immutable.reference.ImmutableReferenceFac
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 
 /** The input path does not hold a program the engine can load: it is missing, unreadable, malformed, or multi-DEX. */
-class ProgramInputException internal constructor(message: String, cause: Throwable? = null) :
+public class ProgramInputException internal constructor(message: String, cause: Throwable? = null) :
     IOException(message, cause)
 
 /**

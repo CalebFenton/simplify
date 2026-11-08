@@ -19,19 +19,19 @@ internal data class ClassHierarchyDeclaration(
  * the answer depends on. Obfuscated input names absent classes routinely, so this is a fact about the input that
  * callers answer conservatively, and it carries no stack trace.
  */
-class ClassLoadFailure internal constructor(message: String) : RuntimeException(message, null, false, false)
+internal class ClassLoadFailure internal constructor(message: String) : RuntimeException(message, null, false, false)
 
 /**
  * Class-hierarchy questions whose answer depends on declared ancestry. Each throws [ClassLoadFailure] when the
  * program does not contain a class the answer depends on, and never answers such a question with a guess.
  * [ThrowableHierarchy] answers throwable routing as tri-state facts instead.
  */
-interface TypeHierarchy {
+public interface TypeHierarchy {
     /**
      * True if [candidate] is [ancestor] or inherits from it through superclasses, interfaces, or array
      * covariance. Primitives and `void` relate only to themselves.
      */
-    fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean
+    public fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean
 
     /**
      * Whether a value of type [candidate] passes `instance-of` [target]. A primitive or `void` target is never
@@ -40,13 +40,13 @@ interface TypeHierarchy {
      * `Ljava/io/Serializable;` (JLS 4.10.3), with no class lookup, so obfuscated input that omits those classes
      * still answers. A primitive candidate reads as a null reference, which is an instance of nothing.
      */
-    fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean
+    public fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean
 
     /**
      * The declared direct superclass of [type]: one link, so a walk over it is a total order. Null for
      * `Ljava/lang/Object;`, primitives, and `void`; arrays answer `Ljava/lang/Object;` (JLS 4.10.3).
      */
-    fun superclassOf(type: VirtualType): VirtualType?
+    public fun superclassOf(type: VirtualType): VirtualType?
 }
 
 /**

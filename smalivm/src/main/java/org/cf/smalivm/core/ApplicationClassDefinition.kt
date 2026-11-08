@@ -9,12 +9,12 @@ import kotlinx.collections.immutable.toPersistentSet
 import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
 
 /** Complete immutable declaration of one application class. */
-class ApplicationClassDefinition internal constructor(
-    val type: String,
-    val accessFlags: Int,
-    val superclass: String?,
+public class ApplicationClassDefinition internal constructor(
+    internal val type: String,
+    internal val accessFlags: Int,
+    internal val superclass: String?,
     interfaces: List<String>,
-    val sourceFile: String?,
+    internal val sourceFile: String?,
     annotations: Set<ImmutableAnnotation>,
     staticFields: List<ApplicationFieldDefinition>,
     instanceFields: List<ApplicationFieldDefinition>,
@@ -42,10 +42,10 @@ class ApplicationClassDefinition internal constructor(
         }
     }
 
-    val interfaces: PersistentList<String> = interfaces.toPersistentList()
-    val annotations: PersistentSet<ImmutableAnnotation> = annotations.toPersistentSet()
-    val staticFields: PersistentList<ApplicationFieldDefinition> = staticFields.toPersistentList()
-    val instanceFields: PersistentList<ApplicationFieldDefinition> = instanceFields.toPersistentList()
+    internal val interfaces: PersistentList<String> = interfaces.toPersistentList()
+    internal val annotations: PersistentSet<ImmutableAnnotation> = annotations.toPersistentSet()
+    internal val staticFields: PersistentList<ApplicationFieldDefinition> = staticFields.toPersistentList()
+    internal val instanceFields: PersistentList<ApplicationFieldDefinition> = instanceFields.toPersistentList()
     internal val methods: PersistentList<ApplicationMethodDefinition> = methods.toPersistentList()
     internal val methodsByDescriptor: PersistentMap<String, ApplicationMethodDefinition> =
         methods.associateBy { it.methodSignature.nameAndProto }.toPersistentMap()

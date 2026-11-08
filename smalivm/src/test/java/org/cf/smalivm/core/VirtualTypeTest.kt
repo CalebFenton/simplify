@@ -6,44 +6,37 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.assertThrows
 
-/**
- * Bug class: type tags as repairable strings (the old engine accepted and silently
- * "fixed" malformed type strings, spec §4.1). Oracle: the Dalvik type-descriptor
- * grammar (JVMS/dex spec): V Z B S C I J F D, Lfqcn;, [ prefixes.
- */
+/** [VirtualType] parsing and classification. Oracle: the dex format's TypeDescriptor grammar. */
 class VirtualTypeTest {
-    @Test
-    fun primitiveClassificationMatchesDalvikGrammar() {
-        val i = VirtualType.of("I")
-        assertTrue(i.isPrimitive)
-        assertFalse(i.isWide)
-        assertFalse(i.isReference)
-        assertFalse(i.isArray)
-        assertNull(i.componentType)
-    }
-
-    @Test
-    fun widePrimitivesAreExactlyLongAndDouble() {
-        assertTrue(VirtualType.of("J").isWide)
-        assertTrue(VirtualType.of("D").isWide)
-        assertFalse(VirtualType.of("I").isWide)
-        assertFalse(VirtualType.of("F").isWide)
-        assertFalse(VirtualType.of("Ljava/lang/Long;").isWide)
-    }
-
-    @Test
-    fun classTypeIsReferenceNotPrimitive() {
-        val s = VirtualType.of("Ljava/lang/String;")
-        assertTrue(s.isReference)
-        assertFalse(s.isPrimitive)
-        assertFalse(s.isArray)
+    @TestFactory
+    fun classificationMatchesTheDescriptorGrammar(): List<DynamicTest> = listOf(
+        "I" to setOf("primitive"),
+        "F" to setOf("primitive"),
+        "J" to setOf("primitive", "wide"),
+        "D" to setOf("primitive", "wide"),
+        "Ljava/lang/String;" to setOf("reference"),
+        "Ljava/lang/Long;" to setOf("reference"),
+        "[[I" to setOf("reference", "array"),
+        // V is legal only as a return type and bears no value.
+        "V" to setOf("void"),
+    ).map { (descriptor, expected) ->
+        DynamicTest.dynamicTest(descriptor) {
+            val type = VirtualType.of(descriptor)
+            val actual = buildSet {
+                if (type.isPrimitive) add("primitive")
+                if (type.isWide) add("wide")
+                if (type.isReference) add("reference")
+                if (type.isArray) add("array")
+                if (type.isVoid) add("void")
+            }
+            assertEquals(expected, actual)
+            if (!type.isArray) assertNull(type.componentType)
+        }
     }
 
     @Test
     fun arrayTypeExposesComponent() {
         val arr = VirtualType.of("[[I")
-        assertTrue(arr.isArray)
-        assertTrue(arr.isReference)
         assertEquals(VirtualType.of("[I"), arr.componentType)
         assertEquals(VirtualType.of("I"), arr.componentType?.componentType)
     }
@@ -127,14 +120,5 @@ class VirtualTypeTest {
         assertTrue(VirtualType.of("[".repeat(255) + "I").isArray)
         assertThrows<IllegalArgumentException> { VirtualType.of("[".repeat(256) + "I") }
         assertThrows<IllegalArgumentException> { VirtualType.of("[".repeat(256) + "Ljava/lang/String;") }
-    }
-
-    @Test
-    fun voidIsValidButNeitherPrimitiveValueNorReference() {
-        // Dalvik grammar: V is only legal as a return type; it is not a value-bearing type.
-        val v = VirtualType.of("V")
-        assertFalse(v.isReference)
-        assertFalse(v.isWide)
-        assertTrue(v.isVoid)
     }
 }

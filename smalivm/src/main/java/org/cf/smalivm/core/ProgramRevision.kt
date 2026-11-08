@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /** Opaque identity of one immutable program snapshot. */
-class ProgramRevision private constructor(
+public class ProgramRevision private constructor(
     private val programIdentity: ProgramIdentity,
     private val sequence: Long,
 ) {

@@ -7,9 +7,8 @@
 
 .field private static myList:Ljava/util/List;
 
-# Task 18's tracked-object cell for the ported multiverse tests: myList's ArrayList needs
-# new-instance + <init> + emulation (Tasks 20/Plan 11); an array is the tracked object the core can
-# build today, and the identity claims are the same.
+# A static holding a tracked object. An array is used because it needs no `<init>` or emulation;
+# the identity claims are the same as for any object.
 .field private static myArray:[Ljava/lang/String;
 
 .method public static <clinit>()V
@@ -34,20 +33,16 @@
     return-void
 .end method
 
-# Plan 9 Task 18's trigger carrier for the ported TestStaticFieldAccess.canGetFieldsWhileInitializing.
-# The original ran stubMethod() and relied on the harness/VM initializing the ENTRY class; the clean
-# core models entry-class init as part of invocation (a callee entry is a trigger, the top-level entry
-# is Plan 9 Tasks 20+), so the trigger here is the sget itself -- same <clinit>, same three values.
+# Trigger for StaticFieldAccessTest.canGetFieldsWhileInitializing: the sget itself initializes the
+# class, and the `<clinit>` reads its own statics mid-initialization.
 .method public static getTestInt2()I
     .locals 1
     sget v0, Lstatic_fields_test;->testInt2:I
     return v0
 .end method
 
-# The sput ORDERING witness (Plan 9 Task 18): the <clinit> prelude must run BEFORE the triggering
-# sput's write, or preparation/<clinit> would clobber the freshly written value. With the correct
-# order the sget reads 0x2a; with a trigger-less sput the later sget's init overwrites testInt1 back
-# to 0 and the method returns the wrong constant.
+# sput ordering witness: the `<clinit>` prelude runs before the triggering sput's write. In order,
+# the sget reads 0x2a; a trigger-less sput would let the later sget's init reset testInt1 to 0.
 .method public static putThenGetTestInt1()I
     .locals 1
     const/16 v0, 0x2a
@@ -56,12 +51,9 @@
     return v0
 .end method
 
-# Port carrier for canAccessFieldAfterCollapsingMultiverse (Plan 9 Task 18): a tracked object stored
-# into a static, a nested activation (this class's own <clinit>, as the sput's prelude) run in
-# between, then a mutation THROUGH THE REGISTER after the store, then the field read back. The
-# original used `new-instance ArrayList` + three invokes; allocation-with-<init> and ArrayList
-# emulation are Tasks 20/Plan 11, so the tracked object here is an array and the mutation is an
-# aput-object -- the identity claim (the field holds a reference, never a copy) is unchanged.
+# Carrier for StaticFieldAccessTest.canAccessFieldAfterCollapsingMultiverse: a tracked array is
+# stored into a static, this class's `<clinit>` runs as the sput's prelude, the array is mutated
+# through the register, and the field is read back. The field holds a reference, never a copy.
 .method public static storeThenMutateThenGetArray()[Ljava/lang/String;
     .locals 3
     const/4 v0, 0x1

@@ -54,6 +54,6 @@ class InvokeOpcodeFormsTest {
         org.cf.smalivm.core.MethodSignature(org.cf.smalivm.core.VirtualType.of(owner), name, proto)
 
     private companion object {
-        const val FIXTURE = "Linvoke_task20;"
+        const val FIXTURE = "Linvoke_resolution;"
     }
 }

@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
-/** Task 49 public behavior for accepted target throws and infrastructure failures. */
+/** Public behavior for accepted target throws and infrastructure failures at the host call boundary. */
 class HostExceptionBoundaryBehaviorTest {
     @Test
     fun reflectedAndEmulatedTargetsShareTheGuestIdentityPath() {

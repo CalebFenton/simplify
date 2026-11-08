@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 import org.cf.smalivm.core.SynchronousInvocationFixtures.CALLEE
 import org.cf.smalivm.core.SynchronousInvocationFixtures.CALLER
 import org.cf.smalivm.core.SynchronousInvocationFixtures.INIT_TARGET
-import org.cf.smalivm.core.SynchronousInvocationFixtures.INVOKE_REVIEW
+import org.cf.smalivm.core.SynchronousInvocationFixtures.INVOKE_CALL
 import org.cf.smalivm.core.SynchronousInvocationFixtures.allNodes
 import org.cf.smalivm.core.SynchronousInvocationFixtures.classType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.classIndex
@@ -257,7 +257,7 @@ class SynchronousInvocationTest {
         assertEquals(Value.Known(43L, longType), wide.outcomes.single().returnedValue())
 
         val objectGraph = returning(
-            INVOKE_REVIEW,
+            INVOKE_CALL,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
             IDENTITY_OBJECT,
             HostReturn.Value(HostValue.Reference("canonical", objectType)),
@@ -265,7 +265,7 @@ class SynchronousInvocationTest {
         assertEquals(Value.Known("canonical", objectType), objectGraph.outcomes.single().returnedValue())
 
         val typedNull = returning(
-            INVOKE_REVIEW,
+            INVOKE_CALL,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
             IDENTITY_OBJECT,
             HostReturn.Value(HostValue.TypedNull(objectType)),
@@ -285,7 +285,7 @@ class SynchronousInvocationTest {
     fun classValueReturnPreservesTheRepresentedClassAndClassType() {
         val represented = String::class.java
         val graph = returning(
-            INVOKE_REVIEW,
+            INVOKE_CALL,
             "nonzeroIntPassedAsReference()Ljava/lang/Object;",
             IDENTITY_OBJECT,
             HostReturn.Value(HostValue.Reference(represented, classType)),
@@ -454,7 +454,7 @@ class SynchronousInvocationTest {
         val THROWS_UNCAUGHT = MethodSignature(VirtualType.of(CALLEE), "throwsUncaught", "()I")
         val NATIVE_CALLEE = MethodSignature(VirtualType.of(CALLEE), "nativeCallee", "()I")
         val IDENTITY_OBJECT = MethodSignature(
-            VirtualType.of("Linvoke_review_callee;"),
+            VirtualType.of("Linvoke_call_callee;"),
             "identityObject",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
         )

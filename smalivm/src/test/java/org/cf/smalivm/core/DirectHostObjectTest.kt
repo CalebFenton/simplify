@@ -93,7 +93,7 @@ class DirectHostObjectTest {
     fun oneGraphClonePreservesNestedAliasesAndCycles() {
         class Node(var next: Node? = null)
 
-        val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val view = view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;")
         val frame = Frame.entryFrame(view)
         val shared = Node()
         val first = arrayListOf(shared)
@@ -122,7 +122,7 @@ class DirectHostObjectTest {
 
     @Test
     fun siblingCopiesDoNotShareMutableHostRoots() {
-        val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val view = view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;")
         val parent = Frame.entryFrame(view)
         val ref = parent.heap.allocateHostObject(builderType, StringBuilder("a"))
         val first = parent.copy()
@@ -153,7 +153,7 @@ class DirectHostObjectTest {
 
     @Test
     fun batchAdmissionPreservesRepeatedRootsAndAnArrayNestedInAContainer() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val array = intArrayOf(1, 2)
         val container = arrayListOf<Any>(array)
 
@@ -182,7 +182,7 @@ class DirectHostObjectTest {
 
     @Test
     fun mirroredGuestWriteAfterForkDetachesOnlyTheWritingPath() {
-        val parent = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val parent = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val raw = intArrayOf(1)
         val admitted = parent.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, intArrayType)))).single() as Value.Known
         val ref = admitted.raw as HeapRef
@@ -204,7 +204,7 @@ class DirectHostObjectTest {
 
     @Test
     fun unrepresentableMirroredGuestWriteInvalidatesMirrorButKeepsAuthoritativeLatticeWrite() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val value = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(intArrayOf(1), intArrayType)))).single()
             as Value.Known
         val ref = value.raw as HeapRef
@@ -229,7 +229,7 @@ class DirectHostObjectTest {
 
     @Test
     fun observingANonEmptyHostGraphCreatesNoVersions() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val ref = frame.heap.allocateHostObject(builderType, StringBuilder("observed"))
         val graphVersion = frame.hostGraphVersionToken()
         val objectVersion = frame.heapObject(ref)
@@ -266,7 +266,7 @@ class DirectHostObjectTest {
 
     @Test
     fun selectedCallFinalizationIsOneShotAndOwnedByItsFrame() {
-        val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val view = view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;")
         val frame = Frame.entryFrame(view)
         val ref = frame.heap.allocateHostObject(builderType, StringBuilder("owned"))
         val selected = SelectedHostCall.from(
@@ -362,7 +362,7 @@ class DirectHostObjectTest {
 
     @Test
     fun opaqueCollapseInvalidatesSeparatelyReferencedNestedAliases() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val child = StringBuilder("child")
         val container = arrayListOf<Any>(child)
         val admitted = frame.heap.admitHostSeeds(
@@ -384,7 +384,7 @@ class DirectHostObjectTest {
 
     @Test
     fun opaqueCollapseInvalidatesOtherRootsThatReachTheSameChild() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val child = StringBuilder("shared")
         val firstRoot = arrayListOf<Any>(child)
         val secondRoot = arrayListOf<Any>(child)
@@ -410,7 +410,7 @@ class DirectHostObjectTest {
     fun opaqueCollapsePreservesDisconnectedHostObjectsAndTheOriginalSibling() {
         // Bug class: an opaque call invalidates every host object instead of only the argument's alias component.
         // Oracle: opaque invocation degrades reachable argument state; a disconnected VM object cannot be mutated.
-        val parent = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val parent = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val affected = arrayListOf<Any>(StringBuilder("affected"))
         val disconnected = StringBuilder("disconnected")
         val admitted = parent.heap.admitHostSeeds(
@@ -442,7 +442,7 @@ class DirectHostObjectTest {
     fun opaqueCollapsePreservesADisconnectedMirroredArrayExactly() {
         // Bug class: an opaque object argument erases elements and the Java mirror of an unrelated tracked array.
         // Oracle: the argument component has no forward or reverse edge to the disconnected array.
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val affected = StringBuilder("affected")
         val disconnected = intArrayOf(3, 5, 8)
         val admitted = frame.heap.admitHostSeeds(
@@ -466,7 +466,7 @@ class DirectHostObjectTest {
     fun unknownReferenceArgumentFallsBackToCompleteHostGraphInvalidation() {
         // Bug class: an unknown reference can alias any VM-owned host root but invalidates none.
         // Oracle: unknown reference connectivity is unprovable, so the conservative fallback is the complete graph.
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val first = frame.heap.allocateHostObject(builderType, StringBuilder("first"))
         val second = frame.heap.allocateHostObject(builderType, StringBuilder("second"))
 
@@ -480,7 +480,7 @@ class DirectHostObjectTest {
     fun argumentWithUnknownHostContentsFallsBackToCompleteHostGraphInvalidation() {
         // Bug class: a known ref with unknown contents is treated as a disconnected empty component.
         // Oracle: its hidden Java edges can reach any graph node, so connectivity is unprovable.
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val first = frame.heap.allocateHostObject(builderType, StringBuilder("first"))
         val second = frame.heap.allocateHostObject(builderType, StringBuilder("second"))
         val firstValue = Value.Known(first, builderType)
@@ -501,7 +501,7 @@ class DirectHostObjectTest {
         val incompleteRoot = Runnable { captured.append('!') }
         assertFalse(HostGraphState.empty().addRoots(listOf(incompleteRoot)).state.isComplete)
 
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val disconnected = StringBuilder("disconnected")
         val admitted = frame.heap.admitHostSeeds(
             listOf(
@@ -529,7 +529,7 @@ class DirectHostObjectTest {
             }
         }
 
-        val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val view = view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;")
         val disconnected = StringBuilder("disconnected")
         val failing = FailingIterable(StringBuilder("child"))
         val frame = Frame.entryFrame(view)
@@ -652,7 +652,7 @@ class DirectHostObjectTest {
     fun opaqueCompactionRemovesInvalidatedComponentsFromLaterHostClones() {
         // Bug class: invalidated raw nodes remain in HostGraphState and are cloned by unrelated later calls.
         // Oracle: after each opaque component is removed, only known roots and their aliases remain cloneable.
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val first = arrayListOf<Any>(StringBuilder("first-child"))
         val second = arrayListOf<Any>(StringBuilder("second-child"))
         val retained = MutableBox(7)
@@ -693,7 +693,7 @@ class DirectHostObjectTest {
         // Oracle: graph membership is reachability from known HeapRefs; a separately owned child remains a root.
         val unownedChild = MutableChild(1)
         val unownedParent = MutableParent(unownedChild)
-        val unownedFrame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val unownedFrame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val unownedValue = unownedFrame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(unownedParent, objectType))),
         ).single() as Value.Known
@@ -710,7 +710,7 @@ class DirectHostObjectTest {
 
         val ownedChild = MutableChild(2)
         val ownedParent = MutableParent(ownedChild)
-        val ownedFrame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val ownedFrame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val owned = ownedFrame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(ownedParent, objectType)),
@@ -736,7 +736,7 @@ class DirectHostObjectTest {
     fun repeatedSelectedReplacementKeepsTheGraphBounded() {
         // Bug class: each selected mutation leaves the replaced child in the graph, growing every later clone.
         // Oracle: one parent and its current child are the only reachable nodes after every replacement.
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(MutableParent(MutableChild(0)), objectType))),
         ).single() as Value.Known
@@ -903,7 +903,7 @@ class DirectHostObjectTest {
         // Oracle: lattice writes only mark the mirror dirty; one selected detach synchronizes all aliases once.
         val rawArray = intArrayOf(0)
         val holder = MirrorHolder(rawArray, Array(9_997) { MutableBox(it) })
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val holderValue = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(holder, objectType))),
         ).single() as Value.Known
@@ -952,7 +952,7 @@ class DirectHostObjectTest {
         )
         for (raw in raws) {
             assertFalse(raw.isDirectHostImmutable(), raw.javaClass.name)
-            val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+            val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
             val admitted = frame.heap.admitHostSeeds(
                 listOf(HostSeed(Value.Known(raw, objectType))),
             ).single() as Value.Known
@@ -979,7 +979,7 @@ class DirectHostObjectTest {
         // Bug class: every Enum is treated as immutable, so a mutable enum field leaks across sibling paths.
         // Oracle: an enum runtime class is not an exact scalar class and its instance fields are graph state.
         MutableHostEnum.VALUE.note = StringBuilder("seed")
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(MutableHostEnum.VALUE, objectType))),
         ).single() as Value.Known
@@ -1758,7 +1758,7 @@ class DirectHostObjectTest {
 
     @Test
     fun guestAndHostWritesKeepANestedContainerArrayAliasCoherent() {
-        val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
+        val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))
         val array = intArrayOf(1)
         val container = arrayListOf<Any>(array)
         val admitted = frame.heap.admitHostSeeds(
@@ -1966,8 +1966,8 @@ class DirectHostObjectTest {
             SynchronousCallResult.Returned(HostReturn.Value(HostValue.Reference(HeapRef(999), objectType)))
         }
         val session = SynchronousInvocationFixtures.session(
-            "Linvoke_review;",
-            "callOpaqueClassResult()Linvoke_review_identity;",
+            "Linvoke_call;",
+            "callOpaqueClassResult()Linvoke_call_identity;",
             listOf(backend),
         )
 

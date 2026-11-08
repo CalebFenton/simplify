@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /** Result of joining two types: a common upper bound, or proof there is none. */
-sealed interface JoinedType {
+internal sealed interface JoinedType {
     data class Joined(val type: VirtualType) : JoinedType
     data object Incompatible : JoinedType
 }
@@ -36,7 +36,7 @@ sealed interface JoinedType {
  * types sharing only interfaces join to `Object`. `instance-of` and `check-cast` do consult interfaces --
  * see [TypeHierarchy.isInstanceOf].
  */
-fun joinTypes(a: VirtualType, b: VirtualType, hierarchy: TypeHierarchy): JoinedType {
+internal fun joinTypes(a: VirtualType, b: VirtualType, hierarchy: TypeHierarchy): JoinedType {
     if (a == b) return JoinedType.Joined(a)
     if (!a.isReference || !b.isReference) return JoinedType.Incompatible
     val sharedDimensions = minOf(a.arrayDimensions(), b.arrayDimensions())

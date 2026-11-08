@@ -1,9 +1,9 @@
-.class public Linvoke_task20;
+.class public Linvoke_resolution;
 .super Ljava/lang/Object;
 
 .method public static staticReturn()I
     .locals 1
-    invoke-static {}, Linvoke_task20;->seven()I
+    invoke-static {}, Linvoke_resolution;->seven()I
     move-result v0
     return v0
 .end method
@@ -17,7 +17,7 @@
 .method public static zeroBecomesNull()Ljava/lang/Object;
     .locals 1
     const/4 v0, 0x0
-    invoke-static {v0}, Linvoke_task20;->identityObject(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-static {v0}, Linvoke_resolution;->identityObject(Ljava/lang/Object;)Ljava/lang/Object;
     move-result-object v0
     return-object v0
 .end method
@@ -33,7 +33,7 @@
     const-wide/16 v2, 0x2
     const-wide/16 v4, 0x3
     const/4 v6, 0x4
-    invoke-static/range {v0 .. v6}, Linvoke_task20;->lastWide(JJJI)J
+    invoke-static/range {v0 .. v6}, Linvoke_resolution;->lastWide(JJJI)J
     move-result-wide v0
     return-wide v0
 .end method
@@ -54,13 +54,13 @@
 .method public static missingBeforeNull()V
     .locals 1
     const/4 v0, 0x0
-    invoke-virtual {v0}, Linvoke_task20;->missing()V
+    invoke-virtual {v0}, Linvoke_resolution;->missing()V
     return-void
 .end method
 
 .method public static absentClass()V
     .locals 0
-    invoke-static {}, Linvoke_task20_absent;->missing()V
+    invoke-static {}, Linvoke_resolution_absent;->missing()V
     return-void
 .end method
 
@@ -177,7 +177,7 @@
     .locals 3
     new-instance v0, Linvoke_merge_object;
     :try_start
-    invoke-static {v0, p0}, Linvoke_task20;->mutateThenReturnOrThrow(Linvoke_merge_object;I)V
+    invoke-static {v0, p0}, Linvoke_resolution;->mutateThenReturnOrThrow(Linvoke_merge_object;I)V
     :try_end
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :handler
     iget v1, v0, Linvoke_merge_object;->value:I

@@ -7,7 +7,7 @@ import java.util.Collections
 import java.util.IdentityHashMap
 
 /** Selected host state for one accepted synchronous backend. */
-class SelectedHostCall private constructor(
+internal class SelectedHostCall private constructor(
     val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,

@@ -81,7 +81,7 @@ class InvokeOpTest {
      */
     @Test
     fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant(@TempDir root: Path) {
-        for (name in listOf("invoke_task20", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
+        for (name in listOf("invoke_resolution", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
             Files.copy(Path.of(CoreTester.TEST_CLASS_PATH, "ops", "$name.smali"), root.resolve("$name.smali"))
         }
         val closed = VmServices(ClassIndex.open(root.toFile()))
@@ -126,12 +126,12 @@ class InvokeOpTest {
         ),
         failingCall(
             "missingBeforeNull()V", NoSuchMethodError::class.java,
-            "No virtual method missing()V in class Linvoke_task20; or its super classes",
+            "No virtual method missing()V in class Linvoke_resolution; or its super classes",
             moveResultAt = 4,
         ),
         failingCall(
             "absentClass()V", NoClassDefFoundError::class.java,
-            "Failed resolution of: Linvoke_task20_absent;",
+            "Failed resolution of: Linvoke_resolution_absent;",
             moveResultAt = null,
         ),
     )
@@ -499,7 +499,7 @@ class InvokeOpTest {
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 
     private companion object {
-        const val CLASS_NAME = "Linvoke_task20;"
+        const val CLASS_NAME = "Linvoke_resolution;"
         const val STATIC = "Linvoke_static_test;"
         const val DIRECT = "Linvoke_direct_test;"
         const val VIRTUAL = "Linvoke_virtual_test;"

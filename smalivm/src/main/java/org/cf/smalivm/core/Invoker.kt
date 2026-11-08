@@ -8,7 +8,7 @@ package org.cf.smalivm.core
  * [ExecutionSession] keeps ownership of null routing, class-init scheduling, frame construction, effects,
  * frontier changes, and result application.
  */
-class Invoker internal constructor(
+internal class Invoker internal constructor(
     internal val resolver: ProgramSnapshotResolver,
     private val backends: List<Backend>,
 ) {
@@ -186,7 +186,7 @@ internal fun OpArm.Invoke.opaqueArgumentTypes(valueCount: Int): List<VirtualType
 }
 
 /** Pure result of invocation resolution and logical binding. */
-sealed interface InvocationPreparation {
+internal sealed interface InvocationPreparation {
     class Ready internal constructor(
         val invocation: PreparedInvocation,
         internal val lookup: MethodLookup,
@@ -205,12 +205,12 @@ sealed interface InvocationPreparation {
 }
 
 /** One argument's landing place in the callee's frame. Public inspection unwraps [value]. */
-class ParameterBinding internal constructor(val register: Int, internal val frameValue: FrameValue) {
+internal class ParameterBinding internal constructor(val register: Int, internal val frameValue: FrameValue) {
     val value: Value get() = frameValue.value
 }
 
 /** What the [Invoker] decided about one call. Sealed so the scheduler handles every case. */
-sealed interface InvocationPlan {
+internal sealed interface InvocationPlan {
     /**
      * Run [view] as a nested [Activation], entering at [entryAddress] with [parameterBindings] seeded into
      * the callee's own frame. The callee's frame shares the caller's heap id space; the scheduler builds it
@@ -246,7 +246,7 @@ sealed interface InvocationPlan {
  * A call no backend models: resolution was ambiguous, the call site's arity contradicts the resolved method,
  * policy denied it, or every backend declined. The same answer whether binding or backend selection found it.
  */
-class OpaqueInvocation internal constructor(
+internal class OpaqueInvocation internal constructor(
     val returnType: VirtualType,
     val candidates: Set<String>,
     val diagnostic: String? = null,

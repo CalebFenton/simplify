@@ -147,15 +147,11 @@
     return-void
 .end method
 
-# THE THIRD OUTCOME of `OpBuilder.buildConstClass`, which is neither a resolvable class nor an absent one.
-# `Ljava/lang/DexCache;` IS in the bundled framework class model (`isLoadable` says yes) and the HOST loader
-# still cannot produce a `Class` for it: `SmaliClassLoader.findClass` refuses every `java.*` name
-# (`dex/SmaliClassLoader.kt:43-57`) and the JVM parent it falls back to (`:32-36`) has no Android-only
-# `java.*` class. That is an ENGINE limitation, not a device behaviour -- the class exists on a real device --
-# so the answer is `UnsupportedOp` and NOT a guest `NoClassDefFoundError`, which would be spec §2.2's
-# invented-infeasible-path defect. Measured: 506 of 2431 bundled `java.*` descriptors are in this state.
-# Pinned by
-# `core/OpBuilderTest.aConstClassOnAModelledButHostUnloadableClassIsUnsupportedRatherThanAResolutionFailure`.
+# `Ljava/lang/DexCache;` is in the bundled framework class model, but the host loader cannot produce a
+# `Class` for it: `SmaliClassLoader` refuses `java.*` names and the JVM parent has no Android-only
+# `java.*` class. The class exists on a device, so this is an engine limit: `UnsupportedOp`, not a
+# guest `NoClassDefFoundError` that would invent an infeasible path. Pinned by
+# `OpBuilderTest.aConstClassOnAModelledButHostUnloadableClassIsUnsupportedRatherThanAResolutionFailure`.
 .method public static constClassHostUnloadable()V
     .locals 1
 
@@ -164,19 +160,13 @@
     return-void
 .end method
 
-# THE HANDLER-REACHABILITY TRIO (Plan 9 Task 15, ROW-23). Three methods, identical but for the ONE
-# `.catch` type, around the same absent-type `const-class`. `constClassUnknown()V` above is the
-# `Ljava/lang/Exception;` member of the set and is left where the corpus put it.
+# Handler reachability: these methods differ only in the `.catch` type around the same absent-type
+# `const-class`; `constClassUnknown()V` above is the `Ljava/lang/Exception;` case. The absent type
+# raises `NoClassDefFoundError`, an `Error`, so a `catch (Exception)` wrapper is never entered on a
+# device (`tools/art-runner/fixtures/Fx_ConstClassAbsentType.smali`, measured on both tiers).
 #
-# The point is not that `NoClassDefFoundError` is "the right name". It is that an `Error` and an
-# `Exception` put a guest handler on OPPOSITE sides of reachable-versus-dead, and obfuscator output is
-# full of `catch (Exception)` wrappers -- so modelling this as the oracle's checked
-# `ClassNotFoundException` tells a deobfuscator a block is live that a device never enters.
-# Measured: `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`, cross-validated
-# `[DEVICE](Tier B, nterp default, API 36)`; `tools/art-runner/fixtures/Fx_ConstClassAbsentType.smali`.
-#
-# Addresses, from the encoding: `const-class` (21c) is TWO code units, so it is at @0, the `nop` at @2,
-# `return-void` at @3, `move-exception` (11x) at @4 and `goto` (10t) at @5.
+# Addresses: `const-class` (21c, 2 units) at @0, `nop` at @2, `return-void` at @3,
+# `move-exception` (11x) at @4, `goto` (10t) at @5.
 .method public static constClassUnknownCatchingThrowable()V
     .locals 1
 
@@ -213,10 +203,9 @@
     goto :return
 .end method
 
-# THE CONTROL for the trio: a PRESENT type under the very same `catch (Exception)` shape. Without it,
-# "the Exception handler is not reached" also passes against a build where `const-class` never runs at
-# all, or where the try/catch machinery is broken -- so the absence, not the plumbing, is what is being
-# measured. Mirrors `Fx_ConstClassPresentType.smali`'s role on the device side.
+# Control: a present type under the same `catch (Exception)` shape, so "the handler is not reached"
+# cannot pass because `const-class` never ran or try/catch is broken. Mirrors
+# `Fx_ConstClassPresentType.smali` on the device side.
 .method public static constClassLocalWithCatch()V
     .locals 1
 

@@ -11,9 +11,8 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 /**
- * The heap's three load-bearing properties (spec §4.2): allocation gives a fresh identity, a fork
- * isolates writes, and a fork preserves aliasing. The id-uniqueness test is the soundness one -- see
- * its own comment.
+ * The heap's properties: allocation gives a fresh identity, a fork isolates writes, and a fork
+ * preserves aliasing.
  */
 class HeapStoreTest {
 
@@ -33,8 +32,8 @@ class HeapStoreTest {
 
     @Test
     fun aFreshReferenceArrayHoldsDefinitelyNullElements() {
-        // Known(null, T) is DEFINITELY null (spec §4.1), which is what a Java reference array holds --
-        // not Unknown, which would mean "may be null" and would lose a provable fact.
+        // Known(null, T) is definitely null, which is what a Java reference array holds; Unknown would
+        // mean "may be null" and lose a provable fact.
         val heap = HeapStore(HeapIds())
         val array = heap.arrayAt(heap.allocateArray(OBJECT_ARRAY, 1))!!
         assertEquals(Value.Known(null, VirtualType.of("Ljava/lang/Object;")), array.element(0))
@@ -42,10 +41,9 @@ class HeapStoreTest {
 
     @Test
     fun twoPathsAllocatingSeparatelyGetDistinctIdsAndDoNotAgree() {
-        // THE SOUNDNESS TEST. Both paths fork from the same parent heap, so a per-copy counter would
-        // hand both the same id, `agreesWith` would call them one object, and consensus would report a
-        // Known array where two genuinely distinct allocations exist -- authorizing a strategy to
-        // eliminate one. HeapIds is deliberately NOT copied for exactly this reason.
+        // Both paths fork from the same parent heap, so a per-copy counter would hand both the same id,
+        // `agreesWith` would call them one object, and consensus would report a Known array where two
+        // distinct allocations exist. HeapIds is shared across copies for this reason.
         val parent = HeapStore(HeapIds())
         val pathA = parent.copy()
         val pathB = parent.copy()
@@ -68,8 +66,7 @@ class HeapStoreTest {
 
     @Test
     fun aCopyPreservesAliasingWithinItsOwnPath() {
-        // One allocation reachable from two registers is ONE object, and a fork must not silently
-        // split it -- the audit's cloned-array-diverges defect. Same id in the copy, same object.
+        // One allocation reachable from two registers is one object, and a fork must not split it.
         val heap = HeapStore(HeapIds())
         val ref = heap.allocateArray(INT_ARRAY, 1)
         val forked = heap.copy()

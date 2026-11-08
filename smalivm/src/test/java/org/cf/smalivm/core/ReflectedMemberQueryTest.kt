@@ -9,31 +9,21 @@ import org.junit.jupiter.api.Test
 
 class ReflectedMemberQueryTest {
     private val classIndex = CoreTester.classIndex
-    private val STRING_LENGTH = ImmutableMethodReference("Ljava/lang/String;", "length", emptyList<String>(), "I")
 
     @Test
     fun reportsHeapBackedMethodByFullDescriptorAndModifiers() {
         val graph = graphOf("getStringLengthMethod()Ljava/lang/reflect/Method;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
-        val expected = ReflectedMethodMetadata(
-            STRING_LENGTH,
-            String::class.java.getDeclaredMethod("length").modifiers,
-            String::class.java.modifiers,
-        )
 
-        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedMethod(address, 0))
+        assertEquals(Agreement.Agreed(LENGTH), graph.trusted()!!.reflectedMethod(address, 0))
     }
 
     @Test
     fun reportsTrackedFieldByFullDescriptorAndModifiers() {
         val graph = graphOf("getPublicInstanceField()Ljava/lang/reflect/Field;")
         val address = graph.methodView.addresses.single { graph.methodView.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT }
-        val expected = ReflectedFieldMetadata(
-            ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "publicInstanceField", "I"),
-            Modifier.PUBLIC or Modifier.FINAL,
-        )
 
-        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedField(address, 0))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), graph.trusted()!!.reflectedField(address, 0))
     }
 
     @Test
@@ -47,16 +37,7 @@ class ReflectedMemberQueryTest {
 
         assertEquals(1, parents.size)
         assertEquals(Opcode.CONST_4, graph.methodView.opcodeAt(parents.single()))
-        assertEquals(
-            Agreement.Agreed(
-                ReflectedMethodMetadata(
-                    STRING_LENGTH,
-                    String::class.java.getDeclaredMethod("length").modifiers,
-                    String::class.java.modifiers,
-                ),
-            ),
-            trusted.reflectedMethod(parents, 0),
-        )
+        assertEquals(Agreement.Agreed(LENGTH), trusted.reflectedMethod(parents, 0))
     }
 
     @Test

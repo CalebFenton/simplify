@@ -86,14 +86,14 @@ class EmulateBackendTest {
             },
         )
         vm.invocationServices.emulators.register(
-            registration(method(INVOKE_REVIEW_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")) {
+            registration(method(INVOKE_CALL_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")) {
                 executions++
                 SynchronousCallResult.Returned(HostReturn.Value(HostValue.TypedNull(objectType)))
             },
         )
 
         val unknown = identityIntSession(vm, Value.Unknown(intType)).run()
-        val objectView = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
+        val objectView = view(INVOKE_CALL, "callOpaqueClassResult()Linvoke_call_identity;")
         val objectFrame = Frame.entryFrame(objectView)
         val tracked = objectFrame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         objectFrame.assign(0, tracked)
@@ -130,14 +130,14 @@ class EmulateBackendTest {
     fun unknownCapableHandlerReceivesUnknownForKnownValueWithoutAJavaForm() {
         lateinit var received: EmulatorValue
         val vm = VmServices(classIndex)
-        val target = method(INVOKE_REVIEW_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        val target = method(INVOKE_CALL_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
         vm.invocationServices.emulators.register(
             registration(target, handlesUnknownArguments = true) { call ->
                 received = call.arguments.single()
                 SynchronousCallResult.Returned(HostReturn.Value(HostValue.TypedNull(objectType)))
             },
         )
-        val entry = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
+        val entry = view(INVOKE_CALL, "callOpaqueClassResult()Linvoke_call_identity;")
         val frame = Frame.entryFrame(entry)
         val tracked = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         frame.assign(0, tracked)
@@ -437,7 +437,7 @@ class EmulateBackendTest {
     }
 
     private fun identityObjectSession(vm: VmServices, entry: MethodView, frame: Frame): ExecutionSession {
-        val target = method(INVOKE_REVIEW_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
+        val target = method(INVOKE_CALL_CALLEE, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
         return vm.newSession(entry, Limits(), frame) { address, method, resolver ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
             else OpBuilder.build(address, method, resolver)
@@ -542,8 +542,8 @@ class EmulateBackendTest {
     private companion object {
         const val CALLER = "Lcalls/caller;"
         const val CALLEE = "Lcalls/callee;"
-        const val INVOKE_REVIEW = "Linvoke_review;"
-        const val INVOKE_REVIEW_CALLEE = "Linvoke_review_callee;"
+        const val INVOKE_CALL = "Linvoke_call;"
+        const val INVOKE_CALL_CALLEE = "Linvoke_call_callee;"
         const val INIT_TARGET = "Linvocation_class_init_target;"
     }
 }

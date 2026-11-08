@@ -6,20 +6,23 @@ package org.cf.smalivm.core
  * Execute with `val graph = services.newSession(view).run()`, then inspect [ExecutionGraph.completion] and
  * [ExecutionGraph.outcomes]. Each outcome represents one ended path.
  */
-class VmServices(
-    val classIndex: ClassIndex,
+public class VmServices(
+    public val classIndex: ClassIndex,
     internal val reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
 ) {
-    val invocationServices = InvocationServices(classIndex, reflectionPolicy)
-    val methodEditor = MethodEditor(classIndex.programWorkspace)
-    val currentSnapshot: ProgramSnapshot get() = classIndex.currentSnapshot
+    /** Backends and emulators that sessions invoke through. */
+    public val invocationServices: InvocationServices = InvocationServices(classIndex, reflectionPolicy)
+    /** Starts method edits against the current program. */
+    public val methodEditor: MethodEditor = MethodEditor(classIndex.programWorkspace)
+    /** The program revision new sessions run against. */
+    public val currentSnapshot: ProgramSnapshot get() = classIndex.currentSnapshot
 
     /**
      * Starts a run of [view] over the current program snapshot. [entryFrame] defaults to unknown parameters,
      * except a constructor's receiver is a fresh uninitialized object when its field layout is known. A
      * supplied frame is copied, so the caller may start several sessions from one seeded frame.
      */
-    fun newSession(
+    public fun newSession(
         view: MethodView,
         limits: Limits = Limits(),
         entryFrame: Frame? = null,
