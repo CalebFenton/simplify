@@ -9,13 +9,13 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
-class BackendCorpusMigrationTest {
+class BackendInvocationTest {
     private val classIndex = CoreTester.classIndex
 
     @Test
     fun reflectedListMutationPreservesAliasAndReturn() {
         // Bug class: host return import allocates a second ref for an argument already reachable through a list.
-        // Oracle: List.add/get and Plan 11 Task 35 require one scheduler HeapRef for one VM-owned graph node.
+        // Oracle: List.add/get return the same object, so one VM-owned graph node keeps one HeapRef.
         val list = LinkedList<Any>()
         val inserted = StringBuilder("inserted")
         val run = execute(
@@ -42,7 +42,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun zeroPrimitiveBindsAsNullForReferenceParameter() {
         // Bug class: integer zero is passed as boxed data when the exact parameter requires a reference.
-        // Oracle: Plan 11 binding rule converts primitive I zero to Dalvik null only at a reference parameter.
+        // Oracle: Dalvik represents null as zero, so primitive I zero binds as null only at a reference parameter.
         val run = execute(
             INVOKE_FIXTURE,
             "reflectedListMutation(Ljava/util/List;Ljava/lang/Object;)Ljava/lang/Object;",
@@ -58,7 +58,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun boxedIntegerReferenceIsNotNull() {
         // Bug class: a reference-tagged boxed Integer(0) is mistaken for primitive zero and converted to null.
-        // Oracle: Plan 11 Task 35 says a reference-tagged Number is a live reference regardless of numeric value.
+        // Oracle: a reference-tagged Number is a live reference regardless of its numeric value.
         for (value in listOf(5, 0)) {
             val run = execute(
                 INVOKE_FIXTURE,
@@ -114,7 +114,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun aliasMutationUpdatesAllRegisters() {
         // Bug class: guest-call reconciliation updates the parameter register but loses a caller alias.
-        // Oracle: Plan 11 heap identity makes both caller registers observe one mutated StringBuilder ref.
+        // Oracle: heap identity makes both caller registers observe one mutated StringBuilder ref.
         val run = execute(
             INVOKE_FIXTURE,
             "mutateThroughAlias(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;",
@@ -171,8 +171,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun unknownArrayCloneReturnsTypedUnknown() {
         // Bug class: an unknown [I clone is typed as Object or allocated as a falsely known array.
-        // Oracle: Plan 11 array-clone intrinsic returns Unknown([I) without inventing identity or elements.
-        // Divergence: the original method name says known clone, but its exact body seeds UnknownValue.
+        // Oracle: cloning an unknown array yields Unknown([I) with no invented identity or elements.
         val run = execute(
             INVOKE_FIXTURE,
             "cloneArray([I)[I",
@@ -186,7 +185,6 @@ class BackendCorpusMigrationTest {
     fun knownArrayCloneReturnsFreshCopy() {
         // Bug class: array clone returns the source ref or fails to copy one tracked element.
         // Oracle: JLS array clone semantics require a fresh array with equal shallow element values.
-        // Divergence: the original method name says unknown, but its exact body seeds intArrayOf(1, 2, 3).
         val run = execute(
             INVOKE_FIXTURE,
             "cloneArray([I)[I",
@@ -242,7 +240,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun getClassUsesTrackedRuntimeType() {
         // Bug class: Object.getClass reports the loose register tag instead of the tracked heap runtime type.
-        // Oracle: JVM getClass and Plan 11 both use receiver runtime class; no raw guest object is materialized.
+        // Oracle: JVM getClass uses the receiver's runtime class; no raw guest object is materialized.
         val view = view(INVOKE_FIXTURE, "trackedRuntimeClass(Ljava/lang/Object;)Ljava/lang/Class;")
         val vm = VmServices(classIndex)
         val frame = Frame.entryFrame(view)
@@ -259,7 +257,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun provenHostCallsOnInitializedClassesRetainNoSideEffects() {
         // Bug class: safe-class authorization either implies blanket NONE or leaves these three proven calls STRONG.
-        // Oracle: P11-SE-001 names this exact constructor/append/toString composition and no other safe-class call.
+        // Oracle: the default policy declares exactly these three StringBuilder calls NONE; capacity() stays STRONG.
         val targets = setOf(
             method(BUILDER, "<init>", "(Ljava/lang/String;)V"),
             method(BUILDER, "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;"),
@@ -287,7 +285,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun reflectedBoxedZeroAndArbitraryNumberUseReferenceIfAndSwitchSemantics() {
         // Bug class: reflected Number returns are read as integral zero by real if-eqz or packed-switch ops.
-        // Oracle: Plan 11 reference tags control nullness and switch feasibility, independent of Number.intValue().
+        // Oracle: reference tags control nullness and switch feasibility, independent of Number.intValue().
         val targets = setOf(
             method(HOST_FIXTURE, "boxedZero", "()Ljava/lang/Number;"),
             method(HOST_FIXTURE, "arbitraryNumber", "()Ljava/lang/Number;"),
@@ -317,7 +315,7 @@ class BackendCorpusMigrationTest {
     @Test
     fun synchronousReflectedMutationUsesOneDebuggerStepWithoutSyntheticActivation() {
         // Bug class: synchronous reflection creates a fake activation or delays imported mutation past one step.
-        // Oracle: Plan 11 debugger contract makes one accepted synchronous invoke one scheduler step.
+        // Oracle: one accepted synchronous invoke is one scheduler step with no synthetic activation.
         val view = view(INVOKE_FIXTURE, "appendLong(Ljava/lang/StringBuilder;J)Ljava/lang/StringBuilder;")
         val vm = VmServices(classIndex)
         val frame = Frame.entryFrame(view)
@@ -485,11 +483,11 @@ class BackendCorpusMigrationTest {
         val BUILDER = VirtualType.of("Ljava/lang/StringBuilder;")
         val CLASS = VirtualType.of("Ljava/lang/Class;")
         val NULL_POINTER = VirtualType.of("Ljava/lang/NullPointerException;")
-        val HOST_FIXTURE = VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;")
+        val HOST_FIXTURE = VirtualType.of("Lorg/cf/smalivm/core/BackendHostFixture;")
     }
 }
 
-class BackendCorpusHostFixture {
+class BackendHostFixture {
     companion object {
         @JvmStatic
         fun mutate(builder: StringBuilder) {

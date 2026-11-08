@@ -21,21 +21,21 @@ internal sealed interface ThrowEvidence {
  * the two facts during copies or writes.
  */
 internal sealed class FrameValue private constructor() {
-    abstract val value: Value
+    internal abstract val value: Value
 
-    class Plain private constructor(override val value: Value) : FrameValue() {
+    internal class Plain private constructor(override val value: Value) : FrameValue() {
         override fun equals(other: Any?): Boolean = other is Plain && value == other.value
         override fun hashCode(): Int = value.hashCode()
         override fun toString(): String = "Plain($value)"
 
-        companion object {
+        internal companion object {
             internal fun of(value: Value): Plain = Plain(value)
         }
     }
 
-    class RefinedThrowable private constructor(
+    internal class RefinedThrowable private constructor(
         override val value: Value,
-        val domain: ThrowableDomain,
+        internal val domain: ThrowableDomain,
     ) : FrameValue() {
         init {
             require((value as? Value.Known)?.raw.let { it == null || it is HeapRef }) {
@@ -50,14 +50,14 @@ internal sealed class FrameValue private constructor() {
         override fun hashCode(): Int = 31 * value.hashCode() + domain.hashCode()
         override fun toString(): String = "RefinedThrowable($value, $domain)"
 
-        companion object {
+        internal companion object {
             internal fun of(value: Value, domain: ThrowableDomain): RefinedThrowable =
                 RefinedThrowable(value, domain)
         }
     }
 
-    companion object {
-        fun plain(value: Value): FrameValue = Plain.of(value)
+    internal companion object {
+        internal fun plain(value: Value): FrameValue = Plain.of(value)
 
         internal fun refined(value: Value, domain: ThrowableDomain): RefinedThrowable =
             RefinedThrowable.of(value, domain)
@@ -66,11 +66,11 @@ internal sealed class FrameValue private constructor() {
 
 /** One non-empty throwable domain, including object-local runtime facts when a host object supplied them. */
 internal class ThrowableDomain private constructor(
-    val exactRuntimeType: VirtualType?,
-    val exactRuntimeFacts: ThrowableTypeFacts?,
-    val trustedUpperBound: VirtualType,
-    val unresolvedRequiredRoots: PersistentSet<VirtualType>,
-    val excludedRoots: PersistentSet<VirtualType>,
+    internal val exactRuntimeType: VirtualType?,
+    internal val exactRuntimeFacts: ThrowableTypeFacts?,
+    internal val trustedUpperBound: VirtualType,
+    internal val unresolvedRequiredRoots: PersistentSet<VirtualType>,
+    internal val excludedRoots: PersistentSet<VirtualType>,
     private val requiredRootsHash: Int,
     private val excludedRootsHash: Int,
 ) {
@@ -146,7 +146,7 @@ internal class ThrowableDomain private constructor(
         "ThrowableDomain(exact=$exactRuntimeType, upper=$trustedUpperBound, " +
             "required=$unresolvedRequiredRoots, excluded=$excludedRoots)"
 
-    companion object {
+    internal companion object {
         private val anyThrowable = ThrowableDomain(
             exactRuntimeType = null,
             exactRuntimeFacts = null,
@@ -157,9 +157,9 @@ internal class ThrowableDomain private constructor(
             excludedRootsHash = 0,
         )
 
-        fun any(): ThrowableDomain = anyThrowable
+        internal fun any(): ThrowableDomain = anyThrowable
 
-        fun exact(
+        internal fun exact(
             type: VirtualType,
             hierarchy: ThrowableHierarchy,
             runtimeFacts: ThrowableTypeFacts? = null,

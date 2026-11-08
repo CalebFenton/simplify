@@ -2,66 +2,62 @@ package org.cf.smalivm.core
 
 
 /**
- * Queries over the paths one run executed (spec §9). An answer describes only the paths the run walked, so it is
+ * Queries over the paths one run executed. An answer describes only the paths the run walked, so it is
  * sound to read and unsafe to act on until the run is `canTrustConsensus`; [TrustedGraphView] is the same queries
  * over a complete run. Every query is pure and total. The rules they follow are stated in
  * `docs/architecture/graph-optimizer-contract.md`.
  */
-open class ExploredPaths internal constructor(protected val graph: ExecutionGraph) {
+public open class ExploredPaths internal constructor(protected val graph: ExecutionGraph) {
     /** The method revision these paths executed. */
-    val methodView: MethodView get() = graph.methodView
+    public val methodView: MethodView get() = graph.methodView
     /** Program revision whose whole-program facts the run used. */
-    val programRevision: ProgramRevision get() = graph.programRevision
+    public val programRevision: ProgramRevision get() = graph.programRevision
     /** Application method revision the run executed. */
-    val methodRevision: ApplicationMethodRevision? get() = graph.methodRevision
-
-    // --- structure ---
+    public val methodRevision: ApplicationMethodRevision? get() = graph.methodRevision
 
     /** Addresses whose op flows into [address] on some explored path. */
-    fun parentAddresses(address: Int): IntArray =
+    public fun parentAddresses(address: Int): IntArray =
         graph.nodePile(address).mapNotNull { it.parent?.address }.distinct().sorted().toIntArray()
 
     /** Addresses [address]'s op flows into on some explored path. */
-    fun children(address: Int): IntArray =
+    public fun children(address: Int): IntArray =
         graph.nodePile(address).flatMap { node -> node.children.map { it.address } }.distinct().sorted().toIntArray()
 
-    // --- values after one address ---
-
     /** Join of [register] after the op at [address] over every node whose op ran there; [Value.Top] when none ran. */
-    fun consensus(address: Int, register: Int): Value = consensus(intArrayOf(address), register)
+    public fun consensus(address: Int, register: Int): Value = consensus(intArrayOf(address), register)
 
     /** [consensus] over the union of nodes at [addresses]. */
-    fun consensus(addresses: IntArray, register: Int): Value {
+    public fun consensus(addresses: IntArray, register: Int): Value {
         val nodes = addresses.flatMap(graph::executedPile)
         if (nodes.isEmpty()) return Value.Top
         return joinAll(nodes.map { valueIn(it.frame, register) }, graph.superclasses) ?: Value.Top
     }
 
     /** The distinct values [register] holds after [address]; empty when no op ran there. */
-    fun registerValues(address: Int, register: Int): Set<Value> =
+    public fun registerValues(address: Int, register: Int): Set<Value> =
         graph.executedPile(address).map { valueIn(it.frame, register) }.toSet()
 
     /** Whether any node whose op ran at [address] holds a value in [register]. */
-    fun registerOccupancy(address: Int, register: Int): RegisterOccupancy =
+    internal fun registerOccupancy(address: Int, register: Int): RegisterOccupancy =
         occupancy(graph.executedPile(address).map(ExecutionNode::frame), register)
 
     /** The reflected method [register] holds after [address]. */
-    fun reflectedMethod(address: Int, register: Int): Agreement<ReflectedMethodMetadata> =
+    internal fun reflectedMethod(address: Int, register: Int): Agreement<ReflectedMethodMetadata> =
         reflectedMethod(intArrayOf(address), register)
 
     /** The reflected method [register] holds over the union of nodes at [addresses]. */
-    fun reflectedMethod(addresses: IntArray, register: Int): Agreement<ReflectedMethodMetadata> =
+    public fun reflectedMethod(addresses: IntArray, register: Int): Agreement<ReflectedMethodMetadata> =
         agreement(addresses) { node ->
             val ref = heapRefIn(node.frame, register) ?: return@agreement null
             (node.frame.heapObject(ref) as? HeapObject.HostObject)?.reflectedMethodMetadata
         }
 
     /** The reflected field [register] holds after [address]. */
-    fun reflectedField(address: Int, register: Int): Agreement<ReflectedFieldMetadata> =
+    internal fun reflectedField(address: Int, register: Int): Agreement<ReflectedFieldMetadata> =
         reflectedField(intArrayOf(address), register)
 
     /** The reflected field [register] holds over the union of nodes at [addresses]. */
-    fun reflectedField(addresses: IntArray, register: Int): Agreement<ReflectedFieldMetadata> {
+    public fun reflectedField(addresses: IntArray, register: Int): Agreement<ReflectedFieldMetadata> {
         val field = agreement(addresses) { node ->
             heapRefIn(node.frame, register)?.let { node.frame.heap.trackedFieldAt(it)?.metadata }
         }
@@ -79,12 +75,12 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
     }
 
     /** The length of the tracked array [register] holds over the union of nodes at [addresses]. */
-    fun arrayLength(addresses: IntArray, register: Int): Agreement<Int> = agreement(addresses) { node ->
+    internal fun arrayLength(addresses: IntArray, register: Int): Agreement<Int> = agreement(addresses) { node ->
         heapRefIn(node.frame, register)?.let { (node.frame.heapObject(it) as? HeapObject.TrackedArray)?.length }
     }
 
     /** The immutable String [register] denotes after [address], without exposing any host object. */
-    fun knownString(address: Int, register: Int): Agreement<String> = agreement(intArrayOf(address)) { node ->
+    public fun knownString(address: Int, register: Int): Agreement<String> = agreement(intArrayOf(address)) { node ->
         when (val raw = (valueIn(node.frame, register) as? Value.Known)?.raw) {
             is String -> raw
             is HeapRef -> node.frame.heap.hostObjectAt(raw) as? String
@@ -92,27 +88,25 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
         }
     }
 
-    // --- what the run returned ---
-
     /** Join of [register] over the returning paths only; [Value.Top] when no path returned. */
-    fun terminatingConsensus(register: Int): Value {
+    public fun terminatingConsensus(register: Int): Value {
         val returned = graph.returningNodes()
         if (returned.isEmpty()) return Value.Top
         return joinAll(returned.map { valueIn(it.terminalFrame, register) }, graph.superclasses) ?: Value.Top
     }
 
     /** [registerOccupancy] over the returning paths; [RegisterOccupancy.NO_PATH] when no path returned. */
-    fun terminatingRegisterOccupancy(register: Int): RegisterOccupancy =
+    internal fun terminatingRegisterOccupancy(register: Int): RegisterOccupancy =
         occupancy(graph.returningNodes().map(ExecutionNode::terminalFrame), register)
 
     /** Whether any path returned normally. */
-    fun didAnyPathReturn(): Boolean = graph.returningNodes().isNotEmpty()
+    internal fun didAnyPathReturn(): Boolean = graph.returningNodes().isNotEmpty()
 
     /**
      * Join of the static field [fieldDescriptor] (fully qualified, `Lcom/example/Foo;->bar:I`) of [type] over the
      * returning paths; [Value.Top] when no path returned or a path never initialized [type].
      */
-    fun terminatingStaticFieldConsensus(type: VirtualType, fieldDescriptor: String): Value {
+    internal fun terminatingStaticFieldConsensus(type: VirtualType, fieldDescriptor: String): Value {
         val returned = graph.returningNodes()
         if (returned.isEmpty()) return Value.Top
         return joinAll(returned.map { it.terminalFrame.getStaticField(type, fieldDescriptor) }, graph.superclasses)
@@ -124,7 +118,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
      * every returning path agrees about it. [Agreement.Absent] when a returning path has no object at [ref].
      * The object is synthetic and in no path's heap; read it, never write it.
      */
-    fun terminatingHeapObject(ref: HeapRef): Agreement<HeapObject> {
+    public fun terminatingHeapObject(ref: HeapRef): Agreement<HeapObject> {
         val frames = graph.returningNodes().map(ExecutionNode::terminalFrame)
         if (frames.isEmpty()) return Agreement.NoPath
         val objects = frames.map { it.heapObject(ref) ?: return Agreement.Absent }
@@ -133,14 +127,12 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
         return Agreement.Agreed(HeapStore.mergeObject(objects, graph.superclasses, sameGraph))
     }
 
-    // --- effects ---
-
     /**
      * The most any op at [address] declared, or `STRONG` when a path aborted there for a reason that
      * [AbortReason.impliesStrongEffect]. `NONE` for an address no op ran at, so `NONE` is evidence of harmlessness
      * only where [ExecutionGraph.wasReached] confirms an op ran.
      */
-    fun sideEffectLevel(address: Int): SideEffectLevel {
+    public fun sideEffectLevel(address: Int): SideEffectLevel {
         val pile = graph.nodePile(address)
         val abortedStrong = pile.any { (it.outcome as? Outcome.Aborted)?.reason?.impliesStrongEffect == true }
         if (abortedStrong) return SideEffectLevel.STRONG
@@ -148,14 +140,14 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
     }
 
     /** The highest [sideEffectLevel] over the method's instructions. */
-    fun methodSideEffectLevel(): SideEffectLevel =
+    internal fun methodSideEffectLevel(): SideEffectLevel =
         methodView.instructionAddresses.maxOfOrNull(::sideEffectLevel) ?: SideEffectLevel.NONE
 
     /**
      * True only when every node attempted at [address] ran and continued normally, with no handled, escaping or
      * aborted exceptional partition. False for an unattempted address.
      */
-    fun didEveryExecutionContinueNormally(address: Int): Boolean {
+    public fun didEveryExecutionContinueNormally(address: Int): Boolean {
         val pile = graph.nodePile(address)
         return pile.isNotEmpty() && pile.all { node ->
             val progress = node.progress
@@ -207,12 +199,12 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
  * [ExploredPaths] of a run whose completion is `canTrustConsensus`: every feasible path was walked, so its
  * answers may be acted on. Only [ExecutionGraph.trusted] hands one out.
  */
-class TrustedGraphView internal constructor(graph: ExecutionGraph) : ExploredPaths(graph) {
+public class TrustedGraphView internal constructor(graph: ExecutionGraph) : ExploredPaths(graph) {
     /**
      * True when [address] holds an executable instruction that no path reached, which on a complete run proves it
      * dead. False for a payload pseudo-instruction, which control flow never reaches on any run, and for an
      * address outside the method.
      */
-    fun isDead(address: Int): Boolean =
+    public fun isDead(address: Int): Boolean =
         methodView.hasAddress(address) && !methodView.isPayload(address) && !graph.wasReached(address)
 }

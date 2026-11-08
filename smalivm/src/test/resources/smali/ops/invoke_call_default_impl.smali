@@ -1,6 +1,6 @@
-.class public Linvoke_review_default_impl;
+.class public Linvoke_call_default_impl;
 .super Ljava/lang/Object;
-.implements Linvoke_review_default_iface;
+.implements Linvoke_call_default_iface;
 
 .method public constructor <init>()V
     .locals 0
@@ -10,7 +10,7 @@
 
 .method public callDefault()I
     .locals 1
-    invoke-super {p0}, Linvoke_review_default_iface;->value()I
+    invoke-super {p0}, Linvoke_call_default_iface;->value()I
     move-result v0
     return v0
 .end method

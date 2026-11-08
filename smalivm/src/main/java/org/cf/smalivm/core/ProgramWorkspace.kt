@@ -1,7 +1,7 @@
 package org.cf.smalivm.core
 
 /** Mutable publication authority for exactly one imported application program. */
-class ProgramWorkspace private constructor(
+internal class ProgramWorkspace private constructor(
     private val revisionAuthority: ProgramRevisionAuthority,
     initialSnapshot: ProgramSnapshot,
 ) {

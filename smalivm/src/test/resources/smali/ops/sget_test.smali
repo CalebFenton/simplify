@@ -142,7 +142,7 @@
     return-void
 .end method
 
-# The class RESOLVES and declares no such field (the class-resolution failure above is the other
+# The class resolves and declares no such field (the class-resolution failure above is the other
 # member of the family): a guest NoSuchFieldError at execute time. Assembles fine -- a dex field
 # reference is just (class, name, type), and nothing checks it until link time.
 .method public static getStaticMissingField()V

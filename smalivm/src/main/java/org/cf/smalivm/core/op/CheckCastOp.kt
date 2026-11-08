@@ -86,7 +86,7 @@ internal class CheckCastOp(
     /**
      * The register after a successful cast: the raw unchanged and the declared type replaced. A re-tag that
      * would stop the register reading as a null reference is not applied: `Known(5, "I")` passes the cast
-     * because it reads as null, and re-tagged as a reference it would no longer.
+     * because it reads as null, and re-tagged as a reference it would not.
      */
     private fun narrowedOrUnchanged(value: Value, target: VirtualType): Value {
         val narrowed = if (value is Value.Known) Value.Known(value.raw, target) else Value.Unknown(target)

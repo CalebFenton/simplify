@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 internal object SynchronousInvocationFixtures {
     const val CALLER = "Lcalls/caller;"
     const val CALLEE = "Lcalls/callee;"
-    const val INVOKE_REVIEW = "Linvoke_review;"
+    const val INVOKE_CALL = "Linvoke_call;"
     const val INIT_TARGET = "Linvocation_class_init_target;"
 
     val classIndex: ClassIndex = CoreTester.classIndex

@@ -330,29 +330,29 @@ class ScratchRegisterAllocatorTest {
 
     private fun index(source: String): ClassIndex {
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private companion object {
         val INT = VirtualType.of("I")
         val OBJECT = VirtualType.OBJECT
         val LONG = VirtualType.of("J")
-        const val VALUE = "Ltask58/Scratch;->value()I"
-        const val HIGH_INT = "Ltask58/Scratch;->highInt(I)I"
-        const val HIGH_OBJECT = "Ltask58/Scratch;->highObject(Ljava/lang/Object;)Ljava/lang/Object;"
-        const val RANGE = "Ltask58/Scratch;->range(IIIIII)I"
-        const val DEBUG = "Ltask58/Scratch;->debug(I)I"
-        const val NEW_ARRAY = "Ltask58/Scratch;->newArray(I)I"
-        const val WIDE_MATH = "Ltask58/Scratch;->wideMath(JJ)J"
-        const val NON_RANGE = "Ltask58/Scratch;->nonRange()J"
-        const val MERGED_BRANCH = "Ltask58/Scratch;->mergedBranch(Ljava/lang/Object;I)I"
-        const val CANDIDATE = "Ltask58/Candidate;->candidate(ILjava/lang/Object;J)J"
-        const val RUN_CANDIDATE = "Ltask58/Candidate;->runCandidate()J"
-        const val INSTANCE_CANDIDATE = "Ltask58/Candidate;->instanceCandidate(IJ)J"
-        const val OVERFLOW = "Ltask58/Overflow;->run()V"
+        const val VALUE = "Lscratch/Scratch;->value()I"
+        const val HIGH_INT = "Lscratch/Scratch;->highInt(I)I"
+        const val HIGH_OBJECT = "Lscratch/Scratch;->highObject(Ljava/lang/Object;)Ljava/lang/Object;"
+        const val RANGE = "Lscratch/Scratch;->range(IIIIII)I"
+        const val DEBUG = "Lscratch/Scratch;->debug(I)I"
+        const val NEW_ARRAY = "Lscratch/Scratch;->newArray(I)I"
+        const val WIDE_MATH = "Lscratch/Scratch;->wideMath(JJ)J"
+        const val NON_RANGE = "Lscratch/Scratch;->nonRange()J"
+        const val MERGED_BRANCH = "Lscratch/Scratch;->mergedBranch(Ljava/lang/Object;I)I"
+        const val CANDIDATE = "Lscratch/Candidate;->candidate(ILjava/lang/Object;J)J"
+        const val RUN_CANDIDATE = "Lscratch/Candidate;->runCandidate()J"
+        const val INSTANCE_CANDIDATE = "Lscratch/Candidate;->instanceCandidate(IJ)J"
+        const val OVERFLOW = "Lscratch/Overflow;->run()V"
 
         const val SOURCE = """
-            .class public Ltask58/Scratch;
+            .class public Lscratch/Scratch;
             .super Ljava/lang/Object;
 
             .method public static value()I
@@ -389,7 +389,7 @@ class ScratchRegisterAllocatorTest {
 
             .method public static range(IIIIII)I
                 .registers 256
-                invoke-static/range {v250 .. v255}, Ltask58/Scratch;->first(IIIIII)I
+                invoke-static/range {v250 .. v255}, Lscratch/Scratch;->first(IIIIII)I
                 move-result v0
                 return v0
             .end method
@@ -426,7 +426,7 @@ class ScratchRegisterAllocatorTest {
                 const/4 v15, 0x3
                 const/4 v13, 0x0
                 const-wide/16 v10, 0x7
-                invoke-static {v15, v13, v10, v11}, Ltask58/Scratch;->passMixed(ILjava/lang/Object;J)J
+                invoke-static {v15, v13, v10, v11}, Lscratch/Scratch;->passMixed(ILjava/lang/Object;J)J
                 move-result-wide v0
                 return-wide v0
             .end method
@@ -450,7 +450,7 @@ class ScratchRegisterAllocatorTest {
         """
 
         const val CANDIDATE_SOURCE = """
-            .class public Ltask58/Candidate;
+            .class public Lscratch/Candidate;
             .super Ljava/lang/Object;
 
             .method public static candidate(ILjava/lang/Object;J)J
@@ -468,14 +468,14 @@ class ScratchRegisterAllocatorTest {
                 const/4 v0, 0x3
                 const/4 v1, 0x0
                 const-wide/16 v2, 0x7
-                invoke-static/range {v0 .. v3}, Ltask58/Candidate;->candidate(ILjava/lang/Object;J)J
+                invoke-static/range {v0 .. v3}, Lscratch/Candidate;->candidate(ILjava/lang/Object;J)J
                 move-result-wide v0
                 return-wide v0
             .end method
         """
 
         const val OVERFLOW_SOURCE = """
-            .class public Ltask58/Overflow;
+            .class public Lscratch/Overflow;
             .super Ljava/lang/Object;
 
             .method public static run()V

@@ -9,7 +9,7 @@ package org.cf.smalivm.core
  * non-reproducible; with it disabled the session never reads the clock. [maxAddressVisits] permits exactly that
  * many visits of one address on one path and aborts the next one.
  */
-data class Limits(
+public data class Limits(
     val maxAddressVisits: Int = 500,
     val maxSteps: Int = 1_000_000,
     val maxExecutionTimeMillis: Long = 0,

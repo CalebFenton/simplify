@@ -28,8 +28,8 @@ import com.android.tools.smali.dexlib2.writer.io.MemoryDataStore
  *
  * Serialization reads no workspace state and does not mutate the snapshot or its definitions.
  */
-class ProgramDexWriter {
-    fun write(snapshot: ProgramSnapshot, output: DexDataStore) {
+public class ProgramDexWriter {
+    internal fun write(snapshot: ProgramSnapshot, output: DexDataStore) {
         verifyReferenceClosure(snapshot)
         val builder = DexBuilder(snapshot.outputApiPolicy.opcodes())
         internReferenceClosure(builder, snapshot.dexReferenceClosure)
@@ -74,7 +74,8 @@ class ProgramDexWriter {
         builder.writeTo(output)
     }
 
-    fun write(snapshot: ProgramSnapshot, output: File) {
+    /** Writes [snapshot] as one DEX file to [output], replacing it atomically. */
+    public fun write(snapshot: ProgramSnapshot, output: File) {
         val destination = output.absoluteFile
         val temporary = Files.createTempFile(
             destination.parentFile.toPath(),
@@ -105,7 +106,8 @@ class ProgramDexWriter {
         }
     }
 
-    fun writeToBytes(snapshot: ProgramSnapshot): ByteArray {
+    /** [snapshot] encoded as one DEX file. */
+    public fun writeToBytes(snapshot: ProgramSnapshot): ByteArray {
         val output = MemoryDataStore()
         return try {
             write(snapshot, output)

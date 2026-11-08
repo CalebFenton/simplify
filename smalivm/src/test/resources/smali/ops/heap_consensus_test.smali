@@ -1,8 +1,7 @@
-# Two RETURNING paths that share ONE array, built on the only fork this build has: `div-int` with an
-# unknown divisor (a parameter) emits [Continue, Throw], and the declared handler returns too. Plan 8
-# should re-express this on a real `if-*` branch -- see the plan's Task 13.
+# Two returning paths that share one array: `div-int` with an unknown divisor (a parameter) forks
+# into the normal path and the throw, and the declared handler returns too.
 #
-# The array is allocated BEFORE the fork, so both paths carry the same HeapRef and consensus keeps it.
+# The array is allocated before the fork, so both paths carry the same HeapRef and consensus keeps it.
 # Element 0 is written differently on the two arms (7 on the normal path, 9 in the handler) and element 1
 # is left at its default on both, so the join must answer Unknown(I) for one index and Known(0, I) for
 # the other. Anything that read a single path's heap would report a confident 7 or 9.

@@ -9,14 +9,9 @@
     return-void
 .end method
 
-# DISTINCT operand registers. `getLength()V` above is `array-length v0, v0`, and so is every other
-# `array-length` in the fixture tree, which collapses `destRegister` and `arrayRegister` to one number and
-# makes a swap in `OpBuilder.buildArrayLength` invisible to every assertion in the suite. Real code emits
-# `array-length v1, v2` constantly.
-#
-# `.locals 3` so v1 (the destination) and v2 (the array) are distinct from each other and from v0, which
-# the test seeds as an untouched witness. Kept as a separate method so the fifteen tests already driving
-# `getLength()V` keep their addresses and register layout.
+# Distinct operand registers. `getLength()V` is `array-length v0, v0`, where a
+# dest/array swap in `OpBuilder.buildArrayLength` is invisible. `.locals 3` makes v1 (destination)
+# and v2 (array) distinct from each other and from v0, which the test seeds as an untouched witness.
 .method public static getLengthIntoADifferentRegister()V
     .locals 3
 

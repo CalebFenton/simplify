@@ -83,9 +83,8 @@
     return-void
 .end method
 
-# Plan 7 addition. `getWide()V` is `aget-wide v0, v0, v1`, whose destination pair {0,1} is also its operand
-# set, so a test asserting registersAssigned == {0,1} there passes even if the op returns registersRead.
-# Here the pair and the operands are disjoint, which is what makes the claim checkable.
+# `getWide()V` is `aget-wide v0, v0, v1`, whose destination pair {0,1} equals its operand set. Here
+# the pair and the operands are disjoint, so registersAssigned and registersRead are distinguishable.
 .method public static getWideIntoDisjointPair()V
     .locals 5
 
@@ -94,11 +93,9 @@
     return-void
 .end method
 
-# Plan 7 addition, for the OPERAND ORDER of format 23x's three genuinely distinct registers (vAA = dest,
-# vBB = array, vCC = index). Every other `aget*` in this file is `v0, v0, v1`, so dest and array collapse to
-# one number and a decoder that swapped them leaves the whole suite green -- the same blind spot Plan 7's
-# Task 6 review found for `new-array` and `array-length`. `getWideIntoDisjointPair()V` above is not enough
-# on its own: swapping ITS array and index operands leaves `registersRead` the identical set {0,1}.
+# Format 23x operand order with three distinct registers (vAA = dest, vBB = array, vCC = index). The
+# other `aget*` methods here are `v0, v0, v1`, where a dest/array swap is invisible, and swapping
+# `getWideIntoDisjointPair()V`'s array and index leaves `registersRead` the same set {0,1}.
 .method public static getWithThreeDistinctRegisters()V
     .locals 3
 
@@ -107,12 +104,10 @@
     return-void
 .end method
 
-# A fresh `[Ljava/lang/Object;` whose elements are DEFINITELY null, read back with `aget-object`. This is
-# the first thing in the whole engine that produces `Known(null, T)`, i.e. the first ValueKind.NULL. It does
-# NOT satisfy NewCoreDifferentialTest's ValueKind-coverage guard: that sweep runs Fixtures.newCoreSupported,
-# and this file is not in it. **Task 13 added the differential fixture for that half** --
-# `Ldifferential/smoke;->nullElementFromFreshArray()`, registered as `smoke-null-element-from-fresh-array`.
-# This method carries the SEMANTICS claim and keeps it; the two are not interchangeable.
+# A fresh `[Ljava/lang/Object;` whose elements are definitely null, read back with `aget-object`:
+# the read yields `Known(null, T)`. The differential counterpart is the curated fixture
+# `smoke-null-element-from-fresh-array` (`Ldifferential/smoke;->nullElementFromFreshArray()`),
+# which CoreProjectionTest projects as ValueKind.NULL; this method pins the value itself.
 .method public static getObjectFromFreshArray()V
     .locals 3
 

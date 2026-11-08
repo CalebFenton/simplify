@@ -1,12 +1,10 @@
-# GENERATED-STYLE FIXTURE, kept in its own file because it is ~1000 lines of repetition and would bury
-# the readable switch fixtures in `swich_test.smali`.
+# Generated-style fixture, kept in its own file because its repetition would bury the readable switch
+# fixtures in `swich_test.smali`.
 #
-# Plan 8 Task 6: PATH EXPLOSION IN A SINGLE OPCODE. Address visits are path-local persistent state, so
-# loop-free siblings do not consume each other's budget at reconvergence. An unknown-selector switch with
-# 501 distinct targets
-# converging on one address gives each path one visit and retains all 502 paths, with no loop
-# and no second branch anywhere in the method. `size` is a `ushort` in the payload layout, so up to
-# 65535 cases are representable and this is nowhere near the limit of what a dex file can express.
+# Path explosion in a single opcode. Address visits are path-local, so loop-free siblings do not consume
+# each other's budget at reconvergence: an unknown-selector switch with 501 targets converging on one
+# address gives each path one visit and retains all 502 paths. `size` is a `ushort`, so this is far
+# below what a dex file can express.
 #
 # Every arm is `goto/32 :end` rather than `goto :end`: dexlib2 widens an out-of-range `goto` for you,
 # which would make the address of every arm depend on how far away the target is. The explicit `30t`

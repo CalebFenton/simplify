@@ -5,55 +5,55 @@ import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 
 /** Resolved identity, available whether the method has executable bytecode or not. */
-class ResolvedMethod internal constructor(
-    val target: MethodSignature,
-    val isSynchronized: Boolean,
+public class ResolvedMethod internal constructor(
+    internal val target: MethodSignature,
+    internal val isSynchronized: Boolean,
 )
 
 /**
  * What looking a method reference up in the program found -- see [ProgramSnapshotResolver.lookupMethod]. Sealed,
  * so a consumer cannot answer different guest outcomes with one branch.
  */
-sealed interface MethodLookup {
+public sealed interface MethodLookup {
     /** Present, with a body. [view] is what a nested activation runs. */
-    class Runnable(val view: MethodView, val method: ResolvedMethod) : MethodLookup
+    public class Runnable(public val view: MethodView, internal val method: ResolvedMethod) : MethodLookup
 
     /**
      * The defining class is not in the program: a guest `NoClassDefFoundError`, or `ClassCircularityError` for a
      * class on an inheritance cycle ([GuestThrowables.unresolvedClass]). Both are `LinkageError`s that a guest
      * `catch (Exception)` does not catch (`docs/DALVIK-SEMANTICS.md#resolution-failure-is-one-family-tiered-once`).
      */
-    data object NoSuchClass : MethodLookup
+    public data object NoSuchClass : MethodLookup
 
     /**
      * The class is present and declares no such member: a guest `NoSuchMethodError`, in the same `LinkageError`
      * family as [NoSuchClass]. Resolution precedes the null-receiver check, as for `check-cast`/`instance-of`.
      */
-    data object NoSuchMethod : MethodLookup
+    public data object NoSuchMethod : MethodLookup
 
     /**
      * Declared, but with no code: native, a framework declaration, an array pseudo-method (`[I->clone()`, a runtime
      * intrinsic with no dex body), or an abstract method answering resolution rather than a receiver's selection. A
      * backend executes these; a device raises no linking error for them.
      */
-    class NoBody(val method: ResolvedMethod) : MethodLookup
+    public class NoBody(internal val method: ResolvedMethod) : MethodLookup
 
     /**
      * Selection found more than one maximally-specific non-abstract interface method (JVMS 5.4.3.3). ART links
      * a conflict method in its place, and invoking it throws `IncompatibleClassChangeError` after the receiver
      * null check (`ArtMethod::ThrowInvocationTimeError`). [method] is named on the selecting class.
      */
-    class DefaultConflict(val method: ResolvedMethod) : MethodLookup
+    public class DefaultConflict(internal val method: ResolvedMethod) : MethodLookup
 
     /**
      * Selection on the receiver's class found only the abstract [method]. ART links it unimplemented, and invoking
      * it throws `AbstractMethodError` after the receiver null check (`ArtMethod::ThrowInvocationTimeError`).
      */
-    class AbstractSelection(val method: ResolvedMethod) : MethodLookup
+    public class AbstractSelection(internal val method: ResolvedMethod) : MethodLookup
 }
 
 /** Kind-correct invocation resolution, before backend selection or receiver-null handling. */
-sealed interface InvocationLookup {
+internal sealed interface InvocationLookup {
     class Resolved(val lookup: MethodLookup, val candidates: Set<String> = emptySet()) : InvocationLookup
     class Ambiguous(val candidates: Set<String>) : InvocationLookup
 }
@@ -62,18 +62,19 @@ sealed interface InvocationLookup {
  * What looking a static field reference up in the program found -- see
  * [ProgramSnapshotResolver.resolveStaticField]. Sealed for [MethodLookup]'s reason.
  */
-sealed interface StaticFieldLookup {
+public sealed interface StaticFieldLookup {
     /**
      * Present. [field] names the class that declares the field, which may differ from the class the instruction
      * named: `sget v0, Lchild;->parentField:I` resolves to `Lparent;->parentField:I`. [definingClass] is that
      * declaring class, the one a trigger initializes (JVMS 5.5).
      */
-    class Resolved internal constructor(val field: FieldSignature, val isVolatile: Boolean) : StaticFieldLookup {
-        val definingClass: VirtualType get() = this.field.definingClass
-        val type: VirtualType get() = this.field.type
+    public class Resolved internal constructor(internal val field: FieldSignature, internal val isVolatile: Boolean) : StaticFieldLookup {
+        /** The class that declares the field. */
+        public val definingClass: VirtualType get() = this.field.definingClass
+        internal val type: VirtualType get() = this.field.type
 
         /** [field]'s spelling, the key of its static cell. */
-        val descriptor: String get() = this.field.toString()
+        public val descriptor: String get() = this.field.toString()
 
         override fun toString(): String = descriptor
     }
@@ -82,8 +83,8 @@ sealed interface StaticFieldLookup {
      * A class the search needed is absent: the referenced class, or an ancestor reached while walking for an
      * inherited static. Accessing the field throws [failure], [GuestThrowables.unresolvedClass] of [type].
      */
-    class NoSuchClass internal constructor(
-        val type: VirtualType,
+    public class NoSuchClass internal constructor(
+        internal val type: VirtualType,
         internal val failure: ThrowableRecipe,
     ) : StaticFieldLookup
 
@@ -91,11 +92,11 @@ sealed interface StaticFieldLookup {
      * Every class and interface the search reaches is present, and none declares a static field of this name and
      * type: a guest `NoSuchFieldError` (JVMS 5.4.3.2). [descriptor] is what the instruction named.
      */
-    class NoSuchField internal constructor(val descriptor: String) : StaticFieldLookup
+    public class NoSuchField internal constructor(internal val descriptor: String) : StaticFieldLookup
 }
 
 /** Result of resolving an instance field reference by owner, name, and type. */
-sealed interface InstanceFieldLookup {
+internal sealed interface InstanceFieldLookup {
     class Resolved internal constructor(val field: FieldSignature, val isVolatile: Boolean) : InstanceFieldLookup {
         val definingClass: VirtualType get() = this.field.definingClass
         val type: VirtualType get() = this.field.type
@@ -123,7 +124,7 @@ sealed interface InstanceFieldLookup {
  * literal is knowable and every other static reads [Value.Unknown], so folding the default there would invent a
  * value the real initializer computes.
  */
-class StaticFieldDeclaration internal constructor(
+internal class StaticFieldDeclaration internal constructor(
     val field: FieldSignature,
     val literal: Value?,
     val modifiers: Int,
@@ -144,7 +145,7 @@ internal class FieldDeclaration(val field: FieldSignature, val modifiers: Int)
  * through [resolver] over the snapshot it captured instead, so publications after it starts do not reach it.
  * Hierarchy questions answer from the snapshot's [HierarchySnapshot], which publication never changes.
  */
-class ClassIndex internal constructor(internal val programWorkspace: ProgramWorkspace) : TypeHierarchy {
+public class ClassIndex internal constructor(internal val programWorkspace: ProgramWorkspace) : TypeHierarchy {
     internal val currentSnapshot: ProgramSnapshot get() = programWorkspace.currentSnapshot
 
     /**
@@ -170,30 +171,30 @@ class ClassIndex internal constructor(internal val programWorkspace: ProgramWork
     override fun superclassOf(type: VirtualType): VirtualType? = currentSnapshot.hierarchy.superclassOf(type)
 
     /** [ProgramSnapshotResolver.lookupMethod] over the current snapshot. */
-    fun lookupMethod(method: MethodSignature): MethodLookup = resolver(currentSnapshot).lookupMethod(method)
+    public fun lookupMethod(method: MethodSignature): MethodLookup = resolver(currentSnapshot).lookupMethod(method)
 
     /** [ProgramSnapshotResolver.resolveStaticField] over the current snapshot. */
-    fun resolveStaticField(field: FieldSignature): StaticFieldLookup =
+    public fun resolveStaticField(field: FieldSignature): StaticFieldLookup =
         resolver(currentSnapshot).resolveStaticField(field.definingClass, field.name, field.type.descriptor)
 
     /** Current immutable application view of [method], or null for bodyless or framework methods. */
-    fun methodView(method: MethodSignature): MethodView? {
+    public fun methodView(method: MethodSignature): MethodView? {
         val definition = currentSnapshot.applicationMethod(method) ?: return null
         if (definition.body == null) return null
         return MethodView.of(definition, currentSnapshot.programRevision)
     }
 
-    fun requireMethodView(method: MethodSignature): MethodView =
+    internal fun requireMethodView(method: MethodSignature): MethodView =
         requireNotNull(methodView(method)) { "No concrete application method: $method" }
 
-    companion object {
+    public companion object {
         /**
          * Imports the program at [input]: a Smali file, a directory of Smali files, a DEX file, or an archive whose
          * only class path DEX is `classes.dex`. [outputApiLevel] selects the Smali opcode table and the output DEX.
          *
          * @throws ProgramInputException when [input] is missing, unreadable, malformed, or multi-DEX
          */
-        fun open(input: File, outputApiLevel: Int = SmaliParser.DEX_API_LEVEL): ClassIndex =
+        public fun open(input: File, outputApiLevel: Int = SmaliParser.DEX_API_LEVEL): ClassIndex =
             ClassIndex(InitialProgramImporter.import(ProgramInput.read(input, outputApiLevel)))
 
         /** A static initializer's member descriptor. */

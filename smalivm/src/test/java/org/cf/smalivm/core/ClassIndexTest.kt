@@ -9,11 +9,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 
-/**
- * Bug class: the core algebra reaching around [ClassIndex] into a second class model, and handler
- * resolution having no real subtype oracle. Oracle: the real Android/JDK class hierarchy --
- * NullPointerException IS-A RuntimeException IS-A Exception.
- */
+/** [ClassIndex] subtype, instance-of and member-resolution queries, checked against the real Android/JDK hierarchy. */
 class ClassIndexTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
 
@@ -41,7 +37,7 @@ class ClassIndexTest {
 
     @Test
     fun primitivesAreOnlySubtypesOfThemselves() {
-        // Soundness: no primitive/reference bridging (spec 4.1 -- those types join to Top).
+        // No primitive/reference bridging: those types join to Top.
         assertTrue(classIndex.isSubtypeOf(t("I"), t("I")))
         assertFalse(classIndex.isSubtypeOf(t("I"), t("Ljava/lang/Object;")))
         assertFalse(classIndex.isSubtypeOf(t("I"), t("J")))
@@ -49,10 +45,8 @@ class ClassIndexTest {
 
     @Test
     fun anUnloadableClassReportsATypedLoadFailure() {
-        // Bug class: signalling "this class is not in the program" with a bare RuntimeException, which is
-        // indistinguishable from an engine bug, so a caller that answers the first conservatively must
-        // swallow the second too. `Lspine/absent;` is well-formed with no smali behind it, the normal case
-        // in an obfuscated APK.
+        // A class missing from the program must be distinguishable from an engine bug. `Lspine/absent;` is
+        // well-formed with no smali behind it, the normal case in an obfuscated APK.
         val absent = t("Lspine/absent;")
         val failure = assertThrows(ClassLoadFailure::class.java) {
             classIndex.isSubtypeOf(absent, t("Ljava/lang/RuntimeException;"))
@@ -62,53 +56,38 @@ class ClassIndexTest {
         assertThrows(ClassLoadFailure::class.java) {
             classIndex.isSubtypeOf(t("Ljava/lang/RuntimeException;"), absent)
         }
-        // And the pure lattice answers still short-circuit BEFORE any load is attempted, so an
-        // unloadable class is not made to look loadable by reflexivity or by primitive comparison.
+        // The pure lattice answers short-circuit before any load, so reflexivity and primitive comparison
+        // still answer for an unloadable class.
         assertTrue(classIndex.isSubtypeOf(absent, absent), "reflexive: no class model reach at all")
         assertFalse(classIndex.isSubtypeOf(t("I"), absent), "no primitive/reference bridging")
     }
 
     @Test
     fun aPrimitiveComponentArrayIsNotASubtypeOfAnObjectArray() {
-        // M6 (Plan 6 whole-branch review): the direction CoreTester.kt's assignability comment names but
-        // this file never pinned. Primitive arrays are invariant, so int[] is not an Object[] -- but NOT
-        // because isSubtypeOf's own isReference guard rejects the pair (VirtualType.isReference counts
-        // arrays, including [I, as references, so that guard never fires here). The real enforcement
-        // falls out of VirtualArray.getImmediateAncestors one level down: a primitive-component array's
-        // only immediate ancestor is plain Object, never an array type, so [I's whole ancestor set never
-        // contains [Ljava/lang/Object;. The other direction ([Ljava/lang/String; <: [Ljava/lang/Object;,
-        // legal covariance) is pinned in CoreTesterTest.aDeclaredArrayTypeAcceptsALegallyCovariantRuntimeArray.
+        // Primitive arrays are invariant. `[I`'s only immediate ancestor is Object, so its ancestor set never
+        // contains `[Ljava/lang/Object;`. Covariance in the other direction is covered by
+        // `CoreTesterTest.aDeclaredArrayTypeAcceptsALegallyCovariantRuntimeArray`.
         assertFalse(classIndex.isSubtypeOf(t("[I"), t("[Ljava/lang/Object;")))
     }
 
     @Test
     fun anAbsentDescriptorIsNotLoadableWhileAPresentOneAndEveryPrimitiveIs() {
-        // The premise NewArrayOp's NoClassDefFoundError rests on. Asserted rather than assumed: if the
-        // class model answered a bare, non-throwing "absent" instead, `isLoadable` would silently answer
-        // true and `new-array [Ldoes/not/exist;` would allocate instead of throwing.
+        // NewArrayOp's NoClassDefFoundError depends on this: if `isLoadable` answered true for an absent
+        // class, `new-array [Ldoes/not/exist;` would allocate instead of throwing.
         assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[Ldoes/not/exist;")))
         assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[Lnew_array_test;")))
         assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[[I")), "a primitive component is always loadable")
         assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("I")), "and so is a bare primitive")
     }
 
-    // ---- isInstanceOf (Plan 8 Task 7) ----------------------------------------------------------
-    //
-    // Bug class: porting `instance-of`/`check-cast` onto `isSubtypeOf` because the two questions rhyme.
-    // They are two predicates with different contracts (plan design decision 4) and the tests below pin
-    // TWO independent behavioural differences, so the pair cannot later be collapsed by someone who
-    // reads them as duplicates.
+    // `isInstanceOf` and `isSubtypeOf` have different contracts; the tests below pin two independent
+    // differences so the predicates are not collapsed into one.
 
     @Test
     fun anyReferenceIsAnInstanceOfObjectWithoutLoadingItsAncestors() {
-        // The case `isSubtypeOf` cannot serve, and the reason `ClassIndex` grows a second predicate at
-        // all. `Lspine/absent;` is a well-formed descriptor with no smali behind it -- the normal case in
-        // an obfuscated APK -- so the ancestor walk `isSubtypeOf` needs cannot run. `instance-of v1, v0,
-        // Ljava/lang/Object;` still has an answer on a device: 1 for any non-null reference, whatever its
-        // class is, because Object is the supertype of every reference type
-        // (`DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`, [JVMS] `checkcast`: "If T is a class
-        // type, then T must be Object"). Turning that cheap `true` into a load failure would make the
-        // commonest obfuscated shape unanswerable.
+        // `instance-of v1, v0, Ljava/lang/Object;` answers 1 for any non-null reference whatever its class
+        // (DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited), so it must not need the ancestor walk that
+        // an absent class cannot provide.
         assertTrue(classIndex.isInstanceOf(t("Lspine/absent;"), t("Ljava/lang/Object;")))
         assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Ljava/lang/Object;")))
         assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/lang/Object;")))
@@ -116,91 +95,57 @@ class ClassIndexTest {
 
     @Test
     fun aPrimitiveTargetIsNeverAnInstanceAndNeitherIsAPrimitiveCandidate() {
-        // SPEC, [BC]'s `instance-of` row: "this will always result in 0 ... if C refers to a primitive
-        // type". Both operand positions are covered deliberately, because which of the oracle's THREE
-        // `instanceOf` implementations runs is decided by the CANDIDATE's class (design decision 4), and
-        // `type/VirtualPrimitive.instanceOf` (`:35-40`) is `equals`-only -- so the oracle answers TRUE for
-        // the reflexive primitive pair. The core answers false: see
-        // `aPrimitiveReflexivePairIsWhereTheTwoPredicatesDisagreeMostVisibly`.
+        // Dalvik bytecode reference, `instance-of`: "this will always result in 0 ... if C refers to a
+        // primitive type". Both operand positions are covered.
         assertFalse(classIndex.isInstanceOf(t("Ljava/lang/Integer;"), t("I")))
         assertFalse(classIndex.isInstanceOf(t("[I"), t("I")))
         assertFalse(classIndex.isInstanceOf(t("Ljava/lang/Object;"), t("V")))
-        // primitive CANDIDATE, reference target: a register whose last write was primitive reads as a
-        // null reference, and a null is an instance of nothing (`core/Value.kt`'s readsAsNullReference).
+        // A primitive candidate reads as a null reference, and null is an instance of nothing
+        // (`Value.readsAsNullReference`).
         assertFalse(classIndex.isInstanceOf(t("I"), t("Ljava/lang/Object;")))
         assertFalse(classIndex.isInstanceOf(t("I"), t("Ljava/lang/Integer;")))
     }
 
     @Test
     fun everyArrayIsAnInstanceOfCloneableAndSerializable() {
-        // INHERITED (JLS §4.10.3 via [JVMS] `checkcast`, quoted at
-        // `DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited`: arrays implement "exactly Cloneable
-        // and java.io.Serializable", and that row is listed for PRIMITIVE components explicitly).
-        // Corroborated by Android's own toolchain -- AOSP `Merger.isPossiblyAssignableFrom`
-        // (dalvik2/dx/src/com/android/dx/cf/code/Merger.java), fetched raw: "does not assume anything
-        // about class hierarchy other than that the type Object is the supertype of all reference types
-        // and all arrays are assignable to Serializable and Cloneable", and, in the array branch, "Other
-        // than Object (handled above), array types are assignable only to Serializable and Cloneable".
+        // Arrays implement exactly Cloneable and Serializable, primitive components included
+        // (DALVIK-SEMANTICS.md#subtype-testing-entirely-inherited).
         val cloneable = t("Ljava/lang/Cloneable;")
         val serializable = t("Ljava/io/Serializable;")
         for (array in listOf("[I", "[[I", "[Ljava/lang/String;", "[[Ljava/lang/String;")) {
             assertTrue(classIndex.isInstanceOf(t(array), cloneable), "$array is Cloneable")
             assertTrue(classIndex.isInstanceOf(t(array), serializable), "$array is Serializable")
         }
-        // A non-array is NOT given the free pass: String really does implement Serializable (so `true`
-        // here comes from the hierarchy) while StringBuilder does not implement Cloneable, and if the
-        // rows were keyed on the target alone both would answer true.
+        // A non-array gets no free pass: String implements Serializable through its hierarchy, while
+        // StringBuilder does not implement Cloneable.
         assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), serializable))
         assertFalse(classIndex.isInstanceOf(t("Ljava/lang/StringBuilder;"), cloneable))
     }
 
     @Test
-    fun arrayCovarianceAndInvarianceAreBothPreservedFromTheOracle() {
-        // The half the oracle gets RIGHT, pinned beside the half it does not, so a future edit to the
-        // divergence rows cannot silently take covariance with it. JLS §4.10.3: `S[] >1 T[]` iff
-        // `S >1 T` (references), and `Object >1 P[]` for a primitive P -- but `int[]` is NOT an
-        // `Object[]`, because that rule needs BOTH components to be reference types.
+    fun arrayCovarianceAndInvarianceAreBothPreserved() {
+        // JLS §4.10.3: `S[] >1 T[]` iff `S >1 T` for references, and `Object >1 P[]` for a primitive P, but
+        // `int[]` is not an `Object[]`.
         assertTrue(classIndex.isInstanceOf(t("[I"), t("Ljava/lang/Object;")))
         assertTrue(classIndex.isInstanceOf(t("[Ljava/lang/String;"), t("[Ljava/lang/Object;")))
         assertTrue(classIndex.isInstanceOf(t("[[Ljava/lang/String;"), t("[[Ljava/lang/Object;")))
         assertFalse(classIndex.isInstanceOf(t("[I"), t("[Ljava/lang/Object;")))
         assertFalse(classIndex.isInstanceOf(t("[I"), t("[J")))
-        // and a class is never an instance of an array type (`VirtualClass.java:150-153`)
+        // A class is never an instance of an array type.
         assertFalse(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("[Ljava/lang/String;")))
     }
 
     @Test
-    fun theRow24SubtypeMatrixAgreesWithTheDeviceAtEveryCell() {
-        // ROW 24 -- "subtype testing, in its entirety", the broadest row on the INHERITED worklist because
-        // every type op runs this predicate. The whole 4x4 grid, MEASURED on real ART and reproduced here:
-        // candidate in {String[], Object[], int[], long[]} x target in {Object, Cloneable, Serializable,
-        // Object[]}. This is the core half of the device measurement in `tools/art-runner`
-        // (`Fx_Subtype_*` / `Fx_IntArrayIsCloneable`, Tier A, -Xint, art_standalone 0_git20251009-r2); the
-        // device answered `instance-of` and `check-cast` IDENTICALLY at every cell, so this one predicate
-        // -- `castOutcome` delegates `check-cast` to it -- governs both ops and pinning it here pins both.
-        //
-        // The grid deliberately includes the cells the [JLS] rule makes SURPRISING, because the obvious ones
-        // cannot falsify anything: `int[]`/`long[]` instanceof `Object[]` -> false (a primitive-component
-        // array is invariant and is NOT a reference array -- JLS 4.10.3 needs BOTH components to be
-        // references), `long[]` instanceof `Cloneable`/`Serializable` -> true (arrays implement both, the
-        // primitive-component row listed explicitly), `String[]` instanceof `Object[]` -> true (covariance).
-        //
-        // The core agrees with the device on all 16 -- and thus all 32 io+cc cells -- measured, none
-        // diverges. That agreement is NOT the oracle's: `VirtualArray.instanceOf` omits both interfaces, so
-        // the ORACLE folds `false` for every Cloneable/Serializable array cell (the registered
-        // `types-int-array-is-cloneable` divergence, and the reason the device sweep DIVERGES oracle-vs-device
-        // on those sixteen cells). `everyArrayIsAnInstanceOfCloneableAndSerializableUnlikeTheOracle` above
-        // measures the oracle's omission directly; this test is the grid the device pins.
-        //
-        // Two mutations must break this (Step 5): removing `Cloneable` from `ARRAY_SUPERINTERFACES` reds the
-        // Cloneable column, and dropping row 4 of `isInstanceOf` (delegating arrays structurally) reds the
-        // Cloneable AND Serializable columns. The `Object[]` column is answered structurally by row 6 either
-        // way, so it is robust to both -- which is correct, and is why it is pinned by direct assertion here.
+    fun theArraySubtypeMatrixAgreesWithTheDeviceAtEveryCell() {
+        // Candidate in {String[], Object[], int[], long[]} x target in {Object, Cloneable, Serializable,
+        // Object[]}, as measured on ART by the `tools/art-runner` subtype fixtures. ART answered `instance-of`
+        // and `check-cast` identically at every cell, and `castOutcome` delegates to this predicate, so the
+        // grid pins both ops. The informative cells: primitive-component arrays are not `Object[]`, and every
+        // array is Cloneable and Serializable.
         val objectT = t("Ljava/lang/Object;")
         val cloneable = t("Ljava/lang/Cloneable;")
         val serializable = t("Ljava/io/Serializable;")
         val objectArray = t("[Ljava/lang/Object;")
-        // candidate -> expected across {Object, Cloneable, Serializable, Object[]}
         data class Row(
             val candidate: String,
             val isObject: Boolean,
@@ -211,8 +156,8 @@ class ClassIndexTest {
         val matrix = listOf(
             Row("[Ljava/lang/String;", true, true, true, true), // reference component: covariant to Object[]
             Row("[Ljava/lang/Object;", true, true, true, true), // reflexive at Object[]
-            Row("[I", true, true, true, false), // primitive component: invariant, NOT an Object[]
-            Row("[J", true, true, true, false), // primitive component: invariant, NOT an Object[]
+            Row("[I", true, true, true, false), // primitive component: invariant
+            Row("[J", true, true, true, false),
         )
         for ((candidate, isObject, isCloneable, isSerializable, isObjectArray) in matrix) {
             val c = t(candidate)
@@ -225,10 +170,8 @@ class ClassIndexTest {
 
     @Test
     fun instanceOfFollowsTheRealHierarchyIncludingInterfaces() {
-        // The delegation half: for an ordinary class candidate the oracle's `VirtualClass.instanceOf`
-        // answer is kept verbatim, interfaces included. `instance-of` DOES consult interfaces -- it is
-        // only `joinTypes` that excludes them (see `TypeJoinTest`), and conflating the two would be a
-        // soundness change, not a tidying.
+        // For an ordinary class candidate `instance-of` consults interfaces; only `joinTypes` excludes them
+        // (see `TypeJoinTest`).
         assertTrue(classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Ljava/lang/CharSequence;")))
         assertTrue(classIndex.isInstanceOf(t("Lchild_class;"), t("Lparent_class;")))
         assertTrue(classIndex.isInstanceOf(t("Lgrandparent_class;"), t("Lgrandparent_interface;")))
@@ -238,18 +181,13 @@ class ClassIndexTest {
 
     @Test
     fun aPrimitiveReflexivePairIsWhereTheTwoPredicatesDisagreeMostVisibly() {
-        // TWO independent differences between `isInstanceOf` and `isSubtypeOf`, so the two predicates
-        // cannot be collapsed into one with a mode flag (design decision 4). Both directions are
-        // asserted on the SAME pair of arguments, which is what makes "these are duplicates" fail to
-        // compile as an argument.
-        //
-        // (1) The reflexive primitive pair. `isSubtypeOf(I, I)` is true (a type is its own ancestor, and
-        //     `aput`'s component check needs that). `isInstanceOf(I, I)` is false, because [BC] says a
-        //     primitive `instance-of` target always answers 0.
+        // Both differences are asserted on the same arguments.
+        // (1) `isSubtypeOf(I, I)` is true (a type is its own ancestor, which `aput`'s component check needs);
+        //     `isInstanceOf(I, I)` is false because a primitive `instance-of` target always answers 0.
         assertTrue(classIndex.isSubtypeOf(t("I"), t("I")))
         assertFalse(classIndex.isInstanceOf(t("I"), t("I")))
-        // (2) An unloadable candidate against Object. `isSubtypeOf` must NOT invent an answer -- doing so
-        //     would silently un-catch a handler -- so it raises; `isInstanceOf` answers without loading.
+        // (2) For an unloadable candidate against Object, `isSubtypeOf` raises rather than invent an answer
+        //     that could un-catch a handler; `isInstanceOf` answers without loading.
         val absent = t("Lspine/absent;")
         assertThrows(ClassLoadFailure::class.java) { classIndex.isSubtypeOf(absent, t("Ljava/lang/Object;")) }
         assertTrue(classIndex.isInstanceOf(absent, t("Ljava/lang/Object;")))
@@ -257,48 +195,40 @@ class ClassIndexTest {
 
     @Test
     fun instanceOfReportsATypedLoadFailureWhenItGenuinelyHasToWalk() {
-        // `isInstanceOf` is not total: an unanswerable question is ambiguity, never `false`, because
-        // `false` would fold a wrong `instance-of` constant and invent a definite `ClassCastException`
-        // (spec §2.2). The Object short-circuit keeps this off the common path.
+        // An unanswerable question is a load failure, never `false`: `false` would fold a wrong `instance-of`
+        // constant and invent a definite `ClassCastException`.
         val failure = assertThrows(ClassLoadFailure::class.java) {
             classIndex.isInstanceOf(t("Lspine/absent;"), t("Ljava/lang/String;"))
         }
         assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
-        // An absent TARGET fails the same way, and in the same direction.
+        // An absent target fails the same way.
         assertThrows(ClassLoadFailure::class.java) {
             classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Lspine/absent;"))
         }
-        // But an array candidate against the three Android array supertypes still answers, because those
-        // rows are pure descriptor comparisons: `[Lobf/absent;` is Cloneable on a device even though its
-        // component class was never shipped.
+        // An array candidate against the array supertypes still answers: those rows compare descriptors only.
         assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/lang/Cloneable;")))
         assertTrue(classIndex.isInstanceOf(t("[Lspine/absent;"), t("Ljava/io/Serializable;")))
     }
 
-    // ---- superclassOf (Plan 8 Task 7) ----------------------------------------------------------
-
     @Test
     fun theSuperclassChainIsReadFromTheClassDefAndNeverFromTheAncestorSet() {
-        // `superclassOf` reads the declared superclass -- ONE string, no set, no iteration order.
+        // `superclassOf` reads the declared superclass, not the ancestor set.
         assertEquals(t("Lparent_class;"), classIndex.superclassOf(t("Lchild_class;")))
         assertEquals(t("Lgrandparent_class;"), classIndex.superclassOf(t("Lparent_class;")))
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
         assertNull(classIndex.superclassOf(t("Ljava/lang/Object;")), "the chain terminates at Object")
-        // `Lgrandparent_class;` implements `Lgrandparent_interface;`, so the interface IS a supertype --
-        // asserted here, because the whole point of reading the declared superclass is that the interface
-        // is reachable the other way and must not be on the chain.
+        // The interface is a supertype of `Lgrandparent_class;` but must not appear on the superclass chain.
         assertTrue(classIndex.isSubtypeOf(t("Lgrandparent_class;"), t("Lgrandparent_interface;")))
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("Lgrandparent_class;")))
     }
 
     @Test
     fun everyArrayHasObjectAsItsSuperclassAndPrimitivesHaveNone() {
-        // Arrays: JLS §4.10.3's "Object >1 P[]", and the same for a reference component -- an array's
-        // superCLASS is Object; its array-typed supertypes are a covariance relation, not a chain, and
-        // `joinTypes` handles them component-wise instead (see `TypeJoinTest`).
+        // An array's superclass is Object (JLS §4.10.3); its array-typed supertypes are a covariance relation
+        // that `joinTypes` handles component-wise.
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[I")))
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[[Ljava/lang/String;")))
-        // And no load is attempted for the component, so an array of an absent class still answers.
+        // No load is attempted for the component, so an array of an absent class still answers.
         assertEquals(t("Ljava/lang/Object;"), classIndex.superclassOf(t("[Lspine/absent;")))
         assertNull(classIndex.superclassOf(t("I")))
         assertNull(classIndex.superclassOf(t("V")))
@@ -306,10 +236,8 @@ class ClassIndexTest {
 
     @Test
     fun anUnloadableClassReportsALoadFailureFromSuperclassOfToo() {
-        // Same contract as `isSubtypeOf`: the class model failing to answer is a statement about the
-        // INPUT and must be distinguishable from an engine bug. What the two CALLERS do with it differs
-        // -- `resolveHandler` propagates, `joinTypes` degrades to `Object` -- which is only a choice
-        // because the failure is reported rather than swallowed here.
+        // Same contract as `isSubtypeOf`: callers choose what to do with a missing class (`resolveHandler`
+        // propagates, `joinTypes` degrades to Object), which needs the failure reported, not swallowed.
         val failure = assertThrows(ClassLoadFailure::class.java) {
             classIndex.superclassOf(t("Lspine/absent;"))
         }
@@ -318,9 +246,8 @@ class ClassIndexTest {
 
     @Test
     fun directInterfacesOfAnAbsentClassIsALoadFailureNotAnEmptyList() {
-        // Bug class: answering "implements nothing" for a class the program lacks. A member walk that took the
-        // empty list would report a definite miss for a member the absent class may declare; `superclassOf`
-        // already refuses the same question, so both parent queries share its failure rule.
+        // "Implements nothing" for an absent class would let a member walk report a definite miss for a member
+        // the class may declare; both parent queries share `superclassOf`'s failure rule.
         val hierarchy = classIndex.currentSnapshot.hierarchy
         assertThrows(ClassLoadFailure::class.java) { hierarchy.directInterfaces(t("Lspine/absent;")) }
         assertEquals(listOf(t("Lgrandparent_interface;")), hierarchy.directInterfaces(t("Lgrandparent_class;")))

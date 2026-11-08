@@ -1,6 +1,6 @@
-.class public Ltask62/Adversarial;
+.class public Lmethodedit/Adversarial;
 .super Ljava/lang/Object;
-.source "task62_adversarial.smali"
+.source "method_edit_adversarial.smali"
 
 .method public constructor <init>()V
     .registers 1
@@ -65,6 +65,6 @@
 
 .method public static retention()Ljava/lang/Class;
     .registers 1
-    const-class v0, Ltask62/Seed;
+    const-class v0, Lmethodedit/Seed;
     return-object v0
 .end method

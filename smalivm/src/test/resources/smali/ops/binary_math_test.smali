@@ -2,7 +2,6 @@
 .super Ljava/lang/Object;
 
 
-################ Integer ################
 .method public static addInt()V
     .locals 2
 
@@ -103,7 +102,6 @@
     .locals 2
 
     :try_start_0
-    # Floating point percision literals do not throw ArithmeticException
     div-int v0, v0, v1 # @0
 
     :try_end_0
@@ -353,7 +351,6 @@
 
 
 
-################ Long ################
 .method public static addLong()V
     .locals 4
 
@@ -418,15 +415,9 @@
     return-void
 .end method
 
-# REGISTER LAYOUT, corrected. This was `.locals 2` with `div-long v0, v0, v1`, which is unfaithful
-# whichever way it is read: `long` is wide, so the lhs pair is {v0,v1} and the rhs pair read from v1 is
-# {v1,v2} -- v1 belongs to BOTH, and v2 does not exist under `.locals 2`. A `.locals` bump alone cannot
-# fix it, because the encoded instruction still reads its rhs from v1: seeding v0 reserves v1 as the
-# pair's high half, and seeding v1 then destroys the lhs (`Frame.clearWidePartner` nulls the low
-# register of the pair whose high half is being overwritten), so the op would run on operands no test
-# asked for. The rhs operand therefore moves to v2, matching every other wide method in this file
-# (`divLong()V` and friends are already `v0, v0, v2` under `.locals 4`). Addresses are UNCHANGED --
-# div-long is Instruction23x either way, so it is still 2 code units and the tail is still @2/@3/@4.
+# Register layout: `long` is wide, so the lhs is the pair {v0,v1} and the rhs is read from {v2,v3}.
+# An rhs at v1 would overlap the lhs pair, and seeding it would clear the lhs's low half
+# (`Frame.clearWidePartner`). Addresses: div-long (23x, 2 units) @0, then @2/@3/@4.
 .method public static divLongWithCatch()V
     .locals 4
 
@@ -560,7 +551,6 @@
 
 
 
-################ Float ################
 .method public static addFloat()V
     .locals 2
 
@@ -663,7 +653,6 @@
 
 
 
-################ Double ################
 .method public static addDouble()V
     .locals 4
 
@@ -728,8 +717,7 @@
     return-void
 .end method
 
-# REGISTER LAYOUT, corrected -- the identical defect `divLongWithCatch()V` above carries, for the same
-# reason (`double` is wide too). See that method's comment for the full derivation.
+# Register layout as in `divLongWithCatch()V`: `double` is wide too, so the rhs pair starts at v2.
 .method public static divDoubleWithCatch()V
     .locals 4
 
@@ -765,18 +753,13 @@
 .end method
 
 
-################ Malformed tails ################
-
-# A div-int whose ambiguous divisor forks, where the NORMAL fall-through target does not exist while the
-# EXCEPTIONAL one has a real handler. Verifier-invalid on purpose: it is the shape that proves a fork
-# does not discard its one buildable branch when the other target is malformed, which is expected input
-# for a deobfuscator rather than a hypothetical.
+# A div-int whose ambiguous divisor forks, where the fall-through target does not exist but the
+# exceptional one has a real handler. Verifier-invalid on purpose: a fork keeps its buildable branch
+# when the other target is malformed, as deobfuscator input requires.
 #
-# The handler sits BEFORE the try block and is jumped over, which is what makes the div-int genuinely
-# the last instruction: @0 goto (1 unit), @1 move-exception (1), @2 return-void (1), @3 div-int (2), so
-# the fall-through target is @5 and the method has no such address. Putting the handler AFTER the
-# div-int instead -- the obvious shape -- does NOT produce this fixture's behavior: the fall-through
-# would land on the `move-exception`, a perfectly buildable address, and nothing would be lost.
+# The handler sits before the try block and is jumped over, so the div-int is the last instruction:
+# @0 goto (1 unit), @1 move-exception (1), @2 return-void (1), @3 div-int (2), and the fall-through
+# target @5 does not exist. A handler after the div-int would make the fall-through buildable.
 .method public static divIntFallsOffTheEnd()V
     .locals 2
 
@@ -795,36 +778,19 @@
 .end method
 
 
-################ Ambiguous fork decisions (differential witnesses) ################
-
-# The two methods below are the differential witnesses for the ONE oracle defect at
-# `opcode/BinaryMathOp.kt:64-67`, whose fork condition is `result.isUnknown && operator == DIV`. That
-# reads the wrong two things, and it is wrong in BOTH directions, so it takes two fixtures to pin:
+# Ambiguous fork decisions. Dalvik throws ArithmeticException only for a zero divisor, for both
+# `div` and `rem`, so the fork depends on the divisor alone:
+#   - `remIntUnknownDivisorWithCatch(I)V`: `rem-int` by an unknown divisor, so the handler is feasible.
+#   - `divIntUnknownDividendWithCatch(I)V`: an unknown dividend over a known non-zero divisor, so the
+#     handler is infeasible (`Integer.MIN_VALUE / -1` overflows silently).
 #
-#   - `remIntUnknownDivisorWithCatch(I)V` -- `rem-int` by an unknown divisor. Dalvik throws
-#     ArithmeticException for `rem` by zero exactly as for `div`, so the handler is FEASIBLE; the
-#     oracle's DIV-only gate never schedules it and still reports the run complete.
-#   - `divIntUnknownDividendWithCatch(I)V` -- `div-int` of an unknown dividend by a KNOWN non-zero
-#     divisor. Only a zero divisor throws (`Integer.MIN_VALUE / -1` overflows silently), so the handler
-#     is INFEASIBLE; the oracle's `result.isUnknown` gate -- true when EITHER operand is unknown --
-#     schedules it anyway.
+# The unknown operand is a parameter, so the engine seeds it as an unknown of its declared type with
+# no harness help. `move-exception` targets v1, not v0, so the observed register v0 holds the same
+# type on both paths instead of joining `I` with `Ljava/lang/ArithmeticException;`.
 #
-# WHY THE DIVISOR/DIVIDEND IS A PARAMETER RATHER THAN A SEEDED REGISTER: both engines seed a
-# parameter to "unknown of its declared type" natively, so the ambiguity under test needs no help from
-# the harness. Seeding it instead would mean each engine building its own unknown, and a seeding
-# asymmetry would be indistinguishable from the fork divergence these fixtures exist to show. (The
-# oracle cannot read an unseeded local at all: `ExecutionState.readRegister` is `peekRegister(r)!!`.)
-#
-# WHY `move-exception` TARGETS v1 AND NOT v0: the observed register must AGREE between the engines so
-# the recorded divergence is the path set alone. `divIntWithCatch()V` above moves the caught exception
-# into v0, which would make the fixture diverge on the register too -- and on the core those two paths
-# join across `I` and `Ljava/lang/ArithmeticException;`, which `joinTypes` calls Incompatible, so the
-# register difference would be a Top-projection artifact rather than an engine fact.
-#
-# Register layout, derived from the encoding rather than assumed: `.registers 3` with one `I`
-# parameter puts the parameter at v2 (registerCount - parameterSize), leaving v0 for the seeded
-# operand and v1 for the catch slot. Addresses: @0 div/rem-int (Instruction23x, 2 code units),
-# @2 return-void (1), @3 move-exception (1), @4 goto (1) -- the same tail as `divIntWithCatch()V`.
+# Register layout: `.registers 3` with one `I` parameter puts it at v2, leaving v0 for the operand and
+# v1 for the catch. Addresses: @0 div/rem-int (23x, 2 units), @2 return-void (1), @3 move-exception
+# (1), @4 goto (1), the same tail as `divIntWithCatch()V`.
 
 .method public static remIntUnknownDivisorWithCatch(I)V
     .registers 3
@@ -863,17 +829,13 @@
 .end method
 
 
-################ Ambiguous operand widths ################
-
-# A `div-int` whose divisor register was written by a `const-wide`: the raw is the 64-bit 2^32, whose
-# LOW 32 BITS ARE ZERO. Dalvik reads a `div-int` operand as a 32-bit register, so the divisor it sees is
-# 0 and it throws; reading the same raw at 64-bit width instead says "divisor 2^32, carry on". This is
-# the shape that catches the divide-by-zero test being asked at a different width from the arithmetic,
-# and it needs no seeded frame at all -- `const-wide` puts the value there as a `Long` raw, so the
-# ambiguity is the real one Dalvik's overloaded const opcodes produce rather than a hand-built `Value`.
+# A `div-int` whose divisor register was written by `const-wide` 2^32, whose low 32 bits are zero.
+# Dalvik reads a `div-int` operand as 32 bits, so the divisor is 0 and it throws; the divide-by-zero
+# test must use the same width as the arithmetic. `const-wide` stores a `Long` raw, so the ambiguity
+# comes from the real opcode rather than a hand-built `Value`.
 #
-# Verifier-invalid on purpose, on the same grounds as `divIntFallsOffTheEnd()V` above: obfuscators emit
-# register types the verifier would reject, and the engine must still route the path Dalvik takes.
+# Verifier-invalid on purpose: obfuscators emit register types the verifier rejects, and the engine
+# must still route the path Dalvik takes.
 .method public static divIntByWideZeroLowHalf()V
     .locals 4
 
@@ -884,48 +846,23 @@
 .end method
 
 
-################ Two independent syntheses (heap identity) ################
-
-# `divIntTwiceByZeroWithCatch()V` -- two `div-int` instructions over the SAME known-zero divisor
-# (v0=10, v1=0, per BinaryMathOpTest's seed), each synthesizing its OWN ArithmeticException. The claim
-# under test (BinaryMathOpTest.twoSeparatelySynthesizedExceptionsStillDoNotAgree) is that the two
-# syntheses land under DISTINCT heap ids and so do not `agreesWith` each other -- CARRY-FORWARD called
-# that "avoidably imprecise"; it is correct instead, since two paths that each throw a fresh exception
-# do not throw one object in Dalvik either.
+# Two `div-int`s over the same known-zero divisor (v0=10, v1=0, per BinaryMathOpTest's seed), each
+# synthesizing its own ArithmeticException. The two land under distinct heap ids and do not
+# `agreesWith` each other, as in Dalvik, where each throw allocates a fresh object
+# (BinaryMathOpTest.twoSeparatelySynthesizedExceptionsStillDoNotAgree).
 #
-# WHY THE CATCH TYPE IS DELIBERATELY UNLOADABLE rather than a matching `Ljava/lang/ArithmeticException;`
-# clause (the shape every OTHER `*WithCatch` method in this file uses), which is the non-obvious part.
-# A matching clause would make BOTH throws DEFINITELY caught (`ExecutionSession.planThrow`: a resolved
-# handler means `escapes = false`), and `ThrowRoutingTest.handlerPathIsReachedAndTheThrowingPathDoesNotEscape`
-# already pins that a definitely-caught throw never becomes an `Outcome.Threw` at all -- it is routed
-# straight to the handler instead. Worse, with a matching clause the SECOND division could never even
-# run: reaching it needs the FIRST throw to be caught (a KNOWN-zero divisor's op emits `[Throw]` alone,
-# never a `Continue` -- see `BinaryMathOp.transitionsFor` -- so there is no other transition off it), and
-# "caught" is exactly the case that never populates `Outcome.Threw`. A matching clause therefore caps
-# this test's own `refs` list at ZERO elements: `assertEquals(0, 0)` would pass no matter what `HeapIds`
-# did, which is exactly the vacuous-test failure mode the task brief warns about.
+# The catch type is unloadable (`Lbinary_math_test$Unloadable;`) rather than a matching
+# `Ljava/lang/ArithmeticException;`. A matching clause makes the first throw definitely caught, so it
+# never becomes an `Outcome.Threw` and the test's list of escaped refs would be empty. An unloadable
+# clause is ambiguous (`ThrowRoutingTest.anUnloadableCatchTypeForksTheHandlerAndTheEscape`): the first
+# throw both escapes and continues into the handler, where the second, uncovered division throws and
+# escapes too.
 #
-# An UNLOADABLE catch type (`Lbinary_math_test$Unloadable;`, a descriptor nothing in this tree defines)
-# is genuinely AMBIGUOUS instead (`ThrowRoutingTest.anUnloadableCatchTypeIsAmbiguityNotAHostFailure`):
-# the session cannot decide whether Dalvik's runtime class loader would consider the clause a match, so
-# BOTH interpretations of the SAME throw are explored from the one node
-# (`ExecutionSession.planThrow`'s `Committable` can carry a terminal AND successors at once) -- the
-# escape, recorded immediately as `Outcome.Threw`, AND the handler continuation, which is what lets the
-# second division run at all. The second division is left UNCOVERED by any try block, so its own throw
-# is unambiguously unhandled and escapes directly -- no second unloadable clause is needed to reach a
-# second `Outcome.Threw`.
+# Verifier-invalid: the handler code follows the try block, so a verifier reads it as the first
+# division's fall-through. A known-zero divisor never falls through, so only the throw reaches it.
 #
-# Verifier-invalid on the same grounds as `divIntFallsOffTheEnd()V` and `divIntByWideZeroLowHalf()V`
-# above: the handler's own code (`move-exception` + the second division) sits immediately after the try
-# block in the instruction stream, which a real verifier would read as an ordinary (and here, invalid)
-# fall-through target for the first division. Harmless: a KNOWN-zero divisor's op never emits a
-# `Continue` transition, so that fall-through is never actually explored -- the handler is reached only
-# via the ambiguous throw's own successor, never by falling off the first `div-int`.
-#
-# Addresses: `div-int` (Instruction23x, 2 units) @0, `move-exception` (1 unit) @2, `div-int` @3 (2
-# units). The method ends there with no trailing `return-void`: both divisions definitely throw, so no
-# path ever falls through to one (the same "last instruction, no successor" shape
-# `divIntFallsOffTheEnd()V` already establishes this tree tolerates).
+# Addresses: `div-int` (23x, 2 units) @0, `move-exception` @2, `div-int` @3. No trailing
+# `return-void`: both divisions definitely throw.
 .method public static divIntTwiceByZeroWithCatch()V
     .locals 4
 
@@ -939,8 +876,6 @@
     div-int v2, v0, v1              # @3 -- same known-zero divisor; UNCOVERED, so this one definitely escapes
 .end method
 
-
-################ Literal operands at integral boundaries ################
 
 # The literal forms with a literal that only a boundary test needs: a divisor of -1 (the one divisor for
 # which `Integer.MIN_VALUE` overflows) and shift distances outside 0..31 (which the int rule masks).

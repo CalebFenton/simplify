@@ -123,11 +123,11 @@ class MethodEditRoundTripTest {
     }
 
     private fun fixtureIndex(): ClassIndex {
-        val source = requireNotNull(javaClass.getResourceAsStream("/smali/task62_adversarial.smali"))
+        val source = requireNotNull(javaClass.getResourceAsStream("/smali/method_edit_adversarial.smali"))
             .bufferedReader()
             .use { it.readText() }
         val directory = Files.createDirectory(root.resolve("fixture-${fixtureSequence++}"))
-        return task53ClassIndex(directory, source)
+        return classIndexFromSource(directory, source)
     }
 
     private fun reload(index: ClassIndex): ClassIndex {
@@ -140,8 +140,8 @@ class MethodEditRoundTripTest {
     private companion object {
         val INT = VirtualType.of("I")
         val OBJECT = VirtualType.OBJECT
-        const val OPAQUE = "Ltask62/Adversarial;->opaque(I)I"
-        const val REFLECTION = "Ltask62/Adversarial;->reflectionInTry()I"
-        const val PARAMETERS = "Ltask62/Adversarial;->parameters(IJLjava/lang/Object;)J"
+        const val OPAQUE = "Lmethodedit/Adversarial;->opaque(I)I"
+        const val REFLECTION = "Lmethodedit/Adversarial;->reflectionInTry()I"
+        const val PARAMETERS = "Lmethodedit/Adversarial;->parameters(IJLjava/lang/Object;)J"
     }
 }

@@ -28,7 +28,7 @@ import org.cf.smalivm.core.runtimeTypeOf
  * `ArrayStoreException`, so a type lie never lands in an element.
  *
  * The stored element is the value as the array's component holds it ([slotWrite]), typed with the
- * component. An unknown value or index loses precision only where the write may have landed: an unknown
+ * component. An unknown value or index loses precision only where the write may have gone: an unknown
  * index joins every element with the stored value. ART checks before it writes, so only an arm that stores
  * declares an effect: `STRONG` into an array the engine cannot name (unprovable or untracked), `WEAK` into a
  * tracked one.
@@ -122,7 +122,7 @@ internal class APutOp(
         return when (val index = array.array.indexOf(indexOperand)) {
             is ArrayIndex.OutOfBounds ->
                 OpExecution.single(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(length, index.index)))
-            // The write landed on exactly one element, so each element is its old value or the stored one.
+            // The write hit exactly one element, so each element is its old value or the stored one.
             ArrayIndex.Unprovable -> OpExecution.of(
                 buildList<OpArm> {
                     if (check.storeCanProceed) {

@@ -9,33 +9,18 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * `Value.Top` means **three** different things, and before this test nothing in the tree could tell
- * them apart:
+ * `Value.Top` from a consensus query means one of three things, which [RegisterOccupancy] separates:
  *
- *  1. **a path genuinely holds a `Value.Top`** -- `MoveOp`'s `Source.Register` arm reads through
- *     [Frame.read], which is `peek(r) ?: Value.Top`, so `move v0, v2` from an untouched v2 assigns a
- *     real `Top`. [ExploredPaths.registerOccupancy] answers
- *     [RegisterOccupancy.HELD].
- *  2. **the paths disagreed incompatibly**, so the join is `Top`. Also [RegisterOccupancy.HELD] --
- *     deliberately, because both mean "live and unknowable", and the number of disagreeing values is
- *     what [ExploredPaths.registerValues] is for.
- *  3. **nothing ever assigned the register** -- [ExecutionGraph.valueIn] turns `peek`'s null into
- *     `Top`. [RegisterOccupancy.NEVER_ASSIGNED].
+ *  1. A path holds a real `Top`: `move v0, v2` from an untouched v2 reads through [Frame.read], which is
+ *     `peek(r) ?: Value.Top`. [RegisterOccupancy.HELD].
+ *  2. The paths disagreed incompatibly and the join is `Top`. Also [RegisterOccupancy.HELD]: both mean "live and
+ *     unknowable", and [ExploredPaths.registerValues] counts the disagreeing values.
+ *  3. Nothing assigned the register; [ExecutionGraph.valueIn] turns `peek`'s null into `Top`.
+ *     [RegisterOccupancy.NEVER_ASSIGNED].
  *
- * plus the two "there was nothing to ask" cases that come free with a total answer and are pinned
- * here rather than left to be discovered: an address no path ran an op at, and a method that never
- * returns normally. Both are [RegisterOccupancy.NO_PATH].
- *
- * **Why every test below asserts a PAIR.** One half proves nothing. "`consensus` is `Top`" is true for
- * all five facts, and "the register was held" is uninteresting without the `Top` it explains -- so each
- * test pins the two together, and most pin two registers (or one register at two addresses) whose
- * *existing* observables are identical.
- *
- * **Why this is a distinct test class rather than rows in `ExecutionGraphTest`.** The subject is not one
- * query, it is whether a set of queries is jointly sufficient to distinguish facts a consumer would act
- * on differently -- `AnalysisContracts.kt` says the consumer "would ACT on -- fold a constant, delete a
- * method". `Ldifferential/branch;` exists for the same reason; its own comment says which method carries
- * which fact.
+ * An address where no path ran an op, and a method that never returns normally, are [RegisterOccupancy.NO_PATH].
+ * Each test asserts the occupancy together with the identical `Top` it explains, because either half alone
+ * distinguishes nothing. `Ldifferential/branch;` documents which method carries which fact.
  */
 class AssignmentDistinctionTest {
 
@@ -72,24 +57,22 @@ class AssignmentDistinctionTest {
     }
 
     @Test
-    fun disagreeingArmsAndAnUntouchedRegisterAreBothTopAndAreNoLongerTheSameAnswer() {
-        // (a) and (b) of the four cases, at ONE address, so a single `consensus` call answers `Top` for
-        // both and only the new query separates them. v0 is assigned `Known(1, I)` on one arm and
-        // `Known("x", Ljava/lang/String;)` on the other -- `joinTypes` calls a primitive and a reference
-        // incompatible, so the join is `Top`. v1 is assigned by nothing in the method at all.
+    fun disagreeingArmsAndAnUntouchedRegisterAreBothTopButHaveDifferentOccupancy() {
+        // Cases 2 and 3 at one address. v0 is `Known(1, I)` on one arm and `Known("x", String)` on the other,
+        // which `joinTypes` cannot join, so the join is `Top`. Nothing in the method assigns v1.
         val graph = completed(DISAGREEING)
         val trusted = trustedOf(graph)
-        assertTrue(graph.wasReached(JOIN), "the join must be reached, or (b) is really (c)")
+        assertTrue(graph.wasReached(JOIN), "the join must be reached, or this is the no-path case")
         assertEquals(2, graph.nodePile(JOIN).size, "both arms must reach the join, or the join is idempotent")
 
-        // The SAME `Top` from both queries, for both registers: this is the conflation itself.
+        // Both queries answer the same `Top` for both registers.
         assertEquals(Value.Top, graph.explored.consensus(JOIN, 0))
         assertEquals(Value.Top, graph.explored.consensus(JOIN, 1))
         assertEquals(Value.Top, trusted.terminatingConsensus(0))
         assertEquals(Value.Top, trusted.terminatingConsensus(1))
 
-        // ...and the answers that are no longer the same.
-        assertEquals(RegisterOccupancy.HELD, trusted.registerOccupancy(JOIN, 0), "the paths DISAGREED about v0")
+        // Occupancy separates them.
+        assertEquals(RegisterOccupancy.HELD, trusted.registerOccupancy(JOIN, 0), "the paths disagreed about v0")
         assertEquals(
             RegisterOccupancy.NEVER_ASSIGNED, trusted.registerOccupancy(JOIN, 1),
             "nothing in the method assigns v1",
@@ -98,10 +81,8 @@ class AssignmentDistinctionTest {
         assertEquals(RegisterOccupancy.HELD, trusted.terminatingRegisterOccupancy(0))
         assertEquals(RegisterOccupancy.NEVER_ASSIGNED, trusted.terminatingRegisterOccupancy(1))
 
-        // The free precision `registerValues` already had, asserted so the new query is not credited with
-        // it: a set of size two IS a disagreement proof today. What it cannot do is separate a singleton
-        // `{Top}` into its two causes -- see the `moveFromAnUntouchedRegister` test, where the singleton
-        // is identical for a held `Top` and an unassigned register.
+        // `registerValues` already proves a disagreement with a two-element set; it cannot split a singleton
+        // `{Top}` into its two causes (see `aFrameHeldTopAndAnUnassignedRegisterHaveIdenticalValuesAndDifferentOccupancy`).
         assertEquals(
             setOf(Value.Known(1, VirtualType.of("I")), Value.Known("x", VirtualType.of("Ljava/lang/String;"))),
             graph.explored.registerValues(JOIN, 0),
@@ -111,25 +92,17 @@ class AssignmentDistinctionTest {
 
     @Test
     fun aParameterIsHeldEvenThoughTheFramesOwnAssignedSetHasForgottenIt() {
-        // Why `Frame.peek` is the raw material and `Frame.registersAssigned()` is not.
-        // `Frame.entryFrame` seeds every parameter and then calls `assigned.clear()`, deliberately --
-        // seeding is not an assignment BY the method. So a parameter register holding a perfectly live
-        // `Unknown(T)` is absent from the dynamic assigned set, and sourcing this query from there would
-        // report the commonest live register in any real method as "never assigned".
+        // `Frame.entryFrame` clears `assigned` after seeding parameters, because seeding is not an assignment by
+        // the method. Sourcing occupancy from `registersAssigned()` would call every parameter never assigned.
         val graph = completed(DISAGREEING)
         val frame = graph.nodePile(JOIN).first().frame
         assertEquals(Value.Unknown(VirtualType.of("I")), frame.peek(2), "v2 is the (I) parameter")
         assertFalse(2 in frame.registersAssigned(), "entryFrame clears `assigned` after seeding parameters")
         assertEquals(RegisterOccupancy.HELD, graph.explored.registerOccupancy(JOIN, 2))
 
-        // The static liveness query is a third answer again, and is not a substitute either: it reads the
-        // decoded op's DECLARED destination set and no frame at all, so at a `return-void` it is empty for
-        // every register including the live parameter.
-        //
-        // The empty-set assertion needs a NON-EMPTY control at another address, because the base `Op`
-        // answers `emptySet()` too -- so on its own it passes hardest when nothing works (an unbuilt op or
-        // an `UnsupportedOp` satisfies it). Address 2 is the `const/4 v0` on the fall-through arm, which
-        // declares v0, so a real decoded op is demonstrably answering.
+        // The static liveness query reads the op's declared destinations and no frame, so at a `return-void`
+        // it is empty for every register, the live parameter included. Address 2 (`const/4 v0`) is the
+        // non-empty control: the base `Op` also answers `emptySet()`, so an unbuilt op would pass alone.
         assertEquals(setOf(0), graph.registersAssigned(2), "the control: `const/4 v0` declares v0")
         assertEquals(emptySet<Int>(), graph.registersAssigned(JOIN), "`return-void` declares no destination")
         assertFalse(graph.wasRegisterAssigned(JOIN, 2), "the static query cannot see a parameter either")
@@ -137,15 +110,13 @@ class AssignmentDistinctionTest {
 
     @Test
     fun anAddressNoPathAttemptedAndAnUnassignedRegisterAreBothTopForTheSameRegister() {
-        // (c), placed next to (b) for the SAME register so the third reading is what separates them.
-        // `const/4 v0, 0x0` makes the predicate provably zero, so `if-eqz` emits one transition and the
-        // fall-through is never even attempted.
+        // The no-path case next to case 3 for the same register. `const/4 v0, 0x0` makes the predicate
+        // provably zero, so `if-eqz` emits one transition and the fall-through is never attempted.
         val graph = completed(PROVABLY_ZERO)
         val trusted = trustedOf(graph)
-        // The control that stops both negatives below from being vacuous: an `assertFalse(wasReached(n))`
-        // is silently true for an address that does not exist.
+        // `assertFalse(wasReached(n))` is vacuously true for an address that does not exist.
         assertTrue(DEAD in graph.addresses().toList(), "address $DEAD must be a real address in this method")
-        assertEquals(1, graph.nodePile(AFTER_BRANCH).size, "the predicate must be DECIDED, not forked")
+        assertEquals(1, graph.nodePile(AFTER_BRANCH).size, "the predicate must be decided, not forked")
 
         assertFalse(graph.wasAttempted(DEAD), "the provably-zero predicate must not schedule the fall-through")
         assertFalse(graph.wasReached(DEAD))
@@ -159,33 +130,27 @@ class AssignmentDistinctionTest {
             "a node ran here and did not hold v1",
         )
 
-        // The one distinction `registerValues` already makes, recorded so the new query is not credited
-        // with it: the empty set is exactly NO_PATH. It is still not a substitute -- see the singleton
-        // `{Top}` case in the next test -- and it forces a consumer to reason about set emptiness rather
-        // than reading an answer.
+        // `registerValues` answers the empty set exactly for NO_PATH, but a singleton `{Top}` still conflates
+        // the other two cases (next test).
         assertEquals(emptySet<Value>(), graph.explored.registerValues(DEAD, 1))
         assertEquals(setOf<Value>(Value.Top), graph.explored.registerValues(AFTER_BRANCH, 1))
     }
 
     @Test
-    fun aFrameHeldTopAndAnUnassignedRegisterHaveIDENTICALValuesAndDifferentOccupancy() {
-        // The case that shows this query is not a re-spelling of `registerValues`, and the one the brief
-        // for this task got wrong: a singleton `{Top}` is NOT "a path holds a real Top". It is that OR
-        // "no path assigned it" OR any mixture, because `valueIn` maps `peek`'s null onto the same
-        // `Value.Top` a frame can hold.
-        //
-        // `move v0, v2` with v2 untouched: `MoveOp` reads through `Frame.read`, which is
-        // `peek(r) ?: Value.Top`, so v0 holds a REAL `Top` while v1 and v2 hold nothing.
+    fun aFrameHeldTopAndAnUnassignedRegisterHaveIdenticalValuesAndDifferentOccupancy() {
+        // A singleton `{Top}` means "a path holds a real Top", "no path assigned it", or a mixture, because
+        // `valueIn` maps `peek`'s null onto the same `Value.Top` a frame can hold. `move v0, v2` with v2
+        // untouched makes v0 hold a real `Top` while v1 and v2 hold nothing.
         val graph = completed(MOVE_UNTOUCHED)
         val trusted = trustedOf(graph)
 
-        // The mechanism, asserted on the frame itself rather than inferred from the query that reads it.
+        // The mechanism, asserted on the frame itself.
         val frame = graph.nodePile(1).first().frame
         assertEquals(Value.Top, frame.peek(0), "`move` from an untouched register assigns a real Top")
         assertNull(frame.peek(1), "nothing assigned v1")
         assertNull(frame.peek(2), "nothing assigned v2 -- it is what `move` read")
 
-        // Every existing observable is IDENTICAL for all three registers.
+        // Every consensus observable is identical for all three registers.
         for (register in 0..2) {
             assertEquals(Value.Top, graph.explored.consensus(1, register), "consensus r$register")
             assertEquals(
@@ -195,7 +160,7 @@ class AssignmentDistinctionTest {
             assertEquals(Value.Top, trusted.terminatingConsensus(register), "terminatingConsensus r$register")
         }
 
-        // ...and the new one is not.
+        // Occupancy is not.
         assertEquals(RegisterOccupancy.HELD, trusted.registerOccupancy(1, 0))
         assertEquals(RegisterOccupancy.NEVER_ASSIGNED, trusted.registerOccupancy(1, 1))
         assertEquals(RegisterOccupancy.NEVER_ASSIGNED, trusted.registerOccupancy(1, 2))
@@ -205,9 +170,8 @@ class AssignmentDistinctionTest {
 
     @Test
     fun aMethodThatNeverReturnsIsNotAMethodWhoseReturnValueIsUnknowable() {
-        // (d), the case the carry-forward register named as its own motivation and could not express.
-        // Every path throws, so the returning-node set is empty and `terminatingConsensus` answers `Top`
-        // for EVERY register -- including one that is demonstrably held on the throwing path.
+        // Every path throws, so the returning-node set is empty and `terminatingConsensus` answers `Top` for
+        // every register, including one that is held on the throwing path.
         val throwing = completed(NEVER_RETURNS)
         val throwingTrusted = trustedOf(throwing)
         assertTrue(throwing.outcomes.all { it is Outcome.Threw }, "no path may return, or this tests nothing")
@@ -218,18 +182,15 @@ class AssignmentDistinctionTest {
         assertEquals(RegisterOccupancy.NO_PATH, throwingTrusted.terminatingRegisterOccupancy(0))
         assertEquals(RegisterOccupancy.NO_PATH, throwingTrusted.terminatingRegisterOccupancy(1))
 
-        // The sharp half: v1 IS held -- it is the thrown parameter -- and the per-address query says so.
-        // "No path returned" is therefore a fact about the RUN and not about the register, which is why
-        // one boolean about assignment could never have carried it.
+        // v1 is held (it is the thrown parameter). "No path returned" is a fact about the run, not the register.
         assertEquals(
             Value.Unknown(VirtualType.of("Ljava/lang/RuntimeException;")),
             throwing.explored.consensus(0, 1),
         )
         assertEquals(RegisterOccupancy.HELD, throwingTrusted.registerOccupancy(0, 1))
 
-        // ...against a method that DOES return and whose return value is genuinely unknowable. Same
-        // `terminatingConsensus`, opposite licence: a consumer may treat the first as "this method has no
-        // normal result at all" and must treat the second as "live, do not fold".
+        // A method that returns an unknowable value has the same `terminatingConsensus` but a different meaning:
+        // "no normal result" versus "live, do not fold".
         val returning = completed(DISAGREEING)
         val returningTrusted = trustedOf(returning)
         assertTrue(returningTrusted.didAnyPathReturn())
@@ -239,13 +200,9 @@ class AssignmentDistinctionTest {
 
     @Test
     fun theHighHalfOfALiveWidePairReadsAsNeverAssignedAndAvailableRegistersIsWhatKnowsBetter() {
-        // The fourth ambiguity, stated because it is measured rather than because it is feared, and it is
-        // inherited from `Frame.peek` rather than introduced here: `Frame.assign` records a wide value's
-        // high half as an internal `WideHigh` slot and `peek` answers null for it, so this query reports
-        // NEVER_ASSIGNED for the high half of a live `J` parameter pair. That is the right answer to the
-        // question asked ("does any path hold a readable value here") and the WRONG answer to the question
-        // a consumer hunting scratch registers is asking -- which has its own owner, `availableRegisters`,
-        // and that one accounts for wide pairs on both sides.
+        // `Frame.assign` records a wide value's high half as an internal `WideHigh` slot that `peek` answers
+        // null for, so occupancy reports NEVER_ASSIGNED for the high half of a live `J` pair. Scratch-register
+        // search belongs to `availableRegisters`, which accounts for wide pairs.
         val graph = completed("instanceWideParams(JLjava/lang/String;I)I", className = "Lspine/spine;")
         val at = 0
         assertEquals(RegisterOccupancy.HELD, graph.explored.registerOccupancy(at, 4), "v4 is the J low half")
@@ -255,21 +212,19 @@ class AssignmentDistinctionTest {
         )
         assertFalse(
             5 in graph.availableRegisters(at).toList(),
-            "the high half of a live pair is NOT free, and this is the query that knows it",
+            "the high half of a live pair is not free, and this is the query that knows it",
         )
-        assertTrue(1 in graph.availableRegisters(at).toList(), "a genuinely untouched local IS free")
+        assertTrue(1 in graph.availableRegisters(at).toList(), "a genuinely untouched local is free")
         assertEquals(
             RegisterOccupancy.NEVER_ASSIGNED, graph.explored.registerOccupancy(at, 1),
-            "so NEVER_ASSIGNED alone cannot mean 'free' -- v1 and v5 answer the same and differ",
+            "so NEVER_ASSIGNED alone cannot mean 'free': v1 and v5 answer the same and differ",
         )
     }
 
     @Test
     fun bothQueriesAreTotalForARegisterTheMethodDoesNotHave() {
-        // Spec section 9: these queries must never throw on ordinary traversal. `Frame.peek` DOES throw
-        // for an out-of-range register (`requireInRange`), so the range guard is not decoration -- it is
-        // what `ExecutionGraph.valueIn` already does, and answering the same way as `consensus` for the
-        // same input is the property that keeps the two queries about one fact.
+        // Queries must not throw during traversal. `Frame.peek` throws for an out-of-range register, so the
+        // range guard answers the way `ExecutionGraph.valueIn` does.
         val graph = completed(DISAGREEING)
         val trusted = trustedOf(graph)
         val absent = 99
@@ -281,9 +236,7 @@ class AssignmentDistinctionTest {
 
     @Test
     fun theGatedTwinsDelegateExactlyAndAreUnreachableOnATruncatedRun() {
-        // `ExecutionGraph.TrustedView`'s own contract: the gate decides WHO may act on an answer, never
-        // WHAT the answer is. A re-derivation there -- even a "conservative" one -- would push consumers
-        // back onto the ungated query, which is the hole the gate exists to close.
+        // The gate decides who may act on an answer, never what the answer is.
         val graph = completed(DISAGREEING)
         val trusted = trustedOf(graph)
         for (register in 0..2) {
@@ -300,11 +253,8 @@ class AssignmentDistinctionTest {
         }
         assertEquals(graph.explored.didAnyPathReturn(), trusted.didAnyPathReturn())
 
-        // And the gate itself, on the truncation that actually matters. A run stopped before ANY path got
-        // to a `return` answers `false` here for a method that plainly does return -- so on a run that is
-        // not `canTrustConsensus`, a `false` is not the fact case (d) asserts, it is an artifact of where
-        // the walk stopped. That is the same hazard `wasReached`'s KDoc records, arriving in a second
-        // query, and it is why the gated twin exists rather than a KDoc warning.
+        // A run stopped before any path reached a `return` answers `false` here for a method that does
+        // return, which is why the twins are gated rather than documented.
         val truncated = CoreTester.execute(CLASS, DISAGREEING, limits = Limits(maxSteps = 1))
         assertTrue(truncated.completion() is CompletionStatus.Partial, "the run must have been cut short")
         assertNull(truncated.trusted(), "a Partial run may not hand out the gated twins")
@@ -313,25 +263,14 @@ class AssignmentDistinctionTest {
             RegisterOccupancy.NO_PATH, truncated.explored.terminatingRegisterOccupancy(0),
             "and so does the register-indexed twin, with the same caveat",
         )
-        // The control that makes the two `false`s above a truncation artifact rather than a property of
-        // the method: the SAME method on a complete run returns twice.
+        // The same method on a complete run returns, so the `false`s above are a truncation artifact.
         assertTrue(trusted.didAnyPathReturn(), "disagreeingArms returns on both arms when allowed to finish")
     }
 
     /**
-     * The consumer-reachability claim, written so the COMPILER checks it: this function can see nothing but
-     * a [TrustedGraphView], and it still reaches all three verdicts a Plan 14 strategy needs to keep apart.
-     *
-     * That is not incidental. [ExecutionGraph.outcomes] is not on [TrustedGraphView], and
-     * [ExecutionGraph.wasReached]/[ExecutionGraph.wasAttempted] are on the graph only -- so a consumer
-     * handed only the trusted view had no route to "no path
-     * returned" at all before [RegisterOccupancy] existed, however many booleans it was given.
-     *
-     * The `error` branch is a checked invariant rather than defensive padding: if any path returned, the
-     * returning-node set is non-empty, so [TrustedGraphView.terminatingRegisterOccupancy] cannot answer
-     * [RegisterOccupancy.NO_PATH]. It is **evaluated** on every call and must **fire on none** -- and it does
-     * fire, i.e. the test goes red, if the two queries are ever made to disagree, which is what M11 (invert
-     * `didAnyPathReturn`) measures.
+     * Sees only a [TrustedGraphView], so the compiler checks that a consumer can reach all three verdicts from
+     * it. The `error` branch is an invariant: if any path returned, the returning-node set is non-empty and
+     * [TrustedGraphView.terminatingRegisterOccupancy] cannot answer [RegisterOccupancy.NO_PATH].
      */
     private fun verdictFrom(trusted: TrustedGraphView, register: Int): String =
         if (!trusted.didAnyPathReturn()) {
@@ -346,7 +285,7 @@ class AssignmentDistinctionTest {
         }
 
     @Test
-    fun aConsumerHoldingONLYTheTrustedViewCanTellAllThreeApart() {
+    fun aConsumerHoldingOnlyTheTrustedViewCanTellAllThreeApart() {
         assertEquals(
             "live and unknowable", verdictFrom(trustedOf(completed(DISAGREEING)), 0),
             "two arms disagreed about v0: do not fold it",
@@ -359,13 +298,12 @@ class AssignmentDistinctionTest {
             "no normal result at all", verdictFrom(trustedOf(completed(NEVER_RETURNS)), 0),
             "every path throws, which licenses a different action from either verdict above",
         )
-        // Three distinct verdicts from three inputs whose `terminatingConsensus` is the SAME `Value.Top`.
+        // Three distinct verdicts from inputs whose `terminatingConsensus` is the same `Value.Top`.
         val consensuses = listOf(
             trustedOf(completed(DISAGREEING)).terminatingConsensus(0),
             trustedOf(completed(DISAGREEING)).terminatingConsensus(1),
             trustedOf(completed(NEVER_RETURNS)).terminatingConsensus(0),
         )
-        assertEquals(listOf<Value>(Value.Top, Value.Top, Value.Top), consensuses, "...and that is the point")
+        assertEquals(listOf<Value>(Value.Top, Value.Top, Value.Top), consensuses)
     }
-
 }

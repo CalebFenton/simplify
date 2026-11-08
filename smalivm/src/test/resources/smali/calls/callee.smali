@@ -1,17 +1,12 @@
 .class public Lcalls/callee;
 .super Ljava/lang/Object;
 
-# ---------------------------------------------------------------------------------------
-# The CALLEE half of Plan 9 Task 14's fixtures. Addresses are METHOD-LOCAL, so adding or
-# reordering whole methods here is address-safe; editing instructions INSIDE one shifts the
-# rest of that method and several tests pin exact addresses.
+# The callee half of the invocation fixtures. Addresses are method-local: adding whole methods is
+# address-safe, editing instructions inside one shifts that method, and tests pin exact addresses.
 #
-# The address LAYOUT of `returnsSeven()I` is load-bearing and must not change: address 0
-# holds a `const/4` and address 1 holds the `return`, which is exactly the layout
-# `Lcalls/caller;->callsCalleeAndReturnsItsOwn()I` also has at 0 and 1. That coincidence IS
-# the collision fixture -- see InvokerTest's collision tests. A caller-and-callee pair whose
-# addresses did not overlap could not tell per-activation keying from a bare-address map.
-# ---------------------------------------------------------------------------------------
+# `returnsSeven()I` must keep `const/4` at @0 and `return` at @1, the same layout as
+# `Lcalls/caller;->callsCalleeAndReturnsItsOwn()I`. The overlap is the collision fixture for
+# InvokerTest: only overlapping addresses distinguish per-activation keying from a bare-address map.
 
 # @0 const/4 (11n, 1 unit), @1 return (11x, 1 unit)
 .method public static returnsSeven()I
@@ -36,16 +31,15 @@
     return-void
 .end method
 
-# takes one narrow argument and returns it unchanged. Parameters live in the HIGHEST
+# takes one narrow argument and returns it unchanged. Parameters live in the highest
 # registers, so with `.registers 1` the single parameter is v0 (p0).
 .method public static identityInt(I)I
     .registers 1
     return v0
 .end method
 
-# a WIDE parameter, which occupies TWO registers -- the trap the plan's Global Constraints
-# warn about (`getParameterTypeNames()` sums to 2 for J/D and 1 otherwise). With
-# `.registers 2` the long parameter is the pair (v0, v1) = p0.
+# A wide parameter occupies two registers. With `.registers 2` the long parameter is the pair
+# (v0, v1) = p0.
 .method public static identityLong(J)J
     .registers 2
     return-wide v0
@@ -60,9 +54,7 @@
     return-object v1
 .end method
 
-# unbounded self-recursion: the first thing invocation makes possible and the reason
-# `Limits.maxCallDepth` exists. Without the bound this hangs the suite (or overflows the
-# host stack) instead of reporting a truncated exploration.
+# Unbounded self-recursion; `Limits.maxCallDepth` turns it into a truncated exploration.
 .method public static recursesForever()I
     .registers 1
     invoke-static {}, Lcalls/callee;->recursesForever()I
@@ -70,10 +62,8 @@
     return v0
 .end method
 
-# a callee that LOOPS, so a per-activation visit budget still has something to trip. Without this
-# fixture "each activation gets its own budget" could be satisfied by never counting at all -- the
-# caller-and-callee test would pass with the whole bound deleted. The label is on the nop, not on the
-# goto: a goto with a zero offset is an encoding Dalvik rejects.
+# A looping callee, so a per-activation visit budget has something to trip. The label is on the nop
+# because Dalvik rejects a goto with a zero offset.
 .method public static spinsForever()V
     .registers 1
     :loop
@@ -81,23 +71,18 @@
     goto :loop
 .end method
 
-# a callee that THROWS instead of returning. Cross-frame unwind is Plan 12's, so the new
-# core must abort this path rather than report the throw as escaping the CALLER -- which
-# would drop the caller's own handlers as feasible paths.
+# A callee whose throw escapes it, for callers that do or do not catch it.
 .method public static throwsUncaught()I
     .registers 1
     const/4 v0, 0x0
     throw v0
 .end method
 
-# a callee that declares a STRONG side effect AND still returns normally. The caller must not report
-# NONE for a method that calls this.
+# Declares a STRONG side effect and still returns normally; a caller must not report NONE.
 #
-# The array register holds a `Known` REFERENCE whose raw is not a HeapRef, which is `APutOp`'s row 3:
-# provably non-null (so no NPE fork), no tracked array behind it (so no length and no bounds fork), and
-# therefore a write that landed somewhere unmodellable -- `STRONG` with a plain fall-through and nothing
-# thrown. The obvious `const/4 v1, 0x0` would NOT do: a primitive-typed register reads as a null
-# reference, which is a DEFINITE NullPointerException and no side effect at all.
+# The array register holds a known non-HeapRef reference: non-null (no NPE fork) and untracked (no
+# bounds fork), so the write is STRONG with a plain fall-through. `const/4 v1, 0x0` would not do: a
+# primitive-typed register reads as null, a definite NullPointerException with no side effect.
 .method public static strongEffect()V
     .registers 3
     const/4 v0, 0x0
@@ -107,7 +92,6 @@
     return-void
 .end method
 
-# no implementation at all: Plan 11's backends own it, and until they exist the Invoker must
-# refuse conservatively rather than crash trying to build a MethodView for a bodyless method.
+# No body: unless an emulator is registered, the call continues opaquely with an Unknown result.
 .method public static native nativeCallee()I
 .end method

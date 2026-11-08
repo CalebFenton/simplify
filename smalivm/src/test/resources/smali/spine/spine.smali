@@ -115,41 +115,29 @@
     return-wide v0
 .end method
 
-# ---------------------------------------------------------------------------------------
-# The five const forms below exist so that EVERY const opcode OpBuilder dispatches is
-# decoded by a real test, not just the four the original fixtures happened to use. See
-# OpBuilderTest's type-tag parity test.
-#
-# Editing note for whoever touches this file next: whole-method insertions anywhere in
-# this file are address-safe, because smali code addresses are METHOD-LOCAL -- adding,
-# removing or reordering entire methods never shifts another method's addresses. Editing
-# instructions INSIDE an existing method is what shifts them, and several tests pin exact
-# addresses.
-# ---------------------------------------------------------------------------------------
+# The const forms below give every const opcode OpBuilder dispatches a real decode test (OpBuilderTest's
+# type-tag parity test). Addresses are method-local: whole-method insertions are address-safe, editing
+# instructions inside a method is not, and tests pin exact addresses.
 
-# const-wide/16: a SIZED wide form. Dalvik has four const-wide opcodes and the engine tags
-# the plain `const-wide` as D but every sized form as J, so this pins the other side of
-# that split.
+# const-wide/16: a sized wide form. The engine tags plain `const-wide` as D and every sized form
+# as J, so this pins the sized side of that split.
 .method public static returnWideSixteen()J
     .registers 2
     const-wide/16 v0, 0x2a
     return-wide v0
 .end method
 
-# const-wide/32: the DANGEROUS wide form. It shares Format31i with the plain `const`, and
-# Instruction31i implements NarrowLiteralInstruction, so if this opcode ever fell through
-# to OpBuilder's narrow branch NOTHING would throw: the literal would be truncated to 32
-# bits, tagged I, and Frame would stop reserving the pair's high half. Silent, so it needs
-# a test.
+# const-wide/32 shares Format31i with plain `const`, and Instruction31i implements
+# NarrowLiteralInstruction, so a fall-through to OpBuilder's narrow branch would silently truncate the
+# literal to 32 bits, tag it I, and stop reserving the pair's high half.
 .method public static returnWideThirtyTwo()J
     .registers 2
     const-wide/32 v0, 0x1b7740
     return-wide v0
 .end method
 
-# const-wide/high16: the LOUD wide form. Instruction21lh implements LongHatLiteralInstruction
-# but NOT NarrowLiteralInstruction, so the same fall-through mistake throws instead of
-# corrupting a value. Kept for completeness, and to document the asymmetry with /32 above.
+# const-wide/high16: Instruction21lh implements LongHatLiteralInstruction but not
+# NarrowLiteralInstruction, so the same fall-through mistake throws instead of corrupting a value.
 .method public static returnWideHighSixteen()J
     .registers 2
     const-wide/high16 v0, 0x4242000000000000L
@@ -195,15 +183,12 @@
     throw v1
 .end method
 
-# TWO typed handlers over the same range, so an unknown thrown type has more than one feasible
-# handler and the fork ORDER becomes observable. The declaration order is deliberately the REVERSE
-# of the handler-address order: `:later` (address 3) is declared first, `:earlier` (address 1)
-# second. Without that inversion, "explored in declaration order" and "explored in ascending
-# address order" would be the same sequence and neither could be pinned by a test.
+# Two typed handlers over the same range, so an unknown thrown type has two feasible handlers and the
+# fork order is observable. Declaration order is the reverse of address order (`:later` at 3 first,
+# `:earlier` at 1 second), so "declaration order" and "ascending address order" differ.
 #
-# The two handlers also end differently on purpose: `:earlier` returns the CAUGHT value, which
-# proves the thrown object reached a *forked* handler's own frame, while `:later` returns a
-# constant, so the two paths are distinguishable by outcome value and not just by address.
+# `:earlier` returns the caught value, proving the thrown object reached a forked handler's frame;
+# `:later` returns a constant, so the paths differ by outcome value as well as address.
 .method public static throwTwoHandlers(Ljava/lang/Object;)Ljava/lang/Object;
     .registers 2
     :try_start
@@ -219,11 +204,9 @@
     return-object v0
 .end method
 
-# a covering catch-all alongside a typed clause. Two things need this fixture: catch-all
-# PRECEDENCE for a known type that no typed clause matches, and -- the load-bearing one -- the
-# catch-all ESCAPE rule for an unknown type (HandlerResolution.kt's `candidateHandlers` contract):
-# a catch-all guarantees the exception is handled in this method, so `Outcome.Threw` is NOT a
-# feasible path here even though the thrown type is unknown.
+# A covering catch-all alongside a typed clause: catch-all precedence for a known type no typed clause
+# matches, and for an unknown type the catch-all guarantees the exception is handled here, so
+# `Outcome.Threw` is not a feasible path.
 .method public static throwCatchAll(Ljava/lang/Object;)Ljava/lang/Object;
     .registers 2
     :try_start
@@ -239,12 +222,10 @@
     return-object v0
 .end method
 
-# `const/4 v0, 0x0` is the null-reference idiom, and with this build's op set it produces
-# Known(0, "I") -- an INT, which can never be a throwable's runtime class. Dalvik throws a fresh
-# NullPointerException here (a RuntimeException, so the handler below catches it), which means the
-# handler is a feasible path even though nothing about the register's value says so. Resolving by the
-# register's declared type would explore ZERO of it on a run that still reports Complete. This
-# fixture exists so that case is reachable from ordinary smali, not only from a seeded frame.
+# `const/4 v0, 0x0` is the null-reference idiom and produces Known(0, "I"), an int. Dalvik throws a
+# fresh NullPointerException here, which the RuntimeException handler catches, so the handler is
+# feasible although the register's declared type says nothing about it. This reaches that case from
+# ordinary smali rather than a seeded frame.
 .method public static throwNullConst()Ljava/lang/Object;
     .registers 1
     const/4 v0, 0x0
@@ -257,26 +238,20 @@
     return-object v0
 .end method
 
-# The HANDLER-REACHABILITY half of `throwNullConst` above, which one handler cannot state. Two typed
-# clauses cover the same null-idiom throw and only ONE of them catches a NullPointerException, so
-# "resolves definitely to the NPE handler" and "forks every covering handler" reach DIFFERENT address
-# sets here and a test can tell them apart. Two deliberate choices in the layout, both of which make the
-# test discriminate where an easier layout would not:
+# Handler reachability for the null-idiom throw: two typed clauses cover it and only one catches a
+# NullPointerException, so "resolves definitely to the NPE handler" and "forks every covering handler"
+# reach different addresses.
+#  - the non-matching clause (`Ljava/io/IOException;`) is declared and assembled first, so its handler is
+#    at address 2, which is also `nextAddress(1)`: a router treating a handler as the throw's
+#    fall-through reaches the address the test asserts is unreached.
+#  - the matching handler is not adjacent to the throw, so reaching it shows real try-table resolution.
 #
-#  - the NON-matching clause (`Ljava/io/IOException;`) is declared first AND assembled first, so its
-#    handler lands at address 2 -- which is also `nextAddress(1)`. A router that treated a handler as the
-#    throw's fall-through would reach exactly the address this fixture asserts is unreached.
-#  - the matching clause's handler is therefore NOT adjacent to the throw, so reaching it is evidence of
-#    real try-table resolution rather than of falling through.
+# Addresses: @0 const/4 (11n, 1 unit), @1 throw (11x, 1 unit), try range [1, 2), @2 const-string (21c,
+# 2 units), @4 return-object (11x, 1 unit), @5 move-exception (11x, 1 unit), @6 return-object. Handlers
+# are at 2 and 5; tests read them off the try-block table by catch type.
 #
-# Addresses, derived from the assembled instructions and not assumed: @0 const/4 (11n, 1 unit), @1 throw
-# (11x, 1 unit), try range [1, 2), @2 const-string (21c, 2 units), @4 return-object (11x, 1 unit),
-# @5 move-exception (11x, 1 unit), @6 return-object. So the two handler addresses are 2 and 5. Tests read
-# both off the try-block table by catch type rather than hard-coding them, and then check these numbers.
-#
-# Note that the assembler emits ONE try-block table entry per `.catch` directive even though both cover
-# the same range, so `methodView.tryBlocks` has TWO entries here and a test must flatten `catches` across
-# them rather than reach for `tryBlocks.single()`.
+# The assembler emits one try-block entry per `.catch` directive, so `methodView.tryBlocks` has two
+# entries here; tests flatten `catches` across them.
 .method public static throwNullConstTwoHandlers()Ljava/lang/Object;
     .registers 1
     const/4 v0, 0x0
@@ -293,20 +268,11 @@
     return-object v0
 .end method
 
-# The SAME method with ONE NIBBLE changed -- 0x5 instead of 0x0 -- and the point is that the outcome does
-# NOT depend on that nibble. Both are a definite, message-less NullPointerException, because ART's `THROW()`
-# fetches its operand with `GetVRegReference`, `ShadowFrame` keeps a PARALLEL reference array, and every
-# primitive write clears the matching slot (`References()[i].Clear()` in SetVReg/SetVRegFloat/SetVRegLong/
-# SetVRegDouble, shadow_frame.h:190-228; ART's own prose at :401-408: "when a primitive is stored in vX, the
-# second (reference) part of the array will be null"). So a primitive-typed register reads as null whatever
-# its VALUE, and 0x5 is the same case as 0x0.
-#
-# THIS FIXTURE'S HEADER USED TO SAY THE OPPOSITE -- that ART "reinterprets the 5 as an object pointer and
-# dereferences it", making the case undefined behavior and an ambiguous fork. That reading followed `THROW()`
-# without following `GetVRegReference` one level down, and it is corrected here rather than deleted so nobody
-# restores it. The fixture is kept, and is now MORE valuable than under the old reading: it is the only place
-# a NON-zero primitive throw is driven from real bytecode, so it is what fails if the predicate ever narrows
-# back to `isDalvikNull`. Same addresses as above (handlers at 2 and 5).
+# The same method with 0x5 instead of 0x0; the outcome does not depend on that nibble. Both are a
+# definite, message-less NullPointerException: ART's `THROW()` reads its operand with `GetVRegReference`,
+# and every primitive write clears the register's reference slot, so a primitive-typed register reads as
+# null whatever its value (DALVIK-SEMANTICS.md, Coercion and register bits). This is the only non-zero
+# primitive throw driven from real bytecode. Same addresses as above (handlers at 2 and 5).
 .method public static throwNonZeroConstTwoHandlers()Ljava/lang/Object;
     .registers 1
     const/4 v0, 0x5
@@ -323,11 +289,9 @@
     return-object v0
 .end method
 
-# a catch type that is syntactically valid but NOT LOADABLE: no `Lspine/absent;` exists in the
-# test smali set or the framework set, which is the normal case in a real obfuscated APK. The
-# subtype question "is the thrown type a Lspine/absent;?" is therefore unanswerable, and
-# ClassIndex reaches the class model unguarded, so the class model raises rather than answering.
-# This fixture pins which way that resolves (see ThrowRoutingTest: ambiguity, not a host failure).
+# A catch type that is syntactically valid but not loadable: no `Lspine/absent;` exists in the test or
+# framework set, the normal case in an obfuscated APK. Whether the thrown type matches is unanswerable,
+# and ThrowRoutingTest pins that this is ambiguity, not a host failure.
 .method public static throwUnloadableCatchType(Ljava/lang/RuntimeException;)Ljava/lang/Object;
     .registers 2
     :try_start
@@ -339,11 +303,7 @@
     return-object v0
 .end method
 
-# Former unsupported-opcode fixture. `add-int` is now supported.
-# `add-int` is implemented in this plan, at which point this method becomes an ordinary supported
-# one. Kept because it then makes a free differential fixture (two consts and an add, all values
-# known), and because deleting it would churn the addresses nothing else depends on.
-.method public static unsupportedOpcode()I
+.method public static addIntOfKnownConstants()I
     .registers 2
     const/4 v0, 0x3
     const/4 v1, 0x4
@@ -351,10 +311,9 @@
     return v0
 .end method
 
-# A clearly named MALFORMED-OPERAND fixture for scheduler and trust-gate tests. `filled-new-array` itself
-# is supported and appears in OpBuilder.supportedOpcodes. Its `[J` operand is SPEC-forbidden because [BC]
-# permits only single-word contents, so this exact instruction decodes to UnsupportedOp. This is not a
-# capability ratchet and must not be registered as a supported-dialect differential fixture.
+# A malformed-operand fixture for scheduler and trust-gate tests. `filled-new-array` is supported, but
+# [BC] permits only single-word contents, so the `[J` operand decodes to UnsupportedOp. Do not register
+# it as a supported-dialect differential fixture.
 # Addresses (derived from the assembled instructions, not assumed): @0 const/4 (Format11n, 1 unit),
 # @1 filled-new-array (Format35c, 3 units), @4 return (Format11x, 1 unit).
 .method public static unsupportedWideFilledArray()I
@@ -367,12 +326,8 @@
     return v0
 .end method
 
-# an unbounded backward goto: the ONLY way to revisit an address with the opcodes this plan
-# implements, and therefore the only fixture that can actually exceed a per-address visit budget.
-# Without it the address-visit limit has no honest test -- every other method here is straight-line,
-# so a budget of 1 is never exceeded and an "assert Partial" would only pass if the limit tripped
-# one visit too early. The label is on the nop, not on the goto: a goto with a zero offset is an
-# encoding Dalvik rejects.
+# An unbounded backward goto, the fixture that exceeds a per-address visit budget. The label is on the
+# nop because Dalvik rejects a goto with a zero offset.
 .method public static spinForever()V
     .registers 1
     :loop
@@ -380,17 +335,11 @@
     goto :loop
 .end method
 
-# a loop whose back-edge register (v1) is REASSIGNED every iteration: proves the Task 6 piling
-# decision's soundness half, not just its visibility half. With a tight per-address budget, the
-# SECOND visit to the move at :loop is limit-aborted before its own op ever runs, so its Frame is
-# still the FIRST iteration's post-goto snapshot (v1 == 0x2) rather than genuine post-op state.
-# v1 is the discriminating register: it changes between the executed visit's value (0x1, read by
-# the move before the const below it ever runs) and the aborted revisit's stale value (0x2, read
-# after that const already ran once) -- so an implementation that let the aborted node vote would
-# see v1 disagree with itself and collapse a sound single-writer value to Unknown. v0 is
-# deliberately NOT the proof register: nothing rewrites it between "just after visit 1's move" and
-# "right before visit 2's move would run", so it coincidentally reads the same either way and a
-# filtering bug there would go unnoticed.
+# A loop whose back-edge register v1 is reassigned every iteration. With a tight per-address budget the
+# second visit to the move at :loop is limit-aborted before its op runs, so its frame is a stale
+# snapshot (v1 == 0x2) while the executed visit read 0x1. If the aborted node voted in consensus, v1
+# would collapse from a sound single-writer value to Unknown. v0 cannot show this: nothing rewrites it
+# between the two visits.
 .method public static loopRevisitChangesRegister()V
     .registers 2
     const/4 v1, 0x1
@@ -400,23 +349,16 @@
     goto :loop
 .end method
 
-# control flow that runs off the end of the method: a lone nop can fall through, but there is no
-# next address to fall through TO. Dalvik would reject this method, but obfuscators emit malformed
-# and unreachable tails, so the scheduler's containment of it needs a deterministic test rather than
-# depending on some other fixture happening to be malformed.
+# Control flow that runs off the end of the method: the nop has no next address. Dalvik rejects this,
+# but obfuscators emit malformed tails, so the scheduler's containment needs a deterministic test.
 .method public static fallsOffTheEnd()V
     .registers 1
     nop
 .end method
 
-# a KNOWN-type throw at a NON-ZERO address, inside a try block that does NOT cover address 0.
-# Every other throw fixture here throws at address 0, so the session's wiring of the throw address
-# into `resolveHandler` was unpinned: passing a constant 0 instead of the throwing node's own
-# address resolved every one of them identically. This method discriminates -- the `nop` pushes the
-# throw to address 1 and the try range is [1, 2), so resolving at 0 finds no covering block and
-# reports the throw as escaping a method Dalvik provably catches it in: an unexplored feasible path
-# on a run that still says Complete. The reverse shape (a try block covering 0 but not the throw)
-# fabricates a caught path Dalvik never takes.
+# A known-type throw at address 1, inside a try range [1, 2) that does not cover address 0. Handler
+# resolution must use the throwing node's own address: resolving at 0 would report an escape from a
+# method Dalvik catches it in.
 .method public static throwCaughtAfterNop(Ljava/lang/RuntimeException;)Ljava/lang/Object;
     .registers 2
     nop
@@ -429,21 +371,17 @@
     return-object v0
 .end method
 
-# instance method with a NON-TRAILING wide parameter: pins the two silent
-# register-layout traps at once — `this` occupying p0, and a wide (J) parameter
-# consuming TWO registers so every parameter after it shifts by 2, not 1.
+# Instance method with a non-trailing wide parameter: `this` occupies p0, and the wide (J) parameter
+# takes two registers, so every later parameter shifts by 2.
 .method public instanceWideParams(JLjava/lang/String;I)I
     .registers 8
     const/4 v0, 0x7
     return v0
 .end method
 
-# identity: returns v0 unchanged, with no opcode in between. Exists so the migration harness
-# (CoreTesterTest) can drive CoreTester.test's ARRAY comparison through a real completed run without
-# needing an array opcode -- new-array/aget/aput are Plan 7's, and every other array-typed return in
-# this file needs one of them. v0 is read without ever being assigned by an instruction in this
-# method, mirroring Laget_test;'s locals-only, externally-seeded style (`getUninitializedInt()V`):
-# CoreTester seeds it before the run starts, so nothing here needs to.
+# identity: returns v0 unchanged with no opcode in between, so CoreTesterTest can drive
+# CoreTester.test's array comparison through a completed run with no array opcode. CoreTester seeds v0
+# before the run.
 .method public static identity()Ljava/lang/Object;
     .registers 1
     return-object v0

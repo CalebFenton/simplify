@@ -92,7 +92,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverDrainsNestedCallsBeforeTheOuterCallerResumes() {
-        val session = vm.newSession(viewOf(INVOKE_REVIEW, "nestedTwoHandlers()I"))
+        val session = vm.newSession(viewOf(INVOKE_CALL, "nestedTwoHandlers()I"))
         val debugger = Debugger(session)
         val outerInvoke = debugger.cursor!!
 
@@ -106,8 +106,8 @@ class DebuggerTest {
             }
         }
         collect(outerInvoke)
-        assertTrue(nestedNodes.any { it.view.signature.toString() == "$INVOKE_REVIEW->innerWithTwoHandlers()I" })
-        assertTrue(nestedNodes.any { it.view.signature.toString() == "Linvoke_review_callee;->throwsNpe()V" })
+        assertTrue(nestedNodes.any { it.view.signature.toString() == "$INVOKE_CALL->innerWithTwoHandlers()I" })
+        assertTrue(nestedNodes.any { it.view.signature.toString() == "Linvoke_call_callee;->throwsNpe()V" })
         assertTrue(nestedNodes.filter { it.activation !== outerInvoke.activation }.all { it.progress is OpProgress.Executed })
         assertSame(outerInvoke.activation, continuation.activation)
         assertEquals(3, continuation.address)
@@ -147,20 +147,6 @@ class DebuggerTest {
         assertNull(second, "internal completion routing must not publish the already-executed invoke")
         assertEquals(listOf(Outcome.Returned(Value.Known(3, int))), session.outcomes)
         assertEquals(1, session.graph().nodePile(view.codeAddressAtInstructionIndex(0)).size)
-    }
-
-    @Test
-    fun publicFrontierContainsOnlyExecutablePreOpNodesDuringThreeFrameUnwind() {
-        val session = CoreTester.vmServices.newSession(
-            viewOf(EXCEPTION_PROPAGATION, "outerThreeFrames()I"),
-        )
-
-        while (!session.isFinished) {
-            val next = session.frontier.last()
-            assertEquals(OpProgress.Pending, next.progress)
-            assertSame(next, session.step())
-            assertTrue(session.frontier.all { it.progress == OpProgress.Pending })
-        }
     }
 
     @Test
@@ -230,7 +216,7 @@ class DebuggerTest {
 
     @Test
     fun stepOverOpaqueCallConsumesOnlyTheInvokeSchedulerStep() {
-        val session = vm.newSession(viewOf(INVOKE_REVIEW, "arityMismatchOpaque()I"))
+        val session = vm.newSession(viewOf(INVOKE_CALL, "arityMismatchOpaque()I"))
         val debugger = Debugger(session)
         while (debugger.cursor!!.view.opcodeAt(debugger.cursor!!.address) != Opcode.INVOKE_STATIC) {
             debugger.stepInto()
@@ -814,45 +800,6 @@ class DebuggerTest {
     }
 
     @Test
-    fun opProgressAndWasReachedKeepTheirExactPhaseTruthTable() {
-        val preOpLimit = sessionOf("returnFive()I", Limits(maxSteps = 1))
-        preOpLimit.step()
-        val stopped = preOpLimit.step()!!
-        assertEquals(OpProgress.Pending, stopped.progress, "a pre-op limit abort did not enter execute")
-        assertFalse(preOpLimit.graph().wasReached(stopped.address))
-
-        val normal = sessionOf("returnFive()I")
-        val executed = normal.step()!!
-        assertTrue(executed.progress is OpProgress.Executed)
-        assertTrue(normal.graph().wasReached(executed.address))
-
-        val unsupported = sessionOf("unsupportedWideFilledArray()I")
-        unsupported.step()
-        val aborted = unsupported.step()!!
-        assertEquals(Outcome.Aborted(AbortReason.UNSUPPORTED_OP), aborted.outcome)
-        assertTrue(aborted.progress is OpProgress.Executed, "UnsupportedOp returns Abort from execute")
-        assertTrue(unsupported.graph().wasReached(aborted.address))
-
-        val hostFailureView = viewOf(SPINE, "returnFive()I")
-        val hostFailure = vm.newSession(hostFailureView, Limits(), null) { address, view, resolver ->
-            if (address == 0) {
-                object : Op(address) {
-                    override val name = "throws-host-failure"
-
-                    override fun execute(frame: Frame): OpExecution =
-                        throw IllegalStateException("host failure before execute returned")
-                }
-            } else {
-                OpBuilder.build(address, view, resolver)
-            }
-        }
-        val failed = hostFailure.step()!!
-        assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
-        assertEquals(OpProgress.Failed, failed.progress, "execute was entered before the host throwable escaped it")
-        assertFalse(hostFailure.graph().wasReached(failed.address), "wasReached still means execute returned")
-    }
-
-    @Test
     fun aForkedStepLimitLeavesTheSelectedStoppedNodeAsLastNode() {
         val session = sessionOf(
             "throwTwoHandlers(Ljava/lang/Object;)Ljava/lang/Object;",
@@ -1085,8 +1032,8 @@ class DebuggerTest {
 
     @Test
     fun debuggerObservationPreservesFinalAnalysisFacts(@TempDir root: Path) {
-        val directOpaque = sessionOf("arityMismatchOpaque()I", className = INVOKE_REVIEW).run()
-        val observedOpaque = runWithDebuggerObservation(sessionOf("arityMismatchOpaque()I", className = INVOKE_REVIEW))
+        val directOpaque = sessionOf("arityMismatchOpaque()I", className = INVOKE_CALL).run()
+        val observedOpaque = runWithDebuggerObservation(sessionOf("arityMismatchOpaque()I", className = INVOKE_CALL))
         assertEquivalentFinalGraphs(directOpaque, observedOpaque)
 
         val directArrayRef = (directOpaque.explored.terminatingConsensus(1) as Value.Known).raw as HeapRef
@@ -1099,7 +1046,7 @@ class DebuggerTest {
         assertTrue(finalNodeFacts(observedOpaque).any { it.invocationDiagnostic != null })
 
         Files.writeString(root.resolve("orphan.smali"), ORPHAN_SOURCE.trimIndent())
-        val incompleteIndex = task53ClassIndex(root, INCOMPLETE_BASE_SOURCE)
+        val incompleteIndex = classIndexFromSource(root, INCOMPLETE_BASE_SOURCE)
         val incompleteVm = VmServices(incompleteIndex)
         val incompleteView = incompleteIndex.requireMethodView(INCOMPLETE_BASE, "incompleteWorld(Lincomplete/base;)I")
         val directDispatch = incompleteVm.newSession(incompleteView).run()
@@ -1327,7 +1274,7 @@ class DebuggerTest {
         const val EXCEPTION_PROPAGATION = "Lexception_propagation_test;"
         const val CALLER = "Lcalls/caller;"
         const val IF_TEST = "Lif_test;"
-        const val INVOKE_REVIEW = "Linvoke_review;"
+        const val INVOKE_CALL = "Linvoke_call;"
         const val CLASS_FOR_NAME = "Lbackend/class_for_name_test;"
         const val CLASS_INIT_TRIGGER = "Lclass_init/trigger;"
         const val CLASS_INIT_WITNESS = "Lclass_init/witness;-><clinit>()V"

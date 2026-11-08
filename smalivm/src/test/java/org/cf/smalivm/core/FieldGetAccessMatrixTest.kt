@@ -21,18 +21,13 @@ class FieldGetAccessMatrixTest {
     @TestFactory
     fun accessMatrix(): List<DynamicTest> = buildList {
         for (case in accessCases) {
-            check(case.legacyIds.size == case.variants.size)
-            for ((variant, legacyId) in case.variants.zip(case.legacyIds)) {
+            for (variant in case.variants) {
                 when (case.expected) {
-                    ExpectedAccess.ALLOWED -> add(
-                        accessTest(case, legacyId, variant, case.receiverType, ExpectedAccess.ALLOWED),
-                    )
-                    ExpectedAccess.DENIED -> add(
-                        accessTest(case, legacyId, variant, case.receiverType, ExpectedAccess.DENIED),
-                    )
+                    ExpectedAccess.ALLOWED -> add(accessTest(case, variant, case.receiverType, ExpectedAccess.ALLOWED))
+                    ExpectedAccess.DENIED -> add(accessTest(case, variant, case.receiverType, ExpectedAccess.DENIED))
                     ExpectedAccess.PROTECTED_RECEIVER_RULE -> {
-                        add(accessTest(case, legacyId, variant, CHILD, ExpectedAccess.ALLOWED))
-                        add(accessTest(case, legacyId, variant, DECLARING, ExpectedAccess.DENIED))
+                        add(accessTest(case, variant, CHILD, ExpectedAccess.ALLOWED))
+                        add(accessTest(case, variant, DECLARING, ExpectedAccess.DENIED))
                     }
                 }
             }
@@ -325,7 +320,7 @@ class FieldGetAccessMatrixTest {
         // Bug class: a member walk that reads an absent interface as "declares nothing" reports a definite
         // NoSuchFieldException, and one that lets the absence escape aborts the path as a host failure. The host
         // JVM defines the class because it has javax.management; the program lacks it, so the field may exist.
-        val index = task53ClassIndex(
+        val index = classIndexFromSource(
             root,
             """
             .class public abstract Lhost_only/Implementor;
@@ -546,7 +541,6 @@ class FieldGetAccessMatrixTest {
 
     private fun accessTest(
         case: AccessCase,
-        legacyId: String,
         variant: FieldVariant,
         receiverType: VirtualType,
         expected: ExpectedAccess,
@@ -554,7 +548,7 @@ class FieldGetAccessMatrixTest {
         val condition = "caller=${case.caller.descriptor}, receiver=${receiverType.descriptor}, " +
             "visibility=${variant.visibility}, storage=${variant.storage}"
         val ruleId = case.target.substringAfter('[').substringBeforeLast(']')
-        val name = "rule=$ruleId; legacy=$legacyId; condition=$condition; expected=$expected"
+        val name = "rule=$ruleId; condition=$condition; expected=$expected"
         return DynamicTest.dynamicTest(name) {
             when (expected) {
                 ExpectedAccess.ALLOWED -> assertAllowed(case, variant, receiverType)
@@ -718,7 +712,6 @@ class FieldGetAccessMatrixTest {
     private data class AccessCase(
         val target: String,
         val authority: String,
-        val legacyIds: Set<String>,
         val caller: VirtualType,
         val variants: List<FieldVariant>,
         val expected: ExpectedAccess,
@@ -777,11 +770,10 @@ class FieldGetAccessMatrixTest {
 
 
         private val accessCases = listOf(
-            ownerCase("sameDeclaringClassAllAccess", "same declaring class", "P11-FG-FWC", DECLARING),
+            ownerCase("sameDeclaringClassAllAccess", "same declaring class", DECLARING),
             case(
                 "sameNestNonPrivateAccess",
                 "a nest member shares its host's package",
-                ids("P11-FG-FWIC-001", "P11-FG-FWIC-002", "P11-FG-FWIC-003", "P11-FG-FWIC-005", "P11-FG-FWIC-006", "P11-FG-FWIC-007"),
                 NEST,
                 listOf(FieldVisibility.PUBLIC, FieldVisibility.PROTECTED, FieldVisibility.PACKAGE).flatMap(::instance) +
                     listOf(FieldVisibility.PUBLIC, FieldVisibility.PROTECTED, FieldVisibility.PACKAGE).flatMap(::static),
@@ -790,36 +782,32 @@ class FieldGetAccessMatrixTest {
             case(
                 "sameNestPrivateDenied",
                 "ART reflection.cc VerifyAccess grants a private member to its declaring class alone",
-                ids("P11-FG-FWIC-004", "P11-FG-FWIC-008"),
                 NEST,
                 both(FieldVisibility.PRIVATE),
                 ExpectedAccess.DENIED,
             ),
-            case("publicUniversal", "public access is universal", ids("P11-FG-FWCCUP-001", "P11-FG-FWCCUP-007"), CHILD, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED, receiver = CHILD),
-            case("protectedCrossPackageReceiver", "JLS protected cross-package receiver restriction", ids("P11-FG-FWCCUP-002"), CHILD, instance(FieldVisibility.PROTECTED), ExpectedAccess.PROTECTED_RECEIVER_RULE, receiver = CHILD),
-            case("crossPackagePackageDenied", "cross-package package access is denied", ids("P11-FG-FWCCUP-003", "P11-FG-FWCCUP-009"), CHILD, both(FieldVisibility.PACKAGE), ExpectedAccess.DENIED),
-            case("crossPackagePrivateDenied", "cross-package private access is denied", ids("P11-FG-FWCCUP-005", "P11-FG-FWCCUP-011"), CHILD, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
-            case("protectedStaticSubclass", "protected static subclass access has no receiver restriction", ids("P11-FG-FWCCUP-008"), CHILD, static(FieldVisibility.PROTECTED), ExpectedAccess.ALLOWED),
-            case("samePackagePublic", "same-package public access", ids("P11-FG-FSPC-001", "P11-FG-FSPC-007"), SAME_PACKAGE, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED),
-            case("samePackageProtected", "JLS same-package protected access is allowed", ids("P11-FG-FSPC-002", "P11-FG-FSPC-008"), SAME_PACKAGE, both(FieldVisibility.PROTECTED), ExpectedAccess.ALLOWED),
-            case("samePackagePackage", "same-package package access is allowed", ids("P11-FG-FSPC-004", "P11-FG-FSPC-010"), SAME_PACKAGE, both(FieldVisibility.PACKAGE), ExpectedAccess.ALLOWED),
-            case("samePackagePrivateDenied", "same-package private access is denied", ids("P11-FG-FSPC-005", "P11-FG-FSPC-011"), SAME_PACKAGE, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
-            case("unrelatedPublic", "unrelated public access", ids("P11-FG-FWUC-001", "P11-FG-FWUC-008"), UNRELATED, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED),
-            case("unrelatedProtectedDenied", "unrelated protected access is denied", ids("P11-FG-FWUC-002", "P11-FG-FWUC-009"), UNRELATED, both(FieldVisibility.PROTECTED), ExpectedAccess.DENIED),
-            case("unrelatedPackageDenied", "unrelated package access is denied", ids("P11-FG-FWUC-004", "P11-FG-FWUC-011"), UNRELATED, both(FieldVisibility.PACKAGE), ExpectedAccess.DENIED),
-            case("unrelatedPrivateDenied", "unrelated private access is denied", ids("P11-FG-FWUC-006", "P11-FG-FWUC-013"), UNRELATED, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
+            case("publicUniversal", "public access is universal", CHILD, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED, receiver = CHILD),
+            case("protectedCrossPackageReceiver", "JLS protected cross-package receiver restriction", CHILD, instance(FieldVisibility.PROTECTED), ExpectedAccess.PROTECTED_RECEIVER_RULE, receiver = CHILD),
+            case("crossPackagePackageDenied", "cross-package package access is denied", CHILD, both(FieldVisibility.PACKAGE), ExpectedAccess.DENIED),
+            case("crossPackagePrivateDenied", "cross-package private access is denied", CHILD, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
+            case("protectedStaticSubclass", "protected static subclass access has no receiver restriction", CHILD, static(FieldVisibility.PROTECTED), ExpectedAccess.ALLOWED),
+            case("samePackagePublic", "same-package public access", SAME_PACKAGE, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED),
+            case("samePackageProtected", "JLS same-package protected access is allowed", SAME_PACKAGE, both(FieldVisibility.PROTECTED), ExpectedAccess.ALLOWED),
+            case("samePackagePackage", "same-package package access is allowed", SAME_PACKAGE, both(FieldVisibility.PACKAGE), ExpectedAccess.ALLOWED),
+            case("samePackagePrivateDenied", "same-package private access is denied", SAME_PACKAGE, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
+            case("unrelatedPublic", "unrelated public access", UNRELATED, both(FieldVisibility.PUBLIC), ExpectedAccess.ALLOWED),
+            case("unrelatedProtectedDenied", "unrelated protected access is denied", UNRELATED, both(FieldVisibility.PROTECTED), ExpectedAccess.DENIED),
+            case("unrelatedPackageDenied", "unrelated package access is denied", UNRELATED, both(FieldVisibility.PACKAGE), ExpectedAccess.DENIED),
+            case("unrelatedPrivateDenied", "unrelated private access is denied", UNRELATED, both(FieldVisibility.PRIVATE), ExpectedAccess.DENIED),
         )
-
 
         private fun ownerCase(
             target: String,
             authority: String,
-            prefix: String,
             caller: VirtualType,
         ): AccessCase = AccessCase(
             matrixTarget(target),
             authority,
-            (1..8).mapTo(linkedSetOf()) { "$prefix-${it.toString().padStart(3, '0')}" },
             caller,
             FieldVisibility.entries.map { FieldVariant(it, FieldStorage.INSTANCE) } +
                 FieldVisibility.entries.map { FieldVariant(it, FieldStorage.STATIC) },
@@ -829,7 +817,6 @@ class FieldGetAccessMatrixTest {
         private fun case(
             target: String,
             authority: String,
-            ids: Set<String>,
             caller: VirtualType,
             variants: List<FieldVariant>,
             expected: ExpectedAccess,
@@ -837,14 +824,12 @@ class FieldGetAccessMatrixTest {
         ) = AccessCase(
             matrixTarget(target),
             authority,
-            ids,
             caller,
             variants,
             expected,
             receiver,
         )
 
-        private fun ids(vararg values: String): Set<String> = values.toSet()
         private fun matrixTarget(name: String): String = "FieldGetAccessMatrixTest.accessMatrix[$name]"
         private fun instance(visibility: FieldVisibility) = listOf(FieldVariant(visibility, FieldStorage.INSTANCE))
         private fun static(visibility: FieldVisibility) = listOf(FieldVariant(visibility, FieldStorage.STATIC))

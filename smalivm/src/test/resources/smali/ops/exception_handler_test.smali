@@ -521,7 +521,7 @@
 .method public static callerReturnsCaught()Ljava/lang/Throwable;
     .locals 1
     :try_start
-    invoke-static {}, Linvoke_review_callee;->throwsNpe()V
+    invoke-static {}, Linvoke_call_callee;->throwsNpe()V
     :try_end
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :handler
     const/4 v0, 0x0

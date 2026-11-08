@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
  * Executes immutable fixture snapshots and asserts register, heap, static-field, and visitation results.
  * [ClassIndex] is shared because construction imports the complete fixture tree.
  */
-object CoreTester {
+internal object CoreTester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
 
     /** Parsed once; each import builds its own immutable program snapshot from it. */
@@ -83,15 +83,6 @@ object CoreTester {
      * consumer's own path and the completion check becomes unskippable.
      */
     fun test(className: String, methodDescriptor: String, initial: CoreState, expected: CoreState) {
-        // A negative register is the old engine's result/exception pseudo-register. No graph query exposes
-        // the result or caught slot, and an out-of-range register reads `Top`, so the expectation would pass
-        // or fail for the wrong reason; assert the register `move-result`/`move-exception` wrote instead.
-        require((expected.registers.keys + expected.arrays.keys).none { it < 0 }) {
-            "CoreTester.test cannot check the result/caught slots -- no graph query exposes them, and a " +
-                "NEGATIVE expected register is the old engine's ExecutionState.RESULT_REGISTER / " +
-                "EXCEPTION_REGISTER idiom. Assert the register a `move-result`/`move-exception` moved " +
-                "the slot INTO instead: $expected"
-        }
         // An expectation with no register, array, or static field asserts only that the run completed.
         require(expected.registers.isNotEmpty() || expected.arrays.isNotEmpty() || expected.staticFields.isNotEmpty()) {
             "CoreTester.test needs at least one expected register, array or static field, or it asserts " +
@@ -108,9 +99,9 @@ object CoreTester {
         // wrong register number.
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val expectedRegistersAndArrays = expected.registers.keys + expected.arrays.keys
-        require(expectedRegistersAndArrays.all { it < view.registerCount }) {
+        require(expectedRegistersAndArrays.all { it in 0 until view.registerCount }) {
             "CoreTester.test was given expected register(s) " +
-                "${expectedRegistersAndArrays.filter { it >= view.registerCount }} outside " +
+                "${expectedRegistersAndArrays.filter { it !in 0 until view.registerCount }} outside " +
                 "$className->$methodDescriptor's [0, ${view.registerCount}) -- which would compare " +
                 "Value.Top against Value.Top and pass while asserting nothing"
         }
@@ -459,7 +450,7 @@ object CoreTester {
      * **Total over the lattice, which the copies were NOT.** Each copy read
      * `(it.exception as? Value.Known)?.type?.descriptor` through `mapNotNull`, so a genuinely thrown
      * [Value.Unknown] or [Value.Top] -- which `core/op/ThrowOp` escapes TODAY, demonstrated by
-     * `ThrowRoutingTest.anUnknownPrimitiveTypedThrowStillForksBecauseNothingIsPROVED` -- rendered as
+     * `ThrowRoutingTest.anUnprovableThrowReachesEveryFeasibleHandlerAndTheEscape` -- rendered as
      * NOTHING and the helper answered `[]` for a run that genuinely threw. The trap that made it worth
      * fixing was not a live wrong assertion (all 36 call sites throw a `Known`) but the next author writing
      * a vacuous `.isEmpty()` beside a `throw` of a parameter.
@@ -470,7 +461,7 @@ object CoreTester {
      * escape is both VISIBLE (an `.isEmpty()` beside one is now false) and DISTINCT from a definite type of
      * the same name. Reverting the `when` to the old `mapNotNull { (it.exception as? Value.Known)... }` drops
      * the non-`Known` rows again and fails
-     * `ThrowRoutingTest.anUnknownPrimitiveTypedThrowStillForksBecauseNothingIsPROVED`, which is the totality pin.
+     * `ThrowRoutingTest.anUnprovableThrowReachesEveryFeasibleHandlerAndTheEscape`, which is the totality pin.
      */
     fun escapingTypes(graph: ExecutionGraph): List<String> =
         graph.outcomes.filterIsInstance<Outcome.Threw>().map { threw ->

@@ -2,7 +2,6 @@ package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Test
 
-/** Port of the three formerly commented `TestFieldInheritance` behaviors. */
 class FieldInheritanceTest {
 
     @Test

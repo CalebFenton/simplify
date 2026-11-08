@@ -57,7 +57,7 @@ class InvokeOpTest {
      */
     @Test
     fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant(@TempDir root: Path) {
-        for (name in listOf("invoke_task20", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
+        for (name in listOf("invoke_resolution", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
             Files.copy(Path.of(CoreTester.TEST_CLASS_PATH, "ops", "$name.smali"), root.resolve("$name.smali"))
         }
         val closed = VmServices(ClassIndex.open(root.toFile()))
@@ -111,7 +111,7 @@ class InvokeOpTest {
             graph,
             expectedType = "Ljava/lang/NoSuchMethodError;",
             expectedClass = NoSuchMethodError::class.java,
-            expectedMessage = "No virtual method missing()V in class Linvoke_task20; or its super classes",
+            expectedMessage = "No virtual method missing()V in class Linvoke_resolution; or its super classes",
         )
         assertTrue("Ljava/lang/NullPointerException;" !in CoreTester.escapingTypes(graph))
         assertFalse(graph.wasReached(4))
@@ -126,7 +126,7 @@ class InvokeOpTest {
             graph,
             expectedType = "Ljava/lang/NoClassDefFoundError;",
             expectedClass = NoClassDefFoundError::class.java,
-            expectedMessage = "Failed resolution of: Linvoke_task20_absent;",
+            expectedMessage = "Failed resolution of: Linvoke_resolution_absent;",
         )
     }
 
@@ -204,7 +204,7 @@ class InvokeOpTest {
         assertTrackedObject(graph.trusted()!!.terminatingConsensus(0), graph, uninitialized = true)
     }
 
-    // Host-object and array-clone invocation cases live in BackendCorpusMigrationTest.
+    // Host-object and array-clone invocation cases live in BackendInvocationTest.
 
     @Test
     fun objectClassInitializationCreatesCorrectClass() {
@@ -536,7 +536,7 @@ class InvokeOpTest {
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 
     private companion object {
-        const val CLASS_NAME = "Linvoke_task20;"
+        const val CLASS_NAME = "Linvoke_resolution;"
         const val STATIC = "Linvoke_static_test;"
         const val DIRECT = "Linvoke_direct_test;"
         const val VIRTUAL = "Linvoke_virtual_test;"

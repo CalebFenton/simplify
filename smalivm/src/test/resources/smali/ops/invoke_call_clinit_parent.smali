@@ -1,4 +1,4 @@
-.class public Linvoke_review_clinit_parent;
+.class public Linvoke_call_clinit_parent;
 .super Ljava/lang/Object;
 
 .method public static constructor <clinit>()V

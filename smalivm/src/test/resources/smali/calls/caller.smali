@@ -1,17 +1,11 @@
 .class public Lcalls/caller;
 .super Ljava/lang/Object;
 
-# ---------------------------------------------------------------------------------------
-# The CALLER half of the invocation fixtures.
-#
-# Every `invoke-static` here is a real instruction (Format35c, three code units), so
-# `nextAddress` past a call is the real width.
-#
-# Addresses are METHOD-LOCAL: whole-method insertions are address-safe, editing instructions
-# inside a method is not, and several tests pin exact addresses.
-# ---------------------------------------------------------------------------------------
+# The caller half of the invocation fixtures. Every `invoke-static` is a real 35c instruction
+# (three code units). Addresses are method-local: whole-method insertions are address-safe,
+# editing instructions inside a method is not, and tests pin exact addresses.
 
-# THE COLLISION FIXTURE. Addresses, derived from the assembled instructions and not assumed:
+# Collision fixture. Addresses, derived from the assembled instructions:
 # @0 const/4 (11n, 1 unit), @1 invoke-static (35c, 3 units), @4 return (11x, 1 unit).
 #
 # So this method has an op at address 0 AND an op at address 1, and so does
@@ -19,13 +13,12 @@
 # observable that a non-overlapping pair could not show:
 #   - address 0 holds `const/4 v0, 0x1` here and `const/4 v0, 0x7` there, so one shared pile
 #     mixes two different program points that write the same register different values;
-#   - the callee's RETURNING node sits at address 1, which this method also has, so under a
+#   - the callee's returning node sits at address 1, which this method also has, so under a
 #     bare-address key it votes in this method's `terminatingConsensus` -- inventing
 #     agreement about a value this method never returned.
 #
-# The return value is deliberately the caller's OWN constant (v0 = 1) and not the callee's
-# (7): if both returned the same value the contaminated join would be indistinguishable from
-# the clean one.
+# The return value is the caller's own constant (v0 = 1), not the callee's (7): equal values
+# would make a contaminated join indistinguishable from a clean one.
 .method public static callsCalleeAndReturnsItsOwn()I
     .registers 1
     const/4 v0, 0x1
@@ -67,8 +60,8 @@
     return v0
 .end method
 
-# passes a WIDE argument, which occupies TWO argument registers in the instruction's register
-# list while being ONE parameter. @0 const-wide/16 (21s, 2 units), @2 invoke-static (35c, 3
+# passes a wide argument: two argument registers in the instruction, one parameter.
+# @0 const-wide/16 (21s, 2 units), @2 invoke-static (35c, 3
 # units), @5 move-result-wide, @6 return-wide.
 .method public static passesAWideArgument()J
     .registers 2
@@ -78,10 +71,9 @@
     return-wide v0
 .end method
 
-# THE HEAP-ID FIXTURE. The caller allocates first, then the callee allocates. Their two
-# `HeapRef`s must be DISTINCT: `HeapRef` is a structural data class, so a callee frame built
-# through the public `Frame.entryFrame(view)` -- which mints a fresh id space starting at 0 --
-# would give both objects id 0 and heap consensus would treat two objects as one.
+# Heap-id fixture. The caller allocates, then the callee allocates; their `HeapRef`s must be
+# distinct. `HeapRef` is a structural data class, so a callee frame minting a fresh id space
+# from 0 would give both objects id 0 and heap consensus would treat them as one.
 #
 # Both refs are observable from the caller's returning node: v1 keeps the caller's array and
 # v0 receives the callee's.
@@ -94,19 +86,14 @@
     return-object v0
 .end method
 
-# THE RECURSIVE-ENTRY FIXTURE, and the one shape that is not about callees at all: a method that calls
-# ITSELF, so a second activation of the ENTRY method exists. Seed v1 non-zero and it recurses exactly
-# once; the nested activation sees v1 = 0 and takes the :base branch, which the entry activation never
-# reaches.
-#
-# Two things become observable, and they need OPPOSITE scopes -- which is the whole point:
-#   - the :base addresses execute, in the nested activation only. Scoping `wasReached` to the entry
-#     activation answers `false` for them on a `Complete` run, which the AnalysisContracts guarantee
-#     makes a dead-code PROOF -- for the code that computed the value the run returns.
-#   - the two activations return DIFFERENT values (5 from :base, 6 after the add), so unioning the
-#     TERMINATING consensus would answer Unknown where the truth is the foldable constant 6.
-# And v1 differs between them (1 vs 0), so per-address consensus at address 0 must answer Unknown: a
-# fold of `if-eqz v1` there has to hold in both activations, and it does not.
+# Recursive-entry fixture: a method that calls itself, so a second activation of the entry method
+# exists. Seeded with v1 non-zero it recurses once; the nested activation sees v1 = 0 and takes
+# :base, which the entry activation never reaches.
+#   - :base executes only in the nested activation, so `wasReached` scoped to the entry activation
+#     would falsely prove it dead on a `Complete` run.
+#   - the activations return different values (5 from :base, 6 after the add), so unioning the
+#     terminating consensus would answer Unknown where the answer is the constant 6.
+#   - v1 differs between them (1 vs 0), so per-address consensus at @0 must answer Unknown.
 #
 # Addresses, derived from the assembled instructions and not assumed: @0 if-eqz (21t, 2 units),
 # @2 const/4 (11n, 1), @3 invoke-static (35c, 3), @6 move-result (11x, 1), @7 add-int/lit8 (22b, 2),
@@ -125,8 +112,8 @@
     return v0
 .end method
 
-# calls the self-recursive callee, so the recursion starts one frame down rather than in the
-# entry method -- the depth bound must be about the CALL STACK, not about the entry method.
+# calls the self-recursive callee, so recursion starts one frame down: the depth bound is about
+# the call stack, not the entry method.
 .method public static callsRecursiveCallee()I
     .registers 1
     invoke-static {}, Lcalls/callee;->recursesForever()I
@@ -134,8 +121,7 @@
     return v0
 .end method
 
-# calls the LOOPING callee. The complement of the per-activation visit budget: the callee's own
-# budget must still be spent, so "each activation gets its own" cannot be satisfied by never counting.
+# calls the looping callee: the callee's own visit budget must still be spent.
 .method public static callsSpinningCallee()I
     .registers 1
     const/4 v0, 0x2
@@ -175,9 +161,8 @@
     return v0
 .end method
 
-# calls a callee that declares a STRONG side effect. This caller's own ops declare nothing,
-# so without propagation the method reports NONE -- "safe to delete" for a method whose
-# callee perturbed state the engine does not model.
+# calls a callee that declares a STRONG side effect. This caller's own ops declare nothing, so
+# without propagation the method would report NONE.
 .method public static callsStrongEffectCallee()I
     .registers 1
     const/4 v0, 0x4

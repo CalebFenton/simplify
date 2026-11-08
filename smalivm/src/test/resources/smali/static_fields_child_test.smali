@@ -1,7 +1,6 @@
-# Plan 9 Task 18: the REFERENCING half of the inherited-static pair, and the two-initializer carrier
-# for the ported TestStaticFieldAccess.canAccessFieldAfterCollapsingMultiverseTwice. Extends a class
-# whose <clinit> is real, and declares its own, so one trigger on this class runs TWO nested
-# activations (ancestors first -- adjudication 4's ordering).
+# The referencing half of the inherited-static pair, and the two-initializer carrier for
+# StaticFieldAccessTest. Its superclass and itself both declare a `<clinit>`, so one trigger runs
+# two nested activations, superclass first.
 .class public Lstatic_fields_child_test;
 .super Lstatic_fields_parent_test;
 
@@ -15,9 +14,8 @@
     return-void
 .end method
 
-# References the PARENT's field through the CHILD's name -- legal dex, javac never emits it, and the
-# resolution walk is the only thing that can answer it. The sget initializes the parent (the declaring
-# class) and must NOT initialize this class.
+# References the parent's field through the child's name: legal dex that javac never emits, answered
+# only by the resolution walk. The sget initializes the declaring parent and not this class.
 .method public static getParentTouchedThroughChildReference()I
     .locals 1
     sget v0, Lstatic_fields_child_test;->parentTouched:I

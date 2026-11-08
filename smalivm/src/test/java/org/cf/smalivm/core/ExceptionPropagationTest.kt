@@ -135,7 +135,7 @@ class ExceptionPropagationTest {
         val value = frame.allocateThrowable(npe, NullPointerException("same ref constraints"))
         val exact = ThrowableDomain.exact(npe, CoreTester.classIndex.currentSnapshot.hierarchy)
         val narrowed = requireNotNull(exact.narrowUpperBound(runtime))
-        val calleeSignature = "Linvoke_review_callee;->throwsNpe()V"
+        val calleeSignature = "Linvoke_call_callee;->throwsNpe()V"
         val session = CoreTester.vmServices.newSession(caller, Limits(), frame) { address, currentView, resolver ->
             if (currentView.signature.toString() == calleeSignature && address == 0) {
                 object : Op(address) {
