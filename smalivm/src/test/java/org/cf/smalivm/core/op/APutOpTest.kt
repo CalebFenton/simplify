@@ -1461,7 +1461,7 @@ class APutOpTest {
     private fun escapingMessages(graph: ExecutionGraph): List<String?> =
         graph.outcomes.filterIsInstance<Outcome.Threw>().map { threw ->
             val ref = (threw.exception as Value.Known).raw as HeapRef
-            val frame = graph.nodePile(0).first().let { it.endingFrame ?: it.frame }
+            val frame = graph.nodePile(0).first().terminalFrame
             val obj = frame.heapObject(ref)
             assertTrue(obj is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $obj")
             (frame.hostObjectAt(ref) as Throwable).message
