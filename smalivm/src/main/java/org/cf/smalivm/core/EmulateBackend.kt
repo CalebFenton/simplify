@@ -24,5 +24,5 @@ internal class EmulateBackend(private val registry: EmulatorRegistry) : Backend 
     private fun EmulatorCapability.canHandle(argument: ProbeArgument): Boolean =
         argument.isHostMaterializable ||
             handlesUnknownArguments ||
-            (receivesTrackedReferences && argument.isLatticeKnown && argument.isTrackedReference)
+            (receivesTrackedReferences && argument.trackedType != null)
 }

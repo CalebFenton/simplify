@@ -906,7 +906,7 @@ class ReflectBackendTest {
         kind,
         type(target.proto.substringAfter(')')),
         parameterTypes(target.proto),
-        if (kind == InvokeKind.STATIC) null else ProbeArgument(fixtureType, true, true, false, true),
+        if (kind == InvokeKind.STATIC) null else ProbeArgument(fixtureType, true, true, false, fixtureType),
         emptyList(),
     )
 

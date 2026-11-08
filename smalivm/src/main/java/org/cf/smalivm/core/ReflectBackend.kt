@@ -19,11 +19,13 @@ internal class ReflectBackend(
         val initializesClass = call.kind == InvokeKind.STATIC || constructor
         authorization(call.target, initializesClass)?.let { return BackendProbe.Denied(it) }
 
-        val receiverAvailable = when {
-            call.kind == InvokeKind.STATIC -> true
-            constructor -> call.receiver?.let { it.isLatticeKnown && it.isTrackedReference } == true
-            else -> call.receiver?.isHostMaterializable == true
+        // A reflected constructor builds an object of exactly its own class, so it cannot run the superclass
+        // constructor a subclass constructor chains to; that call runs as bytecode on the subclass object.
+        if (constructor && call.receiver?.trackedType != call.target.definingClass) {
+            return BackendProbe.Declined("${call.target} cannot construct a receiver of ${call.receiver?.trackedType}")
         }
+        val receiverAvailable =
+            call.kind == InvokeKind.STATIC || constructor || call.receiver?.isHostMaterializable == true
         if (!receiverAvailable || call.arguments.any { !it.isHostMaterializable }) {
             return BackendProbe.Declined("${call.target} has an unknown or unmaterializable argument")
         }
