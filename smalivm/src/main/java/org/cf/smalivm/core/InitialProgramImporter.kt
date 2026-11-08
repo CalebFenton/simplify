@@ -48,7 +48,8 @@ internal object InitialProgramImporter {
         val applicationClasses = importedApplicationClasses.map { definition ->
             definition.withStringEncoding(initialEncoding)
         }
-        val hierarchy = HierarchySnapshot.from(applicationClasses, frameworkCatalog.artifact)
+        val linkableClasses = applicationClasses.filter(::passesVerification)
+        val hierarchy = HierarchySnapshot.from(linkableClasses, frameworkCatalog.artifact)
         val applicationClassesWithEvidence = applicationClasses.map { definition ->
             if (definition.methods.isEmpty()) {
                 definition
@@ -91,6 +92,25 @@ internal object InitialProgramImporter {
             }
         }
         return defined.values.sortedBy(ImmutableClassDef::getType)
+    }
+
+    /**
+     * Whether ART's verifier accepts every method of [definition]. A class it rejects stays in the program, so
+     * output keeps its code, and is left out of the loaded set. ART throws `VerifyError` on the class's first
+     * use and `NoClassDefFoundError` after; the engine answers every use with `NoClassDefFoundError`, including
+     * `const-class`, `instance-of` and `check-cast`, which resolve the class on ART without verifying it.
+     */
+    private fun passesVerification(definition: ApplicationClassDefinition): Boolean {
+        val rejected = definition.methods.firstOrNull { it.rejectedCode != null } ?: return true
+        val rejection = requireNotNull(rejected.rejectedCode).rejection
+        log.warn(
+            "Class {} fails verification: {} at code address {} of {}",
+            definition.type,
+            rejection.reason,
+            rejection.codeAddress,
+            rejected.methodSignature,
+        )
+        return false
     }
 
     private fun containsJumboString(definition: ApplicationClassDefinition): Boolean = definition.methods.any { method ->
