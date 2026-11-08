@@ -1,4 +1,4 @@
-.class public Ltask69/Application;
+.class public Lapp/Application;
 .super Ljava/lang/Object;
 
 .method public static value()I

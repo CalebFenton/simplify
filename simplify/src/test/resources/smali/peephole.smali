@@ -1,4 +1,4 @@
-.class public Lpeephole_kotlin_regression;
+.class public Lpeephole;
 .super Ljava/lang/Object;
 
 .method public static taken()I
@@ -21,7 +21,7 @@
 
 .method public static ownClass()Ljava/lang/Class;
     .registers 2
-    const-string v0, "peephole_kotlin_regression"
+    const-string v0, "peephole"
     invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
     move-result-object v1
     return-object v1

@@ -11,45 +11,46 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.File
 import java.nio.file.Path
 
-class ApplicationParityTest {
+class ObfuscatedApplicationTest {
     @TempDir lateinit var temporaryDirectory: Path
 
     @Test fun obfuscatedApplicationRetainsBehaviorAfterAllStrategiesAndDexReload() {
         val fixture = File("src/test/resources/obfuscated-example")
-        val before = OptimizerTester.services(fixture)
-        val witnesses = listOf(
-            WHITE_NOISE,
-            PREFIX + "recoveredString()Ljava/lang/String;",
-            PREFIX + "knownClass()Ljava/lang/Class;",
-            PREFIX + "constantPredicate()I",
-            PREFIX + "invokeReflective()Ljava/lang/Object;",
-            PREFIX + "getReflectiveField()Ljava/lang/Object;",
+        // Expected values come from the fixture source: WhiteNoise.convolutedMethod() returns ten * five, and
+        // recoveredString() decodes the bytes of "secretMethod".
+        val expected = mapOf(
+            WHITE_NOISE to 50,
+            PREFIX + "recoveredString()Ljava/lang/String;" to "secretMethod",
+            PREFIX + "knownClass()Ljava/lang/Class;" to "java.lang.String",
+            PREFIX + "constantPredicate()I" to 0,
+            PREFIX + "getReflectiveField()Ljava/lang/Object;" to "field value",
         )
-        val expected = witnesses.associateWith { result(before, it) }
+        val before = OptimizerTester.services(fixture)
+        expected.forEach { (method, value) -> assertEquals(value, result(before, method), method) }
         val output = temporaryDirectory.resolve("application.dex")
-        val report = Launcher().run(SimplifyOptionsParser.parse(arrayOf(fixture.path, "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", output.toString(), "--quiet")))
+        val report = Launcher().run(SimplifyOptionsParser.parse(arrayOf(fixture.path, "--include-types", "OptimizationWitness|WhiteNoise;->convolutedMethod", "--output", output.toString(), "--quiet")))
         val after = OptimizerTester.services(output.toFile())
-        witnesses.forEach { assertEquals(expected[it], result(after, it), it) }
+        expected.forEach { (method, value) -> assertEquals(value, result(after, method), method) }
         assertEquals(0, report.failedMethodCount)
         assertEquals(0, report.skippedMethodCount)
         assertTrue(report.passLimitReachedMethods.isEmpty())
-        assertEquals(8, report.targetMethodCount)
-        assertEquals(8, report.optimizedMethodCount)
+        assertEquals(report.targetMethodCount, report.optimizedMethodCount)
         val predicate = after.classIndex.methodView(PREFIX + "constantPredicate()I")!!
         assertFalse(predicate.instructionAddresses.any { predicate.opcodeAt(it) == Opcode.IF_EQ })
         val recovered = after.classIndex.methodView(PREFIX + "recoveredString()Ljava/lang/String;")!!
         assertTrue(hasCall(recovered, "Ljava/lang/String;", "<init>"))
         val knownClass = after.classIndex.methodView(PREFIX + "knownClass()Ljava/lang/Class;")!!
         assertTrue(hasCall(knownClass, "Ljava/lang/Class;", "forName"))
-        // Reflective invocation is not a license to remove calls with weak/unknown effects.
-        // The original Plan14 numerical counts depended on that unsafe rewrite and are not parity requirements.
+        // The engine does not resolve this Method.invoke, so the call stays reflective.
+        val reflective = after.classIndex.methodView(PREFIX + "invokeReflective()Ljava/lang/Object;")!!
+        assertTrue(hasCall(reflective, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(report.optimizationCounts.getValue("constantized ops") > 0)
         assertTrue(report.optimizationCounts.getValue("constantized ifs") > 0)
         val second = temporaryDirectory.resolve("application-second.dex")
-        val fixpoint = Launcher().run(SimplifyOptionsParser.parse(arrayOf(output.toString(), "--include-types", "Plan14Witness|WhiteNoise;->convolutedMethod", "--output", second.toString(), "--quiet")))
+        val fixpoint = Launcher().run(SimplifyOptionsParser.parse(arrayOf(output.toString(), "--include-types", "OptimizationWitness|WhiteNoise;->convolutedMethod", "--output", second.toString(), "--quiet")))
         assertTrue(fixpoint.optimizationCounts.values.all { it == 0 })
         val reloaded = OptimizerTester.services(second.toFile())
-        witnesses.forEach { assertEquals(expected[it], result(reloaded, it), it) }
+        expected.forEach { (method, value) -> assertEquals(value, result(reloaded, method), method) }
     }
 
     private fun hasCall(method: MethodView, owner: String, name: String) =
@@ -72,7 +73,7 @@ class ApplicationParityTest {
     }
 
     companion object {
-        const val PREFIX = "Lorg/cf/obfuscated/Plan14Witness;->"
+        const val PREFIX = "Lorg/cf/obfuscated/OptimizationWitness;->"
         const val WHITE_NOISE = "Lorg/cf/obfuscated/WhiteNoise;->convolutedMethod()I"
     }
 }

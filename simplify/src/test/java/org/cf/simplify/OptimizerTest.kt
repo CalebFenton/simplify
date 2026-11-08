@@ -13,7 +13,7 @@ import java.nio.file.Path
 
 class OptimizerTest {
     @TempDir lateinit var temporaryDirectory: Path
-    private fun services() = OptimizerTester.services(File("src/test/resources/task64"))
+    private fun services() = OptimizerTester.services(File("src/test/resources/skeleton"))
     private fun optimizer(services: VmServices, vararg strategies: OptimizationStrategy, passes: Int = 5) =
         Optimizer(services, Limits(500, 1_000_000, 0, 20), passes, strategies.toList())
     private fun replace(input: StrategyInput, value: Int) {
@@ -134,8 +134,8 @@ class OptimizerTest {
     }
 
     companion object {
-        val NO_OP = MethodSignature.parse("Ltask64/Skeleton;->aNoOp()V")
-        val CHANGED = MethodSignature.parse("Ltask64/Skeleton;->changed()I")
-        val LOOP = MethodSignature.parse("Ltask64/Skeleton;->loop()V")
+        val NO_OP = MethodSignature.parse("Lskeleton/Skeleton;->aNoOp()V")
+        val CHANGED = MethodSignature.parse("Lskeleton/Skeleton;->changed()I")
+        val LOOP = MethodSignature.parse("Lskeleton/Skeleton;->loop()V")
     }
 }

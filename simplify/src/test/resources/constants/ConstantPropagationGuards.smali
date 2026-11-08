@@ -1,5 +1,6 @@
-# A2 direct-guard original-versus-rewritten Tier A witness. Expected: java.lang.Integer(162).
-.class public LFx_ConstantPropagationGuards;
+# run() returns Integer(162) when every guarded method keeps its normal and throwing behaviour,
+# and a distinct negative code naming the first check that failed.
+.class public LConstantPropagationGuards;
 .super Ljava/lang/Object;
 
 .field public static initTrigger:I
@@ -21,8 +22,8 @@
 .method public static knownVolatileRead()I
     .locals 1
     const/4 v0, 0x0
-    sput v0, LFx_ConstantPropagationGuards;->initTrigger:I
-    sget v0, LFx_ConstantPropagationGuards;->volatileValue:I
+    sput v0, LConstantPropagationGuards;->initTrigger:I
+    sget v0, LConstantPropagationGuards;->volatileValue:I
     return v0
 .end method
 
@@ -37,7 +38,7 @@
 .method private static normalBehavior()I
     .locals 1
     const/4 v0, 0x1
-    invoke-static {v0}, LFx_ConstantPropagationGuards;->mixedNormalThrowDivision(I)I
+    invoke-static {v0}, LConstantPropagationGuards;->mixedNormalThrowDivision(I)I
     move-result v0
     return v0
 .end method
@@ -46,7 +47,7 @@
     .locals 1
     :try_start
     const/4 v0, 0x0
-    invoke-static {v0}, LFx_ConstantPropagationGuards;->mixedNormalThrowDivision(I)I
+    invoke-static {v0}, LConstantPropagationGuards;->mixedNormalThrowDivision(I)I
     move-result v0
     :try_end
     .catch Ljava/lang/ArithmeticException; {:try_start .. :try_end} :caught
@@ -59,11 +60,11 @@
 
 .method public static run()Ljava/lang/Object;
     .locals 2
-    invoke-static {}, LFx_ConstantPropagationGuards;->normalBehavior()I
+    invoke-static {}, LConstantPropagationGuards;->normalBehavior()I
     move-result v0
     if-nez v0, :normal_failure
 
-    invoke-static {}, LFx_ConstantPropagationGuards;->throwingBehavior()I
+    invoke-static {}, LConstantPropagationGuards;->throwingBehavior()I
     move-result v0
     const/4 v1, 0x1
     if-ne v0, v1, :throw_failure

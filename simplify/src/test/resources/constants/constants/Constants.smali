@@ -1,4 +1,4 @@
-.class public Ltask65/Constants;
+.class public Lconstants/Constants;
 .super Ljava/lang/Object;
 
 .field public static final known:I = 0x2a
@@ -29,7 +29,7 @@
 .method public static readmeDecryptorShape()Ljava/lang/String;
     .locals 1
     const-string v0, "VGVsbCBtZSBvZiB5b3VyIGhvbWV3b3JsZCwgVXN1bC4="
-    invoke-static {v0}, Ltask65/Constants;->decrypt(Ljava/lang/String;)Ljava/lang/String;
+    invoke-static {v0}, Lconstants/Constants;->decrypt(Ljava/lang/String;)Ljava/lang/String;
     move-result-object v0
     return-object v0
 .end method
@@ -108,20 +108,20 @@
 
 .method public static computedClass()Ljava/lang/Class;
     .locals 1
-    invoke-static {}, Ltask65/Constants;->classValue()Ljava/lang/Class;
+    invoke-static {}, Lconstants/Constants;->classValue()Ljava/lang/Class;
     move-result-object v0
     return-object v0
 .end method
 
 .method private static nullValue()Ljava/lang/String;
     .locals 1
-    sget-object v0, Ltask65/Constants;->nullable:Ljava/lang/String;
+    sget-object v0, Lconstants/Constants;->nullable:Ljava/lang/String;
     return-object v0
 .end method
 
 .method public static computedNull()Ljava/lang/String;
     .locals 1
-    invoke-static {}, Ltask65/Constants;->nullValue()Ljava/lang/String;
+    invoke-static {}, Lconstants/Constants;->nullValue()Ljava/lang/String;
     move-result-object v0
     return-object v0
 .end method
@@ -152,8 +152,8 @@
 .method public static knownSget()I
     .locals 1
     const/4 v0, 0x0
-    sput v0, Ltask65/Constants;->initTrigger:I
-    sget v0, Ltask65/Constants;->known:I
+    sput v0, Lconstants/Constants;->initTrigger:I
+    sget v0, Lconstants/Constants;->known:I
     return v0
 .end method
 
@@ -197,7 +197,7 @@
 
 .method public static computedMutableArray()[I
     .locals 1
-    invoke-static {}, Ltask65/Constants;->arrayValue()[I
+    invoke-static {}, Lconstants/Constants;->arrayValue()[I
     move-result-object v0
     return-object v0
 .end method
@@ -282,34 +282,18 @@
     return-wide v3
 .end method
 
-.method public static knownSgetString()Ljava/lang/String;
-    .locals 1
-    const/4 v0, 0x0
-    sput v0, Ltask65/Constants;->initTrigger:I
-    sget-object v0, Ltask65/Constants;->knownString:Ljava/lang/String;
-    return-object v0
-.end method
-
-.method public static knownSgetClass()Ljava/lang/Class;
-    .locals 1
-    const/4 v0, 0x0
-    sput v0, Ltask65/ClassStatics;->initTrigger:I
-    sget-object v0, Ltask65/ClassStatics;->knownClass:Ljava/lang/Class;
-    return-object v0
-.end method
-
 .method public static allSgetOpcodes()Ljava/lang/Class;
     .locals 2
     const/4 v0, 0x0
-    sput v0, Ltask65/Constants;->initTrigger:I
-    sput v0, Ltask65/ClassStatics;->initTrigger:I
-    sget v0, Ltask65/Constants;->known:I
-    sget-boolean v0, Ltask65/Constants;->knownBoolean:Z
-    sget-byte v0, Ltask65/Constants;->knownByte:B
-    sget-char v0, Ltask65/Constants;->knownChar:C
-    sget-short v0, Ltask65/Constants;->knownShort:S
-    sget-wide v0, Ltask65/Constants;->knownLong:J
-    sget-object v0, Ltask65/ClassStatics;->knownClass:Ljava/lang/Class;
+    sput v0, Lconstants/Constants;->initTrigger:I
+    sput v0, Lconstants/ClassStatics;->initTrigger:I
+    sget v0, Lconstants/Constants;->known:I
+    sget-boolean v0, Lconstants/Constants;->knownBoolean:Z
+    sget-byte v0, Lconstants/Constants;->knownByte:B
+    sget-char v0, Lconstants/Constants;->knownChar:C
+    sget-short v0, Lconstants/Constants;->knownShort:S
+    sget-wide v0, Lconstants/Constants;->knownLong:J
+    sget-object v0, Lconstants/ClassStatics;->knownClass:Ljava/lang/Class;
     return-object v0
 .end method
 
@@ -333,11 +317,11 @@
 
 .method public static allMoveResultOpcodes()J
     .locals 4
-    invoke-static {}, Ltask65/Constants;->intResult()I
+    invoke-static {}, Lconstants/Constants;->intResult()I
     move-result v0
-    invoke-static {}, Ltask65/Constants;->objectResult()Ljava/lang/String;
+    invoke-static {}, Lconstants/Constants;->objectResult()Ljava/lang/String;
     move-result-object v0
-    invoke-static {}, Ltask65/Constants;->wideResult()J
+    invoke-static {}, Lconstants/Constants;->wideResult()J
     move-result-wide v2
     return-wide v2
 .end method
@@ -432,16 +416,6 @@
     invoke-static {v0}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
     move-result-object v0
     return-object v0
-.end method
-
-.method public static reachedSgetOnOnePath(I)I
-    .locals 1
-    const/4 v0, 0x0
-    sput v0, Ltask65/Constants;->initTrigger:I
-    if-eqz p0, :end
-    sget v0, Ltask65/Constants;->known:I
-    :end
-    return v0
 .end method
 
 .method public static unreachedMove()I

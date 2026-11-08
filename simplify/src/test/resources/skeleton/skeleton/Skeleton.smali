@@ -1,4 +1,4 @@
-.class public abstract Ltask64/Skeleton;
+.class public abstract Lskeleton/Skeleton;
 .super Ljava/lang/Object;
 
 .method public static aNoOp()V

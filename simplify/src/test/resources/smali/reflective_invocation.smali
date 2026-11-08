@@ -1,4 +1,4 @@
-.class public Lreflection_invocation_regression;
+.class public Lreflective_invocation;
 .super Ljava/lang/Object;
 
 .method public static textToString()Ljava/lang/Object;
