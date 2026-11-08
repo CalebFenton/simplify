@@ -49,19 +49,19 @@ class ThrowableCauseBehaviorTest {
         val cause = frame.allocateThrowable(NPE, NullPointerException("cause"))
         val wrapper = frame.allocateThrowable(
             EIIE,
-            ExceptionInInitializerError(frame.hostObjectAt(cause.raw as HeapRef) as Throwable),
+            ExceptionInInitializerError(frame.heap.hostObjectAt(cause.raw as HeapRef) as Throwable),
             cause,
         )
         frame.assign(view.parameters.single().register, wrapper)
 
         val checkpoint = frame.detachHostGraph(emptyList())
-        val detachedWrapper = frame.hostObjectAt(wrapper.raw as HeapRef) as Throwable
-        val detachedCause = frame.hostObjectAt(cause.raw as HeapRef)
+        val detachedWrapper = frame.heap.hostObjectAt(wrapper.raw as HeapRef) as Throwable
+        val detachedCause = frame.heap.hostObjectAt(cause.raw as HeapRef)
         assertTrue(detachedCause is NullPointerException, "selection must keep the guest cause's host mirror")
         assertSame(detachedCause, detachedWrapper.cause, "the detached graph must keep the wrapper-to-cause edge")
-        frame.restoreHostGraph(checkpoint)
+        frame.heap.restoreHostGraph(checkpoint)
 
-        frame.collapseReachable(listOf(wrapper), listOf(THROWABLE))
+        frame.heap.collapseReachable(listOf(wrapper), listOf(THROWABLE))
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(wrapper.raw as HeapRef) as HeapObject.GuestThrowable).contents)
         assertEquals(HostGraphContents.Unknown, (frame.heapObject(cause.raw as HeapRef) as HeapObject.GuestThrowable).contents)
     }
@@ -70,17 +70,24 @@ class ThrowableCauseBehaviorTest {
     fun throwableMergeTreatsMissingAndDifferentCausesConservatively() {
         val base = Frame.entryFrame(view("getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;"))
         val cause = base.allocateThrowable(NPE, NullPointerException("cause"))
-        val host = ExceptionInInitializerError(base.hostObjectAt(cause.raw as HeapRef) as Throwable)
+        val host = ExceptionInInitializerError(base.heap.hostObjectAt(cause.raw as HeapRef) as Throwable)
         val wrapper = base.allocateThrowable(EIIE, host)
-        val modeled = base.copy().also { it.setThrowableCause(wrapper.raw as HeapRef, cause) }
+        val modeled = base.copy().also { it.heap.setThrowableCause(wrapper.raw as HeapRef, cause) }
 
         val missing = base.mergedCalleeState(listOf(base, modeled), CoreTester.classIndex)
         assertEquals(Value.Top, (missing.heapObject(wrapper.raw as HeapRef) as HeapObject.GuestThrowable).cause)
 
-        val first = independentCauseFrame(causeFirst = true)
-        val second = independentCauseFrame(causeFirst = false)
-        val merged = first.frame.mergedCalleeState(listOf(first.frame, second.frame), CoreTester.classIndex)
-        val mergedWrapper = merged.heapObject(first.wrapperRef) as HeapObject.GuestThrowable
+        // One throwable whose cause differs by path joins to a cause neither path can name.
+        val first = base.allocateThrowable(NPE, NullPointerException("first"))
+        val second = base.allocateThrowable(NPE, NullPointerException("second"))
+        val mergedWrapper = HeapStore.mergeObject(
+            listOf(
+                HeapObject.GuestThrowable(EIIE, HostGraphContents.Unknown, first),
+                HeapObject.GuestThrowable(EIIE, HostGraphContents.Unknown, second),
+            ),
+            CoreTester.classIndex,
+            sameGraph = true,
+        ) as HeapObject.GuestThrowable
         assertEquals(Value.Unknown(NPE), mergedWrapper.cause)
     }
 
@@ -124,7 +131,7 @@ class ThrowableCauseBehaviorTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(VirtualType.of("Ljava/lang/IllegalArgumentException;"), terminal.heapObject(causeRef)?.type)
-        assertEquals("cause", (terminal.hostObjectAt(causeRef) as Throwable).message)
+        assertEquals("cause", (terminal.heap.hostObjectAt(causeRef) as Throwable).message)
         assertEquals(Value.Known(null, VirtualType.of("Ljava/lang/Throwable;")), terminal.throwableCause(causeRef))
     }
 
@@ -180,7 +187,7 @@ class ThrowableCauseBehaviorTest {
         val causeRef = causeValue.raw as HeapRef
         val root = frame.allocateThrowable(LINKED_CAUSE, outer, causeValue)
         val rootRef = root.raw as HeapRef
-        frame.setThrowableCause(causeRef, root)
+        frame.heap.setThrowableCause(causeRef, root)
         frame.assign(view.parameters.single().register, root)
         val probeBefore = probeNextHeapId(frame)
 
@@ -198,12 +205,12 @@ class ThrowableCauseBehaviorTest {
             probeNextHeapId(terminal),
             "the cycle import must allocate no duplicate refs: only the before-probe consumed an id",
         )
-        val importedOuter = terminal.hostObjectAt(rootRef) as LinkedCauseThrowable
-        val importedCause = terminal.hostObjectAt(causeRef) as LinkedCauseThrowable
+        val importedOuter = terminal.heap.hostObjectAt(rootRef) as LinkedCauseThrowable
+        val importedCause = terminal.heap.hostObjectAt(causeRef) as LinkedCauseThrowable
         assertSame(importedCause, importedOuter.cause, "the selected graph must preserve the nested alias")
         assertSame(importedOuter, importedCause.cause, "the selected graph must preserve the cycle")
-        assertEquals(rootRef, terminal.refForHostNode(requireNotNull(terminal.hostNodeId(importedOuter))))
-        assertEquals(causeRef, terminal.refForHostNode(requireNotNull(terminal.hostNodeId(importedCause))))
+        assertEquals(rootRef, terminal.heap.refForNode(requireNotNull(terminal.heap.hostNodeId(importedOuter))))
+        assertEquals(causeRef, terminal.heap.refForNode(requireNotNull(terminal.heap.hostNodeId(importedCause))))
         assertTrue(terminal.isHostMaterializable(returned))
     }
 
@@ -235,21 +242,6 @@ class ThrowableCauseBehaviorTest {
         assertSame(causeHost, rootHost.cause)
         assertTrue(terminal.isHostMaterializable(returned))
     }
-
-    private fun independentCauseFrame(causeFirst: Boolean): IndependentCauseFrame {
-        val frame = Frame.entryFrame(view("getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;"))
-        val first = frame.allocateThrowable(NPE, NullPointerException("first"))
-        val second = frame.allocateThrowable(NPE, NullPointerException("second"))
-        val cause = if (causeFirst) first else second
-        val wrapper = frame.allocateThrowable(
-            EIIE,
-            ExceptionInInitializerError(frame.hostObjectAt(cause.raw as HeapRef) as Throwable),
-            cause,
-        )
-        return IndependentCauseFrame(frame, wrapper.raw as HeapRef)
-    }
-
-    private data class IndependentCauseFrame(val frame: Frame, val wrapperRef: HeapRef)
 
     private fun view(descriptor: String): MethodView = CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;", descriptor)
 

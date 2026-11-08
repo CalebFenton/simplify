@@ -18,8 +18,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * `sget*` (Plan 9 Task 18): a static field read into a register, through per-path class storage
- * ([org.cf.smalivm.core.ClassInitStore]), triggering the declaring class's initialization first --
+ * `sget*`: a static field read into a register, through per-path class storage
+ * ([org.cf.smalivm.core.ClassStore]), triggering the declaring class's initialization first --
  * MEASURED for `sget` (`Fx_StaticFieldDoesInitialize`, `[DEVICE]` both tiers; `SGetOp.initialize`'s
  * KDoc carries the full citation). Migrated from `org.cf.smalivm.opcode.SGetOpTest` -- all 27 tests --
  * plus the cases the corpus never covered: the primitive-tagged reference read (`readsAsNullReference`,

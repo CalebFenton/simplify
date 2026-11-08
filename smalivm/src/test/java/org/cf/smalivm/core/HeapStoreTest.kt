@@ -109,12 +109,10 @@ class HeapStoreTest {
 
     @Test
     fun twoPathsAllocatingObjectsOfOneTypeGetDistinctIdsAndDoNotAgree() {
-        // twoPathsAllocatingSeparatelyGetDistinctIdsAndDoNotAgree's object twin (Plan 9 Task 17), and
-        // the same soundness stake: `allocateObject` must mint from the SHARED HeapIds counter, or two
-        // forked paths' unrelated `new-instance Lfoo;` share one id, `agreesWith` calls them one object,
-        // and consensus reports a single Known where two allocations exist. It is also adjudication 8's
-        // unit-level pin -- the identity is the ID, never the type, where the oracle's
-        // UninitializedInstance compares TYPE ONLY and calls every uninitialized Lfoo; "equal".
+        // The object twin of twoPathsAllocatingSeparatelyGetDistinctIdsAndDoNotAgree, with the same stake:
+        // `allocateObject` must mint from the shared HeapIds counter, or two forked paths' unrelated
+        // `new-instance Lfoo;` share one id, `agreesWith` calls them one object, and consensus reports a single
+        // Known where two allocations exist. Identity is the id, never the type.
         val type = VirtualType.of("Lnew_instance_test;")
         val parent = HeapStore(HeapIds())
         val pathA = parent.copy()
@@ -128,10 +126,9 @@ class HeapStoreTest {
 
     @Test
     fun aFreshObjectIsUninitializedAndACopySharesItsImmutableVersion() {
-        // The flag is resolved decision 8's: SET at allocation, cleared only when an `<init>` whose
-        // receiver is this ref returns (Task 20, with invoke-direct -- nothing in this build clears it).
-        // The copy shares the immutable object version under the SAME id. A later field or initialization
-        // write replaces the object only in the writing store.
+        // Set at allocation, cleared only when an `<init>` whose receiver is this ref returns. The copy shares
+        // the immutable object version under the same id; a later field or initialization write replaces the
+        // object only in the writing store.
         val heap = HeapStore(HeapIds())
         val type = VirtualType.of("Lnew_instance_test;")
         val ref = heap.allocateObject(type)
@@ -191,8 +188,33 @@ class HeapStoreTest {
 
         val result = heap.finalizeHostGraph(checkpoint, roots)
 
-        assertEquals(HostGraphComparison.Unprovable, result)
+        assertEquals(HostGraphComparison.Unprovable(), result)
         assertSame(detachedRoot, heap.hostGraphVersionToken())
         assertNotSame(originalRoot, heap.hostGraphVersionToken())
+    }
+
+    @Test
+    fun aFinalizationThatThrowsIsUnprovableAndCarriesTheFailure() {
+        // Bug class: a host failure while re-walking the graph after a selected call is turned into Unprovable
+        // and dropped, so a host-library or cloning bug is invisible. Oracle: the Java object's own accessor
+        // throws EntryWalkFailure during the walk; that throwable, and no other, is the result's cause.
+        val heap = HeapStore(HeapIds())
+        val ref = heap.allocateHostObject(VirtualType.of("Ljava/lang/Object;"), BreakableEntry())
+        val roots = listOf(Value.Known(ref, VirtualType.of("Ljava/lang/Object;")))
+        val checkpoint = heap.detachHostGraph(roots)
+        (heap.hostObjectAt(ref) as BreakableEntry).broken = true
+
+        val result = heap.finalizeHostGraph(checkpoint, roots)
+
+        assertTrue((result as HostGraphComparison.Unprovable).cause is EntryWalkFailure, "cause: ${result.cause}")
+    }
+
+    private class EntryWalkFailure : RuntimeException("entry state cannot be read")
+
+    /** A Java object whose state walk fails once [broken] is set, as a host library's accessor can. */
+    private class BreakableEntry : Map.Entry<Any?, Any?> {
+        var broken = false
+        override val key: Any? get() = if (broken) throw EntryWalkFailure() else null
+        override val value: Any? get() = null
     }
 }

@@ -35,7 +35,7 @@ internal fun Frame.readArrayOperand(register: Int): ArrayOperand {
     if (value !is Value.Known) return ArrayOperand.Unprovable(value.type)
     if (value.readsAsNullReference) return ArrayOperand.Null
     val ref = value.raw as? HeapRef ?: return ArrayOperand.NotTracked(value.type)
-    val array = arrayAt(ref) ?: return ArrayOperand.NotTracked(value.type)
+    val array = heap.arrayAt(ref) ?: return ArrayOperand.NotTracked(value.type)
     val component = checkNotNull(array.type.componentType) { "Tracked array ${array.type} at r$register has no component type" }
     return ArrayOperand.Tracked(ref, array, component)
 }

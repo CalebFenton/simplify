@@ -29,7 +29,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
         val view = classIndex.requireMethodView(fixture.className, fixture.methodDescriptor)
         val frame = Frame.entryFrame(view)
         val seeds = fixture.seededRegisters.entries.toList()
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             seeds.map { (_, seed) -> HostSeed(Value.Known(seed.first, VirtualType.of(seed.second))) },
         )
         seeds.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
@@ -148,7 +148,7 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
                     .flatMap { graph.nodePile(it).asSequence() }
                     .filter { it.outcome is Outcome.Threw }
                     .mapNotNull { node ->
-                        node.terminalFrame.hostObjectAt(raw) as? Throwable
+                        node.terminalFrame.heap.hostObjectAt(raw) as? Throwable
                     }
                     .firstOrNull()
                 if (hostThrowable != null) {

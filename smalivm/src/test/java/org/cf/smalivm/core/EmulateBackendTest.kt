@@ -229,7 +229,7 @@ class EmulateBackendTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
-        assertEquals("value-returned", session.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals("value-returned", session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
         assertEquals("value", original.toString())
     }
 
@@ -246,7 +246,7 @@ class EmulateBackendTest {
 
         val node = session.step()!!
 
-        assertEquals("value-threw", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-threw", node.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -287,7 +287,7 @@ class EmulateBackendTest {
 
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
         assertSame(failure, node.hostFailure)
-        assertEquals("value-failed", node.frame.hostObjectAt(ref).toString())
+        assertEquals("value-failed", node.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -480,7 +480,7 @@ class EmulateBackendTest {
         val entry = view("Linvoke_reflected_test;", "invokeStringBuilderAppendWithLong()V")
         val frame = Frame.entryFrame(entry)
         val original = StringBuilder("value")
-        val ref = frame.allocateHostObject(builderType, original)
+        val ref = frame.heap.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))
         frame.assign(1, Value.Known(1L, VirtualType.of("J")))
         return Triple(vm.newSession(entry, entryFrame = frame), ref, original)

@@ -282,7 +282,7 @@ internal class ThrownSubject private constructor(val frameValue: FrameValue.Refi
             require(hierarchy.facts(runtimeType).throwableRelation != TypeRelation.NO) {
                 "Concrete thrown ref $ref denotes non-throwable $runtimeType"
             }
-            val runtimeFacts = (frame.hostObjectAt(ref) as? Throwable)
+            val runtimeFacts = (frame.heap.hostObjectAt(ref) as? Throwable)
                 ?.let { host -> trustedHostThrowableFacts(host.javaClass) }
                 ?.takeIf { it.type == runtimeType }
             return ThrownSubject(
@@ -344,7 +344,7 @@ internal class ThrowableRecipe(
     /** Allocates the throwable on [frame]'s heap. A recipe without a cause stores a null guest cause. */
     fun materialize(frame: Frame, hierarchy: ThrowableHierarchy): ThrownSubject {
         val causeValue = cause?.value ?: Value.Known(null, GuestThrowables.THROWABLE)
-        val hostCause = ((causeValue as? Value.Known)?.raw as? HeapRef)?.let(frame::hostObjectAt) as? Throwable
+        val hostCause = ((causeValue as? Value.Known)?.raw as? HeapRef)?.let(frame.heap::hostObjectAt) as? Throwable
         val value = frame.allocateThrowable(kind.type, kind.host(message, hostCause), causeValue)
         return ThrownSubject.fromHeap(value, frame, hierarchy)
     }

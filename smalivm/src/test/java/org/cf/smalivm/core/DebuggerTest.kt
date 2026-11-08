@@ -731,7 +731,7 @@ class DebuggerTest {
         assertSame(handler, session.frontier.single())
         assertSame(throwingNode.activation, handler.activation)
         assertEquals(1, handler.address)
-        assertTrue(handler.frame.copy().takeCaught() is Value.Unknown)
+        assertTrue(handler.frame.copy().takeCaught()?.value is Value.Unknown)
         assertFalse(handler.opExecutionStarted)
     }
 
@@ -999,7 +999,7 @@ class DebuggerTest {
         val valuesBefore = (0 until stateBefore.registerCount).map(stateBefore::peekRegister)
         val assignedBefore = stateBefore.registersAssigned()
         val readBefore = debugger.cursor!!.frame.registersRead()
-        val caughtBefore = debugger.cursor!!.frame.copy().takeCaught()
+        val caughtBefore = debugger.cursor!!.frame.copy().takeCaught()?.value
 
         repeat(3) {
             debugger.cursor
@@ -1025,7 +1025,7 @@ class DebuggerTest {
         assertEquals(valuesBefore, (0 until stateBefore.registerCount).map(stateBefore::peekRegister))
         assertEquals(assignedBefore, stateBefore.registersAssigned())
         assertEquals(readBefore, debugger.cursor!!.frame.registersRead())
-        assertEquals(caughtBefore, debugger.cursor!!.frame.copy().takeCaught())
+        assertEquals(caughtBefore, debugger.cursor!!.frame.copy().takeCaught()?.value)
     }
 
     @Test
@@ -1155,8 +1155,8 @@ class DebuggerTest {
         frame.assign(1, instance)
         frame.assign(2, Value.Known(23, int))
         frame.read(1)
-        frame.writeStaticField(STATIC_FIELD, Value.Known(31, int))
-        frame.completeClassInit(STATE_TYPE)
+        frame.classes.setStaticField(STATIC_FIELD, Value.Known(31, int))
+        frame.classes.complete(STATE_TYPE)
         return StatefulSession(
             vm.newSession(view, Limits(), frame),
             arrayRef,

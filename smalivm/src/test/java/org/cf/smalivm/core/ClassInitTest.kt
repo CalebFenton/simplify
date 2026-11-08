@@ -64,7 +64,7 @@ class ClassInitTest {
         val frame = plannerFrame()
         val first = defaultInvoker(classIndex).planClassInit(frame, HEIR)
         assertEquals(GRANDPARENT.descriptor, first.context?.activeInitializer?.type?.descriptor)
-        frame.completeClassInit(GRANDPARENT)
+        frame.classes.complete(GRANDPARENT)
         val second = defaultInvoker(classIndex).planClassInit(frame, HEIR)
         assertNull(second.context, "heir declares no initializer of its own")
         assertEquals(

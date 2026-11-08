@@ -33,7 +33,7 @@ class PersistentStateTest {
         }
 
         assertLiveState(copied, frame)
-        copied.writeStaticField(STATIC_FIELD, Value.Known(2, int))
+        copied.classes.setStaticField(STATIC_FIELD, Value.Known(2, int))
         assertEquals(Value.Known(1, int), frame.getStaticField(objectType, STATIC_FIELD))
     }
 
@@ -131,15 +131,15 @@ class PersistentStateTest {
         val changedBefore = parent.heapObject(changedRef)
         val untouchedBefore = parent.heapObject(untouchedRef)
 
-        assertTrue(changed.writeArrayElement(changedRef, 0, Value.Known(7, int)))
+        assertTrue(changed.heap.setArrayElement(changedRef, 0, Value.Known(7, int)))
 
         assertNotSame(changedBefore, changed.heapObject(changedRef))
         assertNotSame(contentsRoot(parent, changedRef), contentsRoot(changed, changedRef))
         assertSame(untouchedBefore, changed.heapObject(untouchedRef))
         assertSame(contentsRoot(parent, untouchedRef), contentsRoot(changed, untouchedRef))
-        assertEquals(Value.Known(0, int), parent.arrayAt(changedRef)!!.element(0))
-        assertEquals(Value.Known(0, int), sibling.arrayAt(changedRef)!!.element(0))
-        assertEquals(Value.Known(7, int), changed.arrayAt(changedRef)!!.element(0))
+        assertEquals(Value.Known(0, int), parent.heap.arrayAt(changedRef)!!.element(0))
+        assertEquals(Value.Known(0, int), sibling.heap.arrayAt(changedRef)!!.element(0))
+        assertEquals(Value.Known(7, int), changed.heap.arrayAt(changedRef)!!.element(0))
     }
 
     @Test
@@ -152,7 +152,7 @@ class PersistentStateTest {
         val changedBefore = parent.heapObject(changedRef)
         val untouchedBefore = parent.heapObject(untouchedRef)
 
-        assertTrue(changed.writeField(changedRef, field, Value.Known(9, int)))
+        assertTrue(changed.heap.setField(changedRef, field, Value.Known(9, int)))
 
         assertNotSame(changedBefore, changed.heapObject(changedRef))
         assertNotSame(contentsRoot(parent, changedRef), contentsRoot(changed, changedRef))
@@ -166,12 +166,12 @@ class PersistentStateTest {
     @Test
     fun lifecycleAndStaticWritesStayOnTheirOwnPath() {
         val parent = frame()
-        parent.writeStaticField(STATIC_FIELD, Value.Known(1, int))
+        parent.classes.setStaticField(STATIC_FIELD, Value.Known(1, int))
 
         val lifecycleChanged = parent.copy()
-        lifecycleChanged.completeClassInit(objectType)
+        lifecycleChanged.classes.complete(objectType)
         val staticChanged = parent.copy()
-        staticChanged.writeStaticField(STATIC_FIELD, Value.Known(2, int))
+        staticChanged.classes.setStaticField(STATIC_FIELD, Value.Known(2, int))
 
         assertEquals(ClassInitState.INITIALIZED, lifecycleChanged.initState(objectType))
         assertEquals(Value.Known(1, int), lifecycleChanged.getStaticField(objectType, STATIC_FIELD))
@@ -189,18 +189,18 @@ class PersistentStateTest {
         parent.assign(0, Value.Known(42L, wide))
         parent.setResult(Value.Known(1, int))
         parent.setCaught(Value.Known("caught", exception))
-        parent.setReturnValue(Value.Known(2, int))
+        parent.setReturnValue(FrameValue.plain(Value.Known(2, int)))
         parent.setThrown(Value.Known("thrown", exception))
         val child = parent.copy()
 
         assertEquals(Value.Known(42L, wide), child.peek(0))
         assertNull(child.peek(1), "a shared root must retain the wide-high marker")
-        assertEquals(Value.Known(1, int), child.takeResult())
-        assertEquals(Value.Known("caught", exception), child.takeCaught())
-        assertNull(child.takeResult())
-        assertNull(child.takeCaught())
-        assertEquals(Value.Known(1, int), parent.takeResult(), "child consumption must not clear its parent")
-        assertEquals(Value.Known("caught", exception), parent.takeCaught())
+        assertEquals(Value.Known(1, int), child.takeResult()?.value)
+        assertEquals(Value.Known("caught", exception), child.takeCaught()?.value)
+        assertNull(child.takeResult()?.value)
+        assertNull(child.takeCaught()?.value)
+        assertEquals(Value.Known(1, int), parent.takeResult()?.value, "child consumption must not clear its parent")
+        assertEquals(Value.Known("caught", exception), parent.takeCaught()?.value)
         assertEquals(Value.Known(2, int), child.returnValueOrNull())
         assertEquals(Value.Known("thrown", exception), child.thrownOrNull())
     }
@@ -210,12 +210,12 @@ class PersistentStateTest {
         // Observers read through the ExecutionState facade, which records no liveness and creates no versions.
         val frame = frame().also {
             it.assign(0, Value.Known(1, int))
-            it.completeClassInit(objectType)
-            it.writeStaticField(STATIC_FIELD, Value.Known(4, int))
+            it.classes.complete(objectType)
+            it.classes.setStaticField(STATIC_FIELD, Value.Known(4, int))
         }
         val ref = frame.allocateObject(objectType, mapOf(field to Value.Known(3, int))).raw as HeapRef
         val arrayRef = frame.allocateArray(intArray, 2).raw as HeapRef
-        frame.writeArrayElement(arrayRef, 0, Value.Known(7, int))
+        frame.heap.setArrayElement(arrayRef, 0, Value.Known(7, int))
         val versions = listOf(ref, arrayRef).map { frame.heapObject(it) }
         repeat(10) {
             frame.peekRegister(0)
@@ -224,8 +224,8 @@ class PersistentStateTest {
             frame.registersRead()
             frame.getField(ref, field)
             frame.heapObject(ref)
-            assertEquals(Value.Known(7, int), frame.arrayAt(arrayRef)!!.element(0))
-            assertEquals(listOf(Value.Known(7, int), Value.Known(0, int)), frame.arrayAt(arrayRef)!!.elements())
+            assertEquals(Value.Known(7, int), frame.heap.arrayAt(arrayRef)!!.element(0))
+            assertEquals(listOf(Value.Known(7, int), Value.Known(0, int)), frame.heap.arrayAt(arrayRef)!!.elements())
             frame.initState(objectType)
             frame.isClassInitialized(objectType)
             frame.getStaticField(objectType, STATIC_FIELD)
@@ -250,7 +250,7 @@ class PersistentStateTest {
         val graphSeed = Frame.entryFrame(graphView)
         val graphRef = seedLiveState(graphSeed)
         val graphArrayRef = graphSeed.allocateArray(intArray, 2).raw as HeapRef
-        graphSeed.writeArrayElement(graphArrayRef, 0, Value.Known(8, int))
+        graphSeed.heap.setArrayElement(graphArrayRef, 0, Value.Known(8, int))
         val graph = vm.newSession(graphView, Limits(), graphSeed).run()
         val graphFrames = graph.methodView.addresses.flatMap { graph.nodePile(it).map(ExecutionNode::frame) }
         val graphRefs = listOf(graphRef, graphArrayRef)
@@ -380,26 +380,26 @@ class PersistentStateTest {
         val objectRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val untouchedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(5, int))).raw as HeapRef
         val untouched = caller.heapObject(untouchedRef)
-        caller.completeClassInit(objectType)
-        caller.writeStaticField(STATIC_FIELD, Value.Known(1, int))
+        caller.classes.complete(objectType)
+        caller.classes.setStaticField(STATIC_FIELD, Value.Known(1, int))
         val first = caller.calleeEntryFrame(view(CALLEE, "returnsNothing()V"))
         val second = caller.calleeEntryFrame(view(CALLEE, "returnsNothing()V"))
-        first.writeArrayElement(arrayRef, 0, Value.Known(7, int))
-        second.writeArrayElement(arrayRef, 0, Value.Known(9, int))
-        first.writeField(objectRef, field, Value.Known(7, int))
-        second.writeField(objectRef, field, Value.Known(9, int))
-        first.writeStaticField(STATIC_FIELD, Value.Known(7, int))
-        second.writeStaticField(STATIC_FIELD, Value.Known(9, int))
+        first.heap.setArrayElement(arrayRef, 0, Value.Known(7, int))
+        second.heap.setArrayElement(arrayRef, 0, Value.Known(9, int))
+        first.heap.setField(objectRef, field, Value.Known(7, int))
+        second.heap.setField(objectRef, field, Value.Known(9, int))
+        first.classes.setStaticField(STATIC_FIELD, Value.Known(7, int))
+        second.classes.setStaticField(STATIC_FIELD, Value.Known(9, int))
 
         val merged = caller.mergedCalleeState(listOf(first, second), classIndex)
 
-        assertEquals(Value.Unknown(int), merged.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Unknown(int), merged.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Unknown(int), merged.getField(objectRef, field))
         assertEquals(Value.Unknown(int), merged.getStaticField(objectType, STATIC_FIELD))
         assertEquals(ClassInitState.INITIALIZED, merged.initState(objectType))
         assertSame(untouched, merged.heapObject(untouchedRef))
         assertSame(contentsRoot(caller, untouchedRef), contentsRoot(merged, untouchedRef))
-        assertEquals(Value.Known(0, int), caller.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Known(0, int), caller.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(1, int), caller.getField(objectRef, field))
         assertEquals(Value.Known(1, int), caller.getStaticField(objectType, STATIC_FIELD))
     }
@@ -410,7 +410,7 @@ class PersistentStateTest {
         val trackedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val tracked = caller.heapObject(trackedRef)
         val hostType = VirtualType.of("Ljava/lang/StringBuilder;")
-        val hostRef = caller.allocateHostObject(hostType, StringBuilder("value"))
+        val hostRef = caller.heap.allocateHostObject(hostType, StringBuilder("value"))
         val first = caller.copy()
         val second = caller.copy()
         val selected = SelectedHostCall.from(
@@ -436,37 +436,41 @@ class PersistentStateTest {
     }
 
     @Test
-    fun heapMergeOmitsObjectWhenInitializationVersionsDisagree() {
+    fun heapMergeKeepsAnObjectWhosePathsDisagreeAboutItsConstructor() {
+        // Bug class: the call merge drops an object whose callee paths disagree (one ran a delegated <init>,
+        // one did not), so the caller register that still holds its ref denotes nothing. Oracle: Dalvik never
+        // frees a referenced object, so it exists after the call on every path; "initialized" holds only when
+        // every path established it, and each field cell joins as on any other merge.
         val caller = frame()
         val ref = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val initializedPath = caller.copy()
         val uninitializedPath = caller.copy()
-        assertTrue(initializedPath.markInitialized(ref))
+        assertTrue(initializedPath.heap.markInitialized(ref))
+        initializedPath.heap.setField(ref, field, Value.Known(2, int))
 
         val merged = caller.mergedCalleeState(listOf(initializedPath, uninitializedPath), classIndex)
 
-        assertNull(merged.heapObject(ref))
-        assertFalse((initializedPath.heapObject(ref) as HeapObject.TrackedObject).uninitialized)
-        assertTrue((uninitializedPath.heapObject(ref) as HeapObject.TrackedObject).uninitialized)
-        assertTrue((caller.heapObject(ref) as HeapObject.TrackedObject).uninitialized)
+        val joined = merged.heapObject(ref) as HeapObject.TrackedObject
+        assertTrue(joined.uninitialized)
+        assertEquals(Value.Unknown(int), joined.field(field))
     }
 
     @Test
     fun classMergeRejectsIncompatibleLifecycleAndJoinsMissingStaticAgainstTop() {
-        val initialized = ClassInitStore().also {
+        val initialized = ClassStore().also {
             it.complete(objectType)
             it.setStaticField(STATIC_FIELD, Value.Known(7, int))
         }
-        val incompatible = ClassInitStore()
+        val incompatible = ClassStore()
         assertThrows<IllegalArgumentException> {
-            ClassInitStore.merge(listOf(initialized, incompatible), classIndex)
+            ClassStore.merge(listOf(initialized, incompatible), classIndex)
         }
 
         val missingStatic = initialized.copy()
         val withExtraStatic = initialized.copy().also {
             it.setStaticField(EXTRA_STATIC_FIELD, Value.Known(9, int))
         }
-        val merged = ClassInitStore.merge(listOf(withExtraStatic, missingStatic), classIndex)
+        val merged = ClassStore.merge(listOf(withExtraStatic, missingStatic), classIndex)
 
         assertEquals(ClassInitState.INITIALIZED, merged.initState(objectType))
         assertEquals(Value.Known(7, int), merged.getStaticField(objectType, STATIC_FIELD))
@@ -474,7 +478,9 @@ class PersistentStateTest {
     }
 
     @Test
-    fun heapMergeDropsObjectsMissingFromOnePathAndJoinsMissingFieldsAgainstTop() {
+    fun heapMergeDropsOnlyObjectsAllocatedAfterTheFork() {
+        // Oracle: an object one callee path allocated is not reachable from any value every path shares, so the
+        // merged heap leaves it out; an object the caller held exists on every path and keeps its version.
         val caller = frame()
         val untouchedRef = caller.allocateObject(objectType, mapOf(field to Value.Known(1, int))).raw as HeapRef
         val untouched = caller.heapObject(untouchedRef)
@@ -486,19 +492,22 @@ class PersistentStateTest {
 
         assertNull(merged.heapObject(pathOnlyRef), "an object absent from one outcome path must remain absent")
         assertSame(untouched, merged.heapObject(untouchedRef))
+    }
 
-        val presentHeap = HeapStore(HeapIds())
-        val presentRef = presentHeap.allocateObject(objectType, mapOf(field to Value.Known(7, int)))
-        val missingFieldHeap = HeapStore(HeapIds())
-        val missingFieldRef = missingFieldHeap.allocateObject(objectType, emptyMap())
-        assertEquals(presentRef, missingFieldRef, "the defensive merge case requires one colliding heap id")
-        val defensiveView = view(SPINE, "returnFive()I")
-        val present = Frame.entryFrame(defensiveView, presentHeap, ClassInitStore())
-        val missingField = Frame.entryFrame(defensiveView, missingFieldHeap, ClassInitStore())
+    @Test
+    fun heapJoinsRejectStoresFromAnotherRun() {
+        // Bug class: two runs' heaps both mint HeapRef(0) for different objects, and a join treats them as one
+        // object, so consensus reports contents neither run holds. Oracle: refs are comparable only within one
+        // HeapIds, so a join across runs is a caller error.
+        val caller = HeapStore(HeapIds())
+        val callerRef = caller.allocateObject(objectType, mapOf(field to Value.Known(7, int)))
+        val otherRun = HeapStore(HeapIds())
+        assertEquals(callerRef, otherRun.allocateObject(objectType, mapOf(field to Value.Known(9, int))))
 
-        val fieldMerged = present.mergedCalleeState(listOf(present, missingField), classIndex)
-
-        assertEquals(Value.Top, fieldMerged.getField(presentRef, field))
+        assertThrows<IllegalArgumentException> { caller.merged(listOf(otherRun), classIndex) }
+        assertThrows<IllegalArgumentException> {
+            caller.reconciled(listOf(caller.copy(), otherRun), emptyMap(), mapOf(callerRef to setOf(field)), classIndex)
+        }
     }
 
     @Test
@@ -538,7 +547,7 @@ class PersistentStateTest {
         val frame = frame()
         repeat(10_000) {
             frame.allocateTrackedField(trackedMetadata(it))
-            frame.completeClassInit(VirtualType.of("Lcompatibility/class$it;"))
+            frame.classes.complete(VirtualType.of("Lcompatibility/class$it;"))
         }
         val key = frame.callCompatibilityKey()
         val sharedKey = frame.copy().callCompatibilityKey()
@@ -556,7 +565,7 @@ class PersistentStateTest {
         val independentlyBuilt = frame()
         repeat(10_000) {
             independentlyBuilt.allocateTrackedField(trackedMetadata(it))
-            independentlyBuilt.completeClassInit(VirtualType.of("Lcompatibility/class$it;"))
+            independentlyBuilt.classes.complete(VirtualType.of("Lcompatibility/class$it;"))
         }
         val independentKey = independentlyBuilt.callCompatibilityKey()
         assertEquals(key, independentKey, "independently rebuilt equal states must converge")
@@ -581,7 +590,7 @@ class PersistentStateTest {
 
         val callee = parent.calleeEntryFrame(view(CALLEE, "returnsNothing()V"))
         assertEquals(0, callee.addressVisitCount(0))
-        val resumed = parent.resumedWith(callee)
+        val resumed = parent.mergedCalleeState(listOf(callee), classIndex)
         assertEquals(1, resumed.addressVisitCount(0))
     }
 
@@ -593,7 +602,7 @@ class PersistentStateTest {
         val frame = frame()
         val raw = intArrayOf(0)
         val arrayType = VirtualType.of("[I")
-        val value = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, arrayType)))).single() as Value.Known
+        val value = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, arrayType)))).single() as Value.Known
         val ref = value.raw as HeapRef
         frame.assign(0, value)
         repeat(300_000) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
@@ -609,7 +618,7 @@ class PersistentStateTest {
 
         assertTimeoutPreemptively(Duration.ofSeconds(30)) {
             repeat(3_000) { iteration ->
-                frame.writeArrayElement(ref, 0, Value.Known(iteration, int))
+                frame.heap.setArrayElement(ref, 0, Value.Known(iteration, int))
                 val selected = SelectedHostCall.from(invocation, frame, CoreTester.classIndex.classLoader)
                 assertEquals(iteration, (selected.arguments.single() as IntArray)[0])
                 selected.finalize(frame)
@@ -625,10 +634,10 @@ class PersistentStateTest {
         it.recordAddressVisit(0)
         it.allocateArray(intArray, 2_048)
         repeat(heapObjects) { index -> it.allocateObject(objectType, mapOf(field to Value.Known(index, int))) }
-        it.allocateHostObject(VirtualType.of("Ljava/lang/StringBuilder;"), StringBuilder("host"))
-        it.completeClassInit(objectType)
-        repeat(statics) { index -> it.writeStaticField("${objectType.descriptor}->static$index:I", Value.Known(index, int)) }
-        it.writeStaticField(STATIC_FIELD, Value.Known(1, int))
+        it.heap.allocateHostObject(VirtualType.of("Ljava/lang/StringBuilder;"), StringBuilder("host"))
+        it.classes.complete(objectType)
+        repeat(statics) { index -> it.classes.setStaticField("${objectType.descriptor}->static$index:I", Value.Known(index, int)) }
+        it.classes.setStaticField(STATIC_FIELD, Value.Known(1, int))
     }
 
     private fun view(className: String, descriptor: String): MethodView =
@@ -636,8 +645,8 @@ class PersistentStateTest {
 
     private fun seedLiveState(frame: Frame): HeapRef {
         val ref = frame.allocateObject(objectType, mapOf(field to Value.Known(3, int))).raw as HeapRef
-        frame.completeClassInit(objectType)
-        frame.writeStaticField(STATIC_FIELD, Value.Known(4, int))
+        frame.classes.complete(objectType)
+        frame.classes.setStaticField(STATIC_FIELD, Value.Known(4, int))
         return ref
     }
 

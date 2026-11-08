@@ -420,13 +420,13 @@ class ExecutionSession internal constructor(
             applied.result?.let(armFrame::setResult)
             if (arm is OpArm.MoveFromSlot) {
                 when (arm.source) {
-                    SpecialSlotSource.RESULT -> armFrame.assignFrameValue(
+                    SpecialSlotSource.RESULT -> armFrame.assign(
                         arm.register,
-                        armFrame.takeResultFrameValue() ?: FrameValue.plain(Value.Top),
+                        armFrame.takeResult() ?: FrameValue.plain(Value.Top),
                     )
-                    SpecialSlotSource.CAUGHT -> armFrame.assignFrameValue(
+                    SpecialSlotSource.CAUGHT -> armFrame.assign(
                         arm.register,
-                        armFrame.takeCaughtFrameValue() ?: FrameValue.plain(Value.Top),
+                        armFrame.takeCaught() ?: FrameValue.plain(Value.Top),
                     )
                 }
             }
@@ -584,7 +584,7 @@ class ExecutionSession internal constructor(
             transition.fieldDescriptor,
             transition.fieldType,
         )
-        val cell = node.frame.staticCell(transition.fieldDescriptor)
+        val cell = node.frame.classes.staticCell(transition.fieldDescriptor)
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
@@ -628,7 +628,7 @@ class ExecutionSession internal constructor(
                 FrameOrigin.Continuation,
             ) { frame ->
                 val value = importHostStaticValue(frame, hostValue)
-                frame.writeHostProjection(transition.fieldDescriptor, value)
+                frame.classes.setHostProjection(transition.fieldDescriptor, value)
                 frame.assign(transition.register, value)
             },
         ),
@@ -647,7 +647,7 @@ class ExecutionSession internal constructor(
                 OnUnbuildable.SKIP_ONE,
                 FrameOrigin.Continuation,
             ) { frame ->
-                frame.writeHostProjection(transition.fieldDescriptor, value)
+                frame.classes.setHostProjection(transition.fieldDescriptor, value)
                 frame.assign(transition.register, value)
             },
         ),
@@ -878,7 +878,7 @@ class ExecutionSession internal constructor(
                                 FrameOrigin.CalleeEntry,
                             ) { frame ->
                                 guestPlan.parameterBindings.forEach {
-                                    frame.assignFrameValue(it.register, it.frameValue)
+                                    frame.assign(it.register, it.frameValue)
                                 }
                             },
                         ),
@@ -999,7 +999,10 @@ class ExecutionSession internal constructor(
         }
         when (comparison) {
             HostGraphComparison.Equal, HostGraphComparison.Different -> Unit
-            HostGraphComparison.Unprovable -> raiseSynchronousEffect(node, SideEffectLevel.STRONG)
+            is HostGraphComparison.Unprovable -> {
+                comparison.cause?.let { node.hostFailure = it }
+                raiseSynchronousEffect(node, SideEffectLevel.STRONG)
+            }
         }
         return comparison
     }
@@ -1073,7 +1076,7 @@ class ExecutionSession internal constructor(
         IntrinsicOperation.CloneArrayReceiver -> {
             val ref = (plan.invocation.receiver as? Value.Known)?.raw as? HeapRef
                 ?: error("Tracked-array clone has no known receiver ref")
-            val source = node.frame.arrayAt(ref)
+            val source = node.frame.heap.arrayAt(ref)
                 ?: error("Tracked-array clone receiver $ref is not an array")
             val clone = node.frame.allocateArray(source.type, source.elements().toTypedArray())
             synchronousContinuation(node, clone, constructorReceiver = null)
@@ -1082,14 +1085,14 @@ class ExecutionSession internal constructor(
             val ref = (plan.invocation.receiver as? Value.Known)?.raw as? HeapRef
                 ?: error("Enum initialization has no known receiver ref")
             require(
-                node.frame.writeField(
+                node.frame.heap.setField(
                     ref,
                     "Ljava/lang/Enum;->name:Ljava/lang/String;",
                     operation.name.toSchedulerValue(VirtualType.of("Ljava/lang/String;")),
                 ),
             ) { "Enum initialization receiver $ref has no name field" }
             require(
-                node.frame.writeField(
+                node.frame.heap.setField(
                     ref,
                     "Ljava/lang/Enum;->ordinal:I",
                     operation.ordinal.toSchedulerValue(VirtualType.of("I")),
@@ -1129,12 +1132,12 @@ class ExecutionSession internal constructor(
         is IntrinsicOperation.SetTrackedFieldAccessible -> {
             val ref = (plan.invocation.receiver as? Value.Known)?.raw as? HeapRef
                 ?: error("Field.setAccessible has no known tracked receiver ref")
-            val current = node.frame.trackedFieldAt(ref)
+            val current = node.frame.heap.trackedFieldAt(ref)
                 ?: error("Field.setAccessible receiver $ref is not a tracked field")
             require(current.metadata == operation.metadata) {
                 "Field.setAccessible metadata changed between selection and application"
             }
-            require(node.frame.setTrackedFieldAccessibility(ref, operation.accessibility)) {
+            require(node.frame.heap.setTrackedFieldAccessibility(ref, operation.accessibility)) {
                 "Field.setAccessible could not update $ref"
             }
             synchronousContinuation(node, value = null, constructorReceiver = null)
@@ -1188,7 +1191,7 @@ class ExecutionSession internal constructor(
                     OnUnbuildable.SKIP_ONE,
                     FrameOrigin.Continuation,
                 ) { frame ->
-                    constructorReceiver?.let(frame::markInitialized)
+                    constructorReceiver?.let(frame.heap::markInitialized)
                     value?.let(frame::setResult)
                 },
             ),
@@ -1217,12 +1220,12 @@ class ExecutionSession internal constructor(
                     sourceRef != null -> Value.Known(sourceRef, value.type)
                     comparison == HostGraphComparison.Equal && selected.sourceNodeId(raw) != null -> {
                         val sourceNode = requireNotNull(selected.sourceNodeId(raw))
-                        Value.Known(frame.importHostNode(sourceNode, value.type, frame.hostObjectAt(sourceNode)!!), value.type)
+                        Value.Known(frame.heap.importHostNode(sourceNode, value.type, frame.heap.hostObjectAt(sourceNode)!!), value.type)
                     }
                     else -> {
                         val nodeId = retainedSourceNodeId(frame, selected, raw)
                         when {
-                            nodeId != null -> Value.Known(frame.importHostNode(nodeId, value.type, raw), value.type)
+                            nodeId != null -> Value.Known(frame.heap.importHostNode(nodeId, value.type, raw), value.type)
                             raw.javaClass.isArray -> frame.admitReturnedHostArray(raw, value.type)
                             else -> frame.admitReturnedHostValue(raw, value.type)
                         }
@@ -1268,7 +1271,7 @@ class ExecutionSession internal constructor(
             val cause = raw.cause?.let { nested ->
                 importOne(nested, virtualTypeOfHostClass(nested.javaClass))
             } ?: Value.Known(null, GuestThrowables.THROWABLE)
-            frame.setThrowableCause(ref, cause)
+            frame.heap.setThrowableCause(ref, cause)
             return Value.Known(ref, type)
         }
 
@@ -1288,17 +1291,17 @@ class ExecutionSession internal constructor(
             if (comparison == HostGraphComparison.Equal) {
                 val sourceNode = selected.sourceNodeId(raw)
                 if (sourceNode != null) {
-                    val retained = requireNotNull(frame.hostObjectAt(sourceNode))
-                    return frame.importHostNode(sourceNode, type, retained)
+                    val retained = requireNotNull(frame.heap.hostObjectAt(sourceNode))
+                    return frame.heap.importHostNode(sourceNode, type, retained)
                 }
             }
             retainedSourceNodeId(frame, selected, raw)?.let { nodeId ->
-                return frame.importHostNode(nodeId, type, raw)
+                return frame.heap.importHostNode(nodeId, type, raw)
             }
         }
-        frame.findHostObject(raw)?.let { return it }
-        frame.hostNodeId(raw)?.let { nodeId ->
-            return frame.importHostNode(nodeId, type, raw)
+        frame.heap.findHostObject(raw)?.let { return it }
+        frame.heap.hostNodeId(raw)?.let { nodeId ->
+            return frame.heap.importHostNode(nodeId, type, raw)
         }
         return frame.allocateThrowable(type, raw).raw as HeapRef
     }
@@ -1309,8 +1312,8 @@ class ExecutionSession internal constructor(
         raw: Any,
     ): HostGraphNodeId? {
         val source = selected.sourceNodeId(raw)
-        if (source != null && frame.hostObjectAt(source) === raw) return source
-        return frame.hostNodeId(raw)
+        if (source != null && frame.heap.hostObjectAt(source) === raw) return source
+        return frame.heap.hostNodeId(raw)
     }
 
     private fun retainedSourceRef(
@@ -1320,14 +1323,9 @@ class ExecutionSession internal constructor(
         comparison: HostGraphComparison,
     ): HeapRef? {
         val sourceRef = selected.sourceHeapRef(raw) ?: return null
-        val nodeId = when (val obj = frame.heapObject(sourceRef)) {
-            is HeapObject.HostObject -> (obj.contents as? HostGraphContents.Known)?.nodeId
-            is HeapObject.GuestThrowable -> (obj.contents as? HostGraphContents.Known)?.nodeId
-            is HeapObject.TrackedArray -> (obj.mirror as? HostGraphContents.Known)?.nodeId
-            is HeapObject.TrackedField, is HeapObject.TrackedObject, null -> null
-        } ?: return null
-        if (frame.refForHostNode(nodeId) != sourceRef) return null
-        val currentRaw = frame.hostObjectAt(nodeId) ?: return null
+        val nodeId = (frame.heapObject(sourceRef) as? HostBacked)?.knownNodeId ?: return null
+        if (frame.heap.refForNode(nodeId) != sourceRef) return null
+        val currentRaw = frame.heap.hostObjectAt(nodeId) ?: return null
         if (currentRaw === raw) return sourceRef
         val sourceNode = selected.sourceNodeId(raw)
         return if (comparison == HostGraphComparison.Equal && sourceNode == nodeId) sourceRef else null
@@ -1397,10 +1395,10 @@ class ExecutionSession internal constructor(
     ): SuccessorSpec {
         val result = source.copy()
         for (ref in result.reachableTrackedFields(arguments)) {
-            result.setTrackedFieldAccessibility(ref, FieldAccessibility.UNKNOWN)
+            result.heap.setTrackedFieldAccessibility(ref, FieldAccessibility.UNKNOWN)
         }
-        result.collapseReachable(arguments, argumentTypes)
-        constructorReceiver?.let(result::markInitialized)
+        result.heap.collapseReachable(arguments, argumentTypes)
+        constructorReceiver?.let(result.heap::markInitialized)
         if (returnType.descriptor != "V") result.setResult(Value.Unknown(returnType))
         return SuccessorSpec(address, activation, OnUnbuildable.SKIP_ONE, FrameOrigin.OpaqueResult(result))
     }
@@ -1412,14 +1410,14 @@ class ExecutionSession internal constructor(
     private fun planAccessibilityFork(node: ExecutionNode, invocation: PreparedInvocation): Committable? {
         val ref = (listOfNotNull(invocation.receiver) + invocation.arguments).firstNotNullOfOrNull { value ->
             ((value as? Value.Known)?.raw as? HeapRef)?.takeIf {
-                node.frame.trackedFieldAt(it)?.accessibility == FieldAccessibility.UNKNOWN
+                node.frame.heap.trackedFieldAt(it)?.accessibility == FieldAccessibility.UNKNOWN
             }
         } ?: return null
         return Committable(
             listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN).map { accessibility ->
                 SuccessorSpec(
                     node.address, node.activation, OnUnbuildable.SKIP_ONE, FrameOrigin.Continuation,
-                ) { frame -> frame.setTrackedFieldAccessibility(ref, accessibility) }
+                ) { frame -> frame.heap.setTrackedFieldAccessibility(ref, accessibility) }
             },
             null,
         )
@@ -1659,7 +1657,7 @@ class ExecutionSession internal constructor(
             // [recordUnattributedEnding]).
             for (ending in endings) {
                 when (val outcome = ending.outcome) {
-                    is Outcome.Returned -> ending.frame.setReturnFrameValue(ending.returnValue)
+                    is Outcome.Returned -> ending.frame.setReturnValue(ending.returnValue)
                     is Outcome.Threw -> ending.frame.setThrown(outcome.exception)
                     is Outcome.Aborted -> Unit
                 }
@@ -1818,7 +1816,7 @@ class ExecutionSession internal constructor(
                     FrameOrigin.CallerPartition(requireNotNull(mergedPartitions[key])),
                 ) { frame ->
                     exit.frameValue?.let(frame::setResult)
-                    site.constructorReceiver?.let(frame::markInitialized)
+                    site.constructorReceiver?.let(frame.heap::markInitialized)
                 }
             }
         }
@@ -1849,7 +1847,10 @@ class ExecutionSession internal constructor(
             site.invokeNode.sideEffectLevel = SideEffectLevel.STRONG
             activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
             aborted.mapTo(routingAborts) { exit ->
-                ActivationExit.Aborted(site.invokeNode.frame.resumedWith(exit.frame), exit.reason)
+                ActivationExit.Aborted(
+                    site.invokeNode.frame.mergedCalleeState(listOf(exit.frame), resolver.hierarchy),
+                    exit.reason,
+                )
             }
         }
         val throwGroups = mutableListOf<CallerThrowGroup>()
@@ -1893,7 +1894,7 @@ class ExecutionSession internal constructor(
                             caller,
                             OnUnbuildable.ALL_OR_NOTHING,
                             FrameOrigin.CallerPartition(routing.frame),
-                        ) { frame -> frame.setCaught(route.subject) }
+                        ) { frame -> frame.setCaught(route.subject.frameValue) }
                     }
                     val escape = routing.resolution.unhandled?.let { unhandled ->
                         ActivationExit.Threw(
@@ -2459,7 +2460,7 @@ class ExecutionSession internal constructor(
         if (raw !is HeapRef) return materializeNonThrowable(value, frame)
         val obj = frame.heapObject(raw) ?: return materializeNonThrowable(value, frame)
         if (obj is HeapObject.HostObject) {
-            val host = frame.hostObjectAt(raw)
+            val host = frame.heap.hostObjectAt(raw)
             if (host != null && host !is Throwable) return materializeNonThrowable(value, frame)
         }
         val relation = throwableHierarchy.facts(obj.type).throwableRelation
@@ -2504,7 +2505,7 @@ class ExecutionSession internal constructor(
                     node.activation,
                     OnUnbuildable.ALL_OR_NOTHING,
                     FrameOrigin.Continuation,
-                ) { frame -> frame.setCaught(route.subject) }
+                ) { frame -> frame.setCaught(route.subject.frameValue) }
             },
             ending = resolution.unhandled?.let {
                 escapeEnding(node, ThrowPath.create(path.frame, it.subject, throwableHierarchy))

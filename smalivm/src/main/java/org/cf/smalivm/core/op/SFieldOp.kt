@@ -46,7 +46,7 @@ internal class SGetOp(
     override fun execute(frame: Frame): OpExecution {
         preamble(frame, field)?.let { return it }
         val resolved = field as StaticFieldLookup.Resolved
-        val cell = frame.staticCell(resolved.descriptor)
+        val cell = frame.classes.staticCell(resolved.descriptor)
         if (cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             return OpExecution.single(
                 OpArm.ProjectStatic(destRegister, resolved.definingClass, resolved.descriptor, resolved.type),

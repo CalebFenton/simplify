@@ -13,8 +13,8 @@ class SchedulerArmFailureTest {
         val caller = view("callForkingCallee()I")
         val callee = view("forkingCallee()V")
         val initial = Frame.entryFrame(caller).also {
-            it.writeStaticField(STATE_FIELD, Value.Known(0, INT))
-            it.completeClassInit(OWNER)
+            it.classes.setStaticField(STATE_FIELD, Value.Known(0, INT))
+            it.classes.complete(OWNER)
         }
         val fork = object : Op(0) {
             override val name = "fork-with-rejected-state"
@@ -47,8 +47,8 @@ class SchedulerArmFailureTest {
         val caller = view("callForkingCallee()I")
         val callee = view("forkingCallee()V")
         val initial = Frame.entryFrame(caller).also {
-            it.writeStaticField(STATE_FIELD, Value.Known(0, INT))
-            it.completeClassInit(OWNER)
+            it.classes.setStaticField(STATE_FIELD, Value.Known(0, INT))
+            it.classes.complete(OWNER)
         }
         val failedUpdate = OpUpdate.writeStatic(STATE_FIELD, Value.Known(33, INT))
             .then(OpUpdate.assign(99, Value.Known(34, INT)))

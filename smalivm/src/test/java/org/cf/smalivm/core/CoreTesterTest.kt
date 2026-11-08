@@ -186,7 +186,7 @@ class CoreTesterTest {
         })
         val seeded = graph.nodePile(0).first().frame.peek(0) as Value.Known
         assertTrue(seeded.raw is HeapRef, "a seeded array must be tracked, not a live host raw: ${seeded.raw}")
-        val array = graph.nodePile(0).first().frame.arrayAt(seeded.raw as HeapRef)!!
+        val array = graph.nodePile(0).first().frame.heap.arrayAt(seeded.raw as HeapRef)!!
         assertEquals(1, array.length)
         assertEquals(Value.Known(0x42, VirtualType.of("I")), array.element(0))
     }

@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 /** Per-class initialization lifecycle (spec §4.2): partial and failed init are representable. */
 enum class ClassInitState { UNINITIALIZED, INITIALIZING, INITIALIZED, FAILED }
 
-/** One path's class-initialization store (spec §4.2), implemented by `ClassInit.kt`'s `ClassInitStore`. */
+/** One path's class state (spec §4.2): lifecycle and statics, implemented by `ClassInit.kt`'s `ClassStore`. */
 interface ClassState {
     /**
      * Where [type] sits in the lifecycle **on this path** (resolved decision 9), and total: a class this

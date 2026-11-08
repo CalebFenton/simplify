@@ -15,7 +15,12 @@ import java.util.SortedSet
 sealed interface HostGraphComparison {
     data object Equal : HostGraphComparison
     data object Different : HostGraphComparison
-    data object Unprovable : HostGraphComparison
+
+    /**
+     * The graphs could not be compared exactly. [cause] is the failure that stopped the comparison; null when the
+     * graphs hold state no comparison can see.
+     */
+    data class Unprovable(val cause: Throwable? = null) : HostGraphComparison
 }
 
 /** Compares mutable Java graph state without calling user equality methods. */
@@ -25,11 +30,11 @@ internal class HostGraphComparator {
         right: HostGraphState,
         expectedLeftArrays: Map<Int, List<Any?>> = emptyMap(),
     ): HostGraphComparison {
-        if (!left.isComplete || !right.isComplete) return HostGraphComparison.Unprovable
+        if (!left.isComplete || !right.isComplete) return HostGraphComparison.Unprovable()
         val leftNodes = left.objectsById()
         val rightNodes = right.objectsById()
         if (left.nodeCount != right.nodeCount) return HostGraphComparison.Different
-        return hostBoundary({ HostGraphComparison.Unprovable }) {
+        return hostBoundary({ HostGraphComparison.Unprovable(it) }) {
             val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
             expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
             val walk = Walk(expectedByIdentity)
@@ -86,7 +91,7 @@ internal class HostGraphComparator {
         fun compare(left: Any?, right: Any?): HostGraphComparison {
             var verdict = visit(left, right)
             while (true) {
-                if (discardedSteps > MAX_DISCARDED_STEPS) return HostGraphComparison.Unprovable
+                if (discardedSteps > MAX_DISCARDED_STEPS) return HostGraphComparison.Unprovable()
                 val match = matches.lastOrNull()
                 if (verdict == HostGraphComparison.Equal && stack.size > (match?.base ?: 0)) {
                     steps++
@@ -161,8 +166,8 @@ internal class HostGraphComparator {
                     pushCustomFields(left, right)
                     visitUnordered(left.entries.toList(), (right as Map<*, *>).entries.toList(), entries = true)
                 }
-                left is Collection<*> -> HostGraphComparison.Unprovable
-                JdkClasses.isJdk(left.javaClass) -> HostGraphComparison.Unprovable
+                left is Collection<*> -> HostGraphComparison.Unprovable()
+                JdkClasses.isJdk(left.javaClass) -> HostGraphComparison.Unprovable()
                 else -> {
                     stack += FieldValues(left, right, instanceFields(left.javaClass))
                     HostGraphComparison.Equal
@@ -209,14 +214,14 @@ internal class HostGraphComparator {
         }
 
         private fun visitField(field: Field, left: Any, right: Any): HostGraphComparison {
-            if (!field.trySetAccessible()) return HostGraphComparison.Unprovable
+            if (!field.trySetAccessible()) return HostGraphComparison.Unprovable()
             val leftValue: Any?
             val rightValue: Any?
             try {
                 leftValue = field.get(left)
                 rightValue = field.get(right)
             } catch (_: IllegalAccessException) {
-                return HostGraphComparison.Unprovable
+                return HostGraphComparison.Unprovable()
             }
             return visit(leftValue, rightValue)
         }
@@ -277,7 +282,7 @@ internal class HostGraphComparator {
                 match.cursor[match.level] = 0
                 match.sawUnprovable[match.level] = false
             } else {
-                if (attempt == HostGraphComparison.Unprovable) match.sawUnprovable[level] = true
+                if (attempt is HostGraphComparison.Unprovable) match.sawUnprovable[level] = true
                 undo(match, level)
             }
             return nextCandidate(match)
@@ -303,7 +308,7 @@ internal class HostGraphComparator {
                     return HostGraphComparison.Equal
                 }
                 val exhausted = if (match.sawUnprovable[level]) {
-                    HostGraphComparison.Unprovable
+                    HostGraphComparison.Unprovable()
                 } else {
                     HostGraphComparison.Different
                 }
@@ -313,7 +318,7 @@ internal class HostGraphComparator {
                 }
                 match.level = level - 1
                 match.used[match.chosen[level - 1]] = false
-                if (exhausted == HostGraphComparison.Unprovable) match.sawUnprovable[level - 1] = true
+                if (exhausted is HostGraphComparison.Unprovable) match.sawUnprovable[level - 1] = true
                 undo(match, level - 1)
             }
         }

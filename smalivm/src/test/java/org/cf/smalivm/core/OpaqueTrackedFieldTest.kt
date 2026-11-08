@@ -17,10 +17,10 @@ class OpaqueTrackedFieldTest {
         val ref = fieldRef(invoke.frame, 0)
         val read = unknownRead(graph, ref)
 
-        assertEquals(FieldAccessibility.UNKNOWN, invoke.children.single().frame.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(FieldAccessibility.UNKNOWN, invoke.children.single().frame.heap.trackedFieldAt(ref)!!.accessibility)
         assertEquals(
             listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN),
-            read.children.map { it.frame.trackedFieldAt(ref)!!.accessibility },
+            read.children.map { it.frame.heap.trackedFieldAt(ref)!!.accessibility },
         )
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
@@ -37,11 +37,11 @@ class OpaqueTrackedFieldTest {
 
         assertEquals(ref, fieldRef(successor.frame, 0))
         assertEquals(ref, fieldRef(successor.frame, 1))
-        assertEquals(FieldAccessibility.UNKNOWN, successor.frame.trackedFieldAt(ref)!!.accessibility)
-        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, invoke.frame.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(FieldAccessibility.UNKNOWN, successor.frame.heap.trackedFieldAt(ref)!!.accessibility)
+        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, invoke.frame.heap.trackedFieldAt(ref)!!.accessibility)
         assertEquals(
             listOf(FieldAccessibility.LANGUAGE_CHECKS, FieldAccessibility.OVERRIDDEN),
-            read.children.map { it.frame.trackedFieldAt(ref)!!.accessibility },
+            read.children.map { it.frame.heap.trackedFieldAt(ref)!!.accessibility },
         )
         assertEquals(listOf(Value.Known(0x13, INT)), returnedValues(graph))
         assertEquals(listOf(ILLEGAL_ACCESS.descriptor), CoreTester.escapingTypes(graph))
@@ -56,7 +56,7 @@ class OpaqueTrackedFieldTest {
 
         assertEquals(
             listOf(FieldAccessibility.UNKNOWN, FieldAccessibility.UNKNOWN),
-            refs.map { successor.frame.trackedFieldAt(it)!!.accessibility },
+            refs.map { successor.frame.heap.trackedFieldAt(it)!!.accessibility },
         )
         assertEquals(listOf<Value?>(null), returnedValues(graph))
     }
@@ -105,8 +105,8 @@ class OpaqueTrackedFieldTest {
         val arrayRef = array.raw as HeapRef
         val objectValue = frame.allocateObject(DECLARING, requireNotNull(classIndex.currentResolver().instanceFieldDefaults(DECLARING)))
         val objectRef = objectValue.raw as HeapRef
-        assertTrue(frame.writeField(objectRef, PUBLIC_INSTANCE, Value.Known(8, INT)))
-        val hostRef = frame.allocateHostObject(BUILDER, StringBuilder("host"))
+        assertTrue(frame.heap.setField(objectRef, PUBLIC_INSTANCE, Value.Known(8, INT)))
+        val hostRef = frame.heap.allocateHostObject(BUILDER, StringBuilder("host"))
         val arguments = listOf(field, array, objectValue, Value.Known(hostRef, BUILDER))
         entry.parameters.zip(arguments).forEach { (parameter, value) -> frame.assign(parameter.register, value) }
         val refs = listOf(fieldRef, arrayRef, objectRef, hostRef)
@@ -120,16 +120,16 @@ class OpaqueTrackedFieldTest {
         assertEquals(listOf(Value.Unknown(INT)), returnedValues(graph))
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertTrue(invoke.invocationDiagnostic?.isNotBlank() == true)
-        assertEquals(Value.Unknown(INT), child.frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(Value.Unknown(INT), child.frame.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Unknown(INT), child.frame.getField(objectRef, PUBLIC_INSTANCE))
         assertTrue((child.frame.heapObject(hostRef) as HeapObject.HostObject).contents == HostGraphContents.Unknown)
-        assertNull(child.frame.hostObjectAt(hostRef))
-        assertEquals(FieldAccessibility.UNKNOWN, child.frame.trackedFieldAt(fieldRef)!!.accessibility)
+        assertNull(child.frame.heap.hostObjectAt(hostRef))
+        assertEquals(FieldAccessibility.UNKNOWN, child.frame.heap.trackedFieldAt(fieldRef)!!.accessibility)
 
-        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, frame.trackedFieldAt(fieldRef)!!.accessibility)
-        assertEquals(Value.Known(7, INT), frame.arrayAt(arrayRef)!!.element(0))
+        assertEquals(FieldAccessibility.LANGUAGE_CHECKS, frame.heap.trackedFieldAt(fieldRef)!!.accessibility)
+        assertEquals(Value.Known(7, INT), frame.heap.arrayAt(arrayRef)!!.element(0))
         assertEquals(Value.Known(8, INT), frame.getField(objectRef, PUBLIC_INSTANCE))
-        assertTrue(frame.hostObjectAt(hostRef) is StringBuilder)
+        assertTrue(frame.heap.hostObjectAt(hostRef) is StringBuilder)
         assertEquals(arguments, entry.parameters.map { frame.peek(it.register) })
         refs.zip(objectsBefore).forEach { (ref, before) -> assertSame(before, frame.heapObject(ref)) }
     }
@@ -146,7 +146,7 @@ class OpaqueTrackedFieldTest {
         .flatMap(graph::nodePile)
         .single {
             it.invocationTarget() == FIELD_GET &&
-                it.frame.trackedFieldAt(ref)?.accessibility == FieldAccessibility.UNKNOWN
+                it.frame.heap.trackedFieldAt(ref)?.accessibility == FieldAccessibility.UNKNOWN
         }
 
     private fun returnedValues(graph: ExecutionGraph): List<Value?> =

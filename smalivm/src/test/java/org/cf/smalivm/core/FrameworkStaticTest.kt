@@ -119,7 +119,7 @@ class FrameworkStaticTest {
     fun guestInitializerWriteReplacesPriorHostProjection() {
         val type = VirtualType.of("Ljava/lang/Boolean;")
         val descriptor = "Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;"
-        val store = ClassInitStore()
+        val store = ClassStore()
         store.setHostProjection(descriptor, Value.Known(java.lang.Boolean.TRUE, type))
 
         store.setStaticField(descriptor, Value.Known(java.lang.Boolean.FALSE, type))
@@ -133,8 +133,8 @@ class FrameworkStaticTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(TRUE)))
         val view = view("immutableReference()Ljava/lang/Boolean;")
         val frame = Frame.entryFrame(view)
-        frame.writeStaticField(TRUE.descriptor, Value.Known(false, TRUE.type))
-        frame.completeClassInit(TRUE.definingClass)
+        frame.classes.setStaticField(TRUE.descriptor, Value.Known(false, TRUE.type))
+        frame.classes.complete(TRUE.definingClass)
 
         val graph = vm.newSession(view, entryFrame = frame).run()
 
@@ -146,30 +146,30 @@ class FrameworkStaticTest {
         val descriptor = "Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;"
         val boolean = VirtualType.of("Z")
         val first = guestCell(descriptor, Value.Known(true, boolean))
-        val compatible = ClassInitStore.merge(listOf(first, first.copy()), classIndex)
+        val compatible = ClassStore.merge(listOf(first, first.copy()), classIndex)
         assertEquals(StaticCellProvenance.GUEST_WRITE, compatible.staticCell(descriptor)!!.provenance)
         assertEquals(Value.Known(true, boolean), compatible.staticCell(descriptor)!!.value)
 
         val agreeingHost = hostCell(descriptor, Value.Known(true, boolean))
-        val agreeingConflict = ClassInitStore.merge(listOf(first, agreeingHost), classIndex)
+        val agreeingConflict = ClassStore.merge(listOf(first, agreeingHost), classIndex)
         assertEquals(Value.Known(true, boolean), agreeingConflict.staticCell(descriptor)!!.value)
         assertEquals(StaticCellProvenance.GUEST_WRITE, agreeingConflict.staticCell(descriptor)!!.provenance)
 
         val encoded = preparedCell(descriptor, Value.Known(true, boolean), StaticCellProvenance.ENCODED_LITERAL)
-        val encodedHost = ClassInitStore.merge(listOf(encoded, agreeingHost), classIndex)
+        val encodedHost = ClassStore.merge(listOf(encoded, agreeingHost), classIndex)
         assertEquals(Value.Known(true, boolean), encodedHost.staticCell(descriptor)!!.value)
         assertEquals(StaticCellProvenance.ENCODED_LITERAL, encodedHost.staticCell(descriptor)!!.provenance)
 
         val differingHost = hostCell(descriptor, Value.Known(false, boolean))
-        val conflict = ClassInitStore.merge(listOf(first, differingHost), classIndex)
+        val conflict = ClassStore.merge(listOf(first, differingHost), classIndex)
         assertEquals(Value.Unknown(boolean), conflict.staticCell(descriptor)!!.value)
         assertEquals(StaticCellProvenance.GUEST_WRITE, conflict.staticCell(descriptor)!!.provenance)
 
-        val encodedConflict = ClassInitStore.merge(listOf(encoded, differingHost), classIndex).staticCell(descriptor)!!
+        val encodedConflict = ClassStore.merge(listOf(encoded, differingHost), classIndex).staticCell(descriptor)!!
         assertEquals(Value.Unknown(boolean), encodedConflict.value)
         assertEquals(StaticCellProvenance.ENCODED_LITERAL, encodedConflict.provenance)
 
-        val hostConflict = ClassInitStore.merge(listOf(agreeingHost, differingHost), classIndex).staticCell(descriptor)!!
+        val hostConflict = ClassStore.merge(listOf(agreeingHost, differingHost), classIndex).staticCell(descriptor)!!
         assertEquals(Value.Unknown(boolean), hostConflict.value)
         assertEquals(StaticCellProvenance.HOST_PROJECTION, hostConflict.provenance)
     }
@@ -180,17 +180,17 @@ class FrameworkStaticTest {
         val boolean = VirtualType.of("Z")
         val host = hostCell(descriptor, Value.Known(true, boolean))
         val agreeingSeed = preparedCell(descriptor, Value.Known(true, boolean), StaticCellProvenance.SEEDED_DEFAULT)
-        val agreeing = ClassInitStore.merge(listOf(host, agreeingSeed), classIndex).staticCell(descriptor)!!
+        val agreeing = ClassStore.merge(listOf(host, agreeingSeed), classIndex).staticCell(descriptor)!!
         assertEquals(Value.Known(true, boolean), agreeing.value)
         assertEquals(StaticCellProvenance.HOST_PROJECTION, agreeing.provenance)
 
         val differingSeed = preparedCell(descriptor, Value.Known(false, boolean), StaticCellProvenance.SEEDED_DEFAULT)
-        val differing = ClassInitStore.merge(listOf(host, differingSeed), classIndex).staticCell(descriptor)!!
+        val differing = ClassStore.merge(listOf(host, differingSeed), classIndex).staticCell(descriptor)!!
         assertEquals(Value.Unknown(boolean), differing.value)
         assertEquals(StaticCellProvenance.SEEDED_DEFAULT, differing.provenance)
         assertFalse(differing.provenance.blocksHostProjection)
 
-        val missing = ClassInitStore.merge(listOf(host, ClassInitStore()), classIndex).staticCell(descriptor)!!
+        val missing = ClassStore.merge(listOf(host, ClassStore()), classIndex).staticCell(descriptor)!!
         assertEquals(Value.Top, missing.value)
         assertTrue(missing.provenance.blocksHostProjection)
     }
@@ -201,7 +201,7 @@ class FrameworkStaticTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(EMPTY_LIST)))
         val view = view("siblingProjection(I)Ljava/util/List;")
         val frame = Frame.entryFrame(view).apply { assign(1, Value.Unknown(intType)) }
-        assertNull(frame.staticCell(EMPTY_LIST.descriptor))
+        assertNull(frame.classes.staticCell(EMPTY_LIST.descriptor))
 
         val graph = vm.newSession(view, entryFrame = frame).run()
         val returning = returningNodes(graph, view)
@@ -210,11 +210,11 @@ class FrameworkStaticTest {
         assertEquals(2, returned.size)
         assertNotEquals(returned[0], returned[1], "each projected sibling owns its imported host reference")
         returning.zip(returned).forEach { (node, ref) ->
-            assertSame(java.util.Collections.EMPTY_LIST, node.frame.hostObjectAt(ref))
+            assertSame(java.util.Collections.EMPTY_LIST, node.frame.heap.hostObjectAt(ref))
         }
-        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.staticCell(EMPTY_LIST.descriptor) }
+        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.classes?.staticCell(EMPTY_LIST.descriptor) }
         assertTrue(successorCells.isNotEmpty(), "the returning successors hold the projected static")
-        assertNull(frame.staticCell(EMPTY_LIST.descriptor), "projection writes only successor frames, never the seed")
+        assertNull(frame.classes.staticCell(EMPTY_LIST.descriptor), "projection writes only successor frames, never the seed")
     }
 
     @Test
@@ -223,7 +223,7 @@ class FrameworkStaticTest {
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(EMPTY_LIST)))
         val view = view("mutableReference()Ljava/util/List;")
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, EMPTY_LIST_TYPE)))).single() as Value.Known
+        val admitted = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, EMPTY_LIST_TYPE)))).single() as Value.Known
         val existingRef = admitted.raw as HeapRef
         frame.assign(0, admitted)
         val probed = probeNextHeapId(frame)
@@ -282,17 +282,17 @@ class FrameworkStaticTest {
     private fun view(method: String): MethodView =
         classIndex.requireMethodView(TEST_CLASS, method)
 
-    private fun guestCell(descriptor: String, value: Value): ClassInitStore =
-        ClassInitStore().apply { setStaticField(descriptor, value) }
+    private fun guestCell(descriptor: String, value: Value): ClassStore =
+        ClassStore().apply { setStaticField(descriptor, value) }
 
-    private fun hostCell(descriptor: String, value: Value): ClassInitStore =
-        ClassInitStore().apply { setHostProjection(descriptor, value) }
+    private fun hostCell(descriptor: String, value: Value): ClassStore =
+        ClassStore().apply { setHostProjection(descriptor, value) }
 
     private fun preparedCell(
         descriptor: String,
         value: Value,
         provenance: StaticCellProvenance,
-    ): ClassInitStore = ClassInitStore().apply {
+    ): ClassStore = ClassStore().apply {
         prepare(mapOf(descriptor to StaticCell(value, provenance)))
     }
 

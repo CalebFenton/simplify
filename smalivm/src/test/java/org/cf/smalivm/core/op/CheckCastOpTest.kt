@@ -258,7 +258,7 @@ class CheckCastOpTest {
         assertTrue(thrown is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $thrown")
         assertEquals(
             "java.lang.Object cannot be cast to java.lang.String",
-            (graph.nodePile(ADDRESS_HANDLER).single().frame.hostObjectAt(ref) as Throwable).message,
+            (graph.nodePile(ADDRESS_HANDLER).single().frame.heap.hostObjectAt(ref) as Throwable).message,
             "built from the DECLARED type, exactly as `opcode/CheckCastOp.kt:32` builds it",
         )
     }

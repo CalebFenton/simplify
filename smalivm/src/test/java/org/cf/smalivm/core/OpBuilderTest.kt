@@ -58,8 +58,8 @@ class OpBuilderTest {
         applied.result?.let(frame::setResult)
         if (arm is OpArm.MoveFromSlot) {
             val value = when (arm.source) {
-                SpecialSlotSource.RESULT -> frame.takeResult()
-                SpecialSlotSource.CAUGHT -> frame.takeCaught()
+                SpecialSlotSource.RESULT -> frame.takeResult()?.value
+                SpecialSlotSource.CAUGHT -> frame.takeCaught()?.value
             } ?: Value.Top
             frame.assign(arm.register, value)
         }
@@ -217,7 +217,7 @@ class OpBuilderTest {
                 OpArm.MoveFromSlot,
         )
         assertEquals(caught, frame.peek(0))
-        assertNull(frame.takeCaught(), "move-exception consumes the slot")
+        assertNull(frame.takeCaught()?.value, "move-exception consumes the slot")
     }
 
     @Test

@@ -51,7 +51,7 @@ class CoreState {
     /**
      * Static field values to seed or to expect, keyed by the **fully-qualified** descriptor
      * `Lsget_test;->myBoolean:Z` -- `ClassIndex.fieldDescriptorOf`'s form, which is also what the engine's
-     * `ClassInitStore` is keyed by, so a seed and a read cannot miss each other.
+     * `ClassStore` is keyed by, so a seed and a read cannot miss each other.
      *
      * The corpus wrote these as `setFields(CLASS_NAME, "myBoolean:Z", true)` -- class and member separately,
      * with a `HashMap` per class (`TestState.setField`). Flattened to one key here for the reason the engine

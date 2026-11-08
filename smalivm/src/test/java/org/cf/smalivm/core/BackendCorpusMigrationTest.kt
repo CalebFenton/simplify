@@ -30,8 +30,8 @@ class BackendCorpusMigrationTest {
         val insertedRef = (run.seeded.getValue(2) as Value.Known).raw as HeapRef
         val returned = run.graph.returnedValue() as Value.Known
         val terminal = run.session.currentNode!!.frame
-        val nested = (terminal.hostObjectAt(listRef) as List<*>).single()!!
-        val nestedRef = terminal.refForHostNode(requireNotNull(terminal.hostNodeId(nested)))
+        val nested = (terminal.heap.hostObjectAt(listRef) as List<*>).single()!!
+        val nestedRef = terminal.heap.refForNode(requireNotNull(terminal.heap.hostNodeId(nested)))
 
         assertEquals(insertedRef, returned.raw)
         assertEquals(insertedRef, (run.graph.trusted()!!.terminatingConsensus(2) as Value.Known).raw)
@@ -106,7 +106,7 @@ class BackendCorpusMigrationTest {
             val returned = run.graph.returnedValue() as Value.Known
 
             assertEquals(receiverRef, returned.raw)
-            assertEquals(expected, run.session.currentNode!!.frame.hostObjectAt(receiverRef).toString())
+            assertEquals(expected, run.session.currentNode!!.frame.heap.hostObjectAt(receiverRef).toString())
             assertEquals("value=", original.toString())
         }
     }
@@ -126,7 +126,7 @@ class BackendCorpusMigrationTest {
         assertEquals(expectedRef, (trusted.terminatingConsensus(0) as Value.Known).raw)
         assertEquals(expectedRef, (trusted.terminatingConsensus(1) as Value.Known).raw)
         assertEquals(expectedRef, (run.graph.returnedValue() as Value.Known).raw)
-        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.hostObjectAt(expectedRef as HeapRef).toString())
+        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.heap.hostObjectAt(expectedRef as HeapRef).toString())
     }
 
     @Test
@@ -141,7 +141,7 @@ class BackendCorpusMigrationTest {
         val ref = (run.seeded.getValue(0) as Value.Known).raw as HeapRef
 
         assertEquals(ref, (run.graph.returnedValue() as Value.Known).raw)
-        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -165,7 +165,7 @@ class BackendCorpusMigrationTest {
         assertEquals(ref, (run.graph.returnedValue() as Value.Known).raw)
         assertEquals(ref, (trusted.terminatingConsensus(0) as Value.Known).raw)
         assertEquals(ref, (trusted.terminatingConsensus(4) as Value.Known).raw)
-        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.hostObjectAt(ref).toString())
+        assertEquals(FULL_TEXT, run.session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
     }
 
     @Test
@@ -277,7 +277,7 @@ class BackendCorpusMigrationTest {
         val view = view(SIDE_EFFECT_FIXTURE, "provenHostCalls()Ljava/lang/String;")
         val frame = Frame.entryFrame(view)
         // Measure the calls' effects, not skipped framework initialization on first allocation.
-        generateSequence(BUILDER, classIndex::superclassOf).forEach(frame::completeClassInit)
+        generateSequence(BUILDER, classIndex::superclassOf).forEach(frame.classes::complete)
         val run = execute(view, vm, frame)
 
         assertEquals(Value.Known("seed-value", STRING), run.graph.returnedValue())
@@ -311,7 +311,7 @@ class BackendCorpusMigrationTest {
 
         assertTrue(returned.raw is HeapRef)
         assertEquals(BUILDER, run.session.currentNode!!.frame.heapObject(returned.raw as HeapRef)!!.type)
-        assertEquals("runtime", run.session.currentNode!!.frame.hostObjectAt(returned.raw as HeapRef).toString())
+        assertEquals("runtime", run.session.currentNode!!.frame.heap.hostObjectAt(returned.raw as HeapRef).toString())
     }
 
     @Test
@@ -321,7 +321,7 @@ class BackendCorpusMigrationTest {
         val view = view(INVOKE_FIXTURE, "appendLong(Ljava/lang/StringBuilder;J)Ljava/lang/StringBuilder;")
         val vm = VmServices(classIndex)
         val frame = Frame.entryFrame(view)
-        val ref = frame.allocateHostObject(BUILDER, StringBuilder("step"))
+        val ref = frame.heap.allocateHostObject(BUILDER, StringBuilder("step"))
         frame.assign(0, Value.Known(ref, BUILDER))
         frame.assign(1, Value.Known(9L, LONG))
         val session = vm.newSession(view, entryFrame = frame)
@@ -333,7 +333,7 @@ class BackendCorpusMigrationTest {
         assertSame(invoke, debugger.lastNode)
         assertSame(invoke.activation, continuation.activation)
         assertEquals(1, invoke.children.size)
-        assertEquals("step9", continuation.frame.hostObjectAt(ref).toString())
+        assertEquals("step9", continuation.frame.heap.hostObjectAt(ref).toString())
         assertFalse(continuation.opExecutionStarted)
     }
 
@@ -348,7 +348,7 @@ class BackendCorpusMigrationTest {
         val terminal = requireNotNull(run.session.currentNode).frame
 
         assertEquals(Value.Known(3, INT), run.graph.returnedValue())
-        assertEquals(1, terminal.hostGraphObjects().size)
+        assertEquals(1, terminal.heap.hostGraphObjects().size)
     }
 
     @Test
@@ -359,7 +359,7 @@ class BackendCorpusMigrationTest {
         val vm = vm(setOf(length))
         val view = view(INVOKE_FIXTURE, "suspendedCallerKeepsOtherRoot(Ljava/lang/StringBuilder;Ljava/lang/StringBuilder;)I")
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(StringBuilder("alpha"), BUILDER)),
                 HostSeed(Value.Known(StringBuilder("bravo!!"), BUILDER)),
@@ -373,7 +373,7 @@ class BackendCorpusMigrationTest {
         admitted.forEach { value ->
             val ref = (value as Value.Known).raw as HeapRef
             assertTrue(requireNotNull(run.session.currentNode).frame.isHostMaterializable(value))
-            assertTrue(run.session.currentNode!!.frame.hostObjectAt(ref) is StringBuilder)
+            assertTrue(run.session.currentNode!!.frame.heap.hostObjectAt(ref) is StringBuilder)
         }
     }
 
@@ -386,7 +386,7 @@ class BackendCorpusMigrationTest {
         val vm = vm(setOf(fresh, length))
         val view = view(INVOKE_FIXTURE, "siblingBranchLocalRoot(ILjava/lang/StringBuilder;)I")
         val frame = Frame.entryFrame(view)
-        val admitted = frame.admitHostSeeds(
+        val admitted = frame.heap.admitHostSeeds(
             listOf(HostSeed(Value.Known(StringBuilder("alpha"), BUILDER))),
         ).single()
         frame.assign(view.parameters[1].register, admitted)
@@ -413,7 +413,7 @@ class BackendCorpusMigrationTest {
 
         assertNotEquals(sourceRef, cloneRef)
         assertEquals(INT_ARRAY, clone.type)
-        assertEquals(frame.arrayAt(sourceRef)!!.elements(), frame.arrayAt(cloneRef)!!.elements())
+        assertEquals(frame.heap.arrayAt(sourceRef)!!.elements(), frame.heap.arrayAt(cloneRef)!!.elements())
     }
 
     private fun execute(
@@ -426,7 +426,7 @@ class BackendCorpusMigrationTest {
         val view = view(className, descriptor)
         val frame = Frame.entryFrame(view)
         val entries = initial.entries.toList()
-        val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
+        val admitted = frame.heap.admitHostSeeds(entries.map { HostSeed(it.value) })
         val seeded = entries.zip(admitted).associate { (entry, value) -> entry.key to value }
         seeded.forEach(frame::assign)
         return execute(view, vm, frame, seeded, expectedCompletion)

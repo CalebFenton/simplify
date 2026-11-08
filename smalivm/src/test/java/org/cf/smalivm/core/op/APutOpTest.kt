@@ -1509,7 +1509,7 @@ class APutOpTest {
             val ref = (threw.exception as Value.Known).raw as HeapRef
             val obj = graph.nodePile(0).first().frame.heapObject(ref)
             assertTrue(obj is HeapObject.GuestThrowable, "no synthesized throwable at $ref; got $obj")
-            (graph.nodePile(0).first().frame.hostObjectAt(ref) as Throwable).message
+            (graph.nodePile(0).first().frame.heap.hostObjectAt(ref) as Throwable).message
         }
 
     /**

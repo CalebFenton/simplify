@@ -621,7 +621,7 @@ class ClassIndexTest {
         )
         return List(2) {
             val frame = owner.newSession(view).frontier.single().frame
-            frame.completeClassInit(loadedType)
+            frame.classes.complete(loadedType)
             val result = ClassForNameEmulator(index.currentResolver()).execute(
                 EmulatorInvocation(
                     target,
@@ -631,7 +631,7 @@ class ClassIndexTest {
                     listOf(VirtualType.of("Ljava/lang/String;")),
                     null,
                     listOf(EmulatorValue.Known(VirtualType.of("Ljava/lang/String;"), "dynamic.OnlyImplementation")),
-                    frame.classInitStatusSnapshot(),
+                    frame.classes.statusSnapshot(),
                 ),
             ) as SynchronousCallResult.Returned
             ((result.value as HostReturn.Value).value as HostValue.Reference).value as Class<*>
