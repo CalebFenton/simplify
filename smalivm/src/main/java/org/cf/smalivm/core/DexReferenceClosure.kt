@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 import kotlinx.collections.immutable.toPersistentList
 import com.android.tools.smali.dexlib2.iface.Annotation
+import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.AnnotationElement
 import com.android.tools.smali.dexlib2.iface.Method
 import com.android.tools.smali.dexlib2.iface.MethodImplementation
@@ -114,6 +115,26 @@ internal class DexReferenceClosure private constructor(
             val collector = Collector()
             collector.method(method)
             collector.rejectedCode(code)
+            return collector.build()
+        }
+
+        /** Every id [definition] uses as read from its input, before any method body is decoded. */
+        fun fromClassDef(definition: ClassDef): DexReferenceClosure {
+            val collector = Collector()
+            collector.type(definition.type)
+            definition.superclass?.let(collector::type)
+            definition.interfaces.forEach(collector::type)
+            definition.sourceFile?.let(collector::string)
+            definition.annotations.forEach(collector::annotation)
+            definition.fields.forEach { field ->
+                collector.field(field)
+                field.initialValue?.let(collector::encodedValue)
+                field.annotations.forEach(collector::annotation)
+            }
+            definition.methods.forEach { method ->
+                collector.method(method)
+                method.implementation?.let(collector::rejectedCode)
+            }
             return collector.build()
         }
 

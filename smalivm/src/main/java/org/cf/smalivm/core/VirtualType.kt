@@ -42,7 +42,8 @@ class VirtualType private constructor(val descriptor: String) {
             return VirtualType(descriptor)
         }
 
-        private fun isValid(descriptor: String): Boolean {
+        /** Whether [descriptor] is a TypeDescriptor that [of] accepts. */
+        internal fun isValid(descriptor: String): Boolean {
             var i = 0
             while (i < descriptor.length && descriptor[i] == '[') i++
             if (i == descriptor.length) return false // dangling '[' or empty

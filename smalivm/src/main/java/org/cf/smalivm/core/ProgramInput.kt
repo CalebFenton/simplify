@@ -27,6 +27,8 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
+import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableReferenceFactory
 import com.android.tools.smali.dexlib2.writer.builder.DexBuilder
 
@@ -113,11 +115,7 @@ internal class ProgramInput private constructor(
 
         /** [definition] as immutable values, refused as ART's DEX file verifier refuses its file. */
         private fun immutableClass(definition: ClassDef): ImmutableClassDef {
-            for (field in definition.fields) {
-                malformedSignature { FieldSignature.of(field) }?.let { reason ->
-                    throw ProgramInputException("Field ${DexFormatter.INSTANCE.getFieldDescriptor(field)} $reason")
-                }
-            }
+            malformedId(definition)?.let { reason -> throw ProgramInputException("Class ${definition.type} $reason") }
             return ImmutableClassDef(
                 definition.type,
                 definition.accessFlags,
@@ -130,6 +128,29 @@ internal class ProgramInput private constructor(
                 definition.directMethods.map(::immutableMethod),
                 definition.virtualMethods.map(::immutableMethod),
             )
+        }
+
+        /**
+         * Why ART's DEX file verifier refuses an id [definition] uses, or null. Every type id is a TypeDescriptor
+         * (`CheckInterTypeIdItem`) and every field and method id a MemberName over type descriptors
+         * (`CheckInterFieldIdItem`, `CheckInterMethodIdItem`), whether a declaration, an instruction, a handler or
+         * an annotation uses it. Checked here so nothing past the import reads an id `VirtualType` refuses.
+         */
+        private fun malformedId(definition: ClassDef): String? {
+            val ids = DexReferenceClosure.fromClassDef(definition)
+            ids.types.firstOrNull { !VirtualType.isValid(it) }?.let { return "uses '$it', which is not a type descriptor" }
+            for (field in ids.fields) {
+                malformedSignature {
+                    FieldSignature.of(ImmutableFieldReference(field.definingClass, field.name, field.type))
+                }?.let { return "uses field ${field.definingClass}->${field.name}:${field.type}, which $it" }
+            }
+            for (method in ids.methods) {
+                val reference = ImmutableMethodReference(
+                    method.definingClass, method.name, method.prototype.parameterTypes, method.prototype.returnType,
+                )
+                malformedSignature { MethodSignature.of(reference) }?.let { return "uses method $reference, which $it" }
+            }
+            return null
         }
 
         /** Why ART's DEX file verifier refuses a member id whose name or types do not parse, or null. */
@@ -166,15 +187,13 @@ internal class ProgramInput private constructor(
 
         /**
          * Why ART's DEX file verifier (`libdexfile/dex/dex_file_verifier.cc`) refuses the file holding [method]
-         * with [code], or null. A method id names a MemberName and type descriptors (`CheckInterMethodIdItem`);
-         * only native and abstract methods lack code (`CheckMethodAccessFlags`); the registers hold the receiver and
-         * parameter words, `ins_size`; and every try range and handler lies inside the code (`CheckIntraCodeItem`,
-         * `CheckAndGetHandlerOffsets`). dexlib2 does not expose `ins_size`, so the words come from the prototype,
-         * which is what a DEX writer stores; a code item whose `ins_size` disagrees with its prototype fails ART's
-         * method verifier instead, which rejects only the class.
+         * with [code], or null. Only native and abstract methods lack code (`CheckMethodAccessFlags`); the registers
+         * hold the receiver and parameter words, `ins_size`; and every try range and handler lies inside the code
+         * (`CheckIntraCodeItem`, `CheckAndGetHandlerOffsets`). dexlib2 does not expose `ins_size`, so the words come
+         * from the prototype, which is what a DEX writer stores; a code item whose `ins_size` disagrees with its
+         * prototype fails ART's method verifier instead, which rejects only the class.
          */
         private fun dexFileVerifierError(method: Method, code: ImmutableMethodImplementation?): String? {
-            malformedSignature { MethodSignature.of(method) }?.let { return it }
             val codeForbidden = Modifier.isAbstract(method.accessFlags) || Modifier.isNative(method.accessFlags)
             if (code == null) return if (codeForbidden) null else "has no code but is neither native nor abstract"
             if (codeForbidden) return "has code but is native or abstract"
