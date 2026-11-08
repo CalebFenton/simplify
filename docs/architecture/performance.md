@@ -30,6 +30,7 @@ name. `OpArmStateTest` reconciles many forks that each write one cell of a large
 
 ## Routing releases completion storage
 
-`CallCompletion` hands its exit list to one pending batch when it drains, and routing releases that batch.
+`CallCompletion` hands its exit list to one pending batch when its last path ends, and routing releases that
+batch.
 Limit and timeout aborts release pending batches and open collectors and record one aborted outcome per
 retained exit. `CallCompletionTest` and `CallRoutingReliabilityTest` check that released batches retain no frames.

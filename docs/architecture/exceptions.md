@@ -48,8 +48,8 @@ runs once at the caller's invoke address.
 
 Routing repeats that result for each original exit, which preserves path multiplicity without repeated merges
 or lookups. Each exit's selected handlers and residual escape remain one `ALL_OR_NOTHING` group. A malformed target
-commits no sibling route. Residual escapes enter the parent completion and cross the next boundary only after it
-drains.
+commits no sibling route. Residual escapes enter the parent completion and cross the next boundary only after its
+last path ends.
 
 An escaping class-initializer throw is transformed before handler lookup. An `Error` keeps its identity; any
 other throwable becomes the cause of one fresh `ExceptionInInitializerError`. The active class and its waiting

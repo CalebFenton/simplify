@@ -2,10 +2,10 @@
 
 ## Call completion and routing
 
-The execution engine seals call completion behind `CallCompletion`. `ActivationExit.Returned`, `Threw`, and `Aborted`
-carry terminal frame state. `replacePath()` updates the private path count and exit list together.
-`drainIfComplete()` returns null while paths remain open. At zero, it returns one `CompletionBatch` and releases
-the collector. A second drain or late vote is an invariant failure.
+Every activation reports its ended paths to a `PathSink`: the entry activation's sink is `RunOutcomes`, and a
+callee's is `CallCompletion`. `ActivationExit.Returned`, `Threw`, and `Aborted` carry terminal frame state.
+`CallCompletion.replacePath(openPaths, ended)` updates the open-path count and exit list together and returns
+one `CompletionBatch` when the count reaches zero. A vote after release is an invariant failure.
 
 The session queues each batch in `pendingCallRoutings`. This queue is scheduler work, not guest execution.
 `step()` drains it at scheduler boundaries. Routing creates no `ExecutionNode`, frontier item, breakpoint, or
@@ -13,7 +13,7 @@ debugger cursor. `isFinished` requires an empty frontier and an empty routing qu
 time limits, but it records no address visit.
 
 Each routing command crosses one activation boundary. It searches the immediate caller at the invoke address.
-A residual escape enters the parent `CallCompletion`. It waits until that activation drains. The host stack does
+A residual escape enters the parent `CallCompletion`. It waits until that activation's paths all end. The host stack does
 not recursively traverse callers.
 
 Caller throws are grouped by source key before handler resolution; [Exceptions](exceptions.md) defines the
