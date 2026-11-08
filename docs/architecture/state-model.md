@@ -48,10 +48,12 @@ A later trigger allocates a fresh `NoClassDefFoundError` caused by the stored ou
   A selected, accepted synchronous backend detaches that graph before receiving executable Java
   objects. `cloneHostGraph` uses one identity map across all roots to preserve nested aliases
   and cycles; sibling frame roots are not exposed for host mutation.
-- `HeapStore.finalizeHostGraph` compares the detached graph exactly. Only `Equal` can restore the
-  original graph root, and restoration is suppressed when dirty array mirrors were synchronized.
-  `Different` or `Unprovable` never means unchanged; unprovable connectivity can invalidate host
-  contents, and the scheduler raises the call effect to `STRONG` for an unprovable comparison.
+- `HeapStore.finalizeHostGraph` compares every object the detached graph held with its clone, paired by node
+  id before pruning, so objects the call only added are not changes. Only `Equal` can restore the original graph
+  root, and restoration is suppressed when dirty array mirrors were synchronized or pruning changed the node
+  layout. `Different` or `Unprovable` never means unchanged; unprovable connectivity can invalidate host
+  contents. The scheduler takes the call's effect from the comparison: `Different` is `WEAK`, `Unprovable` is
+  `STRONG`.
 - `SelectedHostCall.finalize` validates array mirrors before atomic lattice copy-back and finalizes
   graph comparison even if nonfatal copy-back fails. Returns, target throws, and ordinary backend
   failures pass through selected-call finalization. `VirtualMachineError` is deliberately rethrown

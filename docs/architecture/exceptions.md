@@ -23,8 +23,9 @@ host containment for local and caller lookup. `VirtualMachineError` and schedule
 
 Accepted reflection and emulator target throws use this same guest resolver. Infrastructure failures do not:
 they end only the affected path as `HOST_FAILURE`, preserve older siblings, and make completion `Partial`.
-Backend-declared effects are recorded before execution, so neither target routing nor infrastructure failure can
-erase them. Guest routing itself adds no effect. A `VirtualMachineError` returned as `TargetThrew` escapes by
+Backend-declared effects are recorded before execution, and the host-graph comparison's effect is recorded during
+finalization, which every exit passes through, so neither target routing nor infrastructure failure can erase
+them. Guest routing itself adds no effect. A `VirtualMachineError` returned as `TargetThrew` escapes by
 identity before host-graph finalization, import, or routing. Newly returned and projected host throwables use the
 same recursive identity-map importer as target throws, preserving causes, null terminators, cycles, and host
 materialization.

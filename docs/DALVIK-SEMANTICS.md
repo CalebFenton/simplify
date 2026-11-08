@@ -895,14 +895,17 @@ nothing can initialize a class before its own initializer runs.
 
 - runs a guest `<clinit>` exactly as for an `Uninitialized` class, so the initializer's effects are recorded on
   the trigger and its throw paths remain;
-- after a successful return, marks the class `Initialized` and makes every non-final static cell that the
-  initializer changed, in any class, `Unknown`: the class may have been initialized before the entry, and the
-  field written since;
-- keeps the initializer's value in a `final` static, because only `<clinit>` writes one. JNI and ART reflection
-  (`Field.set` after `setAccessible(true)`) can write a final static; the engine treats final as fixed, and
-  reads an object a final static refers to as the initializer left it unless the path writes it;
-- settles a class with no runnable initializer (none declared, or a framework class) with every non-final
-  static `Unknown`, even when the dex encodes a literal for it.
+- after a successful return, marks the class `Initialized` and makes every static cell that the initializer
+  changed, in any class, `Unknown` unless only its own class's initializer writes it: the class may have been
+  initialized before the entry, and the field written since;
+- keeps the initializer's value in an initializer-only static: a `final` static, or a private static of an
+  application class that no method of the class but `<clinit>` names in an `sput*`
+  (`ProgramSnapshotResolver.initializerOnlyStatics`). ART's access check stops every other class from writing a
+  private field. JNI and ART reflection (`Field.set`, after `setAccessible(true)` for a final one) can still
+  write either kind; the engine treats both as fixed, and reads an object one refers to as the initializer left
+  it unless the path writes it;
+- settles a class with no runnable initializer (none declared, or a framework class) with every static other
+  code can write `Unknown`, even when the dex encodes a literal for it.
 
 Two cases stay outside this model. A class whose initialization failed before the entry throws
 `NoClassDefFoundError` on a device; the engine runs the initializer and reports its outcome. And a write the
@@ -912,7 +915,8 @@ trigger.
 **Preparation** ([JVMS] §5.4.2) seeds every declared static before `<clinit>` runs: a dex-encoded literal
 (`.field static x:I = 0x42`) is that literal, otherwise the type default when the initializer runs or the class
 has none, otherwise `Unknown` (a framework initializer that does not run may compute anything). Under
-`ARBITRARY` entry, a non-final static of a class settled without running an initializer is `Unknown` instead.
+`ARBITRARY` entry, a static other code can write, of a class settled without running an initializer, is
+`Unknown` instead.
 
 **Order.** A trigger walks the superclass chain and runs the topmost class that still needs initialization;
 the trigger asks again when that `<clinit>` returns, so a superclass always runs before its subclass.
@@ -970,9 +974,9 @@ A static cell exists on a path from the trigger that prepares its class. `core/o
 | Read of | Value | Tier |
 |---|---|---|
 | a static the path wrote | the written value | **ART** |
-| a final static | its literal, or the value its class's initializer leaves | **INHERITED** ([JVMS] §5.4.2, [JLS] §12.4.2) + **ENGINE CHOICE** (final is fixed) |
-| a non-final static of a class first triggered as `Unknown`, not written by the path | `Unknown` | **ENGINE CHOICE**, see [Lifecycle](#lifecycle) |
-| a non-final static of a class first triggered as `Uninitialized` | its prepared value or the initializer's write | **INHERITED** ([JVMS] §5.4.2) |
+| an initializer-only static (`final`, or private and written only by `<clinit>`) | its literal, or the value its class's initializer leaves | **INHERITED** ([JVMS] §5.4.2, [JLS] §12.4.2) + **ENGINE CHOICE** (reflection and JNI writes are not modelled) |
+| any other static of a class first triggered as `Unknown`, not written by the path | `Unknown` | **ENGINE CHOICE**, see [Lifecycle](#lifecycle) |
+| any other static of a class first triggered as `Uninitialized` | its prepared value or the initializer's write | **INHERITED** ([JVMS] §5.4.2) |
 
 Field reflection (`Field.get` on a static) reads the same cell.
 
@@ -1092,14 +1096,33 @@ These rules decide which classes are in the loaded set, which every resolution a
 
 A call the application bytecode does not implement may run on the host through a backend (`Invoker`):
 emulators for specific framework methods, `ReflectBackend` for methods the reflection policy authorizes
-(`core/ReflectionPolicy.kt`), and framework bytecode. A policy denial is final and makes the call opaque; it
-does not fall back to another backend. Authorization does not imply purity: a reflected call records `STRONG`
-unless the policy proves otherwise.
+(`core/ReflectionPolicy.kt`, `safe_classes.cfg`, `safe_methods.cfg`, `unsafe_methods.cfg`), and framework
+bytecode. A policy denial is final and makes the call opaque; it does not fall back to another backend
+(**ENGINE CHOICE** throughout this section):
+
+- An authorized method with an unknown or unmaterializable receiver or argument is opaque too. Its bundled
+  framework body is not run: on unknown input it forks at every branch and returns an unknown result anyway.
+  Framework bytecode runs only for calls reflection cannot make, such as a superclass constructor chained from a
+  subclass constructor.
+- A class-wide authorization covers a receiver only of a listed class, because an inherited method can run on a
+  subclass whose own state the policy never vetted (`AbstractList.clear` on a `subList` view).
+- An array never reaches a parameter of a non-array type: the host could read its identity hash through
+  `Object.hashCode` or `Object.toString`, and the host's identity hash is not the device's.
+- The policy lists only methods with no effect outside the objects reachable from their receiver and arguments,
+  and none that read host state the device does not share (clock, random source, identity hash, system
+  properties, locale, time zone, regex engine). The default charset is UTF-8 on Android, and `ReflectionPolicy`
+  refuses to load on a JVM whose default charset is another.
+- A reflected call's effect is what it changed: `NONE` when the detached host graph compares equal afterwards,
+  `WEAK` when it changed a guest-visible host object, as a guest field or array write is, and `STRONG` when the
+  comparison cannot be completed.
+- A backend that asks for class initialization (`SynchronousCallResult.NeedsClassInit`) leaves nothing: the
+  attempt's heap changes are discarded, and the call runs again after the class is initialized.
 
 `ReflectBackend` finds the host method by exact JVM descriptor and calls it directly, so `Method.invoke`'s own
-failures keep their types. The guest's reflective field reads (`FieldGetEmulator`) apply ART's access rule:
-ART's `VerifyAccess` (`runtime/reflection.cc`) admits a private member only to its declaring class and grants
-nestmates nothing (**ART**), unlike the JVM.
+failures keep their types. A method of a non-public JDK class, such as `LinkedList`'s iterator, is called through
+the public superclass or interface method it overrides, which dispatches to it. The guest's reflective field
+reads (`FieldGetEmulator`) apply ART's access rule: ART's `VerifyAccess` (`runtime/reflection.cc`) admits a
+private member only to its declaring class and grants nestmates nothing (**ART**), unlike the JVM.
 
 `const-class` and reflective class loads go through one host class loader per program, loading without
 initialization, so `const-class` identity holds program-wide.
