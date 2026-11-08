@@ -146,6 +146,17 @@ class DeadRemovalStrategyTest {
         assertEquals(4, returned(services, method, 0).raw)
     }
 
+    @Test fun aHandlerNoExecutionReachedDoesNotBlockRemoval() {
+        // Liveness reads the handler's registers from the code, so it stays sound without the handler running.
+        val services = services()
+        val method = OWNER + "unusedResultBesideAnUnreachedHandler()I"
+        optimize(services, method)
+        val edited = view(services, method)
+        assertFalse(hasCall(edited, "pureInt"))
+        assertTrue(has(edited, Opcode.MOVE_EXCEPTION))
+        assertEquals(3, returned(services, method, 0).raw)
+    }
+
     @Test fun aConstructorsSelfInitializationRemains() {
         val services = services()
         val method = OWNER + "<init>()V"

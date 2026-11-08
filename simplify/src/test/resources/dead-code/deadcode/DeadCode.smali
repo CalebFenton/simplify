@@ -376,3 +376,20 @@
     const-string v0, "other stringy"
     return-object v0
 .end method
+
+# Neither pureInt nor the division by 1 throws, so no execution reaches the handler; the unused call result is still
+# removable.
+.method public static unusedResultBesideAnUnreachedHandler()I
+    .locals 2
+    const/4 v0, 0x3
+    :try_start
+    invoke-static {v0}, Ldeadcode/DeadCode;->pureInt(I)I
+    div-int/lit8 v0, v0, 0x1
+    :try_end
+    .catch Ljava/lang/Throwable; {:try_start .. :try_end} :handler
+    return v0
+    :handler
+    move-exception v1
+    const/4 v0, 0x0
+    return v0
+.end method

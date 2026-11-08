@@ -14,10 +14,10 @@ import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
 /**
- * Removes unreachable code, no-op jumps and `nop`s. When every reachable instruction ran, it also removes ops with no
- * effect that continued normally on every execution (dead assignments by static-CFG liveness, with exceptional edges
- * retaining the pre-instruction register state; unused call results; void calls other than constructors), and the
- * unobserved allocations [DeadAllocations] finds.
+ * Removes unreachable code, no-op jumps and `nop`s, ops with no effect that continued normally on every execution
+ * (dead assignments by static-CFG liveness, with exceptional edges retaining the pre-instruction register state;
+ * unused call results; void calls other than constructors), and the unobserved allocations [DeadAllocations] finds.
+ * Liveness reads every instruction's registers from the code, so code no execution reached still counts as a reader.
  */
 class DeadRemovalStrategy : OptimizationStrategy {
     override val optimizationCategories: Set<String> = setOf(
@@ -30,10 +30,7 @@ class DeadRemovalStrategy : OptimizationStrategy {
         val flow = input.controlFlow ?: return
         if (flow.size == 0) return
         val analysis = Analysis(method, flow)
-        // Registers an unexplored structural successor reads are not a proof of no reads. Keep assignments
-        // unless every structurally reachable instruction ran.
-        val livenessComplete = (0 until flow.size).none { flow.isReachable(it) && graph.isDead(flow.addressAt(it)) }
-        if (livenessComplete) analysis.computeLiveness()
+        analysis.computeLiveness()
 
         val removals = linkedSetOf<Int>()
         fun remove(address: Int, category: String) {
@@ -54,10 +51,11 @@ class DeadRemovalStrategy : OptimizationStrategy {
                 remove(address, USELESS_GOTOS_REMOVED)
             }
             if (opcode == Opcode.NOP && !analysis.isPayloadPadding(index)) remove(address, NOPS_REMOVED)
-            if (!livenessComplete || graph.sideEffectLevel(address) != SideEffectLevel.NONE ||
+            if (graph.sideEffectLevel(address) != SideEffectLevel.NONE ||
                 !graph.didEveryExecutionContinueNormally(address) || analysis.isSelfInitialization(index)) continue
             val assigned = analysis.assigned[index]
-            if (!assigned.isEmpty && opcode.setsRegister() && !opcode.setsResult() &&
+            // A handler keeps its move-exception even when the exception is unused: it starts the handler.
+            if (!assigned.isEmpty && opcode.setsRegister() && !opcode.setsResult() && opcode != Opcode.MOVE_EXCEPTION &&
                 !assigned.intersects(analysis.liveOut[index])) {
                 remove(address, if (opcode in MOVE_RESULTS) DEAD_RESULTS_REMOVED else DEAD_ASSIGNMENTS_REMOVED)
             }
@@ -69,10 +67,8 @@ class DeadRemovalStrategy : OptimizationStrategy {
                 remove(address, DEAD_RESULTS_REMOVED)
             }
         }
-        if (livenessComplete) {
-            for (index in DeadAllocations(graph, flow).removableInstructions()) {
-                remove(flow.addressAt(index), DEAD_OPS_REMOVED)
-            }
+        for (index in DeadAllocations(graph, flow).removableInstructions()) {
+            remove(flow.addressAt(index), DEAD_OPS_REMOVED)
         }
         if (removals.isNotEmpty()) input.transaction.removeInstructions(removals)
     }
