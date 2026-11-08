@@ -7,13 +7,12 @@ class BackendSideEffectsTest {
     private val classIndex = CoreTester.classIndex
 
     @Test
-    fun explicitPureMethodEffectRemainsNoneWhenTheHostGraphIsUnchanged() {
-        // Bug class: exact NONE declarations are ignored even when host execution changes no owned graph.
-        // Oracle: the fixture reads an immutable String and the exact policy entry declares NONE.
+    fun authorizedCallThatChangesNothingHasNoEffect() {
+        // The fixture reads an immutable String, so the host graph is unchanged.
         val target = method(HOST, "pureLength", "(Ljava/lang/String;)I")
         val run = execute(
             "pureLength(Ljava/lang/String;)I",
-            ReflectionPolicy(exactSafeMethods = setOf(target), methodEffects = mapOf(target to SideEffectLevel.NONE)),
+            ReflectionPolicy(exactSafeMethods = setOf(target)),
             mapOf(1 to Value.Known("four", VirtualType.of("Ljava/lang/String;"))),
         )
 
@@ -22,14 +21,13 @@ class BackendSideEffectsTest {
     }
 
     @Test
-    fun exactMutationUnderDeclaredNoneImportsAliasesAndRemainsNone() {
-        // Bug class: exact VM-owned mutation is imported but spuriously raised from declared NONE to WEAK.
-        // Oracle: a mutation that exact reconciliation fully imports leaves the declared NONE effect standing.
+    fun authorizedCallThatMutatesAnArgumentIsWeakAndImportsTheMutation() {
+        // A NONE call that mutated its argument could be deleted when its result is unused, losing the mutation.
         val target = method(HOST, "mutate", "(Ljava/lang/StringBuilder;)V")
         val run = execute(
             "observedMutation(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;",
-            ReflectionPolicy(exactSafeMethods = setOf(target), methodEffects = mapOf(target to SideEffectLevel.NONE)),
-            mapOf(1 to Value.Known(StringBuilder("none"), BUILDER)),
+            ReflectionPolicy(exactSafeMethods = setOf(target)),
+            mapOf(1 to Value.Known(StringBuilder("weak"), BUILDER)),
         )
         val ref = (run.seeded.getValue(1) as Value.Known).raw
         val trusted = run.graph.trusted()!!
@@ -37,53 +35,22 @@ class BackendSideEffectsTest {
         assertEquals(ref, (run.graph.returnedValue() as Value.Known).raw)
         assertEquals(ref, (trusted.terminatingConsensus(0) as Value.Known).raw)
         assertEquals(ref, (trusted.terminatingConsensus(1) as Value.Known).raw)
-        assertEquals("none-mutated", run.returnedHostObject().toString())
-        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
-    }
-
-    @Test
-    fun unclassifiedExactMutationDefaultsToStrongWhileImportingContents() {
-        // Bug class: exact mutation causes an unclassified reflected call to inherit NONE from graph precision.
-        // Oracle: reflection defaults STRONG unless exact policy evidence declares a narrower effect.
-        val target = method(HOST, "mutate", "(Ljava/lang/StringBuilder;)V")
-        val run = execute(
-            "observedMutation(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;",
-            ReflectionPolicy(exactSafeMethods = setOf(target)),
-            mapOf(1 to Value.Known(StringBuilder("strong"), BUILDER)),
-        )
-
-        assertEquals("strong-mutated", run.returnedHostObject().toString())
-        assertEquals(SideEffectLevel.STRONG, run.graph.explored.methodSideEffectLevel())
-    }
-
-    @Test
-    fun explicitlyWeakExactMutationRemainsWeak() {
-        // Bug class: exact reconciliation incorrectly downgrades an explicit WEAK declaration to NONE.
-        // Oracle: effects are monotonic and exact graph comparison never lowers the backend declaration.
-        val target = method(HOST, "mutate", "(Ljava/lang/StringBuilder;)V")
-        val run = execute(
-            "observedMutation(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;",
-            ReflectionPolicy(exactSafeMethods = setOf(target), methodEffects = mapOf(target to SideEffectLevel.WEAK)),
-            mapOf(1 to Value.Known(StringBuilder("weak"), BUILDER)),
-        )
-
         assertEquals("weak-mutated", run.returnedHostObject().toString())
         assertEquals(SideEffectLevel.WEAK, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test
-    fun mutationBeforeTargetThrowRetainsGraphChangeAndDeclaredNone() {
-        // Bug class: target-throw routing restores changed graph state or raises reconciled NONE mutation to WEAK.
-        // Oracle: mutation is imported before the throw is routed to the guest, and declared NONE stands.
+    fun mutationBeforeTargetThrowIsImportedAndWeak() {
+        // The mutation is imported before the throw is routed to the guest.
         val target = method(HOST, "mutateThenThrow", "(Ljava/lang/StringBuilder;)V")
         val run = execute(
             "mutationBeforeTargetThrow(Ljava/lang/StringBuilder;)Ljava/lang/String;",
-            ReflectionPolicy(exactSafeMethods = setOf(target), methodEffects = mapOf(target to SideEffectLevel.NONE)),
+            ReflectionPolicy(exactSafeMethods = setOf(target)),
             mapOf(1 to Value.Known(StringBuilder("kept"), BUILDER)),
         )
 
         assertEquals("kept-before-throw", run.hostObjectInRegister(1).toString())
-        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
+        assertEquals(SideEffectLevel.WEAK, run.graph.explored.methodSideEffectLevel())
     }
 
     private fun execute(

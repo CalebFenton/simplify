@@ -250,6 +250,8 @@ internal inline fun <T> hostBoundary(onFailure: (Throwable) -> T, block: () -> T
 /** Pre-execution backend decision. Only [Declined] permits another backend. */
 internal sealed interface BackendProbe {
     data class Declined(val diagnostic: String) : BackendProbe
+
+    /** No backend may run the call, so it completes opaque. */
     data class Denied(val diagnostic: String) : BackendProbe
     data class Schedule(val view: MethodView, val entryAddress: Int) : BackendProbe
 

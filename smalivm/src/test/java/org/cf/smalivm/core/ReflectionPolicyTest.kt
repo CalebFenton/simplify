@@ -15,11 +15,6 @@ class ReflectionPolicyTest {
         assertEquals(ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS), first.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
         assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), first.decide(method("Ljava/lang/Class;", "getName", "()Ljava/lang/String;")))
         assertEquals(ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE), first.decide(method("Ljava/lang/Math;", "random", "()D")))
-        assertEquals(
-            SideEffectLevel.NONE,
-            first.effectOf(method("Ljava/lang/StringBuilder;", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;")),
-        )
-        assertEquals(SideEffectLevel.STRONG, first.effectOf(method("Ljava/lang/StringBuilder;", "capacity", "()I")))
         assertEquals(first.decide(method("Ljava/lang/Integer;", "intValue", "()I")), second.decide(method("Ljava/lang/Integer;", "intValue", "()I")))
     }
 
@@ -54,17 +49,25 @@ class ReflectionPolicyTest {
     }
 
     @Test
-    fun constructorCopiesInputCollectionsAndAuthorizationDoesNotImplyPurity() {
+    fun classWideAuthorizationCoversOnlyReceiversOfListedClasses() {
+        val clear = method("Ljava/util/AbstractList;", "clear", "()V")
+        val policy = ReflectionPolicy(safeClasses = setOf(type("Ljava/util/AbstractList;"), type("Ljava/util/ArrayList;")))
+
+        assertEquals(ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS), policy.decide(clear, receiverClass = type("Ljava/util/ArrayList;")))
+        assertEquals(
+            ReflectionDecision.Denied(ReflectionRule.UNSAFE_RECEIVER),
+            policy.decide(clear, receiverClass = type("Ljava/util/ArrayList\$SubList;")),
+        )
+    }
+
+    @Test
+    fun constructorCopiesInputCollections() {
         val target = method("Ljava/lang/String;", "length", "()I")
         val safe = mutableSetOf(target)
-        val effects = mutableMapOf(target to SideEffectLevel.NONE)
-        val policy = ReflectionPolicy(exactSafeMethods = safe, methodEffects = effects)
+        val policy = ReflectionPolicy(exactSafeMethods = safe)
         safe.clear()
-        effects[target] = SideEffectLevel.WEAK
 
         assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), policy.decide(target))
-        assertEquals(SideEffectLevel.NONE, policy.effectOf(target))
-        assertEquals(SideEffectLevel.STRONG, ReflectionPolicy(exactSafeMethods = setOf(target)).effectOf(target))
     }
 
     @Test
@@ -96,21 +99,23 @@ class ReflectionPolicyTest {
     }
 
     @Test
-    fun corpusListAndStringBuilderCallsUseExactSafeRules() {
+    fun stringMethodsThatReadTheHostLocaleOrRegexEngineAreDenied() {
         val policy = ReflectionPolicy.defaults()
-        val exact = listOf(
-            method("Ljava/util/List;", "add", "(Ljava/lang/Object;)Z"),
-            method("Ljava/util/List;", "get", "(I)Ljava/lang/Object;"),
-            method("Ljava/lang/StringBuilder;", "append", "(J)Ljava/lang/StringBuilder;"),
-            method("Ljava/lang/StringBuilder;", "length", "()I"),
-            method("Ljava/util/Map;", "get", "(Ljava/lang/Object;)Ljava/lang/Object;"),
-            method("Ljava/util/Map;", "put", "(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"),
-            method("Ljava/util/UUID;", "<init>", "(JJ)V"),
+        val denied = listOf(
+            method("Ljava/lang/String;", "toLowerCase", "()Ljava/lang/String;"),
+            method("Ljava/lang/String;", "toUpperCase", "()Ljava/lang/String;"),
+            method("Ljava/lang/String;", "format", "(Ljava/lang/String;[Ljava/lang/Object;)Ljava/lang/String;"),
+            method("Ljava/lang/String;", "split", "(Ljava/lang/String;)[Ljava/lang/String;"),
+            method("Ljava/lang/String;", "matches", "(Ljava/lang/String;)Z"),
         )
 
-        exact.forEach { target ->
-            assertEquals(ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE), policy.decide(target), target.toString())
+        denied.forEach { target ->
+            assertEquals(ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE), policy.decide(target), target.toString())
         }
+        assertEquals(
+            ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS),
+            policy.decide(method("Ljava/lang/String;", "toLowerCase", "(Ljava/util/Locale;)Ljava/lang/String;")),
+        )
     }
 
     private fun method(owner: String, name: String, proto: String) = MethodSignature(type(owner), name, proto)

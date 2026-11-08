@@ -1,10 +1,5 @@
 package org.cf.smalivm.differential
 
-import org.cf.smalivm.core.MethodSignature
-import org.cf.smalivm.core.ReflectionDecision
-import org.cf.smalivm.core.ReflectionPolicy
-import org.cf.smalivm.core.ReflectionRule
-import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
@@ -12,12 +7,12 @@ import org.junit.jupiter.api.TestFactory
 
 /**
  * The current core against the committed ART `-Xint` recording, comparing returned runtime type and value,
- * escaping exception types, and completion. Every fixture agrees except a named environment or policy boundary,
- * which asserts both sides' answers; a `VerifyError` record has no execution to compare.
+ * escaping exception types, and completion. Every fixture agrees except a named environment boundary, which
+ * asserts both sides' answers; a `VerifyError` record has no execution to compare.
  */
 class DeviceDifferentialTest {
     @TestFactory
-    fun coreResultsMatchRecordedArtOrAnExplicitEnvironmentOrPolicyBoundary(): List<DynamicTest> =
+    fun coreResultsMatchRecordedArtOrAnExplicitEnvironmentBoundary(): List<DynamicTest> =
         DeviceFixtures.fixtures.map { fixture ->
             DynamicTest.dynamicTest(fixture.id) {
                 val recorded = DEVICE.outcomeOf(fixture)
@@ -27,17 +22,10 @@ class DeviceDifferentialTest {
                 }
                 val actual = ResultProjection.deviceComparable(CORE.run(fixture))
                 val expected = ResultProjection.deviceComparable(DEVICE.run(fixture))
-                val boundary = ENVIRONMENT_BOUNDARIES[fixture.id] ?: POLICY_BOUNDARIES[fixture.id]
+                val boundary = ENVIRONMENT_BOUNDARIES[fixture.id]
                 if (boundary == null) {
                     assertEquals(expected, actual, "${fixture.id}: ${expected.diff(actual).differences}")
                     return@dynamicTest
-                }
-                boundary.deniedHostMethod?.let { target ->
-                    assertEquals(
-                        ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY),
-                        ReflectionPolicy.defaults().decide(target),
-                        "${fixture.id}: a policy boundary needs an independently denied host method",
-                    )
                 }
                 assertEquals(boundary.device, expected, "${fixture.id}: recorded boundary")
                 assertEquals(boundary.core, actual, "${fixture.id}: ${boundary.reason}")
@@ -65,7 +53,6 @@ class DeviceDifferentialTest {
             val device: NormalizedResult,
             val core: NormalizedResult,
             val reason: String,
-            val deniedHostMethod: MethodSignature? = null,
         )
 
         private fun returned(kind: ValueKind, repr: String?) = NormalizedResult(
@@ -89,15 +76,6 @@ class DeviceDifferentialTest {
             "Fx_AndroidBuildModelAfterLoadLibrary" to Boundary(
                 threw("java.lang.UnsatisfiedLinkError"), returned(ValueKind.UNKNOWN, null),
                 "the core denies System.loadLibrary, so Build.MODEL stays an unknown String",
-            ),
-        )
-
-        /** ART executes a host call that the default reflection policy denies, so the core answers less precisely. */
-        private val POLICY_BOUNDARIES = mapOf(
-            "Fx_InvokePresentType" to Boundary(
-                returned(ValueKind.KNOWN, "1"), returned(ValueKind.UNKNOWN, null),
-                "String.valueOf(I) is not in safe_methods.cfg, so the core returns an unknown String",
-                deniedHostMethod = MethodSignature(VirtualType.of("Ljava/lang/String;"), "valueOf", "(I)Ljava/lang/String;"),
             ),
         )
     }

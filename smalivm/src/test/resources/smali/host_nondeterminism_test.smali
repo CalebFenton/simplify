@@ -164,24 +164,6 @@
     return-object v0
 .end method
 
-.method public static urlEncodeWithDefaultCharset()Ljava/lang/String;
-    .locals 1
-
-    const-string v0, "\u00e9"
-    invoke-static {v0}, Ljava/net/URLEncoder;->encode(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
-    return-object v0
-.end method
-
-.method public static urlDecodeWithDefaultCharset()Ljava/lang/String;
-    .locals 1
-
-    const-string v0, "%C3%A9"
-    invoke-static {v0}, Ljava/net/URLDecoder;->decode(Ljava/lang/String;)Ljava/lang/String;
-    move-result-object v0
-    return-object v0
-.end method
-
 .method public static hostPackage()Ljava/lang/Package;
     .locals 1
 

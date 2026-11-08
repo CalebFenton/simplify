@@ -299,12 +299,11 @@ class ReflectBackendTest {
     }
 
     @Test
-    fun allowedUnknownAndUnmaterializableInputsDeclineToOpaqueAfterGuestDeclines() {
+    fun authorizedCallsWithUnknownOrUnmaterializableInputsCompleteOpaque() {
         val target = method(fixtureType, "overload", "(I)Ljava/lang/String;")
         val unknown = invoke(vm(exactSafe = setOf(target)), target, InvokeKind.STATIC, listOf(Value.Unknown(intType))).run()
         assertEquals(Value.Unknown(stringType), unknown.outcomes.single().returnedValue())
         assertEquals(SideEffectLevel.STRONG, unknown.explored.sideEffectLevel(0))
-        assertTrue(unknown.nodePile(0).single().invocationDiagnostic!!.contains("reflection"))
 
         val objectTarget = method(fixtureType, "acceptString", "(Ljava/lang/String;)I")
         val owner = vm(exactSafe = setOf(objectTarget))
@@ -423,44 +422,22 @@ class ReflectBackendTest {
         }
     }
 
-    /**
-     * `Method.invoke` runs what its receiver reflects, so the call's effect is that target's policy effect, not
-     * the entry point's. Each case configures `Method.invoke`'s own effect the opposite way.
-     */
+    /** `Method.invoke` runs what its receiver reflects, so the call's effect is what that target changes. */
     @Test
-    fun aReflectiveInvocationTakesItsEffectFromTheReflectedTarget() {
+    fun aReflectiveInvocationThatChangesNothingHasNoEffect() {
         val methodType = type("Ljava/lang/reflect/Method;")
         val methodInvoke = method(methodType, "invoke", "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
         val pureLength = method(stringType, "length", "()I")
-        val effectfulMutation = method(fixtureType, "mutateExternal", "()V")
-        val cases = listOf(
-            Triple(pureLength, String::class.java.getMethod("length"), Value.Known("abc", stringType)),
-            Triple(
-                effectfulMutation,
-                ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal"),
-                Value.Known(null, objectType),
-            ),
-        )
-        for ((reflected, hostMethod, receiver) in cases) {
-            val expected = if (reflected == pureLength) SideEffectLevel.NONE else SideEffectLevel.STRONG
-            val entryEffect = if (expected == SideEffectLevel.NONE) SideEffectLevel.STRONG else SideEffectLevel.NONE
-            val vm = VmServices(
-                classIndex,
-                ReflectionPolicy(
-                    exactSafeMethods = setOf(methodInvoke, reflected),
-                    methodEffects = mapOf(methodInvoke to entryEffect, pureLength to SideEffectLevel.NONE),
-                ),
-            )
-            val frame = Frame.entryFrame(callerView())
-            frame.assign(0, Value.Known(frame.heap.allocateHostObject(methodType, hostMethod), methodType))
-            frame.assign(1, receiver)
-            frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
+        val vm = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(methodInvoke, pureLength)))
+        val frame = Frame.entryFrame(callerView())
+        frame.assign(0, Value.Known(frame.heap.allocateHostObject(methodType, String::class.java.getMethod("length")), methodType))
+        frame.assign(1, Value.Known("abc", stringType))
+        frame.assign(2, Value.Known(null, type("[Ljava/lang/Object;")))
 
-            val graph = invoke(vm, methodInvoke, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1, 2)).run()
+        val graph = invoke(vm, methodInvoke, InvokeKind.VIRTUAL, frame = frame, registers = intArrayOf(0, 1, 2)).run()
 
-            assertEquals(CompletionStatus.Complete, graph.completion(), reflected.toString())
-            assertEquals(expected, graph.explored.sideEffectLevel(0), reflected.toString())
-        }
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
     }
 
     /**
@@ -474,10 +451,7 @@ class ReflectBackendTest {
         val pureConstructor = method("Ljava/lang/StringBuilder;", "<init>", "()V")
         val vm = VmServices(
             classIndex,
-            ReflectionPolicy(
-                exactSafeMethods = setOf(newInstance, pureConstructor),
-                methodEffects = mapOf(newInstance to SideEffectLevel.STRONG, pureConstructor to SideEffectLevel.NONE),
-            ),
+            ReflectionPolicy(exactSafeMethods = setOf(newInstance, pureConstructor)),
         )
         val frame = Frame.entryFrame(callerView())
         val hostConstructor = StringBuilder::class.java.getConstructor()
@@ -681,46 +655,24 @@ class ReflectBackendTest {
     }
 
     @Test
-    fun defaultEffectIsStrongAndPolicyCanCarryAProvenNarrowerMethodEffect() {
-        val integerType = type("Ljava/lang/Integer;")
-        val target = method(integerType, "intValue", "()I")
-        val strong = invoke(VmServices(classIndex), target, InvokeKind.VIRTUAL, listOf(Value.Known(1, integerType))).run()
-        assertEquals(SideEffectLevel.STRONG, strong.explored.sideEffectLevel(0))
-
-        val policy = ReflectionPolicy(
-            exactSafeMethods = setOf(target),
-            methodEffects = mapOf(target to SideEffectLevel.NONE),
-        )
-        val narrow = invoke(VmServices(classIndex, policy), target, InvokeKind.VIRTUAL, listOf(Value.Known(1, integerType))).run()
-        assertEquals(SideEffectLevel.NONE, narrow.explored.sideEffectLevel(0))
-    }
-
-    @Test
-    fun exactMutationPreservesPolicyDeclaredNoneAndImportsChangedContents() {
-        // An exact VM-owned mutation is modeled state, so reconciliation keeps the policy-declared NONE.
+    fun exactMutationIsWeakAndImportsChangedContents() {
         val target = method(fixtureType, "appendVoid", "(Ljava/lang/StringBuilder;)V")
-        val policy = ReflectionPolicy(
-            exactSafeMethods = setOf(target),
-            methodEffects = mapOf(target to SideEffectLevel.NONE),
-        )
+        val policy = ReflectionPolicy(exactSafeMethods = setOf(target))
         val (session, ref) = hostArgumentCall(VmServices(classIndex, policy), target, StringBuilder("v"), builderType)
 
         val graph = session.run()
 
         assertEquals("v-void", session.currentNode!!.frame.heap.hostObjectAt(ref).toString())
-        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
-        assertEquals(SideEffectLevel.NONE, graph.nodePile(0).single().activation.declaredEffect)
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, graph.nodePile(0).single().activation.declaredEffect)
     }
 
     @Test
-    fun unprovableFinalGraphRaisesPolicyDeclaredNoneToStrong() {
-        // When reconciliation cannot prove the host graph matches modeled state, declared NONE rises to STRONG;
-        // the detached graph and its ref are retained.
+    fun unprovableFinalGraphIsStrong() {
+        // When reconciliation cannot prove the host graph matches modeled state, the call is STRONG; the detached
+        // graph and its ref are retained.
         val target = method(fixtureType, "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;")
-        val policy = ReflectionPolicy(
-            exactSafeMethods = setOf(target),
-            methodEffects = mapOf(target to SideEffectLevel.NONE),
-        )
+        val policy = ReflectionPolicy(exactSafeMethods = setOf(target))
         val owner = VmServices(classIndex, policy)
         val entry = callerView()
         val frame = Frame.entryFrame(entry)

@@ -25,6 +25,11 @@ internal sealed interface HostGraphComparison {
 
 /** Compares mutable Java graph state without calling user equality methods. */
 internal class HostGraphComparator {
+    /**
+     * Whether every object of [left] equals the [right] object at its node id. [right] is [left]'s clone after a
+     * call, so its ids pair with [left]'s and it may hold more nodes: objects the call added. An added object that a
+     * compared object reaches is visited through that object's fields, so only unreachable additions are ignored.
+     */
     fun compare(
         left: HostGraphState,
         right: HostGraphState,
@@ -33,12 +38,12 @@ internal class HostGraphComparator {
         if (!left.isComplete || !right.isComplete) return HostGraphComparison.Unprovable()
         val leftNodes = left.objectsById()
         val rightNodes = right.objectsById()
-        if (left.nodeCount != right.nodeCount) return HostGraphComparison.Different
+        if (leftNodes.keys.any { it !in rightNodes }) return HostGraphComparison.Different
         return hostBoundary({ HostGraphComparison.Unprovable(it) }) {
             val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
             expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
             val walk = Walk(expectedByIdentity)
-            for (id in 0 until left.nodeCount) {
+            for (id in leftNodes.keys.sorted()) {
                 val result = walk.compare(leftNodes.getValue(id), rightNodes.getValue(id))
                 if (result != HostGraphComparison.Equal) return result
             }

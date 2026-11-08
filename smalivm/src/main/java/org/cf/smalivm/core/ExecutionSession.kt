@@ -548,17 +548,8 @@ public class ExecutionSession internal constructor(
                 planThrow(node, normalizeThrow(ThrowEvidence.Existing(thrown), node.frame, hierarchy))
             }
             is SynchronousCallResult.NeedsClassInit -> {
-                val comparison = finalizeSelectedCall(node, selected)
-                // Only initialization re-executes the call, so only that answer needs host state left unchanged.
-                if (
-                    comparison != HostGraphComparison.Equal &&
-                    node.frame.classInitAction(result.type) == ClassInitAction.StartInitialization
-                ) {
-                    val failure = IllegalStateException(
-                        "Synchronous backend requested class initialization after changing host state",
-                    )
-                    return hostFailureArm(node, failure)
-                }
+                // The call re-executes once the class is initialized, so this attempt must leave no trace.
+                selected.discard(node.frame)
                 requireNotNull(planClassInitTrigger(node, result.type, retryWhenSettled = true)) {
                     "Synchronous backend requested class initialization for a class that can proceed: ${result.type}"
                 }
@@ -596,8 +587,9 @@ public class ExecutionSession internal constructor(
     }
 
     /**
-     * Finalizes [selected]'s host graph. A comparison the graphs cannot complete raises the effect to `STRONG`; one
-     * stopped by a host failure rethrows it, so the containment boundary ends the path as `HOST_FAILURE` with it.
+     * Finalizes [selected]'s host graph and raises the effect by what the call did to guest-visible host state: a
+     * change is `WEAK`, like a guest field or array write, and a comparison the graphs cannot complete is `STRONG`.
+     * One stopped by a host failure rethrows it, so the containment boundary ends the path as `HOST_FAILURE` with it.
      */
     private fun finalizeSelectedCall(node: ExecutionNode, selected: SelectedSynchronousCall): HostGraphComparison {
         val comparison = hostBoundary({
@@ -606,9 +598,13 @@ public class ExecutionSession internal constructor(
         }) {
             selected.finalize(node.frame)
         }
-        if (comparison is HostGraphComparison.Unprovable) {
-            raiseEffect(node, SideEffectLevel.STRONG)
-            comparison.cause?.let { throw it }
+        when (comparison) {
+            HostGraphComparison.Equal -> Unit
+            HostGraphComparison.Different -> raiseEffect(node, SideEffectLevel.WEAK)
+            is HostGraphComparison.Unprovable -> {
+                raiseEffect(node, SideEffectLevel.STRONG)
+                comparison.cause?.let { throw it }
+            }
         }
         return comparison
     }

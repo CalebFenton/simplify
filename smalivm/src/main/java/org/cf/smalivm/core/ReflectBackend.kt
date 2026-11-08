@@ -17,7 +17,8 @@ internal class ReflectBackend(
             return BackendProbe.Declined("reflection does not implement ${call.kind} special invocation")
         }
         val initializesClass = call.kind == InvokeKind.STATIC || constructor
-        authorization(call.target, initializesClass)?.let { return BackendProbe.Denied(it) }
+        val receiverClass = if (initializesClass) null else call.receiver?.trackedType
+        authorization(call.target, initializesClass, receiverClass)?.let { return BackendProbe.Denied(it) }
 
         // A reflected constructor builds an object of exactly its own class, so it cannot run the superclass
         // constructor a subclass constructor chains to; that call runs as bytecode on the subclass object.
@@ -26,19 +27,32 @@ internal class ReflectBackend(
         }
         val receiverAvailable =
             call.kind == InvokeKind.STATIC || constructor || call.receiver?.isHostMaterializable == true
+        // An authorized method is a host method, so its bundled framework body is not the fallback: running that
+        // body on unknown input forks at every branch on the unknown, and the result is unknown anyway.
         if (!receiverAvailable || call.arguments.any { !it.isHostMaterializable }) {
-            return BackendProbe.Declined("${call.target} has an unknown or unmaterializable argument")
+            return BackendProbe.Denied("${call.target} has an unknown or unmaterializable argument")
         }
-        if (call.target !in REFLECTIVE_INVOCATIONS) return BackendProbe.Execute(policy.effectOf(call.target))
-        // A reflective invocation runs whatever its receiver names, so that target's policy and effect decide.
+        // An array that reaches a parameter of a non-array type lets the host read its identity hash through
+        // Object.hashCode or Object.toString, and the host's identity hash is not the device's.
+        if (call.arguments.zip(call.parameterTypes).any { (argument, parameter) ->
+                argument.trackedType?.isArray == true && !parameter.isArray
+            }
+        ) {
+            return BackendProbe.Denied("${call.target} would expose an array's identity hash")
+        }
+        // Policy authorizes only methods with no effect outside the guest heap, and finalizing the call's host graph
+        // raises the effect for whatever guest-visible state it changed, so the call declares none of its own.
+        if (call.target !in REFLECTIVE_INVOCATIONS) return BackendProbe.Execute(SideEffectLevel.NONE)
+        // A reflective invocation runs whatever its receiver names, so that target's policy decides.
         val reflected = call.receiver?.reflectedTarget
             ?: return BackendProbe.Denied("reflection cannot describe the target of ${call.target}")
-        authorization(reflected.method, reflected.initializesClass)?.let { return BackendProbe.Denied(it) }
-        return BackendProbe.Execute(policy.effectOf(reflected.method))
+        val reflectedReceiver = if (reflected.initializesClass) null else call.arguments.firstOrNull()?.trackedType
+        authorization(reflected.method, reflected.initializesClass, reflectedReceiver)?.let { return BackendProbe.Denied(it) }
+        return BackendProbe.Execute(SideEffectLevel.NONE)
     }
 
-    /** The policy's denial of [target], or null when it is authorized. */
-    private fun authorization(target: MethodSignature, initializesClass: Boolean): String? {
+    /** The policy's denial of [target] on a receiver of [receiverClass], or null when it is authorized. */
+    private fun authorization(target: MethodSignature, initializesClass: Boolean, receiverClass: VirtualType?): String? {
         val initializationChain = if (initializesClass) {
             try {
                 resolver.hostInitializationChain(target.definingClass)
@@ -48,7 +62,7 @@ internal class ReflectBackend(
         } else {
             emptyList()
         }
-        val decision = policy.decide(target, initializationChain)
+        val decision = policy.decide(target, initializationChain, receiverClass)
         return if (decision is ReflectionDecision.Denied) "reflection policy denied $target by ${decision.rule}" else null
     }
 
@@ -89,9 +103,9 @@ internal class ReflectBackend(
         call: SelectedHostCall,
     ): SynchronousCallResult {
         val method = hostBoundary({ return SynchronousCallResult.InfrastructureFailure(it) }) {
-            exactMethod(declaringClass, call.target.name, parameterClasses, returnClass)
+            exactMethod(declaringClass, call.target.name, parameterClasses, returnClass)?.let(::accessible)
                 ?: return SynchronousCallResult.InfrastructureFailure(
-                    NoSuchMethodException("No exact JVM method matches ${call.target}"),
+                    NoSuchMethodException("No accessible exact JVM method matches ${call.target}"),
                 )
         }
         val isStatic = Modifier.isStatic(method.modifiers)
@@ -126,6 +140,33 @@ internal class ReflectBackend(
         return declaringClass.declaredMethods.firstOrNull { method ->
             method.name == name && method.returnType == returnClass && method.parameterTypes.contentEquals(parameterClasses)
         }
+    }
+
+    /**
+     * [method] when its class is public, else the public superclass or interface method it overrides. Virtual
+     * dispatch from that method reaches [method], and reflection cannot call a member of a non-public class such
+     * as `java.util.LinkedList$ListItr` directly. Null for a static method of a non-public class.
+     */
+    private fun accessible(method: Method): Method? {
+        if (Modifier.isPublic(method.declaringClass.modifiers)) return method
+        if (Modifier.isStatic(method.modifiers)) return null
+        val pending = ArrayDeque<Class<*>>()
+        method.declaringClass.superclass?.let(pending::addLast)
+        pending.addAll(method.declaringClass.interfaces)
+        while (pending.isNotEmpty()) {
+            val type = pending.removeFirst()
+            if (Modifier.isPublic(type.modifiers)) {
+                val candidate = try {
+                    type.getDeclaredMethod(method.name, *method.parameterTypes)
+                } catch (_: NoSuchMethodException) {
+                    null
+                }
+                if (candidate != null && Modifier.isPublic(candidate.modifiers)) return candidate
+            }
+            type.superclass?.let(pending::addLast)
+            pending.addAll(type.interfaces)
+        }
+        return null
     }
 
     /**

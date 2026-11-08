@@ -46,6 +46,11 @@ internal class SelectedHostCall private constructor(
         return frame.finalizeHostGraph(checkpoint)
     }
 
+    /** Undoes this selection: [frame]'s heap returns to its state before the call, whatever the backend did. */
+    internal fun discard(frame: Frame) {
+        frame.heap.restoreHostGraph(checkpoint)
+    }
+
     /** Validates every mirror before applying any lattice update. */
     private fun copyArraysBack(frame: Frame) {
         val transaction = frame.heap.transactionCheckpoint()
@@ -285,6 +290,8 @@ internal class SelectedSynchronousCall(
     fun execute(): SynchronousCallResult = executor.execute(call)
 
     fun finalize(frame: Frame): HostGraphComparison = call.finalize(frame)
+
+    fun discard(frame: Frame) = call.discard(frame)
 
     fun installConstructedHostObject(frame: Frame, ref: HeapRef, raw: Any) =
         call.installConstructedHostObject(frame, ref, raw)

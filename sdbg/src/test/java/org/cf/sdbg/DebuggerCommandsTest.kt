@@ -201,11 +201,14 @@ class DebuggerCommandsTest {
 
     @Test
     fun steppingIntoFrameworkCodeKeepsListingAndMethodBreakpointsUsable() {
-        start(FIXTURE, "LDebugFixture;->frameworkCall()Ljava/lang/StringBuilder;")
-        execute("break", "3")
+        // A host method runs on the host, so framework bytecode is entered through a superclass constructor.
+        start(FIXTURE, "LDebugFixture;->frameworkCall()Ljava/lang/Object;")
+        execute("break", "1")
         execute("continue")
         execute("step")
-        val signature = "Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;"
+        assertEquals("LDebugFixtureList;-><init>()V", requireNotNull(debugger.cursor).view.signature.toString())
+        execute("step")
+        val signature = "Ljava/util/AbstractList;-><init>()V"
         val cursor = requireNotNull(debugger.cursor)
         assertEquals(signature, cursor.view.signature.toString())
         assertEquals(0, debugger.currentInstructionIndex)
@@ -215,9 +218,9 @@ class DebuggerCommandsTest {
         assertEquals((0 until cursor.view.instructionCount).toList(), listed)
         assertEquals(listOf(0), execute("list", "0,0").mapNotNull { indexes.find(it)?.groupValues?.get(1)?.toInt() })
 
-        assertEquals(listOf("breakpoint set for $signature"), execute("break", "append(J)Ljava/lang/StringBuilder;"))
+        assertEquals(listOf("breakpoint set for $signature"), execute("break", "<init>()V"))
         assertEquals(listOf("breakpoint set for $signature @ 1"), execute("break", "+1"))
-        val classListing = execute("list", "Ljava/lang/StringBuilder;")
+        val classListing = execute("list", "Ljava/util/AbstractList;")
         assertTrue(classListing.any { it.endsWith(signature) }, classListing.joinToString("\n"))
         assertTrue(classListing.any { it.startsWith("0:b>") }, classListing.joinToString("\n"))
         assertSame(cursor, debugger.cursor, "Listing and setting breakpoints must not advance the framework frame")

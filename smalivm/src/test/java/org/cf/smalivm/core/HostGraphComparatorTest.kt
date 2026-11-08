@@ -51,6 +51,23 @@ class HostGraphComparatorTest {
     }
 
     @Test
+    fun aNodeTheCallOnlyAddedIsNotAChange() {
+        // A call that reads an argument admits it after the checkpoint; the checkpoint's own objects are unchanged.
+        val before = graph(StringBuilder("same"))
+        val after = graph(StringBuilder("same"), StringBuilder("argument"))
+
+        assertEquals(HostGraphComparison.Equal, comparator.compare(before, after))
+    }
+
+    @Test
+    fun anAddedNodeReachedFromACheckpointObjectIsAChange() {
+        val before = graph(arrayListOf<Any>())
+        val after = graph(arrayListOf<Any>(StringBuilder("added")))
+
+        assertEquals(HostGraphComparison.Different, comparator.compare(before, after))
+    }
+
+    @Test
     fun stringBuilderCapacityOnlyMutationComparesDifferent() {
         val left = StringBuilder("same")
         val right = StringBuilder("same").apply { ensureCapacity(128) }

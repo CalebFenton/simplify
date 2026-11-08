@@ -138,11 +138,7 @@ internal class HostGraphVersionTest : DirectHostTestBase() {
 
         assertNotSame(before, returned.hostGraphVersionToken())
         assertEquals("value1", returned.heap.hostObjectAt(ref).toString(), "StringBuilder.append(J) appends the decimal long")
-        assertEquals(
-            SideEffectLevel.NONE,
-            graph.explored.sideEffectLevel(0),
-            "the policy declares append NONE and exact changed state is fully reconciled",
-        )
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0), "append changed the builder")
     }
 
     @Test

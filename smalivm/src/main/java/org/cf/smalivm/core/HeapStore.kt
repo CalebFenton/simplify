@@ -796,11 +796,14 @@ internal class HeapStore private constructor(
     }
 
     /**
-     * Finalizes selected execution. Only exact equality restores the original graph root. A comparison that
-     * cannot be completed is [HostGraphComparison.Unprovable] with the failure that stopped it.
+     * Finalizes selected execution. Each object the checkpoint held is compared with its clone before pruning, while
+     * node ids still pair them, so objects the call only added are not changes. Exact equality restores the original
+     * graph root when pruning kept the checkpoint's node layout. A comparison that cannot be completed is
+     * [HostGraphComparison.Unprovable] with the failure that stopped it.
      */
     fun finalizeHostGraph(checkpoint: HostGraphCheckpoint, guestRoots: List<Value>): HostGraphComparison {
         checkpoint.consume(this)
+        var layoutKept = false
         val result = hostBoundary({ failure ->
             if (failure is HostGraphOwnershipException) {
                 forgetHostGraph()
@@ -808,12 +811,18 @@ internal class HeapStore private constructor(
             }
             HostGraphComparison.Unprovable(failure)
         }) {
-            hostGraph = hostGraph.refresh()
+            val refreshed = hostGraph.refresh()
+            hostGraph = refreshed
+            val comparison = HostGraphComparator().compare(checkpoint.graph, refreshed, checkpoint.expectedMirrorElements)
             pruneHostGraphToGuestRoots(guestRoots + checkpoint.selectionRoots)
             compactHostGraph()
-            HostGraphComparator().compare(checkpoint.graph, hostGraph, checkpoint.expectedMirrorElements)
+            layoutKept = hostGraph.nodeCount == checkpoint.graph.nodeCount &&
+                checkpoint.graph.objectsById().keys.all { id ->
+                    hostGraph.objectAt(HostGraphNodeId(id)) === refreshed.objectAt(HostGraphNodeId(id))
+                }
+            comparison
         }
-        if (result == HostGraphComparison.Equal && !checkpoint.synchronizedDirtyMirrors) {
+        if (result == HostGraphComparison.Equal && layoutKept && !checkpoint.synchronizedDirtyMirrors) {
             hostGraph = checkpoint.graph
         }
         return result

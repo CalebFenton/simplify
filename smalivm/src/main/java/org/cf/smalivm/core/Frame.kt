@@ -178,7 +178,7 @@ public class Frame private constructor(
         val type = view.definingClass
         if (view.signature.isClassInitializer && classInitAction(type) == ClassInitAction.StartInitialization) {
             val preparation = planner.ownInitializerPreparation(type)
-            classes.prepare(preparation.staticSeeds, preparation.finalStatics)
+            classes.prepare(preparation.staticSeeds, preparation.initializerOnlyStatics)
             classes.start(type)
         }
     }
@@ -191,7 +191,7 @@ public class Frame private constructor(
     internal fun applyClassInit(plan: ClassInitPlan) {
         // JVMS §5.4.2: preparation precedes every mark and the initializer, so a `<clinit>` reading a static of
         // its own class sees the prepared value.
-        classes.prepare(plan.staticSeeds, plan.finalStatics)
+        classes.prepare(plan.staticSeeds, plan.initializerOnlyStatics)
         for (settled in plan.settled) classes.complete(settled)
         plan.context?.activeInitializer?.type?.let(classes::start)
     }

@@ -109,9 +109,25 @@ class ReflectionPolicyIntegrationTest {
         assertPolicyDenial(execute("deniedRandomConstructor()V", emptyList()))
     }
 
+    @Test
+    fun aListIteratesThroughItsPrivateIteratorClass() {
+        // LinkedList's iterator is a private JDK class, so each call goes through the public Iterator method.
+        val graph = collections("linkedListIterationSum()I")
+
+        assertEquals(listOf(Outcome.Returned(Value.Known(7, VirtualType.of("I")))), graph.outcomes)
+    }
+
+    @Test
+    fun anArrayPassedAsAnObjectIsNotFolded() {
+        // String.valueOf(Object) of an array prints the host's identity hash, which the device does not share.
+        val graph = collections("arrayThroughObjectParameter()Ljava/lang/String;")
+
+        assertEquals(listOf(Outcome.Returned(Value.Unknown(VirtualType.of("Ljava/lang/String;")))), graph.outcomes)
+    }
+
     /**
-     * A value that depends on the analysis host's clock, random state, identity hash, system properties, default
-     * charset, time zone or class path differs on the device, so default policy leaves it Unknown.
+     * A value that depends on the analysis host's clock, random state, identity hash, system properties, time zone
+     * or class path differs on the device, so default policy leaves it Unknown.
      */
     @TestFactory
     fun hostDependentResultsAreNotFolded(): List<DynamicTest> = listOf(
@@ -132,8 +148,6 @@ class ReflectionPolicyIntegrationTest {
         "longSystemProperty()Ljava/lang/Long;" to "Ljava/lang/Long;",
         "longSystemPropertyWithLongDefault()Ljava/lang/Long;" to "Ljava/lang/Long;",
         "longSystemPropertyWithBoxedDefault()Ljava/lang/Long;" to "Ljava/lang/Long;",
-        "urlEncodeWithDefaultCharset()Ljava/lang/String;" to "Ljava/lang/String;",
-        "urlDecodeWithDefaultCharset()Ljava/lang/String;" to "Ljava/lang/String;",
         "hostPackage()Ljava/lang/Package;" to "Ljava/lang/Package;",
     ).map { (descriptor, returnType) ->
         DynamicTest.dynamicTest(descriptor) { assertNotFolded(descriptor, returnType) }
@@ -163,9 +177,13 @@ class ReflectionPolicyIntegrationTest {
         assertPolicyDenial(graph)
     }
 
+    private fun collections(descriptor: String): ExecutionGraph =
+        VmServices(classIndex).newSession(classIndex.requireMethodView(COLLECTIONS, descriptor)).run()
+
     private companion object {
         const val FIXTURE = "Linvoke_backend_test;"
         const val NONDETERMINISM = "Lhost_nondeterminism_test;"
+        const val COLLECTIONS = "Lhost_collections_test;"
     }
 
     private class CallbackSentinel : BiFunction<Any?, Any?, Any?>, BiConsumer<Any?, Any?> {

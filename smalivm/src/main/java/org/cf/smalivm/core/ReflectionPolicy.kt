@@ -2,10 +2,11 @@ package org.cf.smalivm.core
 
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 
 /** The policy rule that made one reflection decision. */
-internal enum class ReflectionRule { EXACT_UNSAFE, EXACT_SAFE, SAFE_CLASS, DEFAULT_DENY }
+internal enum class ReflectionRule { EXACT_UNSAFE, EXACT_SAFE, SAFE_CLASS, UNSAFE_RECEIVER, DEFAULT_DENY }
 
 /** A policy decision. Denial is not a backend decline and does not permit fallback. */
 internal sealed interface ReflectionDecision {
@@ -24,29 +25,35 @@ public class ReflectionPolicy(
     exactUnsafeMethods: Set<MethodSignature> = emptySet(),
     exactSafeMethods: Set<MethodSignature> = emptySet(),
     safeClasses: Set<VirtualType> = emptySet(),
-    methodEffects: Map<MethodSignature, SideEffectLevel> = emptyMap(),
     exactSafeStaticFields: Set<FieldSignature> = emptySet(),
 ) {
     private val exactUnsafeMethods = exactUnsafeMethods.toSet()
     private val exactSafeMethods = exactSafeMethods.toSet()
     private val safeClasses = safeClasses.toSet()
-    private val methodEffects = methodEffects.toMap()
     private val exactSafeStaticFields = exactSafeStaticFields.toSet()
 
+    /**
+     * Decides one call of [target]. [receiverClass] is the runtime class of a tracked receiver object. A class-wide
+     * authorization covers a receiver only of a listed class: a safe class's inherited method can run on a subclass
+     * whose own methods keep state the policy never vetted, as `AbstractList.clear` does on a `subList` view.
+     */
     internal fun decide(
         target: MethodSignature,
         hostInitializationChain: List<VirtualType> = emptyList(),
+        receiverClass: VirtualType? = null,
     ): ReflectionDecision = when {
         target in exactUnsafeMethods -> ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
         hostInitializationChain.any { MethodSignature.classInitializer(it) in exactUnsafeMethods } ->
             ReflectionDecision.Denied(ReflectionRule.EXACT_UNSAFE)
         target in exactSafeMethods -> ReflectionDecision.Allowed(ReflectionRule.EXACT_SAFE)
-        target.definingClass in safeClasses -> ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS)
+        target.definingClass in safeClasses ->
+            if (receiverClass == null || receiverClass in safeClasses) {
+                ReflectionDecision.Allowed(ReflectionRule.SAFE_CLASS)
+            } else {
+                ReflectionDecision.Denied(ReflectionRule.UNSAFE_RECEIVER)
+            }
         else -> ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY)
     }
-
-    /** Authorization does not imply purity. Only an explicit proof narrows the default strong effect. */
-    internal fun effectOf(target: MethodSignature): SideEffectLevel = methodEffects[target] ?: SideEffectLevel.STRONG
 
     /** Authorizes one static read without exposing policy collections or loading a host class. */
     internal fun decideStaticRead(
@@ -77,14 +84,20 @@ public class ReflectionPolicy(
     }
 
     public companion object {
-        /** Loads fresh immutable policy data for one VM owner. */
-        public fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy =
-            ReflectionPolicy(
+        /**
+         * Loads fresh immutable policy data for one VM owner. The policy treats the host default charset as the
+         * device's UTF-8, so a JVM started with another `file.encoding` is refused.
+         */
+        public fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy {
+            require(Charset.defaultCharset() == StandardCharsets.UTF_8) {
+                "Simplify requires the JVM default charset to be UTF-8, as on Android; it is ${Charset.defaultCharset()}"
+            }
+            return ReflectionPolicy(
                 exactUnsafeMethods = loadDefinitions(classLoader, "unsafe_methods.cfg").map(MethodSignature::parse).toSet(),
                 exactSafeMethods = loadDefinitions(classLoader, "safe_methods.cfg").map(MethodSignature::parse).toSet(),
                 safeClasses = loadDefinitions(classLoader, "safe_classes.cfg").map(VirtualType::of).toSet(),
-                methodEffects = loadDefinitions(classLoader, "method_effects.cfg").associate(::parseEffect),
             )
+        }
 
         internal fun loadDefinitions(classLoader: ClassLoader, resource: String): List<String> {
             val stream = requireNotNull(classLoader.getResourceAsStream(resource)) {
@@ -95,18 +108,6 @@ public class ReflectionPolicy(
                     .filter { it.isNotEmpty() && !it.startsWith("//") }
                     .toList()
             }
-        }
-
-        private fun parseEffect(definition: String): Pair<MethodSignature, SideEffectLevel> {
-            val separator = definition.lastIndexOf(' ')
-            require(separator > 0) { "Malformed reflection method effect entry: $definition" }
-            val method = MethodSignature.parse(definition.substring(0, separator))
-            val effect = try {
-                SideEffectLevel.valueOf(definition.substring(separator + 1))
-            } catch (failure: IllegalArgumentException) {
-                throw IllegalArgumentException("Malformed reflection method effect entry: $definition", failure)
-            }
-            return method to effect
         }
     }
 }

@@ -75,11 +75,9 @@
     return v0
 .end method
 
-.method public static frameworkCall()Ljava/lang/StringBuilder;
-    .locals 3
-    new-instance v0, Ljava/lang/StringBuilder;
-    invoke-direct {v0}, Ljava/lang/StringBuilder;-><init>()V
-    const-wide/16 v1, 0x2
-    invoke-virtual {v0, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+.method public static frameworkCall()Ljava/lang/Object;
+    .locals 1
+    new-instance v0, LDebugFixtureList;
+    invoke-direct {v0}, LDebugFixtureList;-><init>()V
     return-object v0
 .end method

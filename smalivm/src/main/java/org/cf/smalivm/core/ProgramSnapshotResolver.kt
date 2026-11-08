@@ -6,6 +6,8 @@ import org.cf.util.ClassNameUtils
 import com.android.tools.smali.dexlib2.AccessFlags
 import com.android.tools.smali.dexlib2.ValueType
 import com.android.tools.smali.dexlib2.iface.Field
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 import com.android.tools.smali.dexlib2.iface.value.BooleanEncodedValue
 import com.android.tools.smali.dexlib2.iface.value.ByteEncodedValue
 import com.android.tools.smali.dexlib2.iface.value.CharEncodedValue
@@ -302,6 +304,40 @@ internal class ProgramSnapshotResolver internal constructor(
             val signature = FieldSignature.of(field)
             StaticFieldDeclaration(signature, literalOf(field, signature.type), field.accessFlags)
         }
+    }
+
+    /**
+     * The descriptors of [type]'s statics that only its own `<clinit>` writes, so each holds what the initializer
+     * leaves for the rest of the process: every `final` static, and every private static of an application class
+     * that no method of the class but `<clinit>` names in an `sput*`. ART's access check stops any other class from
+     * writing a private field, and an `sput*` here names it by name and type whatever class it spells. Reflection
+     * and JNI can still write either kind; the engine does not model those writers.
+     */
+    fun initializerOnlyStatics(type: VirtualType): Set<String> {
+        val declarations = declaredStaticFields(type)
+        val writtenOutsideInitializer by lazy { staticsWrittenOutsideInitializer(type.descriptor) }
+        return declarations.filterTo(LinkedHashSet()) { declaration ->
+            Modifier.isFinal(declaration.modifiers) ||
+                Modifier.isPrivate(declaration.modifiers) &&
+                snapshot.applicationClass(type.descriptor) != null &&
+                "${declaration.field.name}:${declaration.type.descriptor}" !in writtenOutsideInitializer
+        }.mapTo(LinkedHashSet()) { it.descriptor }
+    }
+
+    /** `name:type` of every static an `sput*` in a method of [owner] other than `<clinit>` names. */
+    private fun staticsWrittenOutsideInitializer(owner: String): Set<String> {
+        val definition = snapshot.applicationClass(owner) ?: return emptySet()
+        val written = HashSet<String>()
+        for (method in definition.methods) {
+            if (method.methodSignature.nameAndProto == ClassIndex.CLASS_INITIALIZER_DESCRIPTOR) continue
+            for (encoded in method.body?.instructions.orEmpty()) {
+                val instruction = encoded.instruction
+                if (!instruction.opcode.isStaticFieldAccessor || instruction.opcode.setsRegister()) continue
+                val field = (instruction as ReferenceInstruction).reference as FieldReference
+                written.add("${field.name}:${field.type}")
+            }
+        }
+        return written
     }
 
     /** [type]'s own declared instance fields, in dex order. */

@@ -27,11 +27,7 @@ internal class HostCallExitTest : DirectHostTestBase() {
 
         assertTrue(stored.contents is HostGraphContents.Known)
         assertEquals("value-before-throw", node.frame.heap.hostObjectAt(ref).toString())
-        assertEquals(
-            SideEffectLevel.NONE,
-            node.sideEffectLevel,
-            "a target throw does not erase NONE or turn reconciled mutation into an external effect",
-        )
+        assertEquals(SideEffectLevel.WEAK, node.sideEffectLevel, "the mutation stays recorded through the throw")
         assertEquals(VirtualType.of("Ljava/lang/IllegalStateException;"), thrown.exception.type)
         assertSame(DirectHostCallsFixture.target, node.frame.heap.hostObjectAt(thrownRef))
     }
@@ -39,17 +35,15 @@ internal class HostCallExitTest : DirectHostTestBase() {
     @TestFactory
     fun aNonFatalExitAfterMutationAbortsThePathAndKeepsTheMutation(): List<DynamicTest> {
         // Each exit reaches finalization after the backend mutated the receiver, so the mutation is imported
-        // and the path ends in HOST_FAILURE. A class-init request is retried only from an unchanged graph.
+        // and the path ends in HOST_FAILURE.
         val infrastructure = IllegalStateException("infrastructure")
         val escaped = IllegalStateException("escaped")
-        val needsInit = SynchronousCallResult.NeedsClassInit(VirtualType.of("Linvocation_class_init_target;"))
-        val rows: List<Triple<String, Throwable?, () -> SynchronousCallResult>> = listOf(
-            Triple("infrastructure failure", infrastructure) { SynchronousCallResult.InfrastructureFailure(infrastructure) },
-            Triple("escaped host throwable", escaped) { throw escaped },
-            Triple("class-init request", null) { needsInit },
+        val rows: List<Pair<Throwable, () -> SynchronousCallResult>> = listOf(
+            infrastructure to { SynchronousCallResult.InfrastructureFailure(infrastructure) },
+            escaped to { throw escaped },
         )
-        return rows.map { (name, expectedFailure, exit) ->
-            DynamicTest.dynamicTest(name) {
+        return rows.map { (expectedFailure, exit) ->
+            DynamicTest.dynamicTest(expectedFailure.message.orEmpty()) {
                 val backend = DirectBackend { call ->
                     (call.receiver as StringBuilder).append("-changed")
                     exit()
@@ -68,7 +62,7 @@ internal class HostCallExitTest : DirectHostTestBase() {
                 val node = session.step()!!
 
                 assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
-                if (expectedFailure != null) assertSame(expectedFailure, node.outcome.hostFailure)
+                assertSame(expectedFailure, node.outcome.hostFailure)
                 assertEquals("value-changed", node.frame.heap.hostObjectAt(ref).toString())
                 assertTrue(node.children.isEmpty())
             }
@@ -180,9 +174,18 @@ internal class HostCallExitTest : DirectHostTestBase() {
     }
 
     @Test
-    fun needsClassInitAfterArrayMaterializationBecomesHostFailure() {
-        val backend = DirectBackend {
-            SynchronousCallResult.NeedsClassInit(VirtualType.of("Linvocation_class_init_target;"))
+    fun needsClassInitAfterArrayMaterializationRetriesFromTheUnchangedGuestArray() {
+        // Materializing an argument array is selection, not a host mutation, and even a backend that writes the
+        // array before asking for initialization leaves nothing: the attempt is discarded and the call retried.
+        var executions = 0
+        val backend = DirectBackend { call ->
+            executions++
+            (call.arguments[0] as IntArray)[0] = 99
+            if (executions == 1) {
+                SynchronousCallResult.NeedsClassInit(VirtualType.of("Linvocation_class_init_target;"))
+            } else {
+                SynchronousCallResult.Returned(HostReturn.Void)
+            }
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_static_test;", "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V")
@@ -190,11 +193,14 @@ internal class HostCallExitTest : DirectHostTestBase() {
         val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(1, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, intArrayType))
         frame.assign(1, Value.Known(0, intType))
+        val session = session(view, vm, frame, listOf(backend))
 
-        val node = session(view, vm, frame, listOf(backend)).step()!!
+        val retried = session.step()!!
 
-        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
-        assertTrue(node.children.isEmpty())
+        assertEquals(null, retried.outcome)
+        assertEquals(Value.Known(1, intType), retried.frame.heap.arrayAt(ref)!!.element(0))
+        assertEquals(CompletionStatus.Complete, session.run().completion())
+        assertEquals(2, executions)
     }
 
     @Test

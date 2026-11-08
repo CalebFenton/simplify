@@ -35,6 +35,18 @@ class EntryClassStateTest {
     }
 
     @Test
+    fun aPrivateStaticOnlyItsInitializerWritesReadsLikeAFinalOne() {
+        // No other code can write onlyInit or table, so both hold what <clinit> left: 4 + 7.
+        assertEquals(listOf(Outcome.Returned(Value.Known(11, int))), run(SEALED, "onlyInitPlusTable()I").outcomes)
+    }
+
+    @Test
+    fun aPrivateStaticAnotherMethodWritesReadsUnknown() {
+        // resetToZero may have run before the entry.
+        assertEquals(listOf(Outcome.Returned(Value.Unknown(int))), run(SEALED, "readReset()I").outcomes)
+    }
+
+    @Test
     fun aStaticThePathWroteReadsTheWrittenValue() {
         assertEquals(listOf(Outcome.Returned(Value.Known(9, int))), run(HOLDER, "writeThenRead()I").outcomes)
     }
@@ -75,5 +87,6 @@ class EntryClassStateTest {
     private companion object {
         const val HOLDER = "Lentry_class_state/holder;"
         const val COUNTER = "Lentry_class_state/counter;"
+        const val SEALED = "Lentry_class_state/sealed;"
     }
 }

@@ -255,23 +255,9 @@ class BackendInvocationTest {
     }
 
     @Test
-    fun provenHostCallsOnInitializedClassesRetainNoSideEffects() {
-        // Bug class: safe-class authorization either implies blanket NONE or leaves these three proven calls STRONG.
-        // Oracle: the default policy declares exactly these three StringBuilder calls NONE; capacity() stays STRONG.
-        val targets = setOf(
-            method(BUILDER, "<init>", "(Ljava/lang/String;)V"),
-            method(BUILDER, "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;"),
-            method(BUILDER, "toString", "()Ljava/lang/String;"),
-        )
-        val policy = ReflectionPolicy.defaults()
-        targets.forEach { assertEquals(SideEffectLevel.NONE, policy.effectOf(it), it.toString()) }
-        assertEquals(
-            SideEffectLevel.STRONG,
-            policy.effectOf(method(BUILDER, "capacity", "()I")),
-            "safe-class authorization is not a purity proof",
-        )
-
-        val vm = VmServices(classIndex, policy)
+    fun hostCallEffectsFollowTheGuestVisibleStateEachChanges() {
+        // append mutates the builder its result aliases, so deleting it as effect-free would lose the text.
+        val vm = VmServices(classIndex, ReflectionPolicy.defaults())
         val view = view(SIDE_EFFECT_FIXTURE, "provenHostCalls()Ljava/lang/String;")
         val frame = Frame.entryFrame(view)
         // Measure the calls' effects, not skipped framework initialization on first allocation.
@@ -279,7 +265,8 @@ class BackendInvocationTest {
         val run = execute(view, vm, frame)
 
         assertEquals(Value.Known("seed-value", STRING), run.graph.returnedValue())
-        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
+        assertEquals(SideEffectLevel.WEAK, run.graph.explored.sideEffectLevel(APPEND_ADDRESS))
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.sideEffectLevel(TO_STRING_ADDRESS))
     }
 
     @Test
@@ -470,6 +457,9 @@ class BackendInvocationTest {
     private companion object {
         const val INVOKE_FIXTURE = "Linvoke_backend_test;"
         const val SIDE_EFFECT_FIXTURE = "Lbackend_side_effect_test;"
+        /** `provenHostCalls()`'s `append` and `toString` invokes. */
+        const val APPEND_ADDRESS = 11
+        const val TO_STRING_ADDRESS = 15
         const val PREFIX = "duty is heavy as a mountain"
         const val FULL_TEXT = "$PREFIX, death as light as a feather"
         val OBJECT = VirtualType.OBJECT

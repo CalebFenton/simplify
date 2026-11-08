@@ -24,10 +24,6 @@ internal abstract class DirectHostTestBase {
                 MethodSignature(VirtualType.of("Ljava/util/ArrayList;"), "get", "(I)Ljava/lang/Object;"),
             ),
             safeClasses = setOf(hostCallsType, VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;")),
-            methodEffects = mapOf(
-                appendLong to SideEffectLevel.NONE,
-                MethodSignature(hostCallsType, "appendThenThrow", "(Ljava/lang/StringBuilder;)V") to SideEffectLevel.NONE,
-            ),
         ),
     )
 

@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import java.lang.reflect.Modifier
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentMapOf
@@ -96,12 +95,13 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
  * Lifecycle records are keyed by type descriptor. Static cells are keyed by the fully-qualified descriptor from
  * [ClassIndex.fieldDescriptorOf] (`Lcom/example/Foo;->bar:I`), so a shadowed static, or two same-named statics of
  * different types in one hierarchy, never share a cell. Each cell keeps its provenance, so a host projection never
- * silently becomes guest storage. [finalStatics] names every prepared static declared `final`.
+ * silently becomes guest storage. [initializerOnlyStatics] names every prepared static that only its class's
+ * `<clinit>` writes ([ProgramSnapshotResolver.initializerOnlyStatics]).
  */
 internal class ClassStore private constructor(
     private var states: CompatibilityMapKey<String, ClassInitRecord>,
     private var statics: PersistentMap<String, StaticCell>,
-    private var finalStatics: PersistentSet<String>,
+    private var initializerOnlyStatics: PersistentSet<String>,
     private var entryState: EntryClassState,
 ) : ClassState {
     constructor() : this(CompatibilityMapKey.empty(), persistentMapOf(), persistentSetOf(), EntryClassState.ARBITRARY)
@@ -167,13 +167,13 @@ internal class ClassStore private constructor(
 
     /**
      * JVMS §5.4.2 preparation: gives every declared static of a class its pre-`<clinit>` value when this path
-     * first triggers the class, and records which are `final`. [ClassInitPlanner] decides the values. It runs
-     * before the `<clinit>`, so an initializer reading a static of its own class reads the prepared value.
+     * first triggers the class, and records which only `<clinit>` writes. [ClassInitPlanner] decides the values.
+     * It runs before the `<clinit>`, so an initializer reading a static of its own class reads the prepared value.
      *
      * A prepared seed replaces a host projection; a guest write stays authoritative, so a retried guest
      * initializer or an explicit seed never merges silently with host-owned state.
      */
-    fun prepare(seeds: Map<String, StaticCell>, finals: Set<String>) {
+    fun prepare(seeds: Map<String, StaticCell>, initializerOnly: Set<String>) {
         var updated = statics
         for ((descriptor, cell) in seeds) {
             val current = updated[descriptor]
@@ -182,7 +182,7 @@ internal class ClassStore private constructor(
             }
         }
         statics = updated
-        if (finals.isNotEmpty()) finalStatics = finalStatics.addAll(finals)
+        if (initializerOnly.isNotEmpty()) initializerOnlyStatics = initializerOnlyStatics.addAll(initializerOnly)
     }
 
     fun start(type: VirtualType) {
@@ -203,16 +203,16 @@ internal class ClassStore private constructor(
     /**
      * Marks [type] initialized after its `<clinit>` returned. [before] is this path's state at the trigger when
      * the trigger found the lifecycle [ClassInitState.UNKNOWN], else null. In that case the class may instead
-     * have been initialized before the entry, so every non-final static the initializer changed may hold another
-     * value: it reads `Unknown` with guest provenance. Final statics keep the initializer's value, because only
-     * `<clinit>` writes them.
+     * have been initialized before the entry, so every static the initializer changed that other code can also
+     * write may hold another value: it reads `Unknown` with guest provenance. An initializer-only static keeps the
+     * initializer's value, because nothing else writes it.
      */
     fun completeInitializer(type: VirtualType, before: ClassStore?) {
         complete(type)
         if (before == null) return
         var updated = statics
         for ((descriptor, cell) in statics) {
-            if (descriptor in finalStatics || before.statics[descriptor] == cell) continue
+            if (descriptor in initializerOnlyStatics || before.statics[descriptor] == cell) continue
             val unknown = Value.Unknown(FieldSignature.parse(descriptor).type)
             updated = updated.putting(descriptor, StaticCell(unknown, StaticCellProvenance.GUEST_WRITE))
         }
@@ -240,7 +240,7 @@ internal class ClassStore private constructor(
     }
 
     /** A new wrapper over the persistent roots. A later write replaces only the writing path's root. */
-    fun copy(): ClassStore = ClassStore(states, statics, finalStatics, entryState)
+    fun copy(): ClassStore = ClassStore(states, statics, initializerOnlyStatics, entryState)
 
     /** Exact lifecycle partition key. Missing means UNINITIALIZED or UNKNOWN and is distinct from INITIALIZED. */
     fun compatibilityKey(): ClassInitCompatibilityKey = ClassInitCompatibilityKey(states)
@@ -262,7 +262,8 @@ internal class ClassStore private constructor(
             require(stores.isNotEmpty())
             val first = stores.first()
             val shared = stores.all {
-                it.states === first.states && it.statics === first.statics && it.finalStatics === first.finalStatics
+                it.states === first.states && it.statics === first.statics &&
+                    it.initializerOnlyStatics === first.initializerOnlyStatics
             }
             if (shared) return first.copy()
             val stateKey = first.states
@@ -279,8 +280,10 @@ internal class ClassStore private constructor(
                     )
                 }
             }
-            val finals = stores.fold(first.finalStatics) { union, store -> union.addAll(store.finalStatics) }
-            return ClassStore(mergedStates, mergedStatics, finals, first.entryState)
+            val initializerOnly = stores.fold(first.initializerOnlyStatics) { union, store ->
+                union.addAll(store.initializerOnlyStatics)
+            }
+            return ClassStore(mergedStates, mergedStatics, initializerOnly, first.entryState)
         }
 
         private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: TypeHierarchy): StaticCell {
@@ -447,8 +450,8 @@ internal class ClassInitPlan(
      * initializer runs, so a `<clinit>` reading its own class's static sees the prepared value.
      */
     internal val staticSeeds: Map<String, StaticCell> = emptyMap(),
-    /** The descriptors in [staticSeeds] whose field is declared `final`. */
-    internal val finalStatics: Set<String> = emptySet(),
+    /** The descriptors in [staticSeeds] that only their class's `<clinit>` writes. */
+    internal val initializerOnlyStatics: Set<String> = emptySet(),
 ) {
     /**
      * Every class in the chain is already triggered on this path. A correct trigger never asks for
@@ -484,7 +487,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         val chain = chainFromTheTop(type)
         val settled = ArrayList<VirtualType>(2)
         val seeds = LinkedHashMap<String, StaticCell>()
-        val finals = HashSet<String>()
+        val initializerOnly = HashSet<String>()
         var skippedAnInitializer = false
         val nearestFailedAncestorIndex = chain.indexOfLast { ancestor ->
             state.classInitAction(ancestor) is ClassInitAction.ThrowFailed
@@ -503,7 +506,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                             uninitializedBelow(state, chain, index),
                         ),
                         staticSeeds = seeds,
-                        finalStatics = finals,
+                        initializerOnlyStatics = initializerOnly,
                     )
                 }
                 ClassInitAction.StartInitialization -> Unit
@@ -514,16 +517,16 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
             if (resolver.hierarchy.isFrameworkClass(ancestor)) {
                 settled.add(ancestor)
                 if (resolver.hasClassInitializer(ancestor)) skippedAnInitializer = true
-                prepare(ancestor, initializerRuns = false, lifecycleUnknown, seeds, finals)
+                prepare(ancestor, initializerRuns = false, lifecycleUnknown, seeds, initializerOnly)
                 continue
             }
             when (val lookup = resolver.lookupClassInitializer(ancestor)) {
                 MethodLookup.NoSuchMethod -> {
                     settled.add(ancestor)
-                    prepare(ancestor, initializerRuns = false, lifecycleUnknown, seeds, finals)
+                    prepare(ancestor, initializerRuns = false, lifecycleUnknown, seeds, initializerOnly)
                 }
                 is MethodLookup.Runnable -> {
-                    prepare(ancestor, initializerRuns = true, lifecycleUnknown, seeds, finals)
+                    prepare(ancestor, initializerRuns = true, lifecycleUnknown, seeds, initializerOnly)
                     return ClassInitPlan(
                         settled,
                         skippedAnInitializer,
@@ -534,7 +537,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                             triggerState = if (lifecycleUnknown) state.classes.copy() else null,
                         ),
                         staticSeeds = seeds,
-                        finalStatics = finals,
+                        initializerOnlyStatics = initializerOnly,
                     )
                 }
                 is MethodLookup.NoBody -> return ClassInitPlan(
@@ -547,7 +550,13 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                     error("The declared <clinit> of loaded class ${ancestor.descriptor} resolved to $lookup")
             }
         }
-        return ClassInitPlan(settled, skippedAnInitializer, context = null, staticSeeds = seeds, finalStatics = finals)
+        return ClassInitPlan(
+            settled,
+            skippedAnInitializer,
+            context = null,
+            staticSeeds = seeds,
+            initializerOnlyStatics = initializerOnly,
+        )
     }
 
     /**
@@ -556,9 +565,15 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
      */
     fun ownInitializerPreparation(type: VirtualType): ClassInitPlan {
         val seeds = LinkedHashMap<String, StaticCell>()
-        val finals = HashSet<String>()
-        prepare(type, initializerRuns = true, lifecycleUnknown = false, seeds, finals)
-        return ClassInitPlan(emptyList(), false, context = null, staticSeeds = seeds, finalStatics = finals)
+        val initializerOnly = HashSet<String>()
+        prepare(type, initializerRuns = true, lifecycleUnknown = false, seeds, initializerOnly)
+        return ClassInitPlan(
+            emptyList(),
+            false,
+            context = null,
+            staticSeeds = seeds,
+            initializerOnlyStatics = initializerOnly,
+        )
     }
 
     /** The classes after [index] in the top-first [chain] that are still uninitialized on [state]'s path. */
@@ -568,10 +583,10 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         }
 
     /**
-     * Adds [type]'s statics after JVMS §5.4.2 preparation and before its `<clinit>` to [seeds], and its `final`
-     * ones to [finals]:
-     *  - a non-final static of a class whose lifecycle is unknown and whose initializer does not run is
-     *    [Value.Unknown] with guest provenance, literal or not: code before the entry may have written it;
+     * Adds [type]'s statics after JVMS §5.4.2 preparation and before its `<clinit>` to [seeds], and the ones only
+     * its `<clinit>` writes ([ProgramSnapshotResolver.initializerOnlyStatics]) to [initializerOnly]:
+     *  - a static other code can write, of a class whose lifecycle is unknown and whose initializer does not run,
+     *    is [Value.Unknown] with guest provenance, literal or not: code before the entry may have written it;
      *  - otherwise a dex-encoded literal is that literal, whether or not the class has an initializer, because
      *    a compiler emits no `<clinit>` assignment for a `static final` constant;
      *  - otherwise the type default, when the class has no initializer or its initializer is about to run;
@@ -582,16 +597,16 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         initializerRuns: Boolean,
         lifecycleUnknown: Boolean,
         seeds: MutableMap<String, StaticCell>,
-        finals: MutableSet<String>,
+        initializerOnly: MutableSet<String>,
     ) {
         val declarations = resolver.declaredStaticFields(type)
         if (declarations.isEmpty()) return
         val initializerAccountedFor = initializerRuns || !resolver.hasClassInitializer(type)
+        val ownInitializerOnly = resolver.initializerOnlyStatics(type)
+        initializerOnly.addAll(ownInitializerOnly)
         for (declaration in declarations) {
-            val isFinal = Modifier.isFinal(declaration.modifiers)
-            if (isFinal) finals.add(declaration.descriptor)
             seeds[declaration.descriptor] = when {
-                lifecycleUnknown && !isFinal && !initializerRuns ->
+                lifecycleUnknown && declaration.descriptor !in ownInitializerOnly && !initializerRuns ->
                     StaticCell(Value.Unknown(declaration.type), StaticCellProvenance.GUEST_WRITE)
                 declaration.literal != null -> StaticCell(declaration.literal, StaticCellProvenance.ENCODED_LITERAL)
                 initializerAccountedFor -> StaticCell(defaultValueOf(declaration.type), StaticCellProvenance.SEEDED_DEFAULT)

@@ -148,7 +148,8 @@ class EmulateBackendTest {
     }
 
     @Test
-    fun ordinaryHandlerDeclinesAnUnknownReceiverAndCapturedFrameworkBodyExecutes() {
+    fun ordinaryHandlerDeclinesAnUnknownReceiverAndTheAuthorizedCallCompletesOpaque() {
+        // String.length is a host method, so its bundled framework body is not run on the unknown receiver.
         var executions = 0
         val vm = VmServices(classIndex)
         val target = method("Ljava/lang/String;", "length", "()I")
@@ -163,15 +164,8 @@ class EmulateBackendTest {
         val invoke = graph.nodePile(0).single()
 
         assertEquals(0, executions)
-        assertEquals(
-            Value.Unknown(intType),
-            graph.outcomes.filterIsInstance<Outcome.Returned>().single().value,
-        )
-        assertEquals(
-            setOf(VirtualType.of("Ljava/lang/NullPointerException;")),
-            graph.outcomes.filterIsInstance<Outcome.Threw>().mapTo(mutableSetOf()) { it.exception.type },
-        )
-        assertEquals(SideEffectLevel.NONE, invoke.sideEffectLevel)
+        assertEquals(listOf<Outcome>(Outcome.Returned(Value.Unknown(intType))), graph.outcomes)
+        assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertEquals(null, invoke.outcome.hostFailure)
     }
 
