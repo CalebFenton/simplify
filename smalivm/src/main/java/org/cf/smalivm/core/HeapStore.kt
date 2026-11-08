@@ -59,18 +59,16 @@ internal class HostGraphCheckpoint(
     }
 
     /**
-     * The refs of the objects held before the call whose host state the finalized call changed, or null when that
-     * cannot be shown exactly. Only objects the checkpoint's guest refs hold are reported: the checkpoint graph is
-     * pruned to what guest refs reach, so a changed node no ref holds is reached from a held object that changed too.
+     * The refs of the objects held before the call whose host state the finalized call may have changed: each
+     * differs, or cannot be compared, after the call. Null when that cannot be shown per object. Only objects the
+     * checkpoint's guest refs hold are reported: the checkpoint graph is pruned to what guest refs reach, so an
+     * unproven node no ref holds is reached from a held object that is unproven too.
      */
-    internal fun changedRefs(): Set<HeapRef>? {
+    internal fun unprovenRefs(): Set<HeapRef>? {
         val after = checkNotNull(finalGraph) { "Host graph checkpoint was not finalized" }
-        val changed = HostGraphComparator().changedNodeIds(graph, after, expectedMirrorElements) ?: return null
-        return changed.mapNotNullTo(HashSet()) { objects.refFor(HostGraphNodeId(it)) }
+        val unproven = HostGraphComparator().unprovenNodeIds(graph, after, expectedMirrorElements) ?: return null
+        return unproven.mapNotNullTo(HashSet()) { objects.refFor(HostGraphNodeId(it)) }
     }
-
-    /** The refs of every object whose host state this checkpoint holds: all a call selected with it can change. */
-    internal fun heldRefs(): List<HeapRef> = objects.graphBacked()
 
     fun verify(requester: HeapStore) {
         check(owner === requester) { "Host graph checkpoint belongs to a different heap path" }

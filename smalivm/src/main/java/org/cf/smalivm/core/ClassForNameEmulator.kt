@@ -17,9 +17,7 @@ internal class ClassForNameEmulator(private val resolver: ProgramSnapshotResolve
             return classNotFound(binaryName)
         }
         val indexed = resolver.hierarchy.isLoadable(type)
-        if (indexed && type.isReference && !type.isArray && !resolver.hierarchy.isFrameworkClass(type) &&
-            call.classInitStatus.actionFor(type) != ClassInitAction.Proceed
-        ) {
+        if (indexed && type.isReference && !type.isArray && call.classInitStatus.actionFor(type) != ClassInitAction.Proceed) {
             return SynchronousCallResult.NeedsClassInit(type)
         }
         val classToken = resolver.loadClassConstant(type.descriptor)

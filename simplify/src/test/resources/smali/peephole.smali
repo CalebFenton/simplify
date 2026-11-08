@@ -35,6 +35,15 @@
     return-object v1
 .end method
 
+# Random's skipped framework initializer is observable, so the load must keep initializing it.
+.method public static effectfulClass()Ljava/lang/Class;
+    .registers 2
+    const-string v0, "java.util.Random"
+    invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;
+    move-result-object v1
+    return-object v1
+.end method
+
 .method public static cast(Ljava/lang/String;)Ljava/lang/String;
     .registers 1
     check-cast p0, Ljava/lang/String;

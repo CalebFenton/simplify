@@ -52,10 +52,11 @@ internal class HostGraphComparator {
     }
 
     /**
-     * The ids of [left]'s nodes whose state differs at the same id in [right], each compared on its own as [compare]
-     * compares the whole graph; null when one of them cannot be compared exactly.
+     * The ids of [left]'s nodes not proven equal at the same id in [right]: each node is compared on its own as
+     * [compare] compares the whole graph, and one that differs or cannot be compared is listed. Null when a graph
+     * is incomplete or the comparison fails.
      */
-    fun changedNodeIds(
+    fun unprovenNodeIds(
         left: HostGraphState,
         right: HostGraphState,
         expectedLeftArrays: Map<Int, List<Any?>> = emptyMap(),
@@ -66,21 +67,11 @@ internal class HostGraphComparator {
         return hostBoundary({ null }) {
             val expectedByIdentity = IdentityHashMap<Any, List<Any?>>()
             expectedLeftArrays.forEach { (id, values) -> expectedByIdentity[leftNodes.getValue(id)] = values }
-            val changed = HashSet<Int>()
-            for (id in leftNodes.keys.sorted()) {
+            leftNodes.keys.filterTo(HashSet()) { id ->
                 val rightNode = rightNodes[id]
-                val result = if (rightNode == null) {
-                    HostGraphComparison.Different
-                } else {
-                    Walk(expectedByIdentity).compare(leftNodes.getValue(id), rightNode)
-                }
-                when (result) {
-                    HostGraphComparison.Equal -> Unit
-                    HostGraphComparison.Different -> changed.add(id)
-                    is HostGraphComparison.Unprovable -> return@hostBoundary null
-                }
+                rightNode == null ||
+                    Walk(expectedByIdentity).compare(leftNodes.getValue(id), rightNode) != HostGraphComparison.Equal
             }
-            changed
         }
     }
 

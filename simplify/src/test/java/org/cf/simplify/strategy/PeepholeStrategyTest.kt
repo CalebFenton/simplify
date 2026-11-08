@@ -48,8 +48,17 @@ class PeepholeStrategyTest {
         assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion())
     }
 
-    @Test fun otherClassForNameRetainsInitializationAndFailureBehavior() {
+    @Test fun classForNameOfAClassWithUnobservableInitializationBecomesConstClass() {
+        // String is a policy-safe class, so the host initializes it without effect.
         val optimized = optimize("otherClass()Ljava/lang/Class;")
+        assertFalse(hasInvoke(optimized.method, "Ljava/lang/Class;", "forName"))
+        val address = optimized.method.instructionAddresses.single { optimized.method.opcodeAt(it) == Opcode.CONST_CLASS }
+        assertEquals("Ljava/lang/String;", ((optimized.method.instructionAt(address) as ReferenceInstruction).reference as TypeReference).type)
+        assertEquals(CompletionStatus.Complete, optimized.dexRoundTrip().completion())
+    }
+
+    @Test fun classForNameThatRunsAnObservableInitializerIsKept() {
+        val optimized = optimize("effectfulClass()Ljava/lang/Class;")
         assertTrue(hasInvoke(optimized.method, "Ljava/lang/Class;", "forName"))
         assertTrue(optimized.method.instructionAddresses.any { optimized.method.opcodeAt(it) == Opcode.MOVE_RESULT_OBJECT })
     }

@@ -2,11 +2,11 @@ package org.cf.simplify.strategy
 
 import org.cf.smalivm.core.DexReferenceOperand
 import org.cf.smalivm.core.InstructionTemplate
+import org.cf.smalivm.core.SideEffectLevel
+import org.cf.smalivm.core.Value
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.iface.instruction.Instruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
-import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
@@ -23,7 +23,7 @@ class PeepholeStrategy : OptimizationStrategy {
             if (input.graph.isDead(address)) continue
             val instruction = method.instructionAt(address)
             when {
-                isClassForName(instruction) -> peepClassForName(input, address, instruction)
+                isClassForName(instruction) -> peepClassForName(input, address)
                 instruction.opcode in CONDITIONAL_BRANCHES -> {
                     val children = input.graph.children(address)
                     if (children.size != 1) continue
@@ -58,22 +58,20 @@ class PeepholeStrategy : OptimizationStrategy {
     }
 
     /**
-     * `Class.forName` of the executing class's own name becomes `const-class`: that class is already initialized,
-     * so the call has no initialization effect to keep. The name must come from a `const-string` that is the only
-     * way into the call.
+     * `Class.forName` becomes `const-class` when every execution returned the same class and the call has no
+     * effect: whatever initialization it triggers is unobservable, because the class is already initialized, its
+     * initializer is self-contained, or the host initializes it without effect. `const-class` resolves the same
+     * class without initializing it, and the class initializes at its next trigger.
      */
-    private fun peepClassForName(input: StrategyInput, address: Int, instruction: Instruction) {
-        val method = input.method
-        val argument = invokeRegisters(instruction).singleOrNull() ?: return
-        val flow = input.controlFlow ?: return
-        val index = flow.indexOf(address) ?: return
-        val literalInstruction = flow.fallthroughPredecessor(index)?.let(flow::instructionAt) ?: return
-        if (literalInstruction.opcode != Opcode.CONST_STRING ||
-            (literalInstruction as OneRegisterInstruction).registerA != argument) return
-        val literal = ((literalInstruction as ReferenceInstruction).reference as StringReference).string
-        val descriptor = method.definingClass.descriptor
-        if (literal != descriptor.substring(1, descriptor.length - 1).replace('/', '.')) return
-        val result = moveResultAfter(method, address) ?: return
+    private fun peepClassForName(input: StrategyInput, address: Int) {
+        val graph = input.graph
+        if (!graph.didEveryExecutionContinueNormally(address) || graph.sideEffectLevel(address) != SideEffectLevel.NONE) {
+            return
+        }
+        val result = moveResultAfter(input.method, address) ?: return
+        val loaded = (graph.consensus(result.address, result.destination) as? Value.Known)?.raw as? Class<*> ?: return
+        if (loaded.isPrimitive) return
+        val descriptor = if (loaded.isArray) loaded.name.replace('.', '/') else "L${loaded.name.replace('.', '/')};"
         val replacement = InstructionTemplate.Encoded(
             ImmutableInstruction21c(Opcode.CONST_CLASS, result.destination, ImmutableTypeReference(descriptor)),
             DexReferenceOperand.Staged(input.transaction.stageType(descriptor)))

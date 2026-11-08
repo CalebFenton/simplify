@@ -121,7 +121,6 @@ class DeadRemovalStrategyTest {
         for ((name, callee) in listOf(
             "mutableArgumentCall()[I" to "mutateArgument",
             "staticRootMutation()I" to "mutateRoot",
-            "classInitializingCall()I" to "pure",
             "reachedStrongCall()V" to "strongNoArgs",
             "sideEffectingCall()I" to "visibleWrite",
             "synchronizedCallMustRemain()I" to "synchronizedPure",
@@ -133,9 +132,18 @@ class DeadRemovalStrategyTest {
         }
         assertEquals(listOf(9), returnedArray(services, OWNER + "mutableArgumentCall()[I", 1))
         assertEquals(8, returned(services, OWNER + "staticRootMutation()I", 0).raw)
-        assertEquals(4, returned(services, OWNER + "classInitializingCall()I", 0).raw)
         assertEquals(2, returned(services, OWNER + "synchronizedCallMustRemain()I", 0).raw)
         assertEquals(3, returned(services, OWNER + "volatileReadCallMustRemain()I", 0).raw)
+    }
+
+    @Test fun aCallWhoseOnlyEffectIsASelfContainedInitializationIsRemoved() {
+        // Initializer.<clinit> writes only its own private statics and an array it allocates, so removing the
+        // call only delays that initialization to the class's next trigger.
+        val services = services()
+        val method = OWNER + "classInitializingCall()I"
+        optimize(services, method)
+        assertFalse(hasCall(view(services, method), "pure"))
+        assertEquals(4, returned(services, method, 0).raw)
     }
 
     @Test fun aConstructorsSelfInitializationRemains() {

@@ -37,10 +37,14 @@ class ObfuscatedApplicationTest {
         assertEquals(report.targetMethodCount, report.optimizedMethodCount)
         val predicate = after.classIndex.methodView(PREFIX + "constantPredicate()I")!!
         assertFalse(predicate.instructionAddresses.any { predicate.opcodeAt(it) == Opcode.IF_EQ })
+        // The decoded string folds into its literal, and the allocation that decoded it goes away.
         val recovered = after.classIndex.methodView(PREFIX + "recoveredString()Ljava/lang/String;")!!
-        assertTrue(hasCall(recovered, "Ljava/lang/String;", "<init>"))
+        assertFalse(hasCall(recovered, "Ljava/lang/String;", "<init>"))
+        assertTrue(recovered.instructionAddresses.any { recovered.opcodeAt(it) == Opcode.CONST_STRING })
+        // String's initialization is unobservable, so loading it by name becomes const-class.
         val knownClass = after.classIndex.methodView(PREFIX + "knownClass()Ljava/lang/Class;")!!
-        assertTrue(hasCall(knownClass, "Ljava/lang/Class;", "forName"))
+        assertFalse(hasCall(knownClass, "Ljava/lang/Class;", "forName"))
+        assertTrue(knownClass.instructionAddresses.any { knownClass.opcodeAt(it) == Opcode.CONST_CLASS })
         // The engine does not resolve this Method.invoke, so the call stays reflective.
         val reflective = after.classIndex.methodView(PREFIX + "invokeReflective()Ljava/lang/Object;")!!
         assertTrue(hasCall(reflective, "Ljava/lang/reflect/Method;", "invoke"))

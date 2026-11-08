@@ -603,8 +603,8 @@ public class ExecutionSession internal constructor(
      * Finalizes [selected]'s host graph and raises the effect by what the call did to guest-visible host state: a
      * change is `WEAK`, like a guest field or array write, and a comparison the graphs cannot complete is `STRONG`.
      * One stopped by a host failure rethrows it, so the containment boundary ends the path as `HOST_FAILURE` with it.
-     * Inside a class initialization, a change confined to objects the initialization allocated stays inside it: the
-     * changed objects for a `WEAK` change, every object the call held for an unprovable one.
+     * Inside a class initialization, a change confined to objects the initialization allocated stays inside it: every
+     * object the call held that the comparison does not prove unchanged must be one the initialization allocated.
      */
     private fun finalizeSelectedCall(node: ExecutionNode, selected: SelectedSynchronousCall): HostGraphComparison {
         val comparison = hostBoundary({
@@ -613,16 +613,15 @@ public class ExecutionSession internal constructor(
         }) {
             selected.finalize(node.frame)
         }
+        val confinedToInitializer = { initializer: ClassInitContext ->
+            selected.unprovenRefs()?.all(initializer::allocatedDuring) == true
+        }
         when (comparison) {
             HostGraphComparison.Equal -> Unit
-            HostGraphComparison.Different -> raiseEffect(node, SideEffectLevel.WEAK) { initializer ->
-                selected.changedRefs()?.all(initializer::allocatedDuring) == true
-            }
+            HostGraphComparison.Different -> raiseEffect(node, SideEffectLevel.WEAK, confinedToInitializer)
             is HostGraphComparison.Unprovable -> {
                 val cause = comparison.cause
-                raiseEffect(node, SideEffectLevel.STRONG) { initializer ->
-                    cause == null && selected.heldRefs().all(initializer::allocatedDuring)
-                }
+                raiseEffect(node, SideEffectLevel.STRONG) { initializer -> cause == null && confinedToInitializer(initializer) }
                 cause?.let { throw it }
             }
         }
