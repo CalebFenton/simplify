@@ -120,7 +120,7 @@ class ThrowableCauseBehaviorTest {
         val graph = session.run()
         val thrown = (graph.outcomes.single() as Outcome.Threw).exception as Value.Known
         val causeRef = thrown.raw as HeapRef
-        val terminal = requireNotNull(session.currentNode).endingFrame ?: requireNotNull(session.currentNode).frame
+        val terminal = requireNotNull(session.currentNode).terminalFrame
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(VirtualType.of("Ljava/lang/IllegalArgumentException;"), terminal.heapObject(causeRef)?.type)
@@ -189,7 +189,7 @@ class ThrowableCauseBehaviorTest {
 
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val terminalNode = requireNotNull(session.currentNode)
-        val terminal = terminalNode.endingFrame ?: terminalNode.frame
+        val terminal = terminalNode.terminalFrame
         assertEquals(rootRef, returned.raw, "the selected throw must reuse its source throwable ref")
         assertEquals(causeValue, terminal.throwableCause(rootRef), "the nested cause must reuse its source ref")
         assertEquals(root, terminal.throwableCause(causeRef), "the imported cause cycle must close on the source ref")
@@ -227,7 +227,7 @@ class ThrowableCauseBehaviorTest {
         val rootHost = CoreTester.terminatingHostObject(graph, rootRef) as Throwable
         val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
         val terminalNode = requireNotNull(session.currentNode)
-        val terminal = terminalNode.endingFrame ?: terminalNode.frame
+        val terminal = terminalNode.terminalFrame
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertNotEquals(rootRef, causeRef)

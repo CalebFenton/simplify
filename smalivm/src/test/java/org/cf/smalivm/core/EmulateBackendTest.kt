@@ -172,7 +172,7 @@ class EmulateBackendTest {
             graph.outcomes.filterIsInstance<Outcome.Threw>().mapTo(mutableSetOf()) { it.exception.type },
         )
         assertEquals(SideEffectLevel.NONE, invoke.sideEffectLevel)
-        assertEquals(null, invoke.hostFailure)
+        assertEquals(null, invoke.outcome.hostFailure)
     }
 
     @Test
@@ -210,9 +210,9 @@ class EmulateBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertEquals(SideEffectLevel.WEAK, node.sideEffectLevel)
-        assertTrue(node.hostFailure is IllegalStateException)
+        assertTrue(node.outcome.hostFailure is IllegalStateException)
     }
 
     @Test
@@ -285,8 +285,7 @@ class EmulateBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertSame(failure, node.hostFailure)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), node.outcome)
         assertEquals("value-failed", node.frame.hostObjectAt(ref).toString())
     }
 
@@ -386,8 +385,8 @@ class EmulateBackendTest {
 
                 val node = session.step()!!
 
-                assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-                assertTrue(node.hostFailure is HostGraphOwnershipException)
+                assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+                assertTrue(node.outcome.hostFailure is HostGraphOwnershipException)
                 // The probe before the step consumed one id; a heap id given to the scheduler object would make two.
                 assertEquals(probedBefore + 1, probeNextHeapId(node.frame), "scheduler object must not receive a heap id")
             }
@@ -411,7 +410,7 @@ class EmulateBackendTest {
         assertEquals(Value.Known(true, booleanType), empty.outcomes.single().returnedValue())
         assertEquals(Value.Known(false, booleanType), nonEmpty.outcomes.single().returnedValue())
         assertEquals(Value.Unknown(booleanType), unknown.outcomes.single().returnedValue())
-        assertEquals(null, unknown.nodePile(0).single().hostFailure)
+        assertEquals(null, unknown.nodePile(0).single().outcome.hostFailure)
         assertEquals(SideEffectLevel.STRONG, unknown.explored.sideEffectLevel(0))
     }
 

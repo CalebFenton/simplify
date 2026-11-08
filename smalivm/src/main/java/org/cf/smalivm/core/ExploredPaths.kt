@@ -145,9 +145,9 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
      */
     fun sideEffectLevel(address: Int): SideEffectLevel {
         val pile = graph.nodePile(address)
-        val declared = pile.fold(SideEffectLevel.NONE) { acc, node -> maxOf(acc, node.sideEffectLevel) }
-        val unsupported = pile.any { it.outcome == Outcome.Aborted(AbortReason.UNSUPPORTED_OP) }
-        return if (unsupported) SideEffectLevel.STRONG else declared
+        val abortedStrong = pile.any { (it.outcome as? Outcome.Aborted)?.reason?.impliesStrongEffect == true }
+        if (abortedStrong) return SideEffectLevel.STRONG
+        return pile.fold(SideEffectLevel.NONE) { acc, node -> maxOf(acc, node.sideEffectLevel) }
     }
 
     /** The highest [sideEffectLevel] over the method's instructions. */
@@ -160,12 +160,13 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
      */
     fun didEveryExecutionContinueNormally(address: Int): Boolean {
         val pile = graph.nodePile(address)
-        return pile.isNotEmpty() && pile.all {
-            it.opExecutionStarted &&
-                it.normalContinuationObserved &&
-                !it.exceptionalContinuationObserved &&
-                it.outcome !is Outcome.Aborted &&
-                it.outcome !is Outcome.Threw
+        return pile.isNotEmpty() && pile.all { node ->
+            val progress = node.progress
+            progress is OpProgress.Executed &&
+                progress.continuedNormally &&
+                !progress.continuedExceptionally &&
+                node.outcome !is Outcome.Aborted &&
+                node.outcome !is Outcome.Threw
         }
     }
 

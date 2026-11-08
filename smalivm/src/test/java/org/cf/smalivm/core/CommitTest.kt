@@ -253,10 +253,12 @@ class CommitTest {
             "gotoSkip()I", at = 0, listOf(OpArm.Jump(2), OpArm.Continue()), decodeFailsAt = 2,
         ).run()
         assertEquals(
-            setOf(Outcome.Aborted(AbortReason.HOST_FAILURE), Outcome.Returned(Value.Top)),
-            graph.outcomes.toSet(),
+            listOf(AbortReason.HOST_FAILURE),
+            graph.outcomes.mapNotNull { it.abortReason },
             "a throwable out of decode is this engine failing, and MALFORMED_INPUT must not absorb it",
         )
+        assertTrue(graph.outcomes.single { it is Outcome.Aborted }.hostFailure is IllegalStateException)
+        assertEquals(listOf(Outcome.Returned(Value.Top)), graph.outcomes.filterIsInstance<Outcome.Returned>())
         assertEquals(2, graph.outcomes.size)
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
         assertTrue(graph.wasReached(1), "the same SKIP_ONE contract on the same fork shape")
@@ -274,7 +276,7 @@ class CommitTest {
             decodeFailsAt = 2,
         ).run()
         assertEquals(1, graph.outcomes.count { it == Outcome.Aborted(AbortReason.MALFORMED_INPUT) })
-        assertEquals(1, graph.outcomes.count { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
+        assertEquals(1, graph.outcomes.count { it.abortReason == AbortReason.HOST_FAILURE })
         assertEquals(1, graph.outcomes.count { it == Outcome.Returned(Value.Top) })
         assertEquals(3, graph.outcomes.size)
         assertEquals(
@@ -286,8 +288,31 @@ class CommitTest {
     }
 
     /**
-     * `ExecutionGraph.sideEffectLevel` derives `STRONG` from `Aborted(UNSUPPORTED_OP)` and from nothing
-     * else; [AbortReason.MALFORMED_INPUT] deliberately does **not** join that rule. The op at the recording
+     * Bug class: one throwable slot per node, so a second lost path at the same fork overwrites the first
+     * path's host failure and that bug becomes unfindable. Each lost path must keep its own cause.
+     */
+    @Test
+    fun eachLostPathOfOneForkKeepsItsOwnHostFailure() {
+        val view = CoreTester.classIndex.requireMethodView(spine, "gotoSkip()I")
+        val failures = mutableListOf<Throwable>()
+        val graph = CoreTester.vmServices.newSession(view, Limits(), null) { address, _, _ ->
+            if (address == 0) {
+                Scripted(address, listOf(OpArm.Continue(), OpArm.Jump(2)))
+            } else {
+                throw IllegalStateException("decode bug at $address").also(failures::add)
+            }
+        }.run()
+        assertEquals(2, failures.size, "both successors were decoded and both threw")
+        assertEquals(
+            failures.map { Outcome.Aborted(AbortReason.HOST_FAILURE, it) }.toSet(),
+            graph.outcomes.toSet(),
+        )
+        assertEquals(2, graph.outcomes.size)
+    }
+
+    /**
+     * `ExploredPaths.sideEffectLevel` derives `STRONG` only from an abort whose reason
+     * [AbortReason.impliesStrongEffect]; [AbortReason.MALFORMED_INPUT] deliberately does not. The op at the recording
      * address ran to completion and declared its own level; the failure is detected before any successor
      * frame is built, so no half-mutation is possible; and the truncation is carried by `Partial` and a
      * null `trusted()`. A spurious `STRONG` stops every constant fold. The outcome assertion proves the

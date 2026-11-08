@@ -114,8 +114,8 @@ class ReflectBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is NoSuchMethodException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is NoSuchMethodException)
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
     }
 
@@ -161,7 +161,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals("number:9", raw.selected)
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
@@ -304,7 +304,7 @@ class ReflectBackendTest {
         frame.assign(0, Value.Known(tracked.raw, stringType))
         val unmaterializable = invoke(owner, objectTarget, InvokeKind.STATIC, frame = frame).run()
         assertEquals(Value.Unknown(intType), unmaterializable.outcomes.single().returnedValue())
-        assertNull(unmaterializable.nodePile(0).single().hostFailure)
+        assertNull(unmaterializable.nodePile(0).single().outcome.hostFailure)
     }
 
     @Test
@@ -344,7 +344,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(0, ReflectionExternalSentinel.externalMutations)
@@ -402,8 +402,8 @@ class ReflectBackendTest {
 
             assertEquals(expectedMutations, ReflectionExternalSentinel.externalMutations, reflectedAuthorization.toString())
             if (expectedMutations == 0) {
-                assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
-                assertTrue(graph.nodePile(0).single().hostFailure is SecurityException)
+                assertEquals(listOf(AbortReason.HOST_FAILURE), graph.outcomes.map { it.abortReason })
+                assertTrue(graph.outcomes.single().hostFailure is SecurityException)
             } else {
                 assertEquals(listOf(Outcome.Returned(Value.Known(null, objectType))), graph.outcomes)
             }
@@ -577,8 +577,8 @@ class ReflectBackendTest {
             backends = listOf(ReflectBackend(policy, classIndex.currentResolver()), later),
         )
         val node = session.step()!!
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is NoSuchMethodException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is NoSuchMethodException)
         assertEquals(0, later.probes)
     }
 
@@ -592,7 +592,7 @@ class ReflectBackendTest {
         val fatal = method(fixtureType, "throwFatal", "()V")
         val session = invoke(vm(exactSafe = setOf(fatal)), fatal, InvokeKind.STATIC)
         assertThrows<StackOverflowError> { session.step() }
-        assertNull(session.currentNode!!.hostFailure)
+        assertNull(session.currentNode!!.outcome.hostFailure)
     }
 
     @Test
@@ -680,8 +680,8 @@ class ReflectBackendTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is HostGraphOwnershipException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is HostGraphOwnershipException)
         assertEquals(SideEffectLevel.STRONG, node.sideEffectLevel)
         assertEquals(SideEffectLevel.STRONG, node.activation.declaredEffect)
     }
@@ -708,7 +708,7 @@ class ReflectBackendTest {
         assertEquals(
             listOf(Outcome.Returned(null)),
             graph.outcomes,
-            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.hostFailure}" },
+            graph.addresses().flatMap(graph::nodePile).joinToString { "${it.address}:${it.outcome.hostFailure}" },
         )
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
         assertEquals(expected, terminal.hostObjectAt(ref))

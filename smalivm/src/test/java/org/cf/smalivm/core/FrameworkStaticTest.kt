@@ -212,7 +212,9 @@ class FrameworkStaticTest {
         returning.zip(returned).forEach { (node, ref) ->
             assertSame(java.util.Collections.EMPTY_LIST, node.frame.hostObjectAt(ref))
         }
-        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.staticCell(EMPTY_LIST.descriptor) }
+        val successorCells = graph.addresses().flatMap(graph::nodePile)
+            .filter { it.outcome != null }
+            .mapNotNull { it.terminalFrame.staticCell(EMPTY_LIST.descriptor) }
         assertTrue(successorCells.isNotEmpty(), "the returning successors hold the projected static")
         assertNull(frame.staticCell(EMPTY_LIST.descriptor), "projection writes only successor frames, never the seed")
     }

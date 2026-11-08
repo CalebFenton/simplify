@@ -172,7 +172,7 @@ class FieldGetAccessMatrixTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(NULL_POINTER.descriptor), CoreTester.escapingTypes(graph))
-        assertTrue(graph.addresses().flatMap(graph::nodePile).all { it.hostFailure == null })
+        assertTrue(graph.addresses().flatMap(graph::nodePile).all { it.outcome.hostFailure == null })
     }
 
     @Test
