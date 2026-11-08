@@ -6,10 +6,8 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Bug class: the old engine had no static view of a method -- address->op lookup was split across
- * a VM-global template map and a graph-local address->location map, so "the shape of this method"
- * could only be obtained by executing it (spec §5.4). Oracle: the smali source of
- * Lspine/spine; plus Dalvik encoding rules (instruction widths in 16-bit code units,
+ * The static shape of a method: addresses, instruction widths, payloads, parameters and try blocks, readable
+ * without executing it. Oracle: the fixtures' smali plus Dalvik encoding rules (widths in 16-bit code units,
  * parameters in the highest registers, wide types taking two registers).
  */
 class MethodViewTest {
@@ -149,22 +147,21 @@ class MethodViewTest {
         assertEquals(2, v.registerCount)
         assertEquals(1, v.firstParameterRegister)
         assertEquals(listOf(ParameterSlot(1, VirtualType.of("Ljava/lang/RuntimeException;"))), v.parameters)
-        assertTrue(MethodViewJavaMutationProbe.rejectsParameterMutation(v.parameters))
+    }
+
+    @Test
+    fun parametersRejectMutationThroughTheJavaListInterface() {
+        // A shared view must not be corrupted by a caller that sees `List` as `java.util.List`.
+        val parameters = view("throwCaught(Ljava/lang/RuntimeException;)Ljava/lang/Object;").parameters
+        assertThrows(UnsupportedOperationException::class.java) { (parameters as MutableList<ParameterSlot>).clear() }
     }
 
     @Test
     fun instanceMethodWithNonTrailingWideParameterPinsRegisterLayout() {
-        // Bug class: silent parameter/register misalignment -- the plan's single most-warned-
-        // about trap, and previously unexercised (every other spine method is static, and no
-        // other method has a wide parameter). Pins two invariants at once: (1) an instance
-        // method's `this` occupies the lowest parameter register, not just any register named
-        // "p0"; (2) a wide (J) parameter that is NOT last still consumes two registers, so every
-        // parameter after it shifts by 2, not 1 -- undercounting this silently misaligns every
-        // parameter read downstream (Task 3's Frame).
-        // Oracle: Dalvik semantics -- parameters occupy the highest registers, and a wide type
-        // occupies two of them. instanceWideParams(JLjava/lang/String;I)I has parameter widths
-        // this=1, J=2, String=1, I=1, total width=5. With `.registers 8`, firstParameterRegister
-        // = 8 - 5 = 3, so slots are: this=v3, J=v4 (pair v4/v5), String=v6, I=v7.
+        // An instance method's `this` is the lowest parameter register, and a wide parameter that is not last
+        // still takes two registers, so every later parameter shifts by two.
+        // instanceWideParams(JLjava/lang/String;I)I has widths this=1, J=2, String=1, I=1, total 5. With
+        // `.registers 8`, firstParameterRegister = 8 - 5 = 3: this=v3, J=v4 (pair v4/v5), String=v6, I=v7.
         val v = view("instanceWideParams(JLjava/lang/String;I)I")
         assertFalse(v.isStatic)
         assertEquals(8, v.registerCount)
@@ -195,8 +192,8 @@ class MethodViewTest {
 
     @Test
     fun aPayloadPseudoInstructionIsReportedAsDataRatherThanAsAnOrdinaryAddress() {
-        // The method editor must not relocate a payload as an instruction, and dead-code removal must not
-        // read an unreached payload as dead code; `addresses()` alone cannot tell them apart.
+        // A method editor must not relocate a payload as an instruction, and dead-code removal must not read an
+        // unreached payload as dead code; `addresses` alone cannot tell them apart.
         val view = CoreTester.classIndex.requireMethodView("Lfill_array_data_test;", "fillArrayDataInt()V")
         val payload = view.payloadAddresses.single()
         assertTrue(view.isPayload(payload))
@@ -206,10 +203,8 @@ class MethodViewTest {
 
     @Test
     fun methodWithoutTryBlocksHasNone() {
-        // Bug class: a placeholder/sentinel block (e.g. an all-covering default) instead of a
-        // genuinely empty list would make handler resolution (spec §7) believe a throw is
-        // covered when the method declares no .catch at all. Oracle: returnFive()I's smali
-        // source has no try/catch directive, so tryBlocks must be exactly empty, not "unknown".
+        // A placeholder block instead of an empty list would make handler resolution believe a throw is covered.
+        // returnFive()I's smali declares no .catch.
         assertEquals(emptyList<TryBlock>(), view("returnFive()I").tryBlocks)
     }
 }
