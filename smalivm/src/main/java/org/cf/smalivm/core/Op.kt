@@ -65,7 +65,7 @@ public abstract class Op internal constructor(internal val address: Int) {
     /** Reads [frame] and returns one or more feasible arms. */
     internal abstract fun execute(frame: Frame): OpExecution
 
-    /** Registers this op reads / assigns, for the graph's liveness queries (spec §9). */
+    /** Registers this op reads and assigns, for the graph's liveness queries. */
     internal open val registersRead: Set<Int> get() = emptySet()
     internal open val registersAssigned: Set<Int> get() = emptySet()
 
@@ -82,7 +82,7 @@ public abstract class Op internal constructor(internal val address: Int) {
 
 /**
  * An instruction this build cannot execute. It aborts only its own path, and the run's completion becomes
- * Partial, so no consumer trusts a truncated exploration (spec §6.4).
+ * Partial, so no consumer trusts a truncated exploration.
  */
 internal class UnsupportedOp(address: Int, override val name: String) : Op(address) {
     override fun execute(frame: Frame): OpExecution = OpExecution.single(OpArm.Abort(AbortReason.UNSUPPORTED_OP))
