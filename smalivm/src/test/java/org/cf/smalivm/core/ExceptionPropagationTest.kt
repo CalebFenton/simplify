@@ -184,7 +184,7 @@ class ExceptionPropagationTest {
         val frame = Frame.entryFrame(caller)
         val npe = VirtualType.of("Ljava/lang/NullPointerException;")
         val allocated = frame.allocateThrowable(npe, NullPointerException("loose tag"))
-        val loose = Value.Known(allocated.raw, THROWABLE_TYPE)
+        val loose = Value.Known(allocated.raw, GuestThrowables.THROWABLE)
         frame.assign(caller.parameters.single().register, loose)
 
         val graph = CoreTester.vmServices.newSession(caller, entryFrame = frame).run()
@@ -335,7 +335,7 @@ class ExceptionPropagationTest {
 
                     override fun execute(frame: Frame): OpExecution = OpExecution.of(
                         List(exitCount) {
-                            OpArm.Throw(evidence = ThrowEvidence.Existing(Value.Unknown(THROWABLE_TYPE)))
+                            OpArm.Throw(evidence = ThrowEvidence.Existing(Value.Unknown(GuestThrowables.THROWABLE)))
                         },
                     )
                 }

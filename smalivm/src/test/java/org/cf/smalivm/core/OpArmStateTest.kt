@@ -213,7 +213,7 @@ class OpArmStateTest {
                 OpArm.Continue(OpUpdate.assign(1, Value.Known(7, INT))),
                 OpArm.Throw(
                     evidence = ThrowEvidence.Fresh(
-                        ThrowableRecipe.of(VirtualType.of("Ljava/lang/NullPointerException;")),
+                        GuestThrowables.nullPointer(),
                     ),
                 ),
             )
@@ -285,7 +285,7 @@ class OpArmStateTest {
             return OpExecution.of(
                 OpArm.Continue(update),
                 OpArm.Throw(
-                    evidence = ThrowEvidence.Fresh(ThrowableRecipe.of(VirtualType.of("Ljava/lang/NullPointerException;"))),
+                    evidence = ThrowEvidence.Fresh(GuestThrowables.nullPointer()),
                 ),
             )
         }

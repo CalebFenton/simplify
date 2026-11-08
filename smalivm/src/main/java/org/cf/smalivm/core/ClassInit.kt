@@ -14,24 +14,43 @@ class ClassInitStatusSnapshot internal constructor(private val classes: ClassIni
 internal sealed interface ClassInitAction {
     data object Proceed : ClassInitAction
     data object StartInitialization : ClassInitAction
-    data class ThrowFailed(val failure: ThrownSubject) : ClassInitAction
+
+    /** [type] failed initialization earlier on this path with [failure]; every trigger throws [recipe]. */
+    data class ThrowFailed(val type: VirtualType, val failure: ThrownSubject) : ClassInitAction {
+        val recipe: ThrowableRecipe get() = GuestThrowables.earlierClassFailure(type, failure)
+    }
 }
 
 /** Returns the pre-access arm for one opcode trigger, or null when the opcode can proceed. */
 internal fun Frame.classInitTrigger(type: VirtualType): OpExecution? = when (val action = classInitAction(type)) {
     ClassInitAction.Proceed -> null
     ClassInitAction.StartInitialization -> OpExecution.single(OpArm.InitClass(type))
-    is ClassInitAction.ThrowFailed -> OpExecution.single(
-        OpArm.Throw(
-            evidence = ThrowEvidence.Fresh(
-                ThrowableRecipe.of(
-                    VirtualType.of("Ljava/lang/NoClassDefFoundError;"),
-                    type.descriptor,
-                    action.failure,
-                ),
-            ),
-        ),
-    )
+    is ClassInitAction.ThrowFailed -> OpExecution.single(GuestThrowables.throwing(action.recipe))
+}
+
+/**
+ * JLS 12.4.2 steps 11-12 for one exit by throw from [this] context's initializer. An `Error` leaves as itself;
+ * anything else leaves as the cause of a fresh `ExceptionInInitializerError` (ART `WrapExceptionInInitializer`).
+ * A domain that may be either forks into one outward path per partition. The initializing class and every waiting
+ * dependent store the outward throwable as their failure, written only after every outward path is valid.
+ */
+internal fun ClassInitContext.failInitializer(
+    exit: ActivationExit.Threw,
+    hierarchy: ThrowableHierarchy,
+): List<ActivationExit.Threw> {
+    val partition = partitionThrowableDomain(exit.subject.domain, GuestThrowables.ERROR, hierarchy)
+    val outward = listOfNotNull(partition.matching, partition.residual).map { domain ->
+        val frame = exit.frame.copy()
+        val source = exit.subject.refinedTo(domain, hierarchy)
+        val thrown = if (domain === partition.matching) {
+            source
+        } else {
+            GuestThrowables.exceptionInInitializer(source).materialize(frame, hierarchy)
+        }
+        ActivationExit.Threw(ThrowPath.create(frame, thrown, hierarchy))
+    }
+    outward.forEach { it.frame.failClassInit(this, it.subject, hierarchy) }
+    return outward
 }
 
 /** Internal lifecycle data. Map absence is the only Uninitialized representation. */
@@ -90,7 +109,7 @@ internal class ClassInitStore private constructor(
     fun actionFor(type: VirtualType): ClassInitAction = when (val record = states[type.descriptor]) {
         null -> ClassInitAction.StartInitialization
         ClassInitRecord.Initializing, ClassInitRecord.Initialized -> ClassInitAction.Proceed
-        is ClassInitRecord.Failed -> ClassInitAction.ThrowFailed(record.firstOutwardFailure)
+        is ClassInitRecord.Failed -> ClassInitAction.ThrowFailed(type, record.firstOutwardFailure)
     }
 
     /**
@@ -374,111 +393,81 @@ internal class ClassInitContext(
     }
 }
 
-/** A prior failed ancestor blocks initialization before another initializer can start. */
+/**
+ * An erroneous ancestor blocks initialization before another initializer can start. Every trigger of the
+ * requested class throws [recipe], the ancestor's own earlier-failure error, and the still-uninitialized
+ * [waitingDependents] store that throwable as their failure (ART `ClassLinker::InitializeClass` marks a class
+ * erroneous with the exception its superclass's initialization raised).
+ */
 internal class ClassInitDependencyFailure(
-    val failedAncestor: VirtualType,
-    val storedFailure: ThrownSubject,
+    val recipe: ThrowableRecipe,
     val waitingDependents: List<VirtualType>,
 )
 
 /**
- * What must happen before a class-init trigger may do its own work (spec §7's lifecycle, design decisions 1
- * and 2). A **plan**: it applies nothing, exactly as [InvocationPlan] applies nothing. [ExecutionSession]
- * remains the only writer of node, frame and frontier state. It applies settled invoke marks before probing
- * a backend when no guest initializer needs scheduling; otherwise it applies the plan to a successor frame.
+ * What must happen before a class-init trigger may do its own work. A plan applies nothing; [ExecutionSession]
+ * is the only writer of node, frame and frontier state.
  *
- * **One nested `<clinit>` per plan, deliberately, and that is what makes divergence 4's ordering fall out
- * rather than be arranged.** [settled] is ordered ancestors-first and [context] owns the *topmost*
- * uninitialized class in the chain that has a guest `<clinit>` -- so a superclass runs strictly before its
- * subclass, and the trigger simply asks again when it resumes. The old engine gets this backwards: it
- * recurses over ancestors first (`VirtualMachine.kt:457-491`, the intent plainly correct) and then a LIFO
- * deque reverses it (`add` is `addLast`, `step()` takes `peekLast()`, `:145`), so a subclass `<clinit>` runs
- * before its superclass's and reads a static the superclass has not written yet -- a wrong constant in
- * exactly the constant-recovery case this engine exists for (adjudication 4). A plan carrying a LIST of
- * initializers would have had to be consumed in some order by the scheduler, i.e. it would have re-created
- * the choice the oracle got wrong; carrying one and re-asking cannot be ordered incorrectly.
+ * A plan carries at most one guest `<clinit>`: [context] owns the topmost uninitialized class in the chain that
+ * has one, and the trigger asks again when it resumes. A superclass therefore runs strictly before its subclass,
+ * and the scheduler never chooses an order.
  */
 internal class ClassInitPlan(
     /**
-     * Classes that become [ClassInitState.INITIALIZED] with **no** nested run, ancestors first: a class with
-     * no declared `<clinit>`, or a framework class whose `<clinit>` this build declines to run (decision 7).
+     * Classes that become [ClassInitState.INITIALIZED] with no nested run, ancestors first: a class with no
+     * declared `<clinit>`, or a framework class whose `<clinit>` is never run.
      */
     val settled: List<VirtualType>,
     /**
-     * True when at least one class in [settled] **has** a `<clinit>` that was not run -- decision 7's
-     * framework rule, and the reason the triggering address's side effect is raised to
-     * [SideEffectLevel.STRONG]: whatever that initializer would have perturbed is unmodelled, so spec §2.2's
-     * err-upward rule applies. False when every settled class simply has no initializer, because then nothing
-     * was skipped and a spurious `STRONG` would stop every fold in the triggering method for no reason.
+     * True when a class in [settled] has a `<clinit>` that did not run. Whatever it would have changed is
+     * unmodelled, so the trigger declares [SideEffectLevel.STRONG]; a class with no initializer skips nothing.
      */
     val skippedAnInitializer: Boolean,
     /** The guest `<clinit>` to run now and the requested classes waiting on it. */
     internal val context: ClassInitContext?,
-    /** A prior erroneous ancestor that must fail the still-uninitialized descendants. */
     internal val dependencyFailure: ClassInitDependencyFailure? = null,
     /**
-     * **JVMS §5.4.2 preparation**: the pre-`<clinit>` value of every static declared by every class this plan
-     * moves out of [ClassInitState.UNINITIALIZED] -- [settled], the active initializer, and waiting
-     * dependents -- keyed by
-     * fully-qualified descriptor. Applied by [Frame.applyClassInit] through [ClassInitStore.prepare].
-     *
-     * Carried on the plan rather than computed by the store, for the two-tier reason: only
-     * [ClassInitPlanner] may ask [ClassIndex] what a class declares. Carried for the initializer's class TOO,
-     * not just the settled ones, because preparation precedes initialization -- see
-     * [ClassInitStore.prepare].
-     *
-     * Ancestors-first insertion order, matching [settled], so a re-run is reproducible. Empty for a plan
-     * that moves nothing.
+     * A class on the chain whose declared `<clinit>` has no code. ART's dex verifier rejects such a file
+     * (`DexFileVerifier::CheckMethodAccessFlags`: "Constructor ... must not be abstract or native"), so the
+     * trigger's path ends as [AbortReason.MALFORMED_INPUT].
+     */
+    internal val malformedInitializer: VirtualType? = null,
+    /**
+     * JVMS §5.4.2 preparation: the pre-`<clinit>` value of every static of every class this plan settles or
+     * starts, keyed by fully-qualified descriptor, ancestors first. Applied by [Frame.applyClassInit] before any
+     * initializer runs, so a `<clinit>` reading its own class's static sees the prepared value.
      */
     internal val staticSeeds: Map<String, StaticCell> = emptyMap(),
 ) {
     /**
-     * Nothing to do: every class in the chain is already past [ClassInitState.UNINITIALIZED].
-     *
-     * Unreachable from a correct trigger -- an op asks [ClassInitStore.actionFor] first and a callee entry is planned
-     * only for an uninitialized defining class -- and the scheduler treats it as a loud invariant rather than
-     * a tolerated no-op, because the *tolerant* handling of a no-op plan is an infinite loop: the trigger
-     * would re-execute at its own address, ask again, and get the same answer.
+     * Every class in the chain is already past [ClassInitState.UNINITIALIZED]. A correct trigger never asks for
+     * this plan, and the scheduler rejects it: re-executing the trigger would ask again forever.
      */
-    val isNoOp: Boolean get() = settled.isEmpty() && context == null && dependencyFailure == null
+    val isNoOp: Boolean
+        get() = settled.isEmpty() && context == null && dependencyFailure == null && malformedInitializer == null
 
     override fun toString(): String =
         "ClassInitPlan(settled=$settled, skippedAnInitializer=$skippedAnInitializer, " +
-        "context=${context?.activeInitializer?.type}, dependencyFailure=${dependencyFailure?.failedAncestor}, " +
-            "staticSeeds=$staticSeeds)"
+            "context=${context?.activeInitializer?.type}, dependencyFailure=${dependencyFailure?.recipe?.message}, " +
+            "malformedInitializer=$malformedInitializer, staticSeeds=$staticSeeds)"
 }
 
 /**
- * Decides what one class-init trigger needs, reading the triggering path's [ClassState] and the loaded class
- * set -- and touching neither. Reached through [Invoker.planClassInit], so "everything a call needs decided
- * before any code runs" stays one call site (spec §5.3): a `<clinit>` **is** nested method execution
- * (spec §11.3), so it must not get a private mini-interpreter or a private scheduling path.
- *
- * Lives in `core/` rather than `core/op/` for the two-tier reason [Invoker]'s KDoc gives: it reads the
- * class model through [ClassIndex] only.
+ * Decides what one class-init trigger needs, reading the triggering path's [ClassState] and the loaded class set
+ * and changing neither. A `<clinit>` runs as an ordinary nested call, so this planner only chooses it.
  */
 internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
     constructor(classIndex: ClassIndex) : this(classIndex.resolver(classIndex.currentSnapshot))
 
-
     /**
      * The plan for initializing [type] on the path [state] describes.
      *
-     * Selects a failed superclass nearest to [type], so each descendant stores its superclass's outward
-     * failure.
+     * Walks [type]'s superclass chain and answers about the topmost class still needing work, so repeated calls
+     * initialize a hierarchy from the top down. A failed ancestor nearest to [type] fails the request, so each
+     * descendant stores its own superclass's outward failure. Superinterfaces are not walked: JLS §12.4.1
+     * initializes one only when it declares a default method.
      *
-     * Walks [type]'s superclass chain and answers about the **topmost** class still needing work, so
-     * repeated calls initialize a hierarchy from the top down (see [ClassInitPlan]). Interfaces are
-     * deliberately not walked: [ClassIndex.superclassOf] reads `BuilderClassDef.getSuperclass()`, which is
-     * one string, and [JLS] §12.4.1 requires a superINTERFACE's initialization only for an interface
-     * declaring a default method -- a shape dex-era smali rarely has. The oracle omits interfaces *and*
-     * abstract ancestors (`VirtualMachine.kt:469-477`); abstract ancestors are ordinary links in this chain
-     * and are therefore fixed here, which is the half of that defect that matters for statics. Full JLS 12.4
-     * ordering remains a non-goal (spec §7).
-     *
-     * **Can throw**, and every caller is inside `ExecutionSession.contained` for it: [ClassIndex.superclassOf]
-     * raises [ClassLoadFailure] for a class whose ancestors are not in the loaded set, which is routine in an
-     * obfuscated APK and must abort the path rather than the run.
+     * Throws [ClassLoadFailure] when an ancestor is absent from the loaded set; callers end only the path.
      */
     fun plan(state: Frame, type: VirtualType): ClassInitPlan {
         val chain = chainFromTheTop(type)
@@ -493,30 +482,21 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                 ClassInitAction.Proceed -> continue
                 is ClassInitAction.ThrowFailed -> {
                     if (index != nearestFailedAncestorIndex) continue
-                    val dependents = chain.drop(index + 1).filter {
-                        state.classInitAction(it) == ClassInitAction.StartInitialization
-                    }
-                    dependents.forEach { seeds.putAll(prepareForFutureInitialization(it)) }
                     return ClassInitPlan(
                         settled,
                         skippedAnInitializer,
                         context = null,
-                        dependencyFailure = ClassInitDependencyFailure(ancestor, action.failure, dependents),
+                        dependencyFailure = ClassInitDependencyFailure(
+                            action.recipe,
+                            uninitializedBelow(state, chain, index),
+                        ),
                         staticSeeds = seeds,
                     )
                 }
                 ClassInitAction.StartInitialization -> Unit
             }
-            // A framework class is marked initialized and its `<clinit>` is NEVER run (decision 7). The
-            // framework smali is 21,088 ordinary loaded classes, so without this row a `new-instance
-            // Ljava/lang/Integer;` (Task 17's own corpus) would pull the real `Integer.<clinit>` into virtual
-            // execution. Asked of `ClassIndex`, never of a live `type.*` handle -- the two-tier rule.
-            //
-            // Ordered BEFORE the `<clinit>` lookup so a framework class's initializer is never even resolved,
-            // and the `hasClassInitializer` call below is what decides whether anything was actually skipped:
-            // `Ljava/lang/Object;` declares no `<clinit>` at all, and it is on EVERY app class's chain, so
-            // treating "framework" as "unmodelled" unconditionally would make every trigger in the system
-            // report STRONG and stop every fold downstream of one.
+            // A framework class's `<clinit>` never runs, and is not even resolved. `Ljava/lang/Object;` declares
+            // none and is on every chain, so only a framework class that declares one counts as skipped.
             if (resolver.isFrameworkClass(ancestor)) {
                 settled.add(ancestor)
                 if (resolver.hasClassInitializer(ancestor)) skippedAnInitializer = true
@@ -524,75 +504,48 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
                 continue
             }
             when (val lookup = resolver.lookupClassInitializer(ancestor)) {
-                // The common case, and it settles with no nested run at all (design decision 1).
                 MethodLookup.NoSuchMethod -> {
                     settled.add(ancestor)
                     seeds.putAll(prepare(ancestor, initializerRuns = false))
                 }
                 is MethodLookup.Runnable -> {
                     seeds.putAll(prepare(ancestor, initializerRuns = true))
-                    val dependents = chain.drop(index + 1).filter {
-                        state.classInitAction(it) == ClassInitAction.StartInitialization
-                    }
-                    dependents.forEach { seeds.putAll(prepareForFutureInitialization(it)) }
                     return ClassInitPlan(
-                        settled, skippedAnInitializer,
+                        settled,
+                        skippedAnInitializer,
                         ClassInitContext(
                             type,
                             GuestInitializer(ancestor, lookup.view, ENTRY_ADDRESS),
-                            dependents,
+                            uninitializedBelow(state, chain, index),
                         ),
                         staticSeeds = seeds,
                     )
                 }
-                // A DECLARED `<clinit>` with no code (`.method static constructor <clinit>()V` and nothing
-                // else) or a class the model cannot load at all. Neither is reachable through a well-formed
-                // input on a chain `superclassOf` just walked successfully, and both are settled
-                // CONSERVATIVELY -- marked initialized so the trigger can proceed, with `STRONG` declared
-                // because an initializer that exists and did not run is exactly the unmodelled case.
-                is MethodLookup.NoBody, is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass -> {
-                    settled.add(ancestor)
-                    skippedAnInitializer = true
-                    seeds.putAll(prepare(ancestor, initializerRuns = false))
-                }
+                is MethodLookup.NoBody -> return ClassInitPlan(
+                    settled,
+                    skippedAnInitializer,
+                    context = null,
+                    malformedInitializer = ancestor,
+                )
+                is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass ->
+                    error("The declared <clinit> of loaded class ${ancestor.descriptor} resolved to $lookup")
             }
         }
         return ClassInitPlan(settled, skippedAnInitializer, context = null, staticSeeds = seeds)
     }
 
-    private fun prepareForFutureInitialization(type: VirtualType): Map<String, StaticCell> {
-        if (resolver.isFrameworkClass(type)) return prepare(type, initializerRuns = false)
-        return when (resolver.lookupClassInitializer(type)) {
-            is MethodLookup.Runnable -> prepare(type, initializerRuns = true)
-            MethodLookup.NoSuchMethod -> prepare(type, initializerRuns = false)
-            is MethodLookup.NoBody, is MethodLookup.DefaultConflict, MethodLookup.NoSuchClass ->
-                prepare(type, initializerRuns = false)
+    /** The classes after [index] in the top-first [chain] that are still uninitialized on [state]'s path. */
+    private fun uninitializedBelow(state: Frame, chain: List<VirtualType>, index: Int): List<VirtualType> =
+        chain.subList(index + 1, chain.size).filter {
+            state.classInitAction(it) == ClassInitAction.StartInitialization
         }
-    }
 
     /**
-     * [type]'s statics as they stand **after preparation and before its `<clinit>`** -- JVMS §5.4.2, and
-     * adjudication 5's fix in three rows.
-     *
-     *  1. **A dex-encoded literal is that literal, always** -- app class or framework class, and this is
-     *     adjudication 5: *"dex encodes static initial values in the class definition, and for `static final`
-     *     constants the compiler emits NO `<clinit>` assignment at all"*, so the oracle's rule of seeding
-     *     literals only for a class *without* a `<clinit>` (`VirtualMachine.kt:479-487` vs `:549-555`)
-     *     **discards constants that are sitting right there in the dex** and reads them back as `Unknown` with
-     *     an *"undefined field"* log (`ExecutionState.kt:258-262`). Seeded for every class here. It is also
-     *     what recovers `Ljava/lang/Integer;->MAX_VALUE:I` without any host reflection -- decision 7's
-     *     *"cheap part"*.
-     *  2. **Otherwise the JVM type DEFAULT, when the class's own initializer either does not exist or is about
-     *     to run** ([initializerRuns]). Both cases make the default a PROVABLE fact rather than a guess: with
-     *     no `<clinit>` nothing will ever assign the field, and with one about to run the default is genuinely
-     *     what it observes on entry. This is what `SGetOpTest.staticBooleanUninitialized` asserts (`false`, not
-     *     `Unknown`) and it is the oracle's answer too, for a class with no `<clinit>`.
-     *  3. **Otherwise [Value.Unknown]** -- a **framework** class whose `<clinit>` this build declines to run
-     *     (resolved decision 7), or an app class whose declared `<clinit>` has no body. An initializer that
-     *     exists and did not run may have computed anything, so the default would be a fabricated constant.
-     *     This is the *only* row that answers `Unknown`, and the reason [StaticFieldDeclaration] keeps a
-     *     field's literal separate from its type default: with the oracle's merged accessor this row would
-     *     fold `0` for every framework static a real initializer computes.
+     * [type]'s statics after JVMS §5.4.2 preparation and before its `<clinit>`:
+     *  - a dex-encoded literal is that literal, whether or not the class has an initializer, because a compiler
+     *    emits no `<clinit>` assignment for a `static final` constant;
+     *  - otherwise the type default, when the class has no initializer or its initializer is about to run;
+     *  - otherwise [Value.Unknown]: a framework initializer that does not run may compute anything.
      */
     private fun prepare(type: VirtualType, initializerRuns: Boolean): Map<String, StaticCell> {
         val declarations = resolver.declaredStaticFields(type)
@@ -613,14 +566,14 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
     }
 
     /**
-     * [type] and its superclasses, **most ancestral first**. Terminates at the first class with no
-     * superclass, which [ClassIndex.superclassOf] answers for `Ljava/lang/Object;`, for arrays (which get
-     * `Ljava/lang/Object;`, so the chain is two long and neither link has a `<clinit>`) and for primitives.
+     * [type] and its superclasses, most ancestral first, ending at the first class with no superclass. A cyclic
+     * declaration stops at the first repeat; the set keeps the walk linear in the chain's length.
      */
     private fun chainFromTheTop(type: VirtualType): List<VirtualType> {
-        val chain = ArrayList<VirtualType>(3)
+        val seen = HashSet<VirtualType>()
+        val chain = ArrayList<VirtualType>()
         var current: VirtualType? = type
-        while (current != null && current !in chain) {
+        while (current != null && seen.add(current)) {
             chain.add(current)
             current = resolver.superclassOf(current)
         }
@@ -628,7 +581,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
     }
 
     private companion object {
-        /** A DEX method's code starts at address 0; see the bytecode backends' matching constant. */
+        /** A DEX method's code starts at address 0. */
         const val ENTRY_ADDRESS = 0
     }
 }

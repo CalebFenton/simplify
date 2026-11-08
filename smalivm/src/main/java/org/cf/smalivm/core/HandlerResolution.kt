@@ -119,6 +119,9 @@ internal sealed interface HandlerResolution {
     ) : HandlerResolution
 
     data object MalformedMetadata : HandlerResolution
+
+    /** The class model failed while answering. The caller ends only the throwing path. */
+    data class HostFailure(val failure: Throwable) : HandlerResolution
 }
 
 private data class DomainPartition(
@@ -145,8 +148,22 @@ internal fun partitionThrowableDomain(
     return ThrowableDomainPartition(partition.caught, partition.residual)
 }
 
-/** Resolves one subject without frame access, allocation, host import, or route reordering. */
+/**
+ * Resolves one subject without frame access, allocation, host import, or route reordering. Every throwable the
+ * class model raises becomes [HandlerResolution.HostFailure], so local and caller lookup contain it alike.
+ */
 internal fun resolveHandlers(
+    throwAddress: Int,
+    subject: ThrownSubject,
+    methodView: MethodView,
+    hierarchy: ThrowableHierarchy,
+): HandlerResolution = try {
+    route(throwAddress, subject, methodView, hierarchy)
+} catch (failure: Throwable) {
+    HandlerResolution.HostFailure(failure)
+}
+
+private fun route(
     throwAddress: Int,
     subject: ThrownSubject,
     methodView: MethodView,
@@ -208,7 +225,7 @@ private fun partition(
     context: ResolverContext,
     validateHandlerType: Boolean,
 ): DomainPartition {
-    if (catchType == THROWABLE_TYPE) return DomainPartition(domain, null)
+    if (catchType == GuestThrowables.THROWABLE) return DomainPartition(domain, null)
 
     val catchFacts = context.facts(catchType)
     if (validateHandlerType && (

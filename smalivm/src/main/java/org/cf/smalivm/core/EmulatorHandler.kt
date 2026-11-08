@@ -134,11 +134,11 @@ internal fun defaultEmulatorRegistrations(
         ),
         // An override of getCause is ordinary bytecode; only the Throwable implementations read the cause slot.
         throwableCauseRegistration(
-            MethodDescriptor(VirtualType.of("Ljava/lang/Throwable;"), "getCause", "()Ljava/lang/Throwable;"),
+            MethodDescriptor(GuestThrowables.THROWABLE, "getCause", "()Ljava/lang/Throwable;"),
         ),
         throwableCauseRegistration(
             MethodDescriptor(
-                VirtualType.of("Ljava/lang/ExceptionInInitializerError;"),
+                SynthesizedThrowable.EXCEPTION_IN_INITIALIZER.type,
                 "getException",
                 "()Ljava/lang/Throwable;",
             ),

@@ -23,6 +23,37 @@ class ClassInitFailureBehaviorTest {
             }
         }
 
+    /**
+     * ART `ClassLinker::ThrowEarlierClassFailure` (art/runtime/class_linker.cc, AOSP main at
+     * 6484611fd45e69db9f33f98bfd6864014b030ecf) throws `NoClassDefFoundError(c->PrettyDescriptor())` wrapping the
+     * stored error, and `PrettyDescriptor` of `Lclass_init_failure/non_error;` is `class_init_failure.non_error`.
+     * Every trigger kind reaches the same message.
+     */
+    @TestFactory
+    fun aLaterTriggerOfAFailedClassThrowsNoClassDefFoundErrorNamedByItsPrettyDescriptor(): List<DynamicTest> =
+        listOf("newInstance", "sget", "invokeStatic", "classForName", "reflectiveStatic").map { trigger ->
+            DynamicTest.dynamicTest(trigger) {
+                CoreTester.testThrows(
+                    ESCAPES,
+                    "$trigger()V",
+                    exceptionType = NO_CLASS_DEF_FOUND_ERROR.descriptor,
+                    message = "class_init_failure.non_error",
+                )
+            }
+        }
+
+    @Test
+    fun aSuperclassFailureThrowsNoClassDefFoundErrorNamedByTheFailedSuperclass() {
+        // ART `ClassLinker::InitializeClass` initializes the superclass first; an erroneous superclass throws
+        // ThrowEarlierClassFailure for that superclass, so the message names it, not the requested subclass.
+        CoreTester.testThrows(
+            ESCAPES,
+            "superclassFailure()V",
+            exceptionType = NO_CLASS_DEF_FOUND_ERROR.descriptor,
+            message = "class_init_failure.grandparent",
+        )
+    }
+
     @Test
     fun firstErrorKeepsItsIdentityAndLaterFailureUsesItAsCause() {
         assertReturnsOne("errorIdentity()I")
@@ -308,6 +339,7 @@ class ClassInitFailureBehaviorTest {
     private companion object {
         const val CLASS_NAME = "Lclass_init_failure/triggers;"
         const val TRANSFORM_BOUNDARY = "Lclass_init_failure/transform_boundary;"
+        const val ESCAPES = "Lclass_init_failure/escapes;"
         val INT: VirtualType = VirtualType.of("I")
         val THROWABLE: VirtualType = VirtualType.of("Ljava/lang/Throwable;")
         val EXCEPTION_IN_INITIALIZER_ERROR: VirtualType =

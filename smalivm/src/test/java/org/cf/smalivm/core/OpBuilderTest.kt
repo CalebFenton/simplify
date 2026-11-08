@@ -69,7 +69,7 @@ class OpBuilderTest {
 
     private fun throwType(arm: OpArm.Throw): VirtualType = when (val evidence = arm.evidence) {
         is ThrowEvidence.Existing -> requireNotNull(evidence.value.type)
-        is ThrowEvidence.Fresh -> evidence.recipe.type
+        is ThrowEvidence.Fresh -> evidence.recipe.kind.type
     }
 
     @Test

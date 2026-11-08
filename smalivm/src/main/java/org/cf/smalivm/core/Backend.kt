@@ -240,7 +240,6 @@ internal sealed interface IntrinsicOperation {
     ) : IntrinsicOperation
     data class ReadVirtualField(val field: TrackedFieldValue) : IntrinsicOperation
     data object ReadThrowableCause : IntrinsicOperation
-    data class RouteFailedClassInit(val type: VirtualType) : IntrinsicOperation
     data class SetTrackedFieldAccessible(
         val metadata: TrackedFieldValue,
         val accessibility: FieldAccessibility,

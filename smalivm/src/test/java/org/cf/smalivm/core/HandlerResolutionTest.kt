@@ -129,6 +129,19 @@ class HandlerResolutionTest {
     }
 
     @Test
+    fun `a class model failure becomes a host failure result carrying it`() {
+        val failure = ClassLoadFailure("unreadable ancestry", IllegalStateException("model"))
+        val failing = object : ThrowableHierarchy by hierarchy {
+            override fun facts(type: VirtualType): ThrowableTypeFacts =
+                if (type == runtime) throw failure else hierarchy.facts(type)
+        }
+
+        val resolution = resolveHandlers(5, symbolic(ThrowableDomain.any()), view(listOf(block(CatchClause(runtime, 10)))), failing)
+
+        assertSame(failure, (resolution as HandlerResolution.HostFailure).failure)
+    }
+
+    @Test
     fun `catch Throwable and catch all each consume the complete residual`() {
         val typed = resolve(
             symbolic(ThrowableDomain.any()),
