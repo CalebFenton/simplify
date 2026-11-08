@@ -8,12 +8,12 @@ import kotlinx.collections.immutable.toPersistentList
 import kotlinx.collections.immutable.toPersistentMap
 
 /**
- * One immutable version of a VM-tracked object (spec §4.2). A [Value.Known] whose raw is a [HeapRef] denotes one of
- * these; the raw is **never** the live host object, so identity is the heap id and never host `==`.
+ * One immutable version of a VM-tracked object. A [Value.Known] whose raw is a [HeapRef] denotes one of these;
+ * the raw is never the live host object, so identity is the heap id and never host `==`.
  *
- * Reads are public because consumers need them (spec §9: a strategy folding `new int[]{1,2,3}` must
- * see the contents). Guest writes create a replacement through [HeapStore]; an object returned by a read
- * has no mutation surface. This keeps earlier frames and sibling paths unchanged without eager copies.
+ * Reads are public because consumers need them: a strategy folding `new int[]{1,2,3}` must see the contents.
+ * Guest writes create a replacement through [HeapStore]; an object returned by a read has no mutation surface.
+ * This keeps earlier frames and sibling paths unchanged without eager copies.
  */
 public sealed class HeapObject(internal val type: VirtualType) {
     /** One path-local reflection field identity. Accessibility changes replace this immutable version. */
@@ -71,7 +71,7 @@ public sealed class HeapObject(internal val type: VirtualType) {
 
         internal val length: Int get() = elements.size
 
-        /** The element at [index]. Callers must bounds-check first: an out-of-range read is an AIOOBE the OP decides about. */
+        /** The element at [index]. Callers bounds-check first: an out-of-range read is the op's AIOOBE. */
         internal fun element(index: Int): Value = elements[index]
 
         /** Every element, in order -- for consensus and for rendering. */
@@ -160,9 +160,8 @@ public sealed class HeapObject(internal val type: VirtualType) {
      * The Java instance lives only in [HostGraphState] and [contents] identifies its graph node. It is
      * never reconstructed from class/message metadata, so guest identity survives throw and routing.
      *
-     * Identity is the heap id, so two synthesized instances never agree. That is CORRECT rather than
-     * conservative: two paths that each throw a fresh NPE do not throw the same object in Dalvik
-     * either.
+     * Identity is the heap id, so two synthesized instances never agree. That is exact, not conservative:
+     * two paths that each throw a fresh NPE do not throw the same object in Dalvik either.
      */
     internal class GuestThrowable internal constructor(
         type: VirtualType,
