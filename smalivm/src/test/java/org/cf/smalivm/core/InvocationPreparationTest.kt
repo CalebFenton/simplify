@@ -315,7 +315,7 @@ class InvocationPreparationTest {
     }
 
     /** Every call an emulator registered on [vm] for [target] receives; it answers a typed null. */
-    private fun recordingEmulator(vm: VmServices, target: MethodDescriptor): List<EmulatorInvocation> {
+    private fun recordingEmulator(vm: VmServices, target: MethodSignature): List<EmulatorInvocation> {
         val calls = mutableListOf<EmulatorInvocation>()
         vm.emulate(target) { call ->
             calls += call
@@ -344,7 +344,7 @@ class InvocationPreparationTest {
     ) = Invocation(method(definingClass, name, proto), kind, words.toList())
 
     private fun method(definingClass: String, name: String, proto: String) =
-        MethodDescriptor(type(definingClass), name, proto)
+        MethodSignature(type(definingClass), name, proto)
 
     private fun known(raw: Any, descriptor: String) = Value.Known(raw, type(descriptor))
     private fun type(descriptor: String) = VirtualType.of(descriptor)

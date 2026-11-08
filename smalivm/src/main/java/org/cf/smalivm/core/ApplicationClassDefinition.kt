@@ -37,7 +37,7 @@ class ApplicationClassDefinition internal constructor(
         require(methods.all { it.declaration.definingClass == type }) {
             "Application method owner does not match $type"
         }
-        require(methods.map(::methodDescriptor).distinct().size == methods.size) {
+        require(methods.map { it.methodSignature }.distinct().size == methods.size) {
             "Application class contains duplicate method descriptors: $type"
         }
     }
@@ -48,7 +48,7 @@ class ApplicationClassDefinition internal constructor(
     val instanceFields: PersistentList<ApplicationFieldDefinition> = instanceFields.toPersistentList()
     internal val methods: PersistentList<ApplicationMethodDefinition> = methods.toPersistentList()
     internal val methodsByDescriptor: PersistentMap<String, ApplicationMethodDefinition> =
-        methods.associateBy(::methodDescriptor).toPersistentMap()
+        methods.associateBy { it.methodSignature.nameAndProto }.toPersistentMap()
 
     internal fun withStringEncoding(encoding: StringInstructionEncoding): ApplicationClassDefinition =
         ApplicationClassDefinition(
@@ -68,12 +68,12 @@ class ApplicationClassDefinition internal constructor(
     }
 
     internal fun withMethods(
-        replacementsBySignature: Map<String, ApplicationMethodDefinition>,
+        replacementsBySignature: Map<MethodSignature, ApplicationMethodDefinition>,
     ): ApplicationClassDefinition {
         require(replacementsBySignature.isNotEmpty()) { "At least one replacement method is required" }
         replacementsBySignature.values.forEach { replacement ->
             require(replacement.declaration.definingClass == type) { "Replacement method belongs to another class" }
-            require(methodsByDescriptor.containsKey(methodDescriptor(replacement))) {
+            require(methodsByDescriptor.containsKey(replacement.methodSignature.nameAndProto)) {
                 "Replacement method is not declared by $type"
             }
         }
@@ -106,11 +106,6 @@ class ApplicationClassDefinition internal constructor(
             fieldsMatch(instanceFields, other.instanceFields) &&
             methods.size == other.methods.size &&
             methods.zip(other.methods).all { (left, right) -> declarationsMatch(left, right) }
-
-    private fun methodDescriptor(method: ApplicationMethodDefinition): String =
-        method.declaration.name +
-            method.declaration.parameterTypes.joinToString(separator = "", prefix = "(", postfix = ")") +
-            method.declaration.returnType
 
     private fun fieldDescriptor(field: ApplicationFieldDefinition): String =
         "${field.declaration.name}:${field.declaration.type}"

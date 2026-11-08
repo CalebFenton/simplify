@@ -3,7 +3,7 @@ package org.cf.sdbg.command
 import org.cf.sdbg.SmaliReference
 import org.cf.smalivm.core.Breakpoint
 import org.cf.smalivm.core.MethodLookup
-import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.MethodSignature
 import picocli.CommandLine
 
 @CommandLine.Command(name = "break", aliases = ["b"], mixinStandardHelpOptions = true,
@@ -16,7 +16,7 @@ internal class BreakCommand : DebuggerCommand() {
     private sealed interface Target {
         /** An instruction index in the current method, not yet checked against its bounds. */
         data class Index(val index: Long) : Target
-        data class Method(val owner: VirtualType, val descriptor: String) : Target
+        data class Method(val signature: MethodSignature) : Target
         data class Invalid(val reason: String) : Target
     }
 
@@ -29,10 +29,10 @@ internal class BreakCommand : DebuggerCommand() {
             val offset = target.toLongOrNull() ?: return Target.Invalid(INDEX_OUT_OF_RANGE)
             return Target.Index(current + offset)
         }
-        return when (val reference = SmaliReference.parse(target)) {
-            is SmaliReference.Method -> Target.Method(reference.owner ?: currentView.definingClass, reference.descriptor)
+        return when (val reference = SmaliReference.parse(target, currentView.definingClass)) {
+            is SmaliReference.Method -> Target.Method(reference.signature)
             is SmaliReference.Type -> Target.Invalid("expected a method, got class ${reference.type}")
-            is SmaliReference.Field -> Target.Invalid("expected a method, got field ${reference.owner}->${reference.name}")
+            is SmaliReference.Field -> Target.Invalid("expected a method, got field ${reference.signature}")
             is SmaliReference.Malformed -> Target.Invalid(reference.reason)
         }
     }
@@ -40,7 +40,7 @@ internal class BreakCommand : DebuggerCommand() {
     override fun run() {
         when (val parsed = parseTarget(target)) {
             is Target.Method -> {
-                val lookup = debugSession.services.classIndex.lookupMethod(parsed.owner, parsed.descriptor)
+                val lookup = debugSession.services.classIndex.lookupMethod(parsed.signature)
                 val method = (lookup as? MethodLookup.Runnable)?.view
                 if (method == null || method.instructionCount == 0) {
                     printInvalid("concrete method not found")

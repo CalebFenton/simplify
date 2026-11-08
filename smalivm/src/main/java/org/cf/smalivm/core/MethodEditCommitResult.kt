@@ -5,10 +5,10 @@ sealed interface MethodEditCommitResult {
     class Committed internal constructor(
         val editedMethodView: MethodView,
         val programRevision: ProgramRevision,
-        createdMethodRevisionsBySignature: Map<String, ApplicationMethodRevision>,
+        createdMethodRevisionsBySignature: Map<MethodSignature, ApplicationMethodRevision>,
         codeAddressesByPendingAnchor: Map<PendingCodeAnchor, Int>,
     ) : MethodEditCommitResult {
-        val createdMethodRevisionsBySignature: Map<String, ApplicationMethodRevision> =
+        val createdMethodRevisionsBySignature: Map<MethodSignature, ApplicationMethodRevision> =
             java.util.Collections.unmodifiableMap(LinkedHashMap(createdMethodRevisionsBySignature))
         val codeAddressesByPendingAnchor: Map<PendingCodeAnchor, Int> =
             java.util.Collections.unmodifiableMap(LinkedHashMap(codeAddressesByPendingAnchor))

@@ -134,7 +134,7 @@ class OpaqueTrackedFieldTest {
         refs.zip(objectsBefore).forEach { (ref, before) -> assertSame(before, frame.heapObject(ref)) }
     }
 
-    private fun opaqueInvoke(graph: ExecutionGraph, target: MethodDescriptor): ExecutionNode = graph.addresses()
+    private fun opaqueInvoke(graph: ExecutionGraph, target: MethodSignature): ExecutionNode = graph.addresses()
         .flatMap(graph::nodePile)
         .single { it.invocationTarget() == target }
 
@@ -174,24 +174,24 @@ class OpaqueTrackedFieldTest {
         val DECLARING = VirtualType.of("Lorg/cf/smalivm/DummyClass;")
         val UNRELATED = VirtualType.of("Lorg/cf/smalivm/unrelated/UnrelatedClass;")
         val ILLEGAL_ACCESS = VirtualType.of("Ljava/lang/IllegalAccessException;")
-        val OPAQUE_ONE = MethodDescriptor(UNRELATED, "opaqueOne", "(Ljava/lang/reflect/Field;)V")
-        val OPAQUE_ALIASES = MethodDescriptor(
+        val OPAQUE_ONE = MethodSignature(UNRELATED, "opaqueOne", "(Ljava/lang/reflect/Field;)V")
+        val OPAQUE_ALIASES = MethodSignature(
             UNRELATED,
             "opaqueAliases",
             "(Ljava/lang/reflect/Field;Ljava/lang/reflect/Field;)V",
         )
-        val OPAQUE_TWO = MethodDescriptor(
+        val OPAQUE_TWO = MethodSignature(
             UNRELATED,
             "opaqueTwo",
             "(Ljava/lang/reflect/Field;Ljava/lang/reflect/Field;)V",
         )
-        val OPAQUE_MIXED = MethodDescriptor(
+        val OPAQUE_MIXED = MethodSignature(
             UNRELATED,
             "opaqueMixed",
             "(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I",
         )
-        val OPAQUE_OBJECT = MethodDescriptor(UNRELATED, "opaqueObject", "(Ljava/lang/Object;)V")
-        val FIELD_GET = MethodDescriptor(
+        val OPAQUE_OBJECT = MethodSignature(UNRELATED, "opaqueObject", "(Ljava/lang/Object;)V")
+        val FIELD_GET = MethodSignature(
             VirtualType.of("Ljava/lang/reflect/Field;"),
             "get",
             "(Ljava/lang/Object;)Ljava/lang/Object;",
@@ -200,7 +200,7 @@ class OpaqueTrackedFieldTest {
     }
 }
 
-private fun ExecutionNode.invocationTarget(): MethodDescriptor? {
+private fun ExecutionNode.invocationTarget(): MethodSignature? {
     val invoke = op as? org.cf.smalivm.core.op.InvokeOp ?: return null
     return (invoke.execute(frame).arms.single() as OpArm.Invoke).target
 }

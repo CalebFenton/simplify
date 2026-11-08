@@ -1,7 +1,6 @@
 package org.cf.smalivm.dex
 
 import com.google.common.primitives.Ints
-import com.android.tools.smali.dexlib2.formatter.DexFormatter
 import com.android.tools.smali.dexlib2.iface.Annotation
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.Field
@@ -96,8 +95,7 @@ internal class ClassBuilder(private val classAccessFlags: (String) -> Int?) {
         val methodRef = value.value
         val owner = stripName(methodRef.definingClass)
         val name = methodRef.name
-        val descriptor = DexFormatter.INSTANCE.getMethodDescriptor(methodRef).split("->")[1]
-        val desc = descriptor.substring(descriptor.indexOf('('))
+        val desc = methodRef.parameterTypes.joinToString("", "(", ")") + methodRef.returnType
         classWriter.visitOuterClass(owner, name, desc)
     }
 

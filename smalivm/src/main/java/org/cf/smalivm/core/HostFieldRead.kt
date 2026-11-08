@@ -2,24 +2,6 @@ package org.cf.smalivm.core
 
 import java.lang.reflect.Modifier
 
-/** Exact identity of one resolved static field. */
-data class StaticFieldDescriptor(
-    val definingClass: VirtualType,
-    val name: String,
-    val type: VirtualType,
-) {
-    val descriptor: String get() = ClassIndex.fieldDescriptorOf(definingClass, name, type.descriptor)
-}
-
-internal fun staticFieldDescriptor(
-    definingClass: VirtualType,
-    descriptor: String,
-    type: VirtualType,
-): StaticFieldDescriptor {
-    val member = descriptor.substringAfter("->")
-    return StaticFieldDescriptor(definingClass, member.substringBefore(':'), type)
-}
-
 /** Result of one authorized host field read. */
 internal sealed interface HostFieldRead {
     data class Returned(val value: HostValue) : HostFieldRead
@@ -56,7 +38,7 @@ internal fun hostFieldReadIsAuthorized(
  * Reads the framework static an authorized `sget` names. The VM models no access check for `sget`, so only a
  * public field of a public class, which every caller may read, is read.
  */
-internal fun readHostStatic(classLoader: ClassLoader, field: StaticFieldDescriptor): HostFieldRead {
+internal fun readHostStatic(classLoader: ClassLoader, field: FieldSignature): HostFieldRead {
     val hostClass = hostBoundary({ return HostFieldRead.InfrastructureFailure(it) }) {
         try {
             field.definingClass.hostClass(classLoader)

@@ -353,7 +353,7 @@ class PersistentStateTest {
         val graph = vm.newSession(method, Limits(), seeded).run()
         val invoke = graph.nodePile(0).single()
         val calleeReturns = descendants(invoke).filter {
-            it.view.signature == "$CALLEE->returnsFromEitherPath(I)V" && it.outcome is Outcome.Returned
+            it.view.signature.toString() == "$CALLEE->returnsFromEitherPath(I)V" && it.outcome is Outcome.Returned
         }
         val callerReturns = graph.nodePile(3).filter { it.outcome is Outcome.Returned }
         assertEquals(2, calleeReturns.size)
@@ -415,7 +415,7 @@ class PersistentStateTest {
         val second = caller.copy()
         val selected = SelectedHostCall.from(
             PreparedInvocation(
-                MethodDescriptor(VirtualType.of(CALLEE), "host", "(Ljava/lang/Object;)V"),
+                MethodSignature(VirtualType.of(CALLEE), "host", "(Ljava/lang/Object;)V"),
                 VirtualType.of(CALLER),
                 InvokeKind.STATIC,
                 VirtualType.of("V"),
@@ -598,7 +598,7 @@ class PersistentStateTest {
         frame.assign(0, value)
         repeat(300_000) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
         val invocation = PreparedInvocation(
-            MethodDescriptor(VirtualType.of("Lcalls/callee;"), "host", "()V"),
+            MethodSignature(VirtualType.of("Lcalls/callee;"), "host", "()V"),
             VirtualType.of("Lcalls/caller;"),
             InvokeKind.STATIC,
             VirtualType.of("V"),

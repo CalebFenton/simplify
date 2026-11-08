@@ -355,7 +355,7 @@ class MethodReferenceStagingTest {
         val collateralViewB = requireNotNull(index.methodView(COLLATERAL))
 
         assertEquals(StringInstructionEncoding.CONST_STRING_JUMBO, snapshotB.stringInstructionEncoding)
-        assertEquals(setOf(TARGET, COLLATERAL), committed.createdMethodRevisionsBySignature.keys)
+        assertEquals(setOf(TARGET, COLLATERAL), committed.createdMethodRevisionsBySignature.keys.map { it.toString() }.toSet())
         assertNotSame(targetA.methodRevision, snapshotB.applicationMethod(TARGET)?.methodRevision)
         assertNotSame(collateralA.methodRevision, collateralB.methodRevision)
         assertSame(unaffectedA, snapshotB.applicationMethod(UNAFFECTED))

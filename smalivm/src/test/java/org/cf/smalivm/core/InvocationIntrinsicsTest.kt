@@ -146,7 +146,7 @@ class InvocationIntrinsicsTest {
         assertTrue(registration?.handler is ObjectGetClassEmulator)
         assertNull(
             vm.invocationServices.emulators.find(
-                MethodDescriptor(VirtualType.of("Lhash_code;"), "getClass", "()Ljava/lang/Class;"),
+                MethodSignature(VirtualType.of("Lhash_code;"), "getClass", "()Ljava/lang/Class;"),
             ),
         )
     }
@@ -404,25 +404,25 @@ class InvocationIntrinsicsTest {
         const val INIT_EXTENDS_ENUM = "initExtendsEnum()V"
         const val INIT_ENUM = "initEnum()V"
 
-        val ARRAY_CLONE = MethodDescriptor(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
-        val OBJECT_CLONE = MethodDescriptor(VirtualType.OBJECT, "clone", "()Ljava/lang/Object;")
-        val OBJECT_GET_CLASS = MethodDescriptor(
+        val ARRAY_CLONE = MethodSignature(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
+        val OBJECT_CLONE = MethodSignature(VirtualType.OBJECT, "clone", "()Ljava/lang/Object;")
+        val OBJECT_GET_CLASS = MethodSignature(
             VirtualType.OBJECT,
             "getClass",
             "()Ljava/lang/Class;",
         )
-        val ARRAY_GET_CLASS = MethodDescriptor(
+        val ARRAY_GET_CLASS = MethodSignature(
             VirtualType.of("[I"),
             "getClass",
             "()Ljava/lang/Class;",
         )
-        val CLASS_GET_COMPONENT_TYPE = MethodDescriptor(
+        val CLASS_GET_COMPONENT_TYPE = MethodSignature(
             VirtualType.of("Ljava/lang/Class;"),
             "getComponentType",
             "()Ljava/lang/Class;",
         )
-        val OBJECT_INIT = MethodDescriptor(VirtualType.OBJECT, "<init>", "()V")
-        val ENUM_INIT = MethodDescriptor(
+        val OBJECT_INIT = MethodSignature(VirtualType.OBJECT, "<init>", "()V")
+        val ENUM_INIT = MethodSignature(
             VirtualType.of("Ljava/lang/Enum;"),
             "<init>",
             "(Ljava/lang/String;I)V",

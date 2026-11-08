@@ -52,7 +52,7 @@ class Invoker internal constructor(
         val words = method.target.argumentWords(call.kind)
         if (call.registerFrameValues.size != words.wordCount) {
             return OpaqueInvocation(
-                method.returnType,
+                method.target.returnType,
                 resolved.candidates,
                 "${call.target} was invoked with ${call.registerFrameValues.size} argument register(s), but " +
                     "${method.target} requires ${words.wordCount}",
@@ -65,8 +65,8 @@ class Invoker internal constructor(
                 method.target,
                 callerClass,
                 call.kind,
-                method.returnType,
-                method.parameterTypes,
+                method.target.returnType,
+                method.target.parameterTypes,
                 receiver,
                 if (receiver == null) bound else bound.drop(1),
             ),
@@ -223,6 +223,3 @@ class OpaqueInvocation internal constructor(
     val candidates: Set<String>,
     val diagnostic: String? = null,
 ) : InvocationPreparation, InvocationPlan
-
-private val MethodDescriptor.returnType: VirtualType
-    get() = VirtualType.of(proto.substringAfter(')'))

@@ -4,11 +4,9 @@ import java.io.File
 import org.cf.smalivm.dex.SmaliClassLoader
 import org.cf.smalivm.dex.SmaliParser
 
-/** Resolved identity and declared signature, available whether the method has executable bytecode or not. */
+/** Resolved identity, available whether the method has executable bytecode or not. */
 class ResolvedMethod internal constructor(
-    val target: MethodDescriptor,
-    val returnType: VirtualType,
-    val parameterTypes: List<VirtualType>,
+    val target: MethodSignature,
     val isSynchronized: Boolean,
 )
 
@@ -66,16 +64,17 @@ sealed interface InvocationLookup {
  */
 sealed interface StaticFieldLookup {
     /**
-     * Present. [descriptor] names the class that declares the field, which may differ from the class the
-     * instruction named: `sget v0, Lchild;->parentField:I` resolves to `Lparent;->parentField:I`. [definingClass]
-     * is that declaring class, the one a trigger initializes (JVMS 5.5).
+     * Present. [field] names the class that declares the field, which may differ from the class the instruction
+     * named: `sget v0, Lchild;->parentField:I` resolves to `Lparent;->parentField:I`. [definingClass] is that
+     * declaring class, the one a trigger initializes (JVMS 5.5).
      */
-    class Resolved internal constructor(
-        val definingClass: VirtualType,
-        val descriptor: String,
-        val type: VirtualType,
-        val isVolatile: Boolean,
-    ) : StaticFieldLookup {
+    class Resolved internal constructor(val field: FieldSignature, val isVolatile: Boolean) : StaticFieldLookup {
+        val definingClass: VirtualType get() = this.field.definingClass
+        val type: VirtualType get() = this.field.type
+
+        /** [field]'s spelling, the key of its static cell. */
+        val descriptor: String get() = this.field.toString()
+
         override fun toString(): String = descriptor
     }
 
@@ -97,12 +96,13 @@ sealed interface StaticFieldLookup {
 
 /** Result of resolving an instance field reference by owner, name, and type. */
 sealed interface InstanceFieldLookup {
-    class Resolved internal constructor(
-        val definingClass: VirtualType,
-        val descriptor: String,
-        val type: VirtualType,
-        val isVolatile: Boolean,
-    ) : InstanceFieldLookup {
+    class Resolved internal constructor(val field: FieldSignature, val isVolatile: Boolean) : InstanceFieldLookup {
+        val definingClass: VirtualType get() = this.field.definingClass
+        val type: VirtualType get() = this.field.type
+
+        /** [field]'s spelling, the key of its heap cell. */
+        val descriptor: String get() = this.field.toString()
+
         override fun toString(): String = descriptor
     }
 
@@ -116,42 +116,28 @@ sealed interface InstanceFieldLookup {
 }
 
 /**
- * One declared static field of one class: its fully-qualified [descriptor], its declared [type], and its
- * compile-time constant [literal] if the dex encodes one (`.field public static myInt:I = 0x42`), else null.
+ * One declared static field of one class and its compile-time constant [literal] if the dex encodes one
+ * (`.field public static myInt:I = 0x42`), else null.
  *
  * [literal] is kept apart from the type default: for a framework class whose `<clinit>` does not run, only the
  * literal is knowable and every other static reads [Value.Unknown], so folding the default there would invent a
  * value the real initializer computes.
  */
 class StaticFieldDeclaration internal constructor(
-    val descriptor: String,
-    val type: VirtualType,
+    val field: FieldSignature,
     val literal: Value?,
     val modifiers: Int,
 ) {
+    val type: VirtualType get() = this.field.type
+
+    /** [field]'s spelling, the key of its static cell. */
+    val descriptor: String get() = this.field.toString()
+
     override fun toString(): String = "$descriptor${literal?.let { " = $it" } ?: ""}"
 }
 
-/** One declared instance field. Instance fields have no dex-encoded initial value. */
-class InstanceFieldDeclaration internal constructor(
-    val descriptor: String,
-    val type: VirtualType,
-    val modifiers: Int,
-)
-
-/** Common immutable metadata used by reflective field lookup. */
-internal data class FieldDeclaration(
-    val declaringType: VirtualType,
-    val name: String,
-    val descriptor: String,
-    val type: VirtualType,
-    val modifiers: Int,
-) {
-    companion object {
-        fun of(declaringType: VirtualType, descriptor: String, type: VirtualType, modifiers: Int) =
-            FieldDeclaration(declaringType, descriptor.substringAfter("->").substringBefore(':'), descriptor, type, modifiers)
-    }
-}
+/** One declared field, static or instance, with its access modifiers. */
+internal class FieldDeclaration(val field: FieldSignature, val modifiers: Int)
 
 /**
  * The program's live class model: every query answers from the workspace's current snapshot. A session resolves
@@ -184,25 +170,21 @@ class ClassIndex internal constructor(internal val programWorkspace: ProgramWork
     override fun superclassOf(type: VirtualType): VirtualType? = currentSnapshot.hierarchy.superclassOf(type)
 
     /** [ProgramSnapshotResolver.lookupMethod] over the current snapshot. */
-    fun lookupMethod(definingClass: VirtualType, methodDescriptor: String): MethodLookup =
-        resolver(currentSnapshot).lookupMethod(definingClass, methodDescriptor)
+    fun lookupMethod(method: MethodSignature): MethodLookup = resolver(currentSnapshot).lookupMethod(method)
 
     /** [ProgramSnapshotResolver.resolveStaticField] over the current snapshot. */
-    fun resolveStaticField(referencedClass: VirtualType, name: String, fieldTypeDescriptor: String): StaticFieldLookup =
-        resolver(currentSnapshot).resolveStaticField(referencedClass, name, fieldTypeDescriptor)
+    fun resolveStaticField(field: FieldSignature): StaticFieldLookup =
+        resolver(currentSnapshot).resolveStaticField(field.definingClass, field.name, field.type.descriptor)
 
-    /** Current immutable application view for one full method signature, or null for bodyless/framework methods. */
-    fun methodView(methodSignature: String): MethodView? {
-        val method = currentSnapshot.applicationMethod(methodSignature) ?: return null
-        if (method.body == null) return null
-        return MethodView.of(method, currentSnapshot.programRevision)
+    /** Current immutable application view of [method], or null for bodyless or framework methods. */
+    fun methodView(method: MethodSignature): MethodView? {
+        val definition = currentSnapshot.applicationMethod(method) ?: return null
+        if (definition.body == null) return null
+        return MethodView.of(definition, currentSnapshot.programRevision)
     }
 
-    fun requireMethodView(className: String, methodDescriptor: String): MethodView =
-        requireNotNull(methodView("$className->$methodDescriptor")) {
-            "No concrete application method: $className->$methodDescriptor"
-        }
-
+    fun requireMethodView(method: MethodSignature): MethodView =
+        requireNotNull(methodView(method)) { "No concrete application method: $method" }
 
     companion object {
         /**

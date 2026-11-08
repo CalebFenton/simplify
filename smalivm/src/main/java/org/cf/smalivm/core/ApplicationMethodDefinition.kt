@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import com.android.tools.smali.dexlib2.formatter.DexFormatter
 import com.android.tools.smali.dexlib2.iface.Method
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
@@ -17,7 +16,7 @@ internal class ApplicationMethodDefinition private constructor(
     val dynamicLoadingEvidence: DynamicLoadingEvidence,
     internal val dexReferenceClosure: DexReferenceClosure,
 ) {
-    val methodSignature: String get() = DexFormatter.INSTANCE.getMethodDescriptor(declaration)
+    val methodSignature: MethodSignature = MethodSignature.of(declaration)
 
     init {
         require(methodRevision.identifies(methodSignature)) {
@@ -79,7 +78,7 @@ internal class ApplicationMethodDefinition private constructor(
             )
             val footprint = rejectedCode?.let { DexReferenceClosure.fromRejectedMethod(declaration, it.implementation) }
                 ?: DexReferenceClosure.fromMethod(declaration, body)
-            val evidence = body?.let { DynamicLoadingEvidence.fromBody(methodSignatureOf(immutable), it) }
+            val evidence = body?.let { DynamicLoadingEvidence.fromBody(MethodSignature.of(immutable), it) }
                 ?: DynamicLoadingEvidence.EMPTY
             return ApplicationMethodDefinition(declaration, body, rejectedCode, methodRevision, evidence, footprint)
         }
@@ -121,8 +120,5 @@ internal class ApplicationMethodDefinition private constructor(
             candidate.dynamicLoadingEvidence,
             candidate.dexReferenceClosure,
         )
-
-        private fun methodSignatureOf(method: Method): String =
-            DexFormatter.INSTANCE.getMethodDescriptor(method)
     }
 }

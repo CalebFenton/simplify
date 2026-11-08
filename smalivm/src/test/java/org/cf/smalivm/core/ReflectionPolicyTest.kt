@@ -113,6 +113,6 @@ class ReflectionPolicyTest {
         }
     }
 
-    private fun method(owner: String, name: String, proto: String) = MethodDescriptor(type(owner), name, proto)
+    private fun method(owner: String, name: String, proto: String) = MethodSignature(type(owner), name, proto)
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 }

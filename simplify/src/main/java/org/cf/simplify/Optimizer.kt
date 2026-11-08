@@ -31,7 +31,7 @@ class Optimizer(
 
     data class Rejection(val strategy: String, val reason: MethodEditRejectionReason)
 
-    fun optimize(methodSignature: String): Result {
+    fun optimize(methodSignature: MethodSignature): Result {
         var commits = 0
         val counts = emptyCounts(strategies)
         val rejections = linkedSetOf<Rejection>()

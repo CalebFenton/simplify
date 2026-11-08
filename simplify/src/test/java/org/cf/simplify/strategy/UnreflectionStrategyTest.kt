@@ -11,16 +11,16 @@ import org.junit.jupiter.api.Test
 class UnreflectionStrategyTest {
     private val owner = "Lunreflection_kotlin_regression;"
     private val invokeDescriptor = "(Ljava/lang/reflect/Method;Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;"
-    private val reflectionInvoke = MethodDescriptor(VirtualType.of("Ljava/lang/reflect/Method;"), "invoke",
+    private val reflectionInvoke = MethodSignature(VirtualType.of("Ljava/lang/reflect/Method;"), "invoke",
         "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;")
     // A reflective call's effect is its reflected target's, so the pure targets are the ones declared pure.
     private val purePolicy = ReflectionPolicy(
         safeClasses = setOf("Ljava/lang/Class;", "Ljava/lang/reflect/Method;", "Ljava/lang/String;", "Ljava/lang/Integer;", "Ljava/util/Comparator;")
             .map(VirtualType::of).toSet(),
         methodEffects = listOf(
-            MethodDescriptor(VirtualType.of("Ljava/lang/String;"), "toString", "()Ljava/lang/String;"),
-            MethodDescriptor(VirtualType.of("Ljava/lang/String;"), "length", "()I"),
-            MethodDescriptor(VirtualType.of("Ljava/util/Comparator;"), "naturalOrder", "()Ljava/util/Comparator;"),
+            MethodSignature(VirtualType.of("Ljava/lang/String;"), "toString", "()Ljava/lang/String;"),
+            MethodSignature(VirtualType.of("Ljava/lang/String;"), "length", "()I"),
+            MethodSignature(VirtualType.of("Ljava/util/Comparator;"), "naturalOrder", "()Ljava/util/Comparator;"),
         ).associateWith { SideEffectLevel.NONE },
     )
 

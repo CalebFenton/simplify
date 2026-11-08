@@ -37,18 +37,18 @@ class Launcher(
         val initialInstructionCount: Int,
         val finalInstructionCount: Int,
         val runTimeMillis: Long,
-        failedMethods: List<String>,
-        skippedMethods: List<String>,
-        passLimitReachedMethods: List<String>,
+        failedMethods: List<MethodSignature>,
+        skippedMethods: List<MethodSignature>,
+        passLimitReachedMethods: List<MethodSignature>,
         counts: Map<String, Int>,
     ) {
         /** Methods that threw or whose strategies produced a rejected edit; each one is a defect. */
-        val failedMethods: List<String> = Collections.unmodifiableList(failedMethods.toList())
+        val failedMethods: List<MethodSignature> = Collections.unmodifiableList(failedMethods.toList())
         /** Methods left unoptimized because their analysis was partial. */
-        val skippedMethods: List<String> = Collections.unmodifiableList(skippedMethods.toList())
+        val skippedMethods: List<MethodSignature> = Collections.unmodifiableList(skippedMethods.toList())
         val failedMethodCount: Int get() = failedMethods.size
         val skippedMethodCount: Int get() = skippedMethods.size
-        val passLimitReachedMethods: List<String> = Collections.unmodifiableList(passLimitReachedMethods.toList())
+        val passLimitReachedMethods: List<MethodSignature> = Collections.unmodifiableList(passLimitReachedMethods.toList())
         val optimizationCounts: Map<String, Int> = Collections.unmodifiableMap(LinkedHashMap(counts))
     }
 
@@ -84,9 +84,9 @@ class Launcher(
         val targets = services.currentSnapshot.concreteApplicationMethodSignatures().filter { matches(it, options) }
         val initialCount = instructionCount(classIndex, targets)
         var optimized = 0
-        val failures = mutableListOf<String>()
-        val skips = mutableListOf<String>()
-        val passLimits = mutableListOf<String>()
+        val failures = mutableListOf<MethodSignature>()
+        val skips = mutableListOf<MethodSignature>()
+        val passLimits = mutableListOf<MethodSignature>()
         val counts = emptyCounts(strategies)
         for ((index, signature) in targets.withIndex()) {
             reporter.verbose(1, "(${index + 1} / ${targets.size}) Executing $signature")
@@ -122,9 +122,10 @@ class Launcher(
         return result
     }
 
-    private fun instructionCount(index: ClassIndex, signatures: List<String>) = signatures.sumOf { index.methodView(it)?.instructionCount ?: 0 }
+    private fun instructionCount(index: ClassIndex, signatures: List<MethodSignature>) = signatures.sumOf { index.methodView(it)?.instructionCount ?: 0 }
 
-    private fun matches(signature: String, options: SimplifyOptions): Boolean {
+    private fun matches(method: MethodSignature, options: SimplifyOptions): Boolean {
+        val signature = method.toString()
         if (!options.includeSupportLibrary && SUPPORT_LIBRARY_PATTERN.containsMatchIn(signature)) return false
         if (options.includeFilter?.matcher(signature)?.find() == false) return false
         return options.excludeFilter?.matcher(signature)?.find() != true
@@ -183,11 +184,11 @@ class Launcher(
     private class Reporter(private val options: SimplifyOptions, private val output: PrintStream, private val error: PrintStream) {
         fun normal(message: String) { if (!options.quiet) output.println(message) }
         fun verbose(level: Int, message: String) { if (!options.quiet && options.verbosity >= level) output.println(message) }
-        fun methodFailure(signature: String, failure: Throwable) {
+        fun methodFailure(signature: MethodSignature, failure: Throwable) {
             error.println("Exception executing or optimizing $signature; skipping")
             failure.printStackTrace(error)
         }
-        fun rejectedEdit(signature: String, rejection: Optimizer.Rejection) {
+        fun rejectedEdit(signature: MethodSignature, rejection: Optimizer.Rejection) {
             error.println(
                 "${rejection.strategy} produced an edit of $signature that the method editor rejected: " +
                     rejection.reason.describe(),

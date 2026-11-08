@@ -521,36 +521,32 @@ class ExecutionSession internal constructor(
         node: ExecutionNode,
         transition: OpArm.ProjectStatic,
     ): Committable = planContained(node) {
-        val field = staticFieldDescriptor(
-            transition.definingClass,
-            transition.fieldDescriptor,
-            transition.fieldType,
-        )
-        val cell = node.frame.staticCell(transition.fieldDescriptor)
+        val field = transition.field
+        val cell = node.frame.staticCell(field.toString())
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
-        if (!resolver.hierarchy.isFrameworkClass(transition.definingClass)) {
+        if (!resolver.hierarchy.isFrameworkClass(transition.field.definingClass)) {
             raiseSynchronousEffect(node, SideEffectLevel.STRONG)
-            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
+            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.field.type))
         }
         val initializationChain = try {
-            resolver.hostInitializationChain(transition.definingClass)
+            resolver.hostInitializationChain(transition.field.definingClass)
         } catch (_: ClassLoadFailure) {
             raiseSynchronousEffect(node, SideEffectLevel.STRONG)
-            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
+            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.field.type))
         }
         val decision = vmServices.reflectionPolicy.decideStaticRead(field, initializationChain)
         raiseSynchronousEffect(node, SideEffectLevel.STRONG)
         if (decision is ReflectionDecision.Denied) {
             node.invocationDiagnostic = "host static policy denied $field by ${decision.rule}"
-            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
+            return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.field.type))
         }
         when (val result = readHostStatic(resolver.classLoader, field)) {
             is HostFieldRead.Returned -> staticProjectionContinuation(node, transition, result.value)
             is HostFieldRead.Unsupported -> {
                 node.invocationDiagnostic = result.diagnostic
-                staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
+                staticProjectionContinuation(node, transition, Value.Unknown(transition.field.type))
             }
             is HostFieldRead.TargetThrew -> planThrow(node, normalizeThrow(result.throwable, node.frame))
             is HostFieldRead.InfrastructureFailure -> hostFailureArm(node, result.cause)
@@ -570,7 +566,7 @@ class ExecutionSession internal constructor(
                 FrameOrigin.Continuation,
             ) { frame ->
                 val value = importHostStaticValue(frame, hostValue)
-                frame.writeHostProjection(transition.fieldDescriptor, value)
+                frame.writeHostProjection(transition.field.toString(), value)
                 frame.assign(transition.register, value)
             },
         ),
@@ -589,7 +585,7 @@ class ExecutionSession internal constructor(
                 OnUnbuildable.SKIP_ONE,
                 FrameOrigin.Continuation,
             ) { frame ->
-                frame.writeHostProjection(transition.fieldDescriptor, value)
+                frame.writeHostProjection(transition.field.toString(), value)
                 frame.assign(transition.register, value)
             },
         ),
@@ -792,7 +788,7 @@ class ExecutionSession internal constructor(
                     // method -- the only `nextAddress` shape decision 5 permits -- and carried on the
                     // callee's activation until its `return` needs it.
                     val constructorReceiver = if (
-                        transition.target.name == "<init>" && receiverType == plan.view.definingClass
+                        transition.target.isConstructor && receiverType == plan.view.definingClass
                     ) {
                         (arguments.firstOrNull() as? Value.Known)?.raw as? HeapRef
                     } else null
@@ -1098,11 +1094,11 @@ class ExecutionSession internal constructor(
     }
 
     private fun constructorReceiver(call: PreparedInvocation, node: ExecutionNode): HeapRef? {
-        if (call.target.name != "<init>") return null
+        if (!call.target.isConstructor) return null
         val ref = (call.receiver as? Value.Known)?.raw as? HeapRef ?: return null
         val runtimeType = node.frame.heapObject(ref)?.type ?: return null
         if (!resolver.hierarchy.isSubtypeOf(runtimeType, call.target.definingClass)) return null
-        val enclosingConstructor = node.view.signature.substringAfter("->").startsWith("<init>(")
+        val enclosingConstructor = node.view.signature.isConstructor
         // The outer guest constructor owns final completion. Marking after its base call would make a later
         // throw from the outer constructor look like successful initialization.
         if (
@@ -1301,7 +1297,7 @@ class ExecutionSession internal constructor(
     ): Committable {
         val receiver = arguments.firstOrNull()
         val constructorReceiver = if (
-            transition.target.name == "<init>" && receiverType == transition.target.definingClass
+            transition.target.isConstructor && receiverType == transition.target.definingClass
         ) {
             (receiver as? Value.Known)?.raw as? HeapRef
         } else null

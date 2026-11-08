@@ -49,7 +49,7 @@ internal class SGetOp(
         val cell = frame.staticCell(resolved.descriptor)
         if (cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             return OpExecution.single(
-                OpArm.ProjectStatic(destRegister, resolved.definingClass, resolved.descriptor, resolved.type),
+                OpArm.ProjectStatic(destRegister, resolved.field),
             )
         }
         val stored = frame.getStaticField(resolved.definingClass, resolved.descriptor)

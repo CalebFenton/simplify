@@ -50,7 +50,7 @@ class ClassInitTest {
         val inherited = classIndex.lookupMethod(HEIR, ClassIndex.CLASS_INITIALIZER_DESCRIPTOR)
         assertTrue(
             inherited is MethodLookup.Runnable &&
-                inherited.view.signature == "${GRANDPARENT.descriptor}-><clinit>()V",
+                inherited.view.signature.toString() == "${GRANDPARENT.descriptor}-><clinit>()V",
             "the ancestor-searching lookup hands back the SUPERCLASS's initializer: $inherited",
         )
         assertEquals(
@@ -96,7 +96,7 @@ class ClassInitTest {
         val plan = defaultInvoker(classIndex).planClassInit(plannerFrame(), CHILD)
         assertEquals(GRANDPARENT.descriptor, plan.context?.activeInitializer?.type?.descriptor)
         assertEquals(
-            "${GRANDPARENT.descriptor}-><clinit>()V", plan.context?.activeInitializer?.view?.signature,
+            "${GRANDPARENT.descriptor}-><clinit>()V", plan.context?.activeInitializer?.view?.signature?.toString(),
             "and the view is the ancestor's own declared initializer",
         )
     }
@@ -144,7 +144,7 @@ class ClassInitTest {
             .frame.peekRegister(1)
         assertTrue(allocation is Value.Known && allocation.raw is HeapRef, "the <clinit> allocated: $allocation")
         val ref = (allocation as Value.Known).raw as HeapRef
-        val resumed = nodesIn(graph, viewOf(TRIGGER, "newWitness()I").signature).last { it.outcome != null }
+        val resumed = nodesIn(graph, viewOf(TRIGGER, "newWitness()I").signature.toString()).last { it.outcome != null }
         val array = resumed.frame.heapObject(ref)
         assertTrue(array is HeapObject.TrackedArray, "the initializer's object is on the caller's heap: $array")
         assertEquals(3, (array as HeapObject.TrackedArray).length)
@@ -326,7 +326,7 @@ class ClassInitTest {
     }
 
     private fun nodesIn(graph: ExecutionGraph, signature: String): List<ExecutionNode> =
-        allNodes(graph).filter { it.view.signature == signature }
+        allNodes(graph).filter { it.view.signature.toString() == signature }
 
     /**
      * Every class whose `<clinit>` actually RAN as a class-init prelude, in the order the runs started.

@@ -564,13 +564,13 @@ class ClassIndexTest {
     fun staticFieldResolutionSearchesSuperinterfacesBeforeTheSuperclass(@TempDir temp: Path) {
         val index = indexOf(temp, STATIC_IFACE, STATIC_SUBIFACE, STATIC_PARENT, STATIC_CHILD, STATIC_IMPL)
 
-        val throughChild = index.resolveStaticField(t("Lsf/Child;"), "X", "I") as StaticFieldLookup.Resolved
-        val throughImplementor = index.resolveStaticField(t("Lsf/Impl;"), "X", "I") as StaticFieldLookup.Resolved
+        val throughChild = index.resolveStaticField(FieldSignature(t("Lsf/Child;"), "X", t("I"))) as StaticFieldLookup.Resolved
+        val throughImplementor = index.resolveStaticField(FieldSignature(t("Lsf/Impl;"), "X", t("I"))) as StaticFieldLookup.Resolved
 
         assertEquals(t("Lsf/Iface;"), throughChild.definingClass)
         assertEquals("Lsf/Iface;->X:I", throughChild.descriptor)
         assertEquals(t("Lsf/Iface;"), throughImplementor.definingClass)
-        assertTrue(index.resolveStaticField(t("Lsf/Impl;"), "X", "J") is StaticFieldLookup.NoSuchField)
+        assertTrue(index.resolveStaticField(FieldSignature(t("Lsf/Impl;"), "X", t("J"))) is StaticFieldLookup.NoSuchField)
     }
 
     /** ART throws `IncompatibleClassChangeError` when a default-method conflict is invoked, after the null check. */
@@ -614,7 +614,7 @@ class ClassIndexTest {
     @Test
     fun oneApplicationOverrideOfAFrameworkMethodLeavesDispatchAmbiguous(@TempDir temp: Path) {
         val index = indexOf(temp, TO_STRING_OVERRIDE)
-        val target = MethodDescriptor(VirtualType.OBJECT, "toString", "()Ljava/lang/String;")
+        val target = MethodSignature(VirtualType.OBJECT, "toString", "()Ljava/lang/String;")
 
         val lookup = index.currentResolver().resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Override;"), receiverType = null)
 
@@ -634,7 +634,7 @@ class ClassIndexTest {
     @Test
     fun anInstantiableClassWithABodylessSelectionIsADispatchCandidate(@TempDir temp: Path) {
         val index = indexOf(temp, NATIVE_BASE, NATIVE_SUB)
-        val target = MethodDescriptor(t("Lnb/Base;"), "f", "()I")
+        val target = MethodSignature(t("Lnb/Base;"), "f", "()I")
 
         val lookup = index.currentResolver().resolveInvocation(target, InvokeKind.VIRTUAL, t("Lnb/Base;"), receiverType = null)
 
@@ -678,7 +678,7 @@ class ClassIndexTest {
         val owner = VmServices(index)
         val view = index.requireMethodView(DYNAMIC_CALLER.descriptor, "call(Ldynamic/Dispatch;)I")
         val loadedType = VirtualType.of("Ldynamic/OnlyImplementation;")
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Ljava/lang/Class;"),
             "forName",
             "(Ljava/lang/String;)Ljava/lang/Class;",
@@ -717,11 +717,11 @@ class ClassIndexTest {
         val DYNAMIC_FINAL = VirtualType.of("Ldynamic/Final;")
         val DYNAMIC_SITE = VirtualType.of("Ldynamic/UnrelatedSite;")
         val DYNAMIC_CALLER = VirtualType.of("Ldynamic/Caller;")
-        val DYNAMIC_TARGET = MethodDescriptor(DYNAMIC_INTERFACE, "value", "()I")
-        val DYNAMIC_FINAL_TARGET = MethodDescriptor(DYNAMIC_FINAL, "value", "()I")
-        val ARRAY_CLONE_TARGET = MethodDescriptor(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
+        val DYNAMIC_TARGET = MethodSignature(DYNAMIC_INTERFACE, "value", "()I")
+        val DYNAMIC_FINAL_TARGET = MethodSignature(DYNAMIC_FINAL, "value", "()I")
+        val ARRAY_CLONE_TARGET = MethodSignature(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
         val REFERENCE_ARRAY_CLONE_TARGET =
-            MethodDescriptor(VirtualType.of("[Ljava/lang/String;"), "clone", "()Ljava/lang/Object;")
+            MethodSignature(VirtualType.of("[Ljava/lang/String;"), "clone", "()Ljava/lang/Object;")
 
         const val CLASS_FOR_NAME_SITE =
             "invoke-static {v0}, Ljava/lang/Class;->forName(Ljava/lang/String;)Ljava/lang/Class;"

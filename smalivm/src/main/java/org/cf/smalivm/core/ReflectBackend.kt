@@ -12,7 +12,7 @@ internal class ReflectBackend(
     override val name: String get() = "reflection"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe {
-        val constructor = call.kind == InvokeKind.DIRECT && call.target.name == "<init>"
+        val constructor = call.kind == InvokeKind.DIRECT && call.target.isConstructor
         if (call.kind == InvokeKind.SUPER || (call.kind == InvokeKind.DIRECT && !constructor)) {
             return BackendProbe.Declined("reflection does not implement ${call.kind} special invocation")
         }
@@ -36,7 +36,7 @@ internal class ReflectBackend(
     }
 
     /** The policy's denial of [target], or null when it is authorized. */
-    private fun authorization(target: MethodDescriptor, initializesClass: Boolean): String? {
+    private fun authorization(target: MethodSignature, initializesClass: Boolean): String? {
         val initializationChain = if (initializesClass) {
             try {
                 resolver.hostInitializationChain(target.definingClass)
@@ -60,7 +60,7 @@ internal class ReflectBackend(
         val parameterClasses = classes.subList(1, classes.lastIndex).toTypedArray()
         val returnClass = classes.last()
 
-        return if (call.kind == InvokeKind.DIRECT && call.target.name == "<init>") {
+        return if (call.kind == InvokeKind.DIRECT && call.target.isConstructor) {
             invokeConstructor(declaringClass, parameterClasses, call)
         } else {
             invokeMethod(declaringClass, parameterClasses, returnClass, call)
@@ -165,12 +165,12 @@ internal class ReflectBackend(
 
     private companion object {
         val REFLECTIVE_INVOCATIONS = setOf(
-            MethodDescriptor(
+            MethodSignature(
                 VirtualType.of("Ljava/lang/reflect/Method;"),
                 "invoke",
                 "(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;",
             ),
-            MethodDescriptor(
+            MethodSignature(
                 VirtualType.of("Ljava/lang/reflect/Constructor;"),
                 "newInstance",
                 "([Ljava/lang/Object;)Ljava/lang/Object;",

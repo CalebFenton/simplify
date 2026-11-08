@@ -143,7 +143,7 @@ class InvocationServicesTest {
 
     private fun callerView() = classIndex.requireMethodView("Lcalls/caller;", "callsCalleeAndReturnsItsResult()I")
 
-    private fun returning(target: MethodDescriptor, value: Int) = EmulatorRegistration(
+    private fun returning(target: MethodSignature, value: Int) = EmulatorRegistration(
         EmulatorMatcher.Exact(target),
         EmulatorCapability(handlesUnknownArguments = false),
         SideEffectLevel.NONE,
@@ -156,7 +156,7 @@ class InvocationServicesTest {
 
 
     private fun exactRegistration(
-        target: MethodDescriptor,
+        target: MethodSignature,
         handlesUnknownArguments: Boolean,
         effect: SideEffectLevel,
     ) = EmulatorRegistration(
@@ -169,7 +169,7 @@ class InvocationServicesTest {
     private fun predicateRegistration(
         id: String,
         effect: SideEffectLevel,
-        predicate: (MethodDescriptor) -> Boolean,
+        predicate: (MethodSignature) -> Boolean,
     ) = EmulatorRegistration(
         EmulatorMatcher.Predicate(id, predicate),
         EmulatorCapability(handlesUnknownArguments = false),
@@ -178,11 +178,11 @@ class InvocationServicesTest {
     )
 
     private fun method(definingClass: String, name: String, proto: String) =
-        MethodDescriptor(type(definingClass), name, proto)
+        MethodSignature(type(definingClass), name, proto)
 
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 
     private companion object {
-        val RETURNS_SEVEN = MethodDescriptor(VirtualType.of("Lcalls/callee;"), "returnsSeven", "()I")
+        val RETURNS_SEVEN = MethodSignature(VirtualType.of("Lcalls/callee;"), "returnsSeven", "()I")
     }
 }

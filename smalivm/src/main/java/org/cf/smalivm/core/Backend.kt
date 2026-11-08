@@ -8,19 +8,19 @@ import java.util.Collections
 
 /** Scheduler-local call input with one atomic value per register word in the invoke instruction. */
 class Invocation private constructor(
-    val target: MethodDescriptor,
+    val target: MethodSignature,
     val kind: InvokeKind,
     internal val registerFrameValues: List<FrameValue>,
     @Suppress("UNUSED_PARAMETER") atomic: Unit,
 ) {
-    constructor(target: MethodDescriptor, kind: InvokeKind, registerValues: List<Value>) :
+    constructor(target: MethodSignature, kind: InvokeKind, registerValues: List<Value>) :
         this(target, kind, registerValues.map(FrameValue::plain), Unit)
 
     val registerValues: List<Value> = registerFrameValues.map(FrameValue::value)
 
     companion object {
         internal fun fromFrameValues(
-            target: MethodDescriptor,
+            target: MethodSignature,
             kind: InvokeKind,
             registerValues: List<FrameValue>,
         ): Invocation = Invocation(target, kind, registerValues, Unit)
@@ -29,7 +29,7 @@ class Invocation private constructor(
 
 /** One resolved call at the backend boundary, with one value per logical parameter. */
 class PreparedInvocation private constructor(
-    val target: MethodDescriptor,
+    val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
     val returnType: VirtualType,
@@ -39,7 +39,7 @@ class PreparedInvocation private constructor(
     @Suppress("UNUSED_PARAMETER") atomic: Unit,
 ) {
     constructor(
-        target: MethodDescriptor,
+        target: MethodSignature,
         callerClass: VirtualType,
         kind: InvokeKind,
         returnType: VirtualType,
@@ -62,7 +62,7 @@ class PreparedInvocation private constructor(
 
     companion object {
         internal fun fromFrameValues(
-            target: MethodDescriptor,
+            target: MethodSignature,
             callerClass: VirtualType,
             kind: InvokeKind,
             returnType: VirtualType,
@@ -96,11 +96,11 @@ data class ProbeArgument(
 )
 
 /** A reflected method or constructor; invoking it initializes its class when it is static or a constructor. */
-data class ReflectedTarget(val method: MethodDescriptor, val initializesClass: Boolean)
+data class ReflectedTarget(val method: MethodSignature, val initializesClass: Boolean)
 
 /** Immutable metadata used before one backend accepts execution. */
 class BackendInvocation internal constructor(
-    val target: MethodDescriptor,
+    val target: MethodSignature,
     val callerClass: VirtualType,
     val kind: InvokeKind,
     val returnType: VirtualType,
@@ -136,13 +136,16 @@ private fun Value.toProbeArgument(frame: Frame): ProbeArgument = ProbeArgument(
 /** What a reflected method or constructor names, or null when the host cannot describe it. */
 internal fun Executable.reflectedTargetOrNull(): ReflectedTarget? = hostBoundary({ null }) {
     val owner = virtualTypeOfHostClass(declaringClass)
-    val parameters = parameterTypes.joinToString("") { virtualTypeOfHostClass(it).descriptor }
+    val parameters = parameterTypes.map(::virtualTypeOfHostClass)
     when (this) {
         is Method -> ReflectedTarget(
-            MethodDescriptor(owner, name, "($parameters)${virtualTypeOfHostClass(returnType).descriptor}"),
+            MethodSignature(owner, name, parameters, virtualTypeOfHostClass(returnType)),
             initializesClass = Modifier.isStatic(modifiers),
         )
-        is Constructor<*> -> ReflectedTarget(MethodDescriptor(owner, "<init>", "($parameters)V"), initializesClass = true)
+        is Constructor<*> -> ReflectedTarget(
+            MethodSignature(owner, MethodSignature.CONSTRUCTOR_NAME, parameters, VirtualType.of("V")),
+            initializesClass = true,
+        )
         else -> null
     }
 }

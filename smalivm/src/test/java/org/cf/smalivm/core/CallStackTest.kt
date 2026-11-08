@@ -37,12 +37,12 @@ class CallStackTest {
         // caller@0 (depth 0) -> callee@0, callee@1 (depth 1) -> caller@3, caller@4 (depth 0 again).
         val session = callerSession("callsCalleeAndReturnsItsResult()I")
         assertEquals(0, session.callStack.depth, "before anything runs, the stack is the entry activation alone")
-        assertEquals(CALLER_RETURNS_RESULT, session.callStack.top.view.signature)
+        assertEquals(CALLER_RETURNS_RESULT, session.callStack.top.view.signature.toString())
 
         val walk = mutableListOf<Triple<String, Int, Int>>()
         while (true) {
             val node = session.step() ?: break
-            walk.add(Triple(node.view.signature.substringAfter("->"), node.address, session.callStack.depth))
+            walk.add(Triple(node.view.signature.nameAndProto, node.address, session.callStack.depth))
             assertEquals(node.callDepth, session.callStack.depth, "the session's stack is the current node's")
         }
 
@@ -85,7 +85,7 @@ class CallStackTest {
         assertSame(callerNodes[0].activation, calleeNodes[0].activation.caller)
         val stack = CallStack.of(calleeNodes[0].activation)
         assertEquals(
-            listOf(CALLEE_RETURNS_SEVEN, CALLER_RETURNS_RESULT), stack.frames.map { it.view.signature },
+            listOf(CALLEE_RETURNS_SEVEN, CALLER_RETURNS_RESULT), stack.frames.map { it.view.signature.toString() },
             "innermost activation first, the entry activation last",
         )
         assertEquals(1, stack.depth, "depth is frames.size - 1, so it matches ExecutionNode.callDepth")
@@ -170,7 +170,7 @@ class CallStackTest {
         assertEquals(listOf(Outcome.Returned(Value.Known(5, int))), session.outcomes)
         assertEquals(0, session.callStack.depth)
         assertEquals(
-            listOf("Lspine/spine;->returnFive()I"), session.callStack.frames.map { it.view.signature },
+            listOf("Lspine/spine;->returnFive()I"), session.callStack.frames.map { it.view.signature.toString() },
             "a run with no call has a one-frame stack, not an empty one",
         )
     }

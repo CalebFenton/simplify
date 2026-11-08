@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 
 /**
  * Queries over the paths one run executed (spec §9). An answer describes only the paths the run walked, so it is
@@ -69,7 +68,7 @@ open class ExploredPaths internal constructor(protected val graph: ExecutionGrap
         return when (field) {
             is Agreement.Agreed -> Agreement.Agreed(
                 ReflectedFieldMetadata(
-                    ImmutableFieldReference(field.value.declaringType.descriptor, field.value.name, field.value.fieldType.descriptor),
+                    FieldSignature(field.value.declaringType, field.value.name, field.value.fieldType).toFieldReference(),
                     field.value.modifiers,
                 ),
             )

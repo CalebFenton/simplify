@@ -9,7 +9,7 @@ object OptimizerTester {
     fun services(path: File = File("src/test/resources/smali"), reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults()): VmServices =
         VmServices(ClassIndex.open(path, 20), reflectionPolicy)
 
-    fun execute(services: VmServices, signature: String): ExecutionGraph =
+    fun execute(services: VmServices, signature: MethodSignature): ExecutionGraph =
         services.newSession(requireNotNull(services.classIndex.methodView(signature)), Limits()).run()
 
     /** Runs [strategy] through [Optimizer] for one committed pass over a fixture in `src/test/resources/smali`. */
@@ -20,14 +20,14 @@ object OptimizerTester {
         reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
     ): Optimization {
         val services = services(reflectionPolicy = reflectionPolicy)
-        val signature = "$className->$methodDescriptor"
+        val signature = MethodSignature.parseMember(VirtualType.of(className), methodDescriptor)
         val result = Optimizer(services, Limits(), 1, listOf(strategy)).optimize(signature)
         return Optimization(services, signature, result, reflectionPolicy)
     }
 
     class Optimization internal constructor(
         val services: VmServices,
-        private val signature: String,
+        private val signature: MethodSignature,
         val result: Optimizer.Result,
         private val reflectionPolicy: ReflectionPolicy,
     ) {

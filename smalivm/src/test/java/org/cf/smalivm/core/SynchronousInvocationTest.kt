@@ -124,8 +124,8 @@ class SynchronousInvocationTest {
             val invoke = session.step()!!
 
             assertEquals(1, executions, result.toString())
-            assertTrue(invoke.children.none { it.view.signature == RETURNS_SEVEN_SIGNATURE }, result.toString())
-            assertTrue(session.frontier.none { it.view.signature == RETURNS_SEVEN_SIGNATURE }, result.toString())
+            assertTrue(invoke.children.none { it.view.signature.toString() == RETURNS_SEVEN_SIGNATURE }, result.toString())
+            assertTrue(session.frontier.none { it.view.signature.toString() == RETURNS_SEVEN_SIGNATURE }, result.toString())
         }
     }
 
@@ -148,7 +148,7 @@ class SynchronousInvocationTest {
     @Test
     fun guestCalleeAbortUsesOpaqueContinuationWithoutSelectingAgain() {
         val vm = VmServices(classIndex)
-        val selections = vm.countSelections(MethodDescriptor(VirtualType.of(CALLEE), "spinsForever", "()V"))
+        val selections = vm.countSelections(MethodSignature(VirtualType.of(CALLEE), "spinsForever", "()V"))
         val graph = session(
             CALLER,
             "callsSpinningCallee()I",
@@ -173,7 +173,7 @@ class SynchronousInvocationTest {
         val callerView = view(FORKING_CALLER, "forksThenCallsReturnsSeven(I)I")
         val invokeAt = callerView.nextAddress(0)
         val session = vm.newSession(callerView, Limits(), null) { address, method, resolver ->
-            if (method.signature == RETURNS_SEVEN_SIGNATURE && address == 0) {
+            if (method.signature.toString() == RETURNS_SEVEN_SIGNATURE && address == 0) {
                 object : Op(address) {
                     override val name = "fail-in-guest"
                     override fun execute(frame: Frame): OpExecution = throw cause
@@ -192,7 +192,7 @@ class SynchronousInvocationTest {
         assertEquals(invokeAt, invoke.address)
         assertSame(cause, failedCallee.outcome.hostFailure)
         assertEquals(AbortReason.HOST_FAILURE, failedCallee.outcome.abortReason)
-        assertEquals(RETURNS_SEVEN_SIGNATURE, failedCallee.view.signature)
+        assertEquals(RETURNS_SEVEN_SIGNATURE, failedCallee.view.signature.toString())
         assertEquals(SideEffectLevel.STRONG, invoke.sideEffectLevel)
         assertSame(invoke.activation, continuation.activation)
         assertEquals(callerView.nextAddress(invokeAt), continuation.address)
@@ -251,7 +251,7 @@ class SynchronousInvocationTest {
         val wide = returning(
             CALLER,
             "passesAWideArgument()J",
-            MethodDescriptor(VirtualType.of(CALLEE), "identityLong", "(J)J"),
+            MethodSignature(VirtualType.of(CALLEE), "identityLong", "(J)J"),
             HostReturn.Value(HostValue.Primitive(43L, longType)),
         )
         assertEquals(Value.Known(43L, longType), wide.outcomes.single().returnedValue())
@@ -275,7 +275,7 @@ class SynchronousInvocationTest {
         val voidGraph = returning(
             CALLER,
             "callsVoidCallee()I",
-            MethodDescriptor(VirtualType.of(CALLEE), "returnsNothing", "()V"),
+            MethodSignature(VirtualType.of(CALLEE), "returnsNothing", "()V"),
             HostReturn.Void,
         )
         assertEquals(Value.Known(3, intType), voidGraph.outcomes.single().returnedValue())
@@ -314,7 +314,7 @@ class SynchronousInvocationTest {
 
         assertEquals(1, invokeAttempts.size)
         assertEquals(1, executions)
-        assertTrue(nodes.none { it.view.signature == THROWS_UNCAUGHT_SIGNATURE })
+        assertTrue(nodes.none { it.view.signature.toString() == THROWS_UNCAUGHT_SIGNATURE })
     }
 
     @Test
@@ -409,7 +409,7 @@ class SynchronousInvocationTest {
         val vm = VmServices(classIndex)
         var executions = 0
         vm.emulate(
-            MethodDescriptor(VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;"), "arrayNeedsInit", "([I)I"),
+            MethodSignature(VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;"), "arrayNeedsInit", "([I)I"),
         ) {
             executions++
             results.removeFirst()
@@ -436,7 +436,7 @@ class SynchronousInvocationTest {
     private fun returning(
         className: String,
         descriptor: String,
-        target: MethodDescriptor,
+        target: MethodSignature,
         result: HostReturn,
     ): ExecutionGraph {
         val vm = VmServices(classIndex)
@@ -450,10 +450,10 @@ class SynchronousInvocationTest {
         const val FORKING_CALLER = "Lcalls/resolution_caller;"
         const val RETURNS_SEVEN_SIGNATURE = "Lcalls/callee;->returnsSeven()I"
         const val THROWS_UNCAUGHT_SIGNATURE = "Lcalls/callee;->throwsUncaught()I"
-        val RETURNS_SEVEN = MethodDescriptor(VirtualType.of(CALLEE), "returnsSeven", "()I")
-        val THROWS_UNCAUGHT = MethodDescriptor(VirtualType.of(CALLEE), "throwsUncaught", "()I")
-        val NATIVE_CALLEE = MethodDescriptor(VirtualType.of(CALLEE), "nativeCallee", "()I")
-        val IDENTITY_OBJECT = MethodDescriptor(
+        val RETURNS_SEVEN = MethodSignature(VirtualType.of(CALLEE), "returnsSeven", "()I")
+        val THROWS_UNCAUGHT = MethodSignature(VirtualType.of(CALLEE), "throwsUncaught", "()I")
+        val NATIVE_CALLEE = MethodSignature(VirtualType.of(CALLEE), "nativeCallee", "()I")
+        val IDENTITY_OBJECT = MethodSignature(
             VirtualType.of("Linvoke_review_callee;"),
             "identityObject",
             "(Ljava/lang/Object;)Ljava/lang/Object;",

@@ -379,7 +379,7 @@ class ExceptionHandlerBehaviorTest {
         )
         val calleeSignature = "$CLASS_NAME->throwInCallee(Ljava/lang/Throwable;)V"
         val session = CoreTester.vmServices.newSession(forged, Limits(), null) { address, currentView, resolver ->
-            if (currentView.signature == calleeSignature && address == 0) {
+            if (currentView.signature.toString() == calleeSignature && address == 0) {
                 val parameter = currentView.parameters.single().register
                 object : Op(address) {
                     override val name = "equivalent-malformed-throws"

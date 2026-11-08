@@ -51,7 +51,7 @@ internal class FieldLookupEmulator(
     ): TrackedFieldValue? {
         if (declaredOnly) {
             return resolver.declaredFields(requestedType)
-                .firstOrNull { it.name == name }
+                .firstOrNull { it.field.name == name }
                 ?.toTrackedField()
         }
         return publicVirtualField(requestedType, name, mutableSetOf())
@@ -64,7 +64,7 @@ internal class FieldLookupEmulator(
     ): TrackedFieldValue? {
         if (!visited.add(type)) return null
         resolver.declaredFields(type)
-            .firstOrNull { it.name == name && Modifier.isPublic(it.modifiers) }
+            .firstOrNull { it.field.name == name && Modifier.isPublic(it.modifiers) }
             ?.let { return it.toTrackedField() }
         for (interfaceType in resolver.hierarchy.directInterfaces(type)) {
             publicVirtualField(interfaceType, name, visited)?.let { return it }
@@ -85,10 +85,10 @@ internal class FieldLookupEmulator(
 }
 
 private fun FieldDeclaration.toTrackedField(): TrackedFieldValue = TrackedFieldValue(
-    declaringType,
-    name,
-    descriptor,
-    type,
+    field.definingClass,
+    field.name,
+    field.toString(),
+    field.type,
     modifiers,
     visibilityOf(modifiers),
     if (Modifier.isStatic(modifiers)) FieldStorage.STATIC else FieldStorage.INSTANCE,

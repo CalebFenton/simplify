@@ -67,7 +67,7 @@ class CallRoutingReliabilityTest {
         assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
         assertEquals(List(3) { Outcome.Aborted(reason) }, graph.outcomes)
         val calleeTerminals = allNodes(graph.nodePile(0).single()).filter {
-            it.view.signature == CALLEE && it.outcome != null
+            it.view.signature.toString() == CALLEE && it.outcome != null
         }
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Returned })
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Threw })

@@ -192,7 +192,7 @@ class HostExceptionBoundaryBehaviorTest {
         )
     }
 
-    private fun reflectionVm(vararg extraTargets: MethodDescriptor): VmServices = VmServices(
+    private fun reflectionVm(vararg extraTargets: MethodSignature): VmServices = VmServices(
         CoreTester.classIndex,
         ReflectionPolicy(exactSafeMethods = setOf(THROW_NESTED, *extraTargets)),
     )
@@ -226,27 +226,27 @@ class HostExceptionBoundaryBehaviorTest {
         val EXCEPTION: VirtualType = VirtualType.of("Ljava/lang/Exception;")
         val INTERNAL_ERROR: VirtualType = VirtualType.of("Ljava/lang/InternalError;")
         val OBJECT: VirtualType = VirtualType.OBJECT
-        val THROW_NESTED = MethodDescriptor(
+        val THROW_NESTED = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwNested",
             "()V",
         )
-        val MUTATE_THEN_THROW = MethodDescriptor(
+        val MUTATE_THEN_THROW = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "mutateThenThrow",
             "(Ljava/lang/StringBuilder;)V",
         )
-        val STRING_BUILDER_TO_STRING = MethodDescriptor(
+        val STRING_BUILDER_TO_STRING = MethodSignature(
             STRING_BUILDER,
             "toString",
             "()Ljava/lang/String;",
         )
-        val THROW_FATAL = MethodDescriptor(
+        val THROW_FATAL = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwFatal",
             "()V",
         )
-        val MISSING_ON_HOST = MethodDescriptor(
+        val MISSING_ON_HOST = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "missingOnHost",
             "()I",

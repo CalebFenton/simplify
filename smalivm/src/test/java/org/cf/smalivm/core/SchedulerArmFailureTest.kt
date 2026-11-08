@@ -99,7 +99,7 @@ class SchedulerArmFailureTest {
     @Test
     fun planningFailureAbortsOnlyItsArmAndKeepsTheSibling() {
         val invalidInvoke = OpArm.Invoke(
-            MethodDescriptor(VirtualType.of("Lcalls/callee;"), "identityInt", "(I)I"),
+            MethodSignature(VirtualType.of("Lcalls/callee;"), "identityInt", "(I)I"),
             intArrayOf(99),
             InvokeKind.STATIC,
         )
@@ -119,7 +119,7 @@ class SchedulerArmFailureTest {
     @Test
     fun planningFailureKeepsADirectReturnSibling() {
         val invalidInvoke = OpArm.Invoke(
-            MethodDescriptor(VirtualType.of("Lcalls/callee;"), "identityInt", "(I)I"),
+            MethodSignature(VirtualType.of("Lcalls/callee;"), "identityInt", "(I)I"),
             intArrayOf(99),
             InvokeKind.STATIC,
         )
@@ -136,7 +136,7 @@ class SchedulerArmFailureTest {
     @Test
     fun virtualMachineErrorDuringPlanningEscapesWithoutCommittingSibling() {
         val fatal = StackOverflowError("fatal planning failure")
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwNested",
             "()V",

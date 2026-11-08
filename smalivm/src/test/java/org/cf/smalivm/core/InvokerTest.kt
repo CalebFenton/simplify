@@ -27,7 +27,7 @@ class InvokerTest {
         classIndex.requireMethodView(className, descriptor)
 
     private fun descriptorOf(className: String, name: String, proto: String) =
-        MethodDescriptor(VirtualType.of(className), name, proto)
+        MethodSignature(VirtualType.of(className), name, proto)
 
     /** The address of the method's one `invoke-static`, read off the decoded instructions. */
     private fun invokeAddressIn(view: MethodView): Int =
@@ -192,7 +192,7 @@ class InvokerTest {
         // The callee must have run: without this, the claims below also hold for a call that never happened.
         val calleeEntry = graph.nodePile(invokeAddressIn(view)).single().children.single()
         assertEquals(
-            "Lcalls/callee;->throwsUncaught()I", calleeEntry.view.signature,
+            "Lcalls/callee;->throwsUncaught()I", calleeEntry.view.signature.toString(),
             "the invoke's one child is the callee's entry node, so the callee genuinely executed",
         )
         assertEquals(1, calleeEntry.callDepth, "and it ran one frame down")
@@ -212,7 +212,7 @@ class InvokerTest {
         // An invoke node that aborted itself would also answer at this address; the callee must have run.
         assertEquals(
             "Lcalls/callee;->throwsUncaught()I",
-            graph.nodePile(invokeAddressIn(view)).single().children.single().view.signature,
+            graph.nodePile(invokeAddressIn(view)).single().children.single().view.signature.toString(),
             "the callee has to have run for the effect below to describe the call",
         )
         assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(invokeAddressIn(view)))
@@ -353,33 +353,33 @@ class InvokerTest {
         val parent = VirtualType.of("Lparent_class;")
         val impl = VirtualType.of("Linvoke_single_impl;")
         val direct = classIndex.currentResolver().resolveInvocation(
-            MethodDescriptor(child, "<init>", "()V"), InvokeKind.DIRECT, child, child,
+            MethodSignature(child, "<init>", "()V"), InvokeKind.DIRECT, child, child,
         ) as InvocationLookup.Resolved
-        assertEquals("Lchild_class;-><init>()V", (direct.lookup as MethodLookup.Runnable).view.signature)
+        assertEquals("Lchild_class;-><init>()V", (direct.lookup as MethodLookup.Runnable).view.signature.toString())
 
         val superCall = classIndex.currentResolver().resolveInvocation(
-            MethodDescriptor(parent, "parentMethod", "()Ljava/lang/String;"), InvokeKind.SUPER, child, child,
+            MethodSignature(parent, "parentMethod", "()Ljava/lang/String;"), InvokeKind.SUPER, child, child,
         ) as InvocationLookup.Resolved
         assertEquals(
             "Lparent_class;->parentMethod()Ljava/lang/String;",
-            (superCall.lookup as MethodLookup.Runnable).view.signature,
+            (superCall.lookup as MethodLookup.Runnable).view.signature.toString(),
         )
 
         val virtual = classIndex.currentResolver().resolveInvocation(
-            MethodDescriptor(parent, "abstractMethod", "()Ljava/lang/String;"), InvokeKind.VIRTUAL, child, child,
+            MethodSignature(parent, "abstractMethod", "()Ljava/lang/String;"), InvokeKind.VIRTUAL, child, child,
         ) as InvocationLookup.Resolved
         assertEquals(
             "Lchild_class;->abstractMethod()Ljava/lang/String;",
-            (virtual.lookup as MethodLookup.Runnable).view.signature,
+            (virtual.lookup as MethodLookup.Runnable).view.signature.toString(),
         )
 
         val iface = classIndex.currentResolver().resolveInvocation(
-            MethodDescriptor(VirtualType.of("Linvoke_single_interface;"), "value", "()I"),
+            MethodSignature(VirtualType.of("Linvoke_single_interface;"), "value", "()I"),
             InvokeKind.INTERFACE,
             impl,
             impl,
         ) as InvocationLookup.Resolved
-        assertEquals("Linvoke_single_impl;->value()I", (iface.lookup as MethodLookup.Runnable).view.signature)
+        assertEquals("Linvoke_single_impl;->value()I", (iface.lookup as MethodLookup.Runnable).view.signature.toString())
     }
 
     @Test
@@ -430,7 +430,7 @@ class InvokerTest {
         val plan = invoker.plan(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))
         assertTrue(plan is InvocationPlan.RunGuest, "a present static method with a body is runnable: $plan")
         val guest = plan as InvocationPlan.RunGuest
-        assertEquals("Lcalls/callee;->identityInt(I)I", guest.view.signature)
+        assertEquals("Lcalls/callee;->identityInt(I)I", guest.view.signature.toString())
         assertEquals(0, guest.entryAddress, "a dex method's code starts at address 0")
         val binding = guest.parameterBindings.single()
         assertEquals(0, binding.register, "`.registers 1` puts the one parameter in v0 -- the HIGHEST register")

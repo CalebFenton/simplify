@@ -103,7 +103,7 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun reflectedNestedCauseSurvivesCatchGetCauseAndRethrow() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwNested",
             "()V",
@@ -130,7 +130,7 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun reflectedCauseCycleImportsEachIdentityOnceAndPreservesTheAlias() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwCauseCycle",
             "()V",
@@ -164,7 +164,7 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun selectedHostThrowableImportReusesTheRootAndPreservesNestedAliasedCycle() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "throwProvided",
             "(Ljava/lang/Throwable;)V",
@@ -209,7 +209,7 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun normallyReturnedHostThrowableImportsItsCauseIdentityAndNullTerminator() {
-        val target = MethodDescriptor(
+        val target = MethodSignature(
             VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
             "returnNestedThrowable",
             "()Ljava/lang/Throwable;",
