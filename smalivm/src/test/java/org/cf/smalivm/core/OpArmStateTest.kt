@@ -33,7 +33,7 @@ class OpArmStateTest {
         assertNull(source.frame.heapObject(sourceRef), "the source summary does not own one arm's allocation")
         assertEquals(
             throws.single { (it.exception as Value.Known).raw == extraRef }.exception,
-            extraEnding.thrownValue(),
+            extraEnding.thrownOrNull(),
         )
         assertNull(extraEnding.heapObject(sourceRef), "separate throw events do not share arm allocations")
         assertNotNull(sourceEnding.heapObject(sourceRef))
@@ -242,7 +242,7 @@ class OpArmStateTest {
 
     /** Every guest throwable in [frame]'s heap, in allocation order. */
     private fun guestThrowables(frame: Frame): List<HeapRef> =
-        (0 until frame.nextHeapId()).map(::HeapRef).filter { frame.heapObject(it) is HeapObject.GuestThrowable }
+        heapRefsOf(frame).filter { frame.heapObject(it) is HeapObject.GuestThrowable }
 
     private data class LargeForkFrame(val view: MethodView, val frame: Frame, val objectRef: HeapRef)
 

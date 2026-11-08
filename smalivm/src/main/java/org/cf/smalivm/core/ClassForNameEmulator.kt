@@ -6,16 +6,9 @@ import org.cf.util.ClassNameUtils
 internal class ClassForNameEmulator(private val classIndex: ClassIndex) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
         val argument = call.arguments.single()
-        if (argument !is EmulatorValue.Known) {
-            return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
-        }
-        val binaryName = argument.javaValue
-        if (binaryName == null) {
-            return targetThrow(VirtualType.of("Ljava/lang/NullPointerException;"), NullPointerException())
-        }
-        if (binaryName !is String) {
-            return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
-        }
+        if (argument !is EmulatorValue.Known) return returnUnknown(call.returnType)
+        val binaryName = argument.javaValue ?: return targetThrew(NullPointerException())
+        if (binaryName !is String) return returnUnknown(call.returnType)
         if (!isClassForNameBinaryName(binaryName)) return classNotFound(binaryName)
 
         val type = try {
@@ -34,21 +27,14 @@ internal class ClassForNameEmulator(private val classIndex: ClassIndex) : Emulat
         }
         val classToken = classIndex.loadClassConstant(type.descriptor)
         if (!indexed && classToken == null) return classNotFound(binaryName)
-        if (classToken == null) {
-            return IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(call.returnType))
-        }
+        if (classToken == null) return returnUnknown(call.returnType)
         return SynchronousCallResult.Returned(
             HostReturn.Value(HostValue.Reference(classToken, call.returnType)),
         )
     }
 
-    private fun classNotFound(binaryName: String): SynchronousCallResult = targetThrow(
-        VirtualType.of("Ljava/lang/ClassNotFoundException;"),
-        ClassNotFoundException(binaryName),
-    )
-
-    private fun targetThrow(type: VirtualType, throwable: Throwable): SynchronousCallResult =
-        SynchronousCallResult.TargetThrew(HostThrowable(type, throwable))
+    private fun classNotFound(binaryName: String): SynchronousCallResult =
+        targetThrew(ClassNotFoundException(binaryName))
 
     private fun isClassForNameBinaryName(name: String): Boolean {
         if (!name.startsWith('[')) return isBinaryClassName(name)

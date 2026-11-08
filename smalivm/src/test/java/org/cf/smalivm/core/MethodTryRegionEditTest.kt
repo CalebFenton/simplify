@@ -4,14 +4,11 @@ import java.nio.file.Files
 import java.nio.file.Path
 import com.android.tools.smali.dexlib2.AnnotationVisibility
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement
 import com.android.tools.smali.dexlib2.immutable.ImmutableExceptionHandler
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableTryBlock
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10t
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableIntEncodedValue
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertDoesNotThrow
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -276,8 +273,7 @@ class MethodTryRegionEditTest {
 
     @Test
     fun crossingTheStringIndexBoundaryRelayoutsAllAffectedMethodsInOneSnapshot() {
-        val index = index()
-        installStringBoundarySnapshot(index)
+        val index = stringBoundaryIndex()
         val snapshotA = index.currentSnapshot
         val targetA = requireNotNull(snapshotA.applicationMethod(METHOD))
         val collateralA = requireNotNull(snapshotA.applicationMethod(COLLATERAL))
@@ -540,7 +536,7 @@ class MethodTryRegionEditTest {
             index.programWorkspace.newProgramRevision(),
             snapshot.applicationClasses.putting(definingClass, editedClass),
         )
-        index.programWorkspace.replaceCurrentSnapshotForTest(candidate)
+        index.programWorkspace.publish(candidate)
     }
 
     private fun reload(index: ClassIndex): ClassIndex {
@@ -550,39 +546,24 @@ class MethodTryRegionEditTest {
         return ClassIndex.open(dexFile.toFile(), snapshot.outputApiPolicy.apiLevel)
     }
 
-    private fun installStringBoundarySnapshot(index: ClassIndex) {
-        val snapshot = index.currentSnapshot
-        val definition = requireNotNull(snapshot.applicationClass(CLASS_TYPE))
+    /** A fresh import of [SOURCE] whose string section holds exactly 65,536 entries. */
+    private fun stringBoundaryIndex(): ClassIndex {
         val annotationType = "Ltask57/StringBoundary;"
-        val existingStrings = snapshot.dexReferenceClosure.strings
+        val existingStrings = index().currentSnapshot.dexReferenceClosure.strings
         var stringCount = existingStrings.size + if (annotationType in existingStrings) 0 else 1
-        val elements = ArrayList<ImmutableAnnotationElement>(65_536 - stringCount)
+        val annotation = StringBuilder("\n.annotation runtime $annotationType\n")
         var sequence = 0
         while (stringCount < 65_536) {
             val name = "boundary_$sequence"
             sequence++
             if (name in existingStrings) continue
-            elements += ImmutableAnnotationElement(name, ImmutableIntEncodedValue(0))
+            annotation.append(name).append(" = 0x0\n")
             stringCount++
         }
-        val annotation = ImmutableAnnotation(AnnotationVisibility.RUNTIME, annotationType, elements)
-        val expanded = ApplicationClassDefinition(
-            definition.type,
-            definition.accessFlags,
-            definition.superclass,
-            definition.interfaces,
-            definition.sourceFile,
-            definition.annotations.adding(annotation),
-            definition.staticFields,
-            definition.instanceFields,
-            definition.methods,
-        )
-        val replacement = ProgramSnapshot.replacementForTest(
-            snapshot,
-            index.programWorkspace.newProgramRevision(),
-            snapshot.applicationClasses.putting(definition.type, expanded),
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(replacement)
+        annotation.append(".end annotation\n")
+        val index = index(SOURCE.trimIndent() + annotation)
+        assertEquals(65_536, index.currentSnapshot.dexReferenceClosure.strings.size)
+        return index
     }
 
     private fun opcodeAddress(view: MethodView, opcode: Opcode): Int =

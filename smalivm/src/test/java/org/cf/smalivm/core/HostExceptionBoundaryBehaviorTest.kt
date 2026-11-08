@@ -112,7 +112,7 @@ class HostExceptionBoundaryBehaviorTest {
         val runtimeType = virtualTypeOfHostClass(raw.javaClass)
         val view = view("nonThrowableBecomesInternalError(Ljava/lang/Object;)Ljava/lang/Throwable;")
         val vm = VmServices(CoreTester.classIndex)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val source = frame.admitHostSeeds(
             listOf(HostSeed(Value.Known(raw, OBJECT))),
         ).single() as Value.Known
@@ -163,7 +163,7 @@ class HostExceptionBoundaryBehaviorTest {
     fun targetThrowKeepsMutationCompletedBeforeTheThrow() {
         val vm = reflectionVm(MUTATE_THEN_THROW, STRING_BUILDER_TO_STRING)
         val view = view("mutationSurvivesTargetThrow(Ljava/lang/StringBuilder;)Ljava/lang/String;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val builder = frame.allocateHostObject(STRING_BUILDER, StringBuilder("before"))
         frame.assign(view.parameters.single().register, Value.Known(builder, STRING_BUILDER))
 

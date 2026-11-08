@@ -205,8 +205,6 @@ class Frame private constructor(
     fun setCaught(value: Value) { caught = FrameValue.plain(value) }
     internal fun setCaught(subject: ThrownSubject) { caught = subject.frameValue }
     internal fun setCaught(value: FrameValue.RefinedThrowable) { caught = value }
-    /** Read-only test/debugger view; unlike [takeCaught], this does not consume the slot. */
-    internal fun caughtOrNull(): Value? = caught?.value
     fun takeCaught(): Value? = takeCaughtFrameValue()?.value
     internal fun takeCaughtFrameValue(): FrameValue? = caught.also { caught = null }
     fun setReturnValue(value: Value?) { returnValue = value?.let(FrameValue::plain) }
@@ -214,7 +212,6 @@ class Frame private constructor(
     fun returnValueOrNull(): Value? = returnValue?.value
     fun setThrown(value: Value) { thrown = value }
 
-    internal fun thrownValue(): Value? = thrown
     fun thrownOrNull(): Value? = thrown
 
     // --- ExecutionState facade ---
@@ -332,15 +329,6 @@ class Frame private constructor(
     internal fun allocateArray(type: VirtualType, elements: PersistentList<Value>): Value.Known =
         Value.Known(heap.allocateArray(type, elements), type)
 
-    /**
-     * Allocates the object and returns the raw ref, leaving the REGISTER's declared type to the caller.
-     * The two-overload `allocateArray` above is the common case, where the object's type and the register's
-     * tag are the same thing (`new-array`, `filled-new-array`, `fill-array-data` — all get their type from
-     * the instruction, which cannot lie). Test seeding is the case where they genuinely differ.
-     */
-    internal fun allocateArrayObject(type: VirtualType, elements: Array<Value>): HeapRef =
-        heap.allocateArray(type, elements)
-
     internal fun allocateThrowable(type: VirtualType, hostThrowable: Throwable, cause: Value? = null): Value.Known =
         Value.Known(heap.allocateThrowable(type, hostThrowable, cause), type)
 
@@ -433,7 +421,7 @@ class Frame private constructor(
     internal fun finalizeHostGraph(checkpoint: HostGraphCheckpoint): HostGraphComparison =
         heap.finalizeHostGraph(checkpoint, guestRootValues())
 
-    private fun guestRootValues(): List<Value> = buildList {
+    internal fun guestRootValues(): List<Value> = buildList {
         slots.forEach { slot -> (slot as? RegisterSlot.Held)?.value?.value?.let(::add) }
         result?.value?.let(::add)
         returnValue?.value?.let(::add)
@@ -442,11 +430,7 @@ class Frame private constructor(
         addAll(classes.guestRootValues())
     }
 
-    internal fun guestRootValuesSnapshot(): List<Value> = guestRootValues()
-
     internal fun restoreHostGraph(checkpoint: HostGraphCheckpoint) = heap.restoreHostGraph(checkpoint)
-
-    internal fun nextHeapId(): Int = heap.nextHeapId()
 
     /**
      * A fresh, uninitialized tracked object of [type] -- `new-instance`'s allocation, mirroring
@@ -531,25 +515,6 @@ class Frame private constructor(
     }
 
     internal fun belongsTo(expectedView: MethodView): Boolean = view.hasSameExecutionIdentity(expectedView)
-
-    internal fun copyForTestEntryView(expectedView: MethodView): Frame {
-        require(expectedView.registerCount == registerCount) {
-            "Test entry view must keep the source frame register count"
-        }
-        return Frame(
-            view = expectedView,
-            slots = slots,
-            assigned = assigned,
-            read = read,
-            addressVisits = addressVisits,
-            result = result,
-            returnValue = returnValue,
-            thrown = thrown,
-            caught = caught,
-            heap = heap.copy(),
-            classes = classes.copy(),
-        )
-    }
 
     /** Resolves dynamic register partners and array ranges once for this execution. */
     internal fun resolveFootprint(footprint: OpUpdateFootprint): ReconciliationFootprint {
@@ -767,16 +732,9 @@ class Frame private constructor(
          */
         fun entryFrame(view: MethodView): Frame = entryFrame(view, HeapStore(HeapIds()), ClassInitStore())
 
-        internal fun entryFrame(view: MethodView, hostObjectCloner: HostObjectCloner): Frame =
-            entryFrame(view, HeapStore(HeapIds(), hostObjectCloner), ClassInitStore())
-
         /** Default session input; constructor receivers own fresh fields when their layout is known. */
-        internal fun entryFrame(
-            view: MethodView,
-            hostObjectCloner: HostObjectCloner,
-            classIndex: ClassIndex,
-        ): Frame {
-            val frame = entryFrame(view, hostObjectCloner)
+        internal fun entryFrame(view: MethodView, classIndex: ClassIndex): Frame {
+            val frame = entryFrame(view)
             if (!view.isStatic && view.signature.substringAfter("->").startsWith("<init>(")) {
                 // An unresolved superclass leaves the receiver unknown, rather than inventing its fields.
                 classIndex.instanceFieldDefaults(view.definingClass)?.let { fields ->

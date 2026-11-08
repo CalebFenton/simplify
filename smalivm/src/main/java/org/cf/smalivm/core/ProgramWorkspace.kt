@@ -47,13 +47,6 @@ class ProgramWorkspace private constructor(
     internal fun newApplicationMethodRevision(methodSignature: String): ApplicationMethodRevision =
         revisionAuthority.newApplicationMethodRevision(methodSignature)
 
-    internal fun replaceCurrentSnapshotForTest(snapshot: ProgramSnapshot) {
-        require(snapshot.programIdentity === programIdentity) {
-            "Cannot install a test snapshot from another program workspace"
-        }
-        currentSnapshot = snapshot
-    }
-
     internal companion object {
         fun fromInitialSnapshot(
             snapshot: ProgramSnapshot,

@@ -174,7 +174,7 @@ class ExecutionSession internal constructor(
      * through here.
      */
     private val opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = OpBuilder::build,
-    private val invoker: Invoker = Invoker(vmServices.invocationServices.capture(resolver)),
+    private val invoker: Invoker = Invoker(resolver, vmServices.invocationServices),
     private val clockMillis: () -> Long = System::currentTimeMillis,
     /** The session's throwable model. Overridden only to exercise model-failure containment. */
     private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy,
@@ -607,7 +607,7 @@ class ExecutionSession internal constructor(
         is OpArm.ProjectStatic -> planStaticProjection(node, arm)
     }
 
-    /** Authorizes and applies one framework static read without exposing scheduler state to the service. */
+    /** Authorizes one framework static read, reads the host field, and imports the result. */
     private fun planStaticProjection(
         node: ExecutionNode,
         transition: OpArm.ProjectStatic,
@@ -637,25 +637,14 @@ class ExecutionSession internal constructor(
             node.invocationDiagnostic = "host static policy denied $field by ${decision.rule}"
             return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
         }
-        when (val result = vmServices.hostStaticService.read(HostStaticRequest(field))) {
-            is HostStaticResult.Returned -> staticProjectionContinuation(node, transition, result.value)
-            is HostStaticResult.Unsupported -> {
+        when (val result = readHostStatic(resolver.classLoader, field)) {
+            is HostFieldRead.Returned -> staticProjectionContinuation(node, transition, result.value)
+            is HostFieldRead.Unsupported -> {
                 node.invocationDiagnostic = result.diagnostic
                 staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
             }
-            is HostStaticResult.TargetThrew ->
-                planThrow(
-                    node,
-                    normalizeThrow(
-                        result.throwable,
-                        node.frame,
-                    ),
-                )
-            is HostStaticResult.InfrastructureFailure -> {
-                if (result.cause is VirtualMachineError) throw result.cause
-                hostFailureArm(node, result.cause)
-            }
-            is HostStaticResult.Fatal -> throw result.cause
+            is HostFieldRead.TargetThrew -> planThrow(node, normalizeThrow(result.throwable, node.frame))
+            is HostFieldRead.InfrastructureFailure -> hostFailureArm(node, result.cause)
         }
     }
 
@@ -870,21 +859,13 @@ class ExecutionSession internal constructor(
     /**
      * Plans a call: [Invoker] prepares and selects it, then this session turns the result into successors.
      *
-     * **Wrapped in [planContained], which is what plan design decision 5 requires here.** Two things inside
-     * reach code this loop does not own and `planFor` runs OUTSIDE the host-failure boundary: reading the
-     * argument registers (`Frame.read` range-checks and throws for a register the caller does not have,
-     * which an obfuscated call site can name), and resolving the target against the snapshot, which raises
-     * for input it cannot answer. Both must abort the path, not the run. The callee's
-     * ENTRY ADDRESS is handled by the other half of the same decision: [buildSuccessor] checks
-     * `MethodView.hasAddress` before decoding, so a bodyless or truncated callee is `MALFORMED_INPUT`.
+     * Runs inside [planContained] because reading the argument registers (an obfuscated call site can name a
+     * register the caller does not have) and resolving the target (the class model raises for input it cannot
+     * parse) can throw, and either must abort only this path.
      *
-     * The callee runs as a nested [Activation] on **this** session's frontier -- no child session, which is
-     * what `CARRY-FORWARD.md` Plan 9 item 4 predicted `ExecutionNode.view` already made possible, and what
-     * keeps `step()` single-steppable into a callee (Plan 10) and the host stack out of the recursion.
-     *
-     * [OnUnbuildable.ALL_OR_NOTHING] for the callee's entry: a call is one indivisible routing decision with
-     * exactly one successor, so the two policies are indistinguishable here (see [enqueue]) and this states
-     * the stricter one rather than relying on that.
+     * The callee runs as a nested [Activation] on this session's frontier, so `step()` can single-step into it
+     * and guest recursion never recurses on the host stack. Its entry uses [OnUnbuildable.ALL_OR_NOTHING]: a
+     * call has exactly one successor, so the stricter policy costs nothing.
      */
     private fun planInvoke(node: ExecutionNode, transition: OpArm.Invoke): Committable =
         planContained(node) {
@@ -898,47 +879,36 @@ class ExecutionSession internal constructor(
                 val ref = (receiver as? Value.Known)?.raw as? HeapRef
                 ref?.let { node.frame.heapObject(it)?.type }
             }
-            val preparation = invoker.prepare(call, node.view.definingClass, receiverType)
-            when (preparation) {
+            val preparation = when (val prepared = invoker.prepare(call, node.view.definingClass, receiverType)) {
                 is InvocationPreparation.ThrowResolution -> {
-                    val message = when (preparation.exceptionType.descriptor) {
+                    val message = when (prepared.exceptionType.descriptor) {
                         "Ljava/lang/NoClassDefFoundError;" -> transition.target.definingClass.descriptor
                         "Ljava/lang/NoSuchMethodError;" -> transition.target.descriptor
-                        else -> error("Unsupported invoke resolution throwable: ${preparation.exceptionType}")
+                        else -> error("Unsupported invoke resolution throwable: ${prepared.exceptionType}")
                     }
                     return@planContained planThrow(
                         node,
                         normalizeThrow(
                             ThrowEvidence.Fresh(
-                                ThrowableRecipe.of(preparation.exceptionType, message),
+                                ThrowableRecipe.of(prepared.exceptionType, message),
                             ),
                             node.frame,
                         ),
                     )
                 }
-                is InvocationPreparation.Opaque -> {
-                    val receiver = arguments.firstOrNull()
-                    if (transition.kind != InvokeKind.STATIC && receiver?.readsAsNullReference == true) {
-                        return@planContained planInvokeNullReceiver(node)
-                    }
-                    node.dispatchCandidates = preparation.candidates
-                    node.invocationDiagnostic = preparation.diagnostic
-                    node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.STRONG)
-                    node.activation.raiseDeclaredEffect(SideEffectLevel.STRONG)
-                    node.frame.forgetRefinements(transition.argumentRegisters.asIterable())
-                    return@planContained opaqueContinuation(
-                        node,
-                        transition,
-                        arguments,
-                        transition.opaqueArgumentTypes(arguments.size),
-                        receiverType,
-                        preparation.returnType,
-                    )
-                }
-                is InvocationPreparation.Ready -> Unit
+                is OpaqueInvocation -> return@planContained planOpaque(
+                    node,
+                    transition,
+                    prepared,
+                    arguments,
+                    transition.opaqueArgumentTypes(arguments.size),
+                    receiverType,
+                )
+                is InvocationPreparation.Ready -> prepared
             }
-            preparation as InvocationPreparation.Ready
-            if (invoker.receiverIsNull(preparation)) return@planContained planInvokeNullReceiver(node)
+            if (receiverIsNull(transition.kind, preparation.invocation.receiver)) {
+                return@planContained planInvokeNullReceiver(node)
+            }
             if (preparation.lookup is MethodLookup.DefaultConflict) {
                 val target = preparation.invocation.target
                 return@planContained planThrow(
@@ -1014,21 +984,14 @@ class ExecutionSession internal constructor(
                     node.frame.forgetRefinements(transition.argumentRegisters.asIterable())
                     executeSynchronous(node, plan)
                 }
-                is InvocationPlan.Opaque -> {
-                    node.dispatchCandidates = plan.candidates
-                    node.invocationDiagnostic = plan.diagnostic
-                    node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.STRONG)
-                    node.activation.raiseDeclaredEffect(SideEffectLevel.STRONG)
-                    node.frame.forgetRefinements(transition.argumentRegisters.asIterable())
-                    opaqueContinuation(
-                        node,
-                        transition,
-                        preparation.invocation.opaqueArguments(),
-                        preparation.invocation.opaqueArgumentTypes(),
-                        receiverType,
-                        plan.returnType,
-                    )
-                }
+                is OpaqueInvocation -> planOpaque(
+                    node,
+                    transition,
+                    plan,
+                    preparation.invocation.opaqueArguments(),
+                    preparation.invocation.opaqueArgumentTypes(),
+                    receiverType,
+                )
             }
         }
 
@@ -1107,7 +1070,7 @@ class ExecutionSession internal constructor(
         var current = activation
         while (true) {
             val returnSite = current.returnSite ?: break
-            addAll(returnSite.invokeNode.frame.guestRootValuesSnapshot())
+            addAll(returnSite.invokeNode.frame.guestRootValues())
             current = current.caller ?: break
         }
     }
@@ -1461,6 +1424,24 @@ class ExecutionSession internal constructor(
         if (currentRaw === raw) return sourceRef
         val sourceNode = selected.sourceNodeId(raw)
         return if (comparison == HostGraphComparison.Equal && sourceNode == nodeId) sourceRef else null
+    }
+
+    /** Applies an [OpaqueInvocation] whether binding or backend selection produced it. */
+    private fun planOpaque(
+        node: ExecutionNode,
+        transition: OpArm.Invoke,
+        opaque: OpaqueInvocation,
+        arguments: List<Value>,
+        argumentTypes: List<VirtualType>,
+        receiverType: VirtualType?,
+    ): Committable {
+        if (receiverIsNull(transition.kind, arguments.firstOrNull())) return planInvokeNullReceiver(node)
+        node.dispatchCandidates = opaque.candidates
+        node.invocationDiagnostic = opaque.diagnostic
+        node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.STRONG)
+        node.activation.raiseDeclaredEffect(SideEffectLevel.STRONG)
+        node.frame.forgetRefinements(transition.argumentRegisters.asIterable())
+        return opaqueContinuation(node, transition, arguments, argumentTypes, receiverType, opaque.returnType)
     }
 
     private fun opaqueContinuation(
@@ -2738,14 +2719,8 @@ class ExecutionSession internal constructor(
         (if (receiver == null) emptyList() else listOf(target.definingClass)) + parameterTypes
 
     private fun OpArm.Invoke.opaqueArgumentTypes(valueCount: Int): List<VirtualType> {
-        val expanded = buildList {
-            if (kind != InvokeKind.STATIC) add(target.definingClass)
-            for (type in target.parameterTypes()) {
-                add(type)
-                if (type.isWide) add(type)
-            }
-        }
-        return List(valueCount) { index -> expanded.getOrElse(index) { VirtualType.OBJECT } }
+        val words = target.argumentWords(kind)
+        return List(valueCount) { word -> words.typeAt(word) ?: VirtualType.OBJECT }
     }
 
     /**
@@ -2865,7 +2840,7 @@ class ExecutionSession internal constructor(
             view,
             vmServices,
             limits,
-            entryFrame ?: Frame.entryFrame(view, vmServices.hostObjectCloner, resolver.classIndex),
+            entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
             resolver,
         )
 
@@ -2896,7 +2871,7 @@ class ExecutionSession internal constructor(
                 view,
                 vmServices,
                 limits,
-                entryFrame ?: Frame.entryFrame(view, vmServices.hostObjectCloner, resolver.classIndex),
+                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
                 resolver,
                 { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
             )
@@ -2923,7 +2898,7 @@ class ExecutionSession internal constructor(
                 view,
                 vmServices,
                 limits,
-                entryFrame ?: Frame.entryFrame(view, vmServices.hostObjectCloner, resolver.classIndex),
+                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
                 resolver,
                 { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
                 invoker,

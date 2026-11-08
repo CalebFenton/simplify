@@ -93,7 +93,7 @@ class BackendSideEffectsTest {
     ): FixtureRun {
         val view = classIndex.requireMethodView(FIXTURE, descriptor)
         val vm = VmServices(classIndex, policy)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val entries = initial.entries.toList()
         val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
         val seeded = entries.zip(admitted).associate { (entry, value) -> entry.key to value }

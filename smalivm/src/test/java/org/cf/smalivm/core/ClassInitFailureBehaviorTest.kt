@@ -41,8 +41,8 @@ class ClassInitFailureBehaviorTest {
             it.view.signature == "$CLASS_NAME->newInstance()I" && it.outcome is Outcome.Returned
         }
         val frame = requireNotNull(returning.endingFrame)
-        val throwableTypes = (0 until frame.nextHeapId()).mapNotNull { id ->
-            (frame.heapObject(HeapRef(id)) as? HeapObject.GuestThrowable)?.type?.descriptor
+        val throwableTypes = heapRefsOf(frame).mapNotNull { ref ->
+            (frame.heapObject(ref) as? HeapObject.GuestThrowable)?.type?.descriptor
         }
         assertEquals(
             listOf(

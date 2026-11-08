@@ -152,7 +152,7 @@ class ReflectBackendTest {
         val numberType = type("Ljava/lang/Number;")
         val target = method(constructorType, "<init>", "(Ljava/lang/Number;)V")
         val vm = vm(safeClasses = setOf(constructorType))
-        val (session, ref, nextId) = constructorSession(vm, target, listOf(Value.Known(9, numberType)))
+        val (session, ref, probedId) = constructorSession(vm, target, listOf(Value.Known(9, numberType)))
 
         val graph = session.run()
         val terminal = session.currentNode!!.frame
@@ -165,7 +165,7 @@ class ReflectBackendTest {
         )
         assertEquals("number:9", raw.selected)
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
-        assertEquals(nextId, terminal.nextHeapId())
+        assertEquals(probedId + 1, probeNextHeapId(terminal))
         assertEquals(constructorType, terminal.heapObject(ref)!!.type)
     }
 
@@ -180,7 +180,7 @@ class ReflectBackendTest {
             safeClasses = setOf(holderType),
         )
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val receiver = frame.allocateObject(holderType, emptyMap())
         val receiverRef = receiver.raw as HeapRef
         val argumentRef = frame.allocateHostObject(builderType, StringBuilder("argument"))
@@ -238,7 +238,7 @@ class ReflectBackendTest {
     fun unsupportedDirectAndSuperCallsDeclineBeforeExecution() {
         ReflectionExternalSentinel.reset()
         val target = method(fixtureType, "mutateExternal", "()V")
-        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex)
+        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex.currentResolver())
 
         for (kind in listOf(InvokeKind.DIRECT, InvokeKind.SUPER)) {
             val probe = backend.probe(metadata(target, kind), MethodLookup.NoSuchMethod)
@@ -252,8 +252,8 @@ class ReflectBackendTest {
         val target = method(fixtureType, "touch", "()I")
         for (kind in listOf(InvokeKind.DIRECT, InvokeKind.SUPER)) {
             val later = CountingExecuteBackend()
-            val reflection = ReflectBackend(ReflectionPolicy(), classIndex)
-            val invoker = Invoker(classIndex, listOf(reflection, later))
+            val reflection = ReflectBackend(ReflectionPolicy(), classIndex.currentResolver())
+            val invoker = invokerOf(classIndex, listOf(reflection, later))
             val prepared = PreparedInvocation(
                 target,
                 fixtureType,
@@ -265,7 +265,7 @@ class ReflectBackendTest {
             )
             val lookup = MethodLookup.NoBody(ResolvedMethod(target, intType, emptyList(), isSynchronized = false))
 
-            val plan = invoker.plan(InvocationPreparation.Ready(prepared, lookup, emptySet()))
+            val plan = invoker.planOn(InvocationPreparation.Ready(prepared, lookup, emptySet()), Frame.entryFrame(callerView()))
 
             assertTrue(plan is InvocationPlan.Execute, kind.toString())
             assertEquals(1, later.probes, kind.toString())
@@ -299,7 +299,7 @@ class ReflectBackendTest {
         val objectTarget = method(fixtureType, "acceptString", "(Ljava/lang/String;)I")
         val owner = vm(exactSafe = setOf(objectTarget))
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val tracked = frame.allocateObject(type("Lhash_code;"), emptyMap())
         frame.assign(0, Value.Known(tracked.raw, stringType))
         val unmaterializable = invoke(owner, objectTarget, InvokeKind.STATIC, frame = frame).run()
@@ -313,7 +313,7 @@ class ReflectBackendTest {
         val target = method(fixtureType, "mutateOwned", "(Ljava/lang/StringBuilder;Ljava/util/List;)V")
         val owner = vm(exactSafe = setOf(target))
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val originalBuilder = StringBuilder("vm")
         val originalList = arrayListOf<String>()
         val builderRef = frame.allocateHostObject(builderType, originalBuilder)
@@ -392,7 +392,7 @@ class ReflectBackendTest {
         for ((reflectedAuthorization, expectedMutations) in cases) {
             ReflectionExternalSentinel.reset()
             val vm = vm(exactSafe = setOf(methodInvoke) + reflectedAuthorization)
-            val frame = Frame.entryFrame(callerView(), vm.hostObjectCloner)
+            val frame = Frame.entryFrame(callerView())
             val hostMethod = ReflectBackendFixture::class.java.getDeclaredMethod("mutateExternal")
             frame.assign(0, Value.Known(frame.allocateHostObject(methodType, hostMethod), methodType))
             frame.assign(1, Value.Known(null, objectType))
@@ -506,7 +506,7 @@ class ReflectBackendTest {
     @Test
     fun invocationTargetExceptionIsUnwrappedToTheOriginalTargetThrowable() {
         val target = method(fixtureType, "throwProvided", "(Ljava/lang/Throwable;)V")
-        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex)
+        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex.currentResolver())
         val entry = callerView()
         val frame = Frame.entryFrame(entry)
         val throwableType = type("Ljava/lang/IllegalStateException;")
@@ -527,12 +527,12 @@ class ReflectBackendTest {
     fun targetExceptionFinalizesMutationWithoutFallback() {
         val target = method(fixtureType, "mutateThenThrow", "(Ljava/lang/StringBuilder;)V")
         val policy = ReflectionPolicy(exactSafeMethods = setOf(target))
-        val reflection = ReflectBackend(policy, classIndex)
+        val reflection = ReflectBackend(policy, classIndex.currentResolver())
         val later = CountingBackend()
-        val invoker = Invoker(classIndex, listOf(reflection, later))
+        val invoker = invokerOf(classIndex, listOf(reflection, later))
         val owner = VmServices(classIndex, policy)
         val entry = view("Lcalls/caller;", "callsThrowingCalleeWithCatch()I")
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val original = StringBuilder("before")
         val ref = frame.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))
@@ -552,26 +552,31 @@ class ReflectBackendTest {
             method(fixtureType, "privateValue", "()I") to IllegalAccessException::class.java,
         )
         cases.forEach { (target, failureType) ->
-            val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex)
+            val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(target)), classIndex.currentResolver())
             val result = executeDirect(backend, target)
             assertTrue(result is SynchronousCallResult.InfrastructureFailure, target.toString())
             assertTrue(failureType.isInstance((result as SynchronousCallResult.InfrastructureFailure).cause), target.toString())
         }
 
         val mismatch = method(fixtureType, "acceptString", "(Ljava/lang/String;)I")
-        val mismatchBackend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(mismatch)), classIndex)
+        val mismatchBackend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(mismatch)), classIndex.currentResolver())
         val mismatchResult = executeDirect(mismatchBackend, mismatch, listOf(Value.Known(7, stringType)))
         assertTrue((mismatchResult as SynchronousCallResult.InfrastructureFailure).cause is IllegalArgumentException)
 
         val missingClass = method("Lhost/DefinitelyAbsent;", "value", "()I")
-        val absentBackend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(missingClass)), classIndex)
+        val absentBackend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(missingClass)), classIndex.currentResolver())
         val absent = executeDirect(absentBackend, missingClass)
         assertTrue((absent as SynchronousCallResult.InfrastructureFailure).cause is ClassNotFoundException)
 
         val later = CountingBackend()
         val policy = ReflectionPolicy(exactSafeMethods = setOf(cases.first().first))
         val owner = VmServices(classIndex, policy)
-        val session = invoke(owner, cases.first().first, InvokeKind.STATIC, invoker = Invoker(classIndex, listOf(ReflectBackend(policy, classIndex), later)))
+        val session = invoke(
+            owner,
+            cases.first().first,
+            InvokeKind.STATIC,
+            invoker = invokerOf(classIndex, listOf(ReflectBackend(policy, classIndex.currentResolver()), later)),
+        )
         val node = session.step()!!
         assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
         assertTrue(node.hostFailure is NoSuchMethodException)
@@ -581,7 +586,7 @@ class ReflectBackendTest {
     @Test
     fun targetLinkageFailureIsClassifiedAsTargetAndVirtualMachineErrorEscapes() {
         val linkage = method(fixtureType, "throwLinkage", "()V")
-        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(linkage)), classIndex)
+        val backend = ReflectBackend(ReflectionPolicy(exactSafeMethods = setOf(linkage)), classIndex.currentResolver())
         val result = executeDirect(backend, linkage) as SynchronousCallResult.TargetThrew
         assertEquals(type("Ljava/lang/IllegalAccessError;"), result.throwable.type)
 
@@ -635,7 +640,7 @@ class ReflectBackendTest {
         )
         val owner = VmServices(classIndex, policy)
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val ref = frame.allocateHostObject(objectType, Any())
         frame.assign(0, Value.Known(ref, objectType))
 
@@ -658,10 +663,10 @@ class ReflectBackendTest {
             override fun execute(call: SelectedHostCall): SynchronousCallResult =
                 ConstructedHostObjectResult(session.currentNode!!.frame)
         }
-        val invoker = Invoker(classIndex, listOf(backend))
+        val invoker = invokerOf(classIndex, listOf(backend))
         val owner = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(target)))
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, owner.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val receiver = frame.allocateObject(constructorType, emptyMap())
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(1, intType))
@@ -698,7 +703,7 @@ class ReflectBackendTest {
 
     private fun assertConstructor(type: VirtualType, proto: String, arguments: List<Value>, expected: Any) {
         val target = method(type, "<init>", proto)
-        val (session, ref, nextId) = constructorSession(VmServices(classIndex), target, arguments)
+        val (session, ref, probedId) = constructorSession(VmServices(classIndex), target, arguments)
         val graph = session.run()
         val terminal = session.currentNode!!.frame
 
@@ -709,17 +714,22 @@ class ReflectBackendTest {
         )
         assertEquals(ref, (terminal.peek(0) as Value.Known).raw)
         assertEquals(expected, terminal.hostObjectAt(ref))
-        assertEquals(nextId, terminal.nextHeapId())
+        assertEquals(probedId + 1, probeNextHeapId(terminal))
         assertEquals(type, terminal.heapObject(ref)!!.type)
     }
 
+    /**
+     * A session constructing [target] on a fresh tracked receiver, that receiver, and the next heap id probed
+     * after seeding. The probe consumes that id, so a construction that allocates nothing leaves the next
+     * probe one higher.
+     */
     private fun constructorSession(
         vm: VmServices,
         target: MethodDescriptor,
         arguments: List<Value>,
     ): Triple<ExecutionSession, HeapRef, Int> {
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val receiver = frame.allocateObject(target.definingClass, emptyMap())
         val ref = receiver.raw as HeapRef
         frame.assign(0, receiver)
@@ -729,7 +739,8 @@ class ReflectBackendTest {
             register += if (requireNotNull(argument.type).isWide) 2 else 1
         }
         val registers = IntArray(register) { it }
-        return Triple(invoke(vm, target, InvokeKind.DIRECT, frame = frame, registers = registers), ref, frame.nextHeapId())
+        val probedId = probeNextHeapId(frame)
+        return Triple(invoke(vm, target, InvokeKind.DIRECT, frame = frame, registers = registers), ref, probedId)
     }
 
     private fun hostReceiverCall(
@@ -740,7 +751,7 @@ class ReflectBackendTest {
         raw: Any,
     ): Pair<ExecutionSession, HeapRef> {
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val ref = frame.allocateHostObject(declaredType, raw)
         frame.assign(0, Value.Known(ref, declaredType))
         return invoke(vm, target, kind, frame = frame, registers = intArrayOf(0)) to ref
@@ -763,7 +774,7 @@ class ReflectBackendTest {
         invoker: Invoker? = null,
     ): ExecutionSession {
         val entry = callerView()
-        val entryFrame = frame ?: Frame.entryFrame(entry, vm.hostObjectCloner).also { seeded ->
+        val entryFrame = frame ?: Frame.entryFrame(entry).also { seeded ->
             values.forEachIndexed(seeded::assign)
         }
         val resume = entry.nextAddress(0)

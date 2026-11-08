@@ -778,7 +778,7 @@ class DebuggerTest {
         assertSame(handler, session.frontier.single())
         assertSame(throwingNode.activation, handler.activation)
         assertEquals(1, handler.address)
-        assertTrue(handler.frame.caughtOrNull() is Value.Unknown)
+        assertTrue(handler.frame.copy().takeCaught() is Value.Unknown)
         assertFalse(handler.opExecutionStarted)
     }
 
@@ -1058,7 +1058,7 @@ class DebuggerTest {
         val valuesBefore = (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister)
         val assignedBefore = stateBefore.registersAssigned()
         val readBefore = debugger.cursor!!.frame.registersRead()
-        val caughtBefore = debugger.cursor!!.frame.caughtOrNull()
+        val caughtBefore = debugger.cursor!!.frame.copy().takeCaught()
 
         repeat(3) {
             debugger.cursor
@@ -1084,7 +1084,7 @@ class DebuggerTest {
         assertEquals(valuesBefore, (0 until stateBefore.registers.registerCount).map(stateBefore::peekRegister))
         assertEquals(assignedBefore, stateBefore.registersAssigned())
         assertEquals(readBefore, debugger.cursor!!.frame.registersRead())
-        assertEquals(caughtBefore, debugger.cursor!!.frame.caughtOrNull())
+        assertEquals(caughtBefore, debugger.cursor!!.frame.copy().takeCaught())
     }
 
     @Test

@@ -6,20 +6,13 @@ package org.cf.smalivm.core
  * Execute with `val graph = services.newSession(view).run()`, then inspect [ExecutionGraph.completion] and
  * [ExecutionGraph.outcomes]. Each outcome represents one ended path.
  */
-class VmServices internal constructor(
+class VmServices(
     val classIndex: ClassIndex,
-    internal val reflectionPolicy: ReflectionPolicy,
-    internal val hostStaticService: HostStaticService,
+    internal val reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
 ) {
-    constructor(
-        classIndex: ClassIndex,
-        reflectionPolicy: ReflectionPolicy = ReflectionPolicy.defaults(),
-    ) : this(classIndex, reflectionPolicy, hostStaticService(classIndex.classLoader))
-
     val invocationServices = InvocationServices(classIndex, reflectionPolicy)
     val methodEditor = MethodEditor(classIndex.programWorkspace)
     val currentSnapshot: ProgramSnapshot get() = classIndex.currentSnapshot
-    internal val hostObjectCloner = HostObjectCloner()
 
     fun newSession(
         view: MethodView,

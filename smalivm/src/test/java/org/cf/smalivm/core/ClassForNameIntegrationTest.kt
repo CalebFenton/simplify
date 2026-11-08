@@ -99,7 +99,7 @@ class ClassForNameIntegrationTest {
     @Test
     fun unknownClassNameReturnsConservativeTypedUnknown() {
         val view = view("unknownNameReturnsUnknownClass(Ljava/lang/String;)Ljava/lang/Class;")
-        val frame = Frame.entryFrame(view, owner.hostObjectCloner).also {
+        val frame = Frame.entryFrame(view).also {
             it.assign(view.parameters.single().register, Value.Unknown(VirtualType.of("Ljava/lang/String;")))
         }
 
@@ -169,7 +169,7 @@ class ClassForNameIntegrationTest {
 
     private fun forName(name: String): ExecutionGraph {
         val view = view("unknownNameReturnsUnknownClass(Ljava/lang/String;)Ljava/lang/Class;")
-        val frame = Frame.entryFrame(view, owner.hostObjectCloner).also {
+        val frame = Frame.entryFrame(view).also {
             it.assign(view.parameters.single().register, Value.Known(name, VirtualType.of("Ljava/lang/String;")))
         }
         return owner.newSession(view, entryFrame = frame).run()

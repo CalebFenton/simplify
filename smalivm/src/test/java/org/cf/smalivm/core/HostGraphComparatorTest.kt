@@ -7,6 +7,7 @@ import java.util.LinkedHashMap
 import java.util.LinkedHashSet
 import java.util.TreeMap
 import java.util.TreeSet
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -25,7 +26,7 @@ class HostGraphComparatorTest {
         child.next = child
         val roots = listOf(arrayListOf(child), arrayListOf(child))
 
-        val state = HostGraphState.fromRoots(roots)
+        val state = graph(*roots.toTypedArray())
 
         assertNotNull(state.nodeIdOf(roots[0]))
         assertNotNull(state.nodeIdOf(roots[1]))
@@ -37,7 +38,7 @@ class HostGraphComparatorTest {
     fun equalStringBuildersCompareEqualWithoutUsingIdentityEquals() {
         assertEquals(
             HostGraphComparison.Equal,
-            comparator.compare(StringBuilder("same"), StringBuilder("same")),
+            compareGraphs(StringBuilder("same"), StringBuilder("same")),
         )
     }
 
@@ -45,7 +46,7 @@ class HostGraphComparatorTest {
     fun changedStringBuilderComparesDifferent() {
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(StringBuilder("before"), StringBuilder("after")),
+            compareGraphs(StringBuilder("before"), StringBuilder("after")),
         )
     }
 
@@ -54,35 +55,42 @@ class HostGraphComparatorTest {
         val left = StringBuilder("same")
         val right = StringBuilder("same").apply { ensureCapacity(128) }
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(left, right))
+        assertEquals(HostGraphComparison.Different, compareGraphs(left, right))
     }
 
     @Test
     fun orderedListsAndDequesCompareInIterationOrder() {
         assertEquals(
             HostGraphComparison.Equal,
-            comparator.compare(listOf("a", "b"), listOf("a", "b")),
+            compareGraphs(arrayListOf("a", "b"), arrayListOf("a", "b")),
         )
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(listOf("a", "b"), listOf("b", "a")),
+            compareGraphs(arrayListOf("a", "b"), arrayListOf("b", "a")),
         )
         assertEquals(
             HostGraphComparison.Equal,
-            comparator.compare(ArrayDeque(listOf("a", "b")), ArrayDeque(listOf("a", "b"))),
+            compareGraphs(ArrayDeque(listOf("a", "b")), ArrayDeque(listOf("a", "b"))),
         )
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(ArrayDeque(listOf("a", "b")), ArrayDeque(listOf("b", "a"))),
+            compareGraphs(ArrayDeque(listOf("a", "b")), ArrayDeque(listOf("b", "a"))),
         )
     }
 
     @Test
     fun setsCompareWithoutTrustingElementHashOrIterationOrder() {
-        val left = LinkedHashSet<Any>(listOf(StringBuilder("a"), StringBuilder("b")))
-        val right = LinkedHashSet<Any>(listOf(StringBuilder("b"), StringBuilder("a")))
+        val leftA = StringBuilder("a")
+        val leftB = StringBuilder("b")
+        val rightA = StringBuilder("a")
+        val rightB = StringBuilder("b")
+        val left = LinkedHashSet<Any>(listOf(leftA, leftB))
+        val right = LinkedHashSet<Any>(listOf(rightB, rightA))
 
-        assertEquals(HostGraphComparison.Equal, comparator.compare(left, right))
+        assertEquals(
+            HostGraphComparison.Equal,
+            comparator.compare(graph(left, leftA, leftB), graph(right, rightA, rightB)),
+        )
     }
 
     @Test
@@ -90,7 +98,7 @@ class HostGraphComparatorTest {
         val left = linkedSetOf<Any>(StringBuilder("a"), StringBuilder("b"))
         val right = linkedSetOf<Any>(StringBuilder("a"), StringBuilder("c"))
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(left, right))
+        assertEquals(HostGraphComparison.Different, compareGraphs(left, right))
     }
 
     @Test
@@ -99,19 +107,56 @@ class HostGraphComparatorTest {
             override fun hashCode(): Int = 0
         }
 
-        val leftSet = linkedSetOf<Any>(Box(1), Box(2))
-        val rightSet = linkedSetOf<Any>(Box(2), Box(1))
-        assertEquals(HostGraphComparison.Equal, comparator.compare(leftSet, rightSet))
+        val left1 = Box(1)
+        val left2 = Box(2)
+        val right1 = Box(1)
+        val right2 = Box(2)
+        val leftSet = linkedSetOf<Any>(left1, left2)
+        val rightSet = linkedSetOf<Any>(right2, right1)
+        assertEquals(
+            HostGraphComparison.Equal,
+            comparator.compare(graph(leftSet, left1, left2), graph(rightSet, right1, right2)),
+        )
 
+        val leftKey1 = Box(1)
+        val leftValue1 = Box(10)
+        val leftKey2 = Box(2)
+        val leftValue2 = Box(20)
+        val rightKey1 = Box(1)
+        val rightValue1 = Box(10)
+        val rightKey2 = Box(2)
+        val rightValue2 = Box(20)
         val leftMap = HashMap<Any, Any>().apply {
-            put(Box(1), Box(10))
-            put(Box(2), Box(20))
+            put(leftKey1, leftValue1)
+            put(leftKey2, leftValue2)
         }
         val rightMap = HashMap<Any, Any>().apply {
-            put(Box(2), Box(20))
-            put(Box(1), Box(10))
+            put(rightKey2, rightValue2)
+            put(rightKey1, rightValue1)
         }
-        assertEquals(HostGraphComparison.Equal, comparator.compare(leftMap, rightMap))
+        assertEquals(
+            HostGraphComparison.Equal,
+            comparator.compare(
+                graph(
+                    leftMap,
+                    entryOf(leftMap, leftKey1),
+                    leftKey1,
+                    leftValue1,
+                    entryOf(leftMap, leftKey2),
+                    leftKey2,
+                    leftValue2,
+                ),
+                graph(
+                    rightMap,
+                    entryOf(rightMap, rightKey1),
+                    rightKey1,
+                    rightValue1,
+                    entryOf(rightMap, rightKey2),
+                    rightKey2,
+                    rightValue2,
+                ),
+            ),
+        )
     }
 
     @Test
@@ -123,8 +168,8 @@ class HostGraphComparatorTest {
         // graphs are not isomorphic; a bounded search may answer Different or Unprovable, never Equal.
         val set = HashSet<Any>()
         repeat(MEMBERS) { set.add(arrayListOf(StringBuilder("x"), StringBuilder("x"))) }
-        val before = HostGraphState.fromRoots(listOf(set))
-        val after = HostObjectCloner().cloneGraph(before).state
+        val before = graph(set)
+        val after = cloneHostGraph(before)
         @Suppress("UNCHECKED_CAST")
         val members = (after.objectAt(HostGraphNodeId(0)) as Set<MutableList<Any>>).toList()
         members[0][0] = members[1][0]
@@ -139,8 +184,8 @@ class HostGraphComparatorTest {
         // Bug class: a work bound small enough to give up on ordinary sets whose members share a fingerprint.
         // Oracle: the call only reinserted the same members in reverse order, which a set does not observe.
         val set = LinkedHashSet<Any>((0 until 500).map { arrayListOf(StringBuilder(it.toString())) })
-        val before = HostGraphState.fromRoots(listOf(set))
-        val after = HostObjectCloner().cloneGraph(before).state
+        val before = graph(set)
+        val after = cloneHostGraph(before)
         @Suppress("UNCHECKED_CAST")
         val clonedSet = after.objectAt(HostGraphNodeId(0)) as MutableSet<Any>
         val members = clonedSet.toList()
@@ -152,16 +197,30 @@ class HostGraphComparatorTest {
 
     @Test
     fun mapsCompareKeysAndValuesAsPairsWithoutUsingCustomEquals() {
+        val leftA = StringBuilder("a")
+        val leftOne = StringBuilder("one")
+        val leftB = StringBuilder("b")
+        val leftTwo = StringBuilder("two")
+        val rightA = StringBuilder("a")
+        val rightOne = StringBuilder("one")
+        val rightB = StringBuilder("b")
+        val rightTwo = StringBuilder("two")
         val left = HashMap<Any, Any>().apply {
-            put(StringBuilder("a"), StringBuilder("one"))
-            put(StringBuilder("b"), StringBuilder("two"))
+            put(leftA, leftOne)
+            put(leftB, leftTwo)
         }
         val right = HashMap<Any, Any>().apply {
-            put(StringBuilder("b"), StringBuilder("two"))
-            put(StringBuilder("a"), StringBuilder("one"))
+            put(rightB, rightTwo)
+            put(rightA, rightOne)
         }
 
-        assertEquals(HostGraphComparison.Equal, comparator.compare(left, right))
+        assertEquals(
+            HostGraphComparison.Equal,
+            comparator.compare(
+                graph(left, entryOf(left, leftA), leftA, leftOne, entryOf(left, leftB), leftB, leftTwo),
+                graph(right, entryOf(right, rightA), rightA, rightOne, entryOf(right, rightB), rightB, rightTwo),
+            ),
+        )
     }
 
     @Test
@@ -171,8 +230,8 @@ class HostGraphComparatorTest {
             put(StringBuilder("b"), StringBuilder(second))
         }
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(map("one", "two"), map("one", "changed")))
-        assertEquals(HostGraphComparison.Different, comparator.compare(map("one", "two"), map("two", "one")))
+        assertEquals(HostGraphComparison.Different, compareGraphs(map("one", "two"), map("one", "changed")))
+        assertEquals(HostGraphComparison.Different, compareGraphs(map("one", "two"), map("two", "one")))
     }
 
     @Test
@@ -186,7 +245,7 @@ class HostGraphComparatorTest {
             put("a", 1)
         }
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(left, right))
+        assertEquals(HostGraphComparison.Different, compareGraphs(left, right))
     }
 
     @Test
@@ -199,21 +258,21 @@ class HostGraphComparatorTest {
         val leftMap = TreeMap<String, Int>(DirectionComparator(false)).apply { put("a", 1) }
         val equalMap = TreeMap<String, Int>(DirectionComparator(false)).apply { put("a", 1) }
         val changedMap = TreeMap<String, Int>(DirectionComparator(true)).apply { put("a", 1) }
-        assertEquals(HostGraphComparison.Equal, comparator.compare(leftMap, equalMap))
-        assertEquals(HostGraphComparison.Different, comparator.compare(leftMap, changedMap))
+        assertEquals(HostGraphComparison.Equal, compareGraphs(leftMap, equalMap))
+        assertEquals(HostGraphComparison.Different, compareGraphs(leftMap, changedMap))
 
         val leftSet = TreeSet<String>(DirectionComparator(false)).apply { add("a") }
         val changedSet = TreeSet<String>(DirectionComparator(true)).apply { add("a") }
-        assertEquals(HostGraphComparison.Different, comparator.compare(leftSet, changedSet))
+        assertEquals(HostGraphComparison.Different, compareGraphs(leftSet, changedSet))
     }
 
     @Test
     fun primitiveAndObjectArraysCompareRecursively() {
-        assertEquals(HostGraphComparison.Equal, comparator.compare(intArrayOf(1, 2), intArrayOf(1, 2)))
-        assertEquals(HostGraphComparison.Different, comparator.compare(intArrayOf(1, 2), intArrayOf(1, 3)))
+        assertEquals(HostGraphComparison.Equal, compareGraphs(intArrayOf(1, 2), intArrayOf(1, 2)))
+        assertEquals(HostGraphComparison.Different, compareGraphs(intArrayOf(1, 2), intArrayOf(1, 3)))
         assertEquals(
             HostGraphComparison.Equal,
-            comparator.compare(arrayOf(StringBuilder("x")), arrayOf(StringBuilder("x"))),
+            compareGraphs(arrayOf(StringBuilder("x")), arrayOf(StringBuilder("x"))),
         )
     }
 
@@ -227,25 +286,28 @@ class HostGraphComparatorTest {
         val equal = Node(1).also { it.next = it }
         val changed = Node(2).also { it.next = it }
 
-        assertEquals(HostGraphComparison.Equal, comparator.compare(left, equal))
-        assertEquals(HostGraphComparison.Different, comparator.compare(left, changed))
+        assertEquals(HostGraphComparison.Equal, compareGraphs(left, equal))
+        assertEquals(HostGraphComparison.Different, compareGraphs(left, changed))
     }
 
     @Test
     fun aliasSplitAndAliasMergeAreDifferent() {
         class Pair(var first: Any, var second: Any)
 
-        val leftShared = StringBuilder("x")
-        val rightFirst = StringBuilder("x")
-        val rightSecond = StringBuilder("x")
-        assertEquals(
-            HostGraphComparison.Different,
-            comparator.compare(Pair(leftShared, leftShared), Pair(rightFirst, rightSecond)),
-        )
-        assertEquals(
-            HostGraphComparison.Different,
-            comparator.compare(Pair(rightFirst, rightSecond), Pair(leftShared, leftShared)),
-        )
+        // Both graphs keep the same node count, so only the identity bindings can tell them apart.
+        val shared = StringBuilder("x")
+        val beforeSplit = graph(Pair(shared, shared))
+        val afterSplit = cloneHostGraph(beforeSplit)
+        (afterSplit.objectAt(HostGraphNodeId(0)) as Pair).second = StringBuilder("x")
+        assertEquals(beforeSplit.nodeCount, afterSplit.nodeCount)
+        assertEquals(HostGraphComparison.Different, comparator.compare(beforeSplit, afterSplit))
+
+        val beforeMerge = graph(Pair(StringBuilder("x"), StringBuilder("x")))
+        val afterMerge = cloneHostGraph(beforeMerge)
+        val mergedPair = afterMerge.objectAt(HostGraphNodeId(0)) as Pair
+        mergedPair.second = mergedPair.first
+        assertEquals(beforeMerge.nodeCount, afterMerge.nodeCount)
+        assertEquals(HostGraphComparison.Different, comparator.compare(beforeMerge, afterMerge))
     }
 
     @Test
@@ -253,22 +315,18 @@ class HostGraphComparatorTest {
         class Root(var child: StringBuilder)
 
         val leftShared = StringBuilder("x")
-        val left = HostGraphState.fromRoots(
-            listOf(
-                Root(leftShared),
-                Root(leftShared),
-                Root(StringBuilder("x")),
-                Root(StringBuilder("x")),
-            ),
+        val left = graph(
+            Root(leftShared),
+            Root(leftShared),
+            Root(StringBuilder("x")),
+            Root(StringBuilder("x")),
         )
         val rightShared = StringBuilder("x")
-        val right = HostGraphState.fromRoots(
-            listOf(
-                Root(StringBuilder("x")),
-                Root(StringBuilder("x")),
-                Root(rightShared),
-                Root(rightShared),
-            ),
+        val right = graph(
+            Root(StringBuilder("x")),
+            Root(StringBuilder("x")),
+            Root(rightShared),
+            Root(rightShared),
         )
 
         assertEquals(left.nodeCount, right.nodeCount)
@@ -283,7 +341,7 @@ class HostGraphComparatorTest {
         val left = Pair(StringBuilder("x"), StringBuilder("x"))
         val right = Pair(StringBuilder("x"), StringBuilder("x"))
 
-        assertEquals(HostGraphComparison.Equal, comparator.compare(left, right))
+        assertEquals(HostGraphComparison.Equal, compareGraphs(left, right))
     }
 
     @Test
@@ -293,7 +351,7 @@ class HostGraphComparatorTest {
             override fun hashCode(): Int = 1
         }
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(Misleading(1), Misleading(2)))
+        assertEquals(HostGraphComparison.Different, compareGraphs(Misleading(1), Misleading(2)))
     }
 
     @Test
@@ -301,8 +359,8 @@ class HostGraphComparatorTest {
         open class Base(var inherited: Int)
         class Child(inherited: Int, var own: Int) : Base(inherited)
 
-        assertEquals(HostGraphComparison.Equal, comparator.compare(Child(1, 2), Child(1, 2)))
-        assertEquals(HostGraphComparison.Different, comparator.compare(Child(1, 2), Child(3, 2)))
+        assertEquals(HostGraphComparison.Equal, compareGraphs(Child(1, 2), Child(1, 2)))
+        assertEquals(HostGraphComparison.Different, compareGraphs(Child(1, 2), Child(3, 2)))
     }
 
     @Test
@@ -313,10 +371,10 @@ class HostGraphComparatorTest {
         val left = TaggedList(1).apply { add("same") }
         val right = TaggedList(2).apply { add("same") }
 
-        assertEquals(HostGraphComparison.Different, comparator.compare(left, right))
+        assertEquals(HostGraphComparison.Different, compareGraphs(left, right))
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(
+            compareGraphs(
                 TaggedMap(1).apply { put("key", "value") },
                 TaggedMap(2).apply { put("key", "value") },
             ),
@@ -329,7 +387,7 @@ class HostGraphComparatorTest {
 
         val sideState = StringBuilder("side")
         val list = ExtendedList(sideState).apply { add("content") }
-        val state = HostGraphState.fromRoots(listOf(list))
+        val state = graph(list)
 
         assertNotNull(state.nodeIdOf(sideState))
     }
@@ -342,7 +400,7 @@ class HostGraphComparatorTest {
         }
 
         val raw = HostileIdentity()
-        val state = HostGraphState.fromRoots(listOf(raw))
+        val state = graph(raw)
         val admission = state.addRoots(listOf(raw))
 
         assertEquals(state.nodeIdOf(raw), admission.rootIds.single())
@@ -359,7 +417,7 @@ class HostGraphComparatorTest {
 
         schedulerValues.forEach { schedulerValue ->
             org.junit.jupiter.api.assertThrows<HostGraphOwnershipException> {
-                HostGraphState.fromRoots(listOf(arrayListOf(schedulerValue)))
+                graph(arrayListOf(schedulerValue))
             }
         }
     }
@@ -370,21 +428,34 @@ class HostGraphComparatorTest {
 
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(Floating(0.0f, 0.0), Floating(-0.0f, 0.0)),
+            compareGraphs(Floating(0.0f, 0.0), Floating(-0.0f, 0.0)),
         )
         assertEquals(
             HostGraphComparison.Different,
-            comparator.compare(Floating(0.0f, 0.0), Floating(0.0f, -0.0)),
+            compareGraphs(Floating(0.0f, 0.0), Floating(0.0f, -0.0)),
         )
     }
 
     @Test
     fun inaccessibleJdkStateIsUnprovableRatherThanEqual() {
+        // AtomicInteger is a JDK class but not a recognized container, so its fields are not walked even
+        // when they hold equal values.
         assertEquals(
             HostGraphComparison.Unprovable,
-            comparator.compare(Thread.currentThread(), Thread.currentThread()),
+            compareGraphs(AtomicInteger(7), AtomicInteger(7)),
         )
     }
+
+    /**
+     * A graph whose roots take node ids in argument order. The comparator pairs node i on the left with node i
+     * on the right, so tests whose two sides discover members in different orders list those members as roots.
+     */
+    private fun graph(vararg roots: Any): HostGraphState = HostGraphState.empty().addRoots(roots.asList()).state
+
+    private fun compareGraphs(left: Any, right: Any): HostGraphComparison =
+        comparator.compare(graph(left), graph(right))
+
+    private fun entryOf(map: Map<Any, Any>, key: Any): Map.Entry<Any, Any> = map.entries.first { it.key === key }
 
     private companion object {
         const val MEMBERS = 12

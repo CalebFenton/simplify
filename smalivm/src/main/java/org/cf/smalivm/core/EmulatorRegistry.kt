@@ -33,7 +33,7 @@ data class EmulatorRegistration(
 /** Deterministic per-VM emulator registrations. */
 class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = emptyList()) {
     private val exactRegistrations = linkedMapOf<MethodDescriptor, EmulatorRegistration>()
-    private val predicateRegistrations = mutableListOf<EmulatorRegistration>()
+    private val predicateRegistrations = linkedMapOf<String, PredicateRegistration>()
 
     init {
         initialRegistrations.forEach(::register)
@@ -43,27 +43,22 @@ class EmulatorRegistry(initialRegistrations: Iterable<EmulatorRegistration> = em
     fun register(registration: EmulatorRegistration) {
         when (val matcher = registration.matcher) {
             is EmulatorMatcher.Exact -> exactRegistrations[matcher.target] = registration
-            is EmulatorMatcher.Predicate -> {
-                val replacementIndex = predicateRegistrations.indexOfFirst {
-                    (it.matcher as EmulatorMatcher.Predicate).id == matcher.id
-                }
-                if (replacementIndex < 0) {
-                    predicateRegistrations.add(registration)
-                } else {
-                    predicateRegistrations[replacementIndex] = registration
-                }
-            }
+            is EmulatorMatcher.Predicate ->
+                predicateRegistrations[matcher.id] = PredicateRegistration(matcher, registration)
         }
     }
 
     /** Finds an exact registration first, then the first matching predicate in registration order. */
     fun find(target: MethodDescriptor): EmulatorRegistration? =
         exactRegistrations[target]
-            ?: predicateRegistrations.firstOrNull {
-                (it.matcher as EmulatorMatcher.Predicate).matches(target)
-            }
+            ?: predicateRegistrations.values.firstOrNull { it.matcher.matches(target) }?.registration
 
     /** Stable snapshot with exact registrations first, followed by predicate registration order. */
     fun registrations(): List<EmulatorRegistration> =
-        exactRegistrations.values.toList() + predicateRegistrations
+        exactRegistrations.values.toList() + predicateRegistrations.values.map(PredicateRegistration::registration)
+
+    private class PredicateRegistration(
+        val matcher: EmulatorMatcher.Predicate,
+        val registration: EmulatorRegistration,
+    )
 }

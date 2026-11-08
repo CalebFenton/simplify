@@ -123,6 +123,29 @@ data class MethodDescriptor(val definingClass: VirtualType, val name: String, va
         }
         return result
     }
+
+    /**
+     * The invoke register words of a call to this method: the receiver first unless [kind] is static, then each
+     * parameter, a wide parameter taking two words.
+     */
+    internal fun argumentWords(kind: InvokeKind): ArgumentWords {
+        val arguments = ArrayList<ArgumentWords.Argument>()
+        var word = 0
+        if (kind != InvokeKind.STATIC) arguments += ArgumentWords.Argument(definingClass, word++)
+        for (type in parameterTypes()) {
+            arguments += ArgumentWords.Argument(type, word)
+            word += if (type.isWide) 2 else 1
+        }
+        return ArgumentWords(arguments, word)
+    }
+}
+
+/** Logical arguments of one invoke and the first register word each occupies. */
+internal class ArgumentWords(val arguments: List<Argument>, val wordCount: Int) {
+    class Argument(val type: VirtualType, val word: Int)
+
+    /** The type of the argument occupying [word], or null past the last word. */
+    fun typeAt(word: Int): VirtualType? = arguments.lastOrNull { it.word <= word && word < wordCount }?.type
 }
 
 /**

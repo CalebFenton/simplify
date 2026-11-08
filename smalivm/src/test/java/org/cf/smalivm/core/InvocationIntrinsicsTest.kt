@@ -21,7 +21,7 @@ class InvocationIntrinsicsTest {
     fun knownArrayCloneAllocatesFreshCopyAndAdvancesTheSessionAllocator() {
         val vm = VmServices(classIndex)
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val source = frame.allocateArray(
             intArrayType,
             arrayOf(Value.Known(1, intType), Value.Unknown(intType), Value.Known(3, intType)),
@@ -105,7 +105,7 @@ class InvocationIntrinsicsTest {
         val graph = session.run()
 
         assertEquals(listOf(Outcome.Returned(Value.Unknown(intArrayType))), graph.outcomes)
-        assertEquals(0, session.currentNode!!.frame.nextHeapId())
+        assertEquals(0, probeNextHeapId(session.currentNode!!.frame))
         assertTrue(graph.addresses().flatMap(graph::nodePile).all { it.hostFailure == null })
     }
 
@@ -113,7 +113,7 @@ class InvocationIntrinsicsTest {
     fun getClassUsesTheTrackedRuntimeTypeInsteadOfTheLooseRegisterTag() {
         val vm = VmServices(classIndex)
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val runtimeType = VirtualType.of("Lhash_code;")
         val receiver = frame.allocateObject(runtimeType, classIndex.instanceFieldDefaults(runtimeType)!!)
         frame.assign(0, Value.Known(receiver.raw, objectType))
@@ -132,7 +132,7 @@ class InvocationIntrinsicsTest {
     fun looseTaggedArrayGetClassThenComponentTypeUsesTheTrackedArrayIntrinsic() {
         val vm = VmServices(classIndex)
         val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val array = frame.allocateArray(intArrayType, 0)
         frame.assign(0, Value.Known(array.raw, objectType))
         val firstResume = entry.nextAddress(0)
@@ -236,13 +236,13 @@ class InvocationIntrinsicsTest {
     fun objectInitializationCompletesASubtypeWithoutReplacingItsAliasesOrAllocating() {
         val vm = VmServices(classIndex)
         val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val subtype = VirtualType.of("Lhash_code;")
         val receiver = frame.allocateObject(subtype, classIndex.instanceFieldDefaults(subtype)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(receiverRef, objectType))
-        val nextHeapId = frame.nextHeapId()
+        val probedBefore = probeNextHeapId(frame)
         val session = invokeOnce(vm, OBJECT_INIT, InvokeKind.DIRECT, frame = frame)
 
         val graph = session.run()
@@ -252,7 +252,8 @@ class InvocationIntrinsicsTest {
         assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
         assertEquals(receiverRef, (terminal.peek(0) as Value.Known).raw)
         assertEquals(receiverRef, (terminal.peek(1) as Value.Known).raw)
-        assertEquals(nextHeapId, terminal.nextHeapId())
+        // The probe before the run consumed one id; any allocation by Object.<init> would consume another.
+        assertEquals(probedBefore + 1, probeNextHeapId(terminal))
         val initialized = terminal.heapObject(receiverRef) as HeapObject.TrackedObject
         assertFalse(initialized.uninitialized)
         assertNull(terminal.hostObjectAt(receiverRef), "Object.<init> must not replace the tracked receiver")
@@ -262,7 +263,7 @@ class InvocationIntrinsicsTest {
     fun enumConstructionPreservesTrackedReceiverIdentity() {
         val vm = VmServices(classIndex)
         val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val enumType = VirtualType.of("Lextends_enum;")
         val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
@@ -300,7 +301,7 @@ class InvocationIntrinsicsTest {
     fun enumInitializationWritesUnknownInheritedFieldsConservatively() {
         val vm = VmServices(classIndex)
         val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val enumType = VirtualType.of("Lextends_enum;")
         val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
@@ -329,7 +330,7 @@ class InvocationIntrinsicsTest {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) {
             val vm = VmServices(classIndex)
             val entry = wideCallerView()
-            var frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+            var frame = Frame.entryFrame(entry)
             val enumType = VirtualType.of("Lextends_enum;")
             val refs = List(2) {
                 frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!).raw as HeapRef
@@ -369,7 +370,7 @@ class InvocationIntrinsicsTest {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) {
             val vm = VmServices(classIndex)
             val entry = wideCallerView()
-            var frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+            var frame = Frame.entryFrame(entry)
             val enumTypes = listOf(
                 VirtualType.of("Lextends_enum;"),
                 VirtualType.of("Lextends_enum_obfuscated;"),
@@ -438,7 +439,7 @@ class InvocationIntrinsicsTest {
         elements: Array<Value>,
     ): Pair<ExecutionSession, HeapRef> {
         val entry = callerView()
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val source = frame.allocateArray(intArrayType, elements)
         val sourceRef = source.raw as HeapRef
         frame.assign(0, Value.Known(sourceRef, objectType))
@@ -454,7 +455,7 @@ class InvocationIntrinsicsTest {
         registers: IntArray = intArrayOf(0),
     ): ExecutionSession {
         val entry = frame?.let { if (it.registerCount > 1) wideCallerView() else callerView() } ?: callerView()
-        val entryFrame = frame ?: Frame.entryFrame(entry, vm.hostObjectCloner).also { seeded ->
+        val entryFrame = frame ?: Frame.entryFrame(entry).also { seeded ->
             values.forEachIndexed(seeded::assign)
         }
         val resumeAddress = entry.nextAddress(0)

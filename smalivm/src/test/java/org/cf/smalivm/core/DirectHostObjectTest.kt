@@ -29,8 +29,8 @@ class DirectHostObjectTest {
     fun reflectedMethodClonesRemainInvocableAndIsolateAccessibility() {
         val method = String::class.java.getDeclaredMethod("length")
         val aliases = arrayOf(method, method)
-        val source = HostGraphState.fromRoots(listOf(method, aliases))
-        val clone = HostObjectCloner().cloneGraph(source).state
+        val source = HostGraphState.empty().addRoots(listOf(method, aliases)).state
+        val clone = cloneHostGraph(source)
         val copied = clone.objectAt(requireNotNull(source.nodeIdOf(method))) as java.lang.reflect.Method
         val copiedAliases = clone.objectAt(requireNotNull(source.nodeIdOf(aliases))) as Array<*>
 
@@ -43,7 +43,7 @@ class DirectHostObjectTest {
         copied.isAccessible = true
         assertFalse(method.isAccessible)
         assertEquals(HostGraphComparison.Different, HostGraphComparator().compare(source, clone))
-        val next = HostObjectCloner().cloneGraph(clone).state
+        val next = cloneHostGraph(clone)
         val copiedAgain = next.objectAt(requireNotNull(source.nodeIdOf(method))) as java.lang.reflect.Method
         assertTrue(copiedAgain.isAccessible)
         assertEquals(4, copiedAgain.invoke("text"))
@@ -124,7 +124,7 @@ class DirectHostObjectTest {
 
     @Test
     fun equalDistinctHostObjectsKeepDistinctSchedulerIds() {
-        val heap = HeapStore(HeapIds(), HostObjectCloner())
+        val heap = HeapStore(HeapIds())
 
         val first = heap.allocateHostObject(objectType, arrayListOf(1))
         val second = heap.allocateHostObject(objectType, arrayListOf(1))
@@ -500,7 +500,7 @@ class DirectHostObjectTest {
         // Oracle: a hidden class prevents safe edge enumeration, so no disconnected component is provable.
         val captured = StringBuilder("captured")
         val incompleteRoot = Runnable { captured.append('!') }
-        assertFalse(HostGraphState.fromRoots(listOf(incompleteRoot)).isComplete)
+        assertFalse(HostGraphState.empty().addRoots(listOf(incompleteRoot)).state.isComplete)
 
         val frame = Frame.entryFrame(view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;"))
         val disconnected = StringBuilder("disconnected")
@@ -558,7 +558,7 @@ class DirectHostObjectTest {
         val view = classIndex.requireMethodView(
             "Linvoke_backend_test;", "deadIncompleteThenStringLength(Ljava/lang/String;)I",
         )
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val captured = StringBuilder("hidden")
         val deadRef = frame.allocateHostObject(objectType, Runnable { captured.append('!') })
         frame.assign(view.parameters.single().register, Value.Known("visible", stringType))
@@ -579,7 +579,7 @@ class DirectHostObjectTest {
             "Linvoke_backend_test;",
             "liveIncompleteThenStringLength(Ljava/lang/Object;Ljava/lang/String;)I",
         )
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val captured = StringBuilder("hidden")
         val live = frame.admitHostSeeds(
             listOf(HostSeed(Value.Known(Runnable { captured.append('!') }, objectType))),
@@ -768,7 +768,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val parentRef = frame.allocateHostObject(objectType, MutableParent(MutableChild(9)))
         frame.assign(0, Value.Known(parentRef, objectType))
         val run = session(view, vm, frame, listOf(backend), identityObjectOpFactory())
@@ -795,7 +795,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val child = StringBuilder("returned")
         val admitted = frame.admitHostSeeds(
             listOf(
@@ -804,7 +804,8 @@ class DirectHostObjectTest {
             ),
         ).map { it as Value.Known }
         val oldChildRef = admitted[1].raw as HeapRef
-        val expectedNewId = frame.nextHeapId()
+        // The probe consumes its id, so the run's next allocation receives the id after it.
+        val expectedNewId = probeNextHeapId(frame) + 1
         frame.assign(0, admitted[0])
 
         val run = session(view, vm, frame, listOf(backend), identityObjectOpFactory())
@@ -817,7 +818,7 @@ class DirectHostObjectTest {
         assertNotEquals(oldChildRef, newRef)
         assertEquals(HostGraphContents.Unknown, (terminal.terminatingHeapObject(oldChildRef) as HeapObject.HostObject).contents)
         assertEquals("returned", graph.terminatingHostObjectOverExploredPaths(newRef).toString())
-        assertEquals(expectedNewId + 1, requireNotNull(run.currentNode).frame.nextHeapId())
+        assertEquals(newRef.id + 1, probeNextHeapId(requireNotNull(run.currentNode).frame))
 
         val terminalFrame = requireNotNull(run.currentNode).frame
         val selected = SelectedHostCall.from(
@@ -842,7 +843,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val child = IllegalStateException("removed")
         val admitted = frame.admitHostSeeds(
             listOf(
@@ -852,7 +853,8 @@ class DirectHostObjectTest {
         ).map { it as Value.Known }
         val parent = admitted[0]
         val oldChildRef = admitted[1].raw as HeapRef
-        val expectedNewId = frame.nextHeapId()
+        // The probe consumes its id, so the run's next allocation receives the id after it.
+        val expectedNewId = probeNextHeapId(frame) + 1
         frame.assign(0, parent)
 
         val node = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).step()!!
@@ -876,7 +878,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val child = StringBuilder("owned")
         val admitted = frame.admitHostSeeds(
             listOf(
@@ -904,7 +906,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val child = intArrayOf(2, 3)
         val admitted = frame.admitHostSeeds(
             listOf(
@@ -913,7 +915,8 @@ class DirectHostObjectTest {
             ),
         ).map { it as Value.Known }
         val oldRef = admitted[1].raw as HeapRef
-        val expectedNewId = frame.nextHeapId()
+        // The probe consumes its id, so the run's next allocation receives the id after it.
+        val expectedNewId = probeNextHeapId(frame) + 1
         frame.assign(0, admitted[0])
 
         val run = session(view, vm, frame, listOf(backend), identityObjectOpFactory())
@@ -1114,7 +1117,7 @@ class DirectHostObjectTest {
         ) { error("backend must not execute") }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(builderType, StringBuilder("opaque"))
         frame.collapseReachable(listOf(Value.Known(ref, builderType)), listOf(builderType))
         frame.assign(0, Value.Known(ref, builderType))
@@ -1133,7 +1136,7 @@ class DirectHostObjectTest {
         ) { error("backend must not execute") }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val tracked = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         frame.assign(0, tracked)
 
@@ -1153,7 +1156,7 @@ class DirectHostObjectTest {
         ) { error("later backend must not execute") }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val tracked = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         frame.assign(0, tracked)
 
@@ -1180,7 +1183,7 @@ class DirectHostObjectTest {
             }
             val vm = VmServices(CoreTester.classIndex)
             val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-            val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+            val frame = Frame.entryFrame(view)
             frame.assign(0, value)
 
             val node = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).step()!!
@@ -1201,7 +1204,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_reflected_test;", "addToListAndGet()V")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(builderType, builder)
         frame.assign(0, Value.Known(ref, builderType))
         frame.assign(1, Value.Known(ref, objectType))
@@ -1290,7 +1293,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val hiddenRef = frame.allocateHostObject(builderType, StringBuilder("hidden"))
         val session = session(view, vm, frame, listOf(backend))
         returnedRaw = session.frontier.single().frame.hostObjectAt(hiddenRef)!!
@@ -1311,7 +1314,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val containerRef = frame.allocateHostObject(objectType, container)
         frame.assign(0, Value.Known(containerRef, objectType))
 
@@ -1332,7 +1335,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val existing = frame.allocateHostObject(objectType, arrayListOf("existing"))
         val graph = session(view, vm, frame, listOf(backend)).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
@@ -1510,7 +1513,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(objectType, FatalIterable())
         frame.assign(0, Value.Known(ref, objectType))
         val session = session(view, vm, frame, listOf(backend), identityObjectOpFactory())
@@ -1529,8 +1532,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(objectArrayType, arrayOf(Value.Known("old", objectType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(objectArrayType, arrayOf(Value.Known("old", objectType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, objectType))
 
         val node = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).step()!!
@@ -1585,7 +1588,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(objectType, FatalIterable())
         frame.assign(0, Value.Known(ref, objectType))
         val session = session(view, vm, frame, listOf(backend), identityObjectOpFactory())
@@ -1625,8 +1628,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_static_test;", "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(intArrayType, arrayOf(Value.Known(1, intType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(1, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, intArrayType))
         frame.assign(1, Value.Known(0, intType))
 
@@ -1697,7 +1700,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val entry = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val existing = frame.allocateThrowable(type, MutableThrowable(7)).raw as HeapRef
         frame.assign(0, Value.Known(existing, type))
         val returned = (
@@ -1718,18 +1721,22 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val existing = frame.allocateThrowable(type, IllegalStateException("input")).raw as HeapRef
         frame.assign(0, Value.Known(existing, type))
         val graphNodes = frame.hostGraphObjects().size
-        val nextHeapId = frame.nextHeapId()
+        val probeBefore = probeNextHeapId(frame)
 
         val node = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).step()!!
         val thrown = node.outcome as Outcome.Threw
 
         assertEquals(existing, (thrown.exception as Value.Known).raw)
         assertSame(thrownRaw, node.frame.hostObjectAt(existing))
-        assertEquals(nextHeapId, node.frame.nextHeapId(), "the selected throwable clone must reuse its source ref")
+        assertEquals(
+            probeBefore + 1,
+            probeNextHeapId(node.frame),
+            "the selected throwable clone must reuse its source ref",
+        )
         assertEquals(
             graphNodes,
             node.frame.hostGraphObjects().size,
@@ -1741,14 +1748,14 @@ class DirectHostObjectTest {
     fun primitiveAndObjectArraysMaterializeOnceAndCopyBack() {
         val view = view("Lcalls/caller;", "callsNativeCallee()I")
         val frame = Frame.entryFrame(view)
-        val ints = frame.allocateArrayObject(
+        val ints = frame.allocateArray(
             intArrayType,
             arrayOf(Value.Known(1, intType), Value.Known(2, intType)),
-        )
-        val objects = frame.allocateArrayObject(
+        ).raw as HeapRef
+        val objects = frame.allocateArray(
             objectArrayType,
             arrayOf(Value.Known("old", objectType)),
-        )
+        ).raw as HeapRef
         val call = prepared(
             listOf(intArrayType, intArrayType, objectArrayType),
             listOf(
@@ -1783,8 +1790,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_static_test;", "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(intArrayType, arrayOf(Value.Known(1, intType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(1, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, intArrayType))
         frame.assign(1, Value.Known(0, intType))
         val session = session(view, vm, frame, listOf(backend))
@@ -1801,8 +1808,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(intArrayType, arrayOf(Value.Known(4, intType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(4, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, objectType))
         val graph = session(view, vm, frame, listOf(backend), identityObjectOpFactory()).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
@@ -1820,11 +1827,11 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "nonzeroIntPassedAsReference()Ljava/lang/Object;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(
             objectArrayType,
             arrayOf(Value.Known("first", objectType), Value.Known("second", objectType)),
-        )
+        ).raw as HeapRef
         val opFactory: (Int, MethodView, ClassIndex) -> Op = { address, method, index ->
             if (address == 0) object : Op(address) {
                 override val name = "seed-array"
@@ -1848,8 +1855,8 @@ class DirectHostObjectTest {
     @Test
     fun twoArrayCopyBackValidatesBothBeforeApplyingEither() {
         val frame = Frame.entryFrame(view("Lcalls/caller;", "callsNativeCallee()I"))
-        val first = frame.allocateArrayObject(objectArrayType, arrayOf(Value.Known("first", objectType)))
-        val second = frame.allocateArrayObject(objectArrayType, arrayOf(Value.Known("old", objectType)))
+        val first = frame.allocateArray(objectArrayType, arrayOf(Value.Known("first", objectType))).raw as HeapRef
+        val second = frame.allocateArray(objectArrayType, arrayOf(Value.Known("old", objectType))).raw as HeapRef
         val selected = SelectedHostCall.from(
             prepared(
                 listOf(objectArrayType, objectArrayType),
@@ -1858,7 +1865,8 @@ class DirectHostObjectTest {
             frame,
             CoreTester.classIndex.classLoader,
         )
-        val partiallyImportedRef = HeapRef(frame.nextHeapId())
+        // The probe consumes its id, so the first import during finalize receives the id after it.
+        val partiallyImportedRef = HeapRef(probeNextHeapId(frame) + 1)
         (selected.arguments[0] as Array<Any?>)[0] = StringBuilder("new")
         (selected.arguments[1] as Array<Any?>)[0] = arrayListOf(HeapRef(999))
 
@@ -1912,8 +1920,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_static_test;", "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(intArrayType, arrayOf(Value.Known(1, intType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(1, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, intArrayType))
         frame.assign(1, Value.Known(0, intType))
 
@@ -1933,8 +1941,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_static_test;", "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val ref = frame.allocateArrayObject(intArrayType, arrayOf(Value.Known(1, intType)))
+        val frame = Frame.entryFrame(view)
+        val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(1, intType))).raw as HeapRef
         frame.assign(0, Value.Known(ref, intArrayType))
         frame.assign(1, Value.Known(0, intType))
 
@@ -1965,8 +1973,8 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "nonzeroIntPassedAsReference()Ljava/lang/Object;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val outer = frame.allocateArrayObject(objectArrayType, arrayOf(Value.Known(null, objectType)))
+        val frame = Frame.entryFrame(view)
+        val outer = frame.allocateArray(objectArrayType, arrayOf(Value.Known(null, objectType))).raw as HeapRef
         frame.assign(0, Value.Known(outer, objectType))
         val nestedGraph = session(view, vm, frame, listOf(nestedBackend), identityObjectOpFactory()).run()
         val terminal = nestedGraph.nodePile(nestedGraph.methodView.terminalInstructionAddresses.single()).single().frame
@@ -1978,10 +1986,10 @@ class DirectHostObjectTest {
     @Test
     fun newArraysInOneCopyBackShareOneBatchIdentity() {
         val frame = Frame.entryFrame(view("Lcalls/caller;", "callsNativeCallee()I"))
-        val outer = frame.allocateArrayObject(
+        val outer = frame.allocateArray(
             objectArrayType,
             arrayOf(Value.Known(null, objectType), Value.Known(null, objectType)),
-        )
+        ).raw as HeapRef
         val selected = SelectedHostCall.from(
             prepared(listOf(objectArrayType), listOf(Value.Known(outer, objectArrayType))),
             frame,
@@ -2053,10 +2061,10 @@ class DirectHostObjectTest {
     fun hostObjectsRuntimeTypeOverridesLooseTagForObjectArrayStore() {
         val frame = Frame.entryFrame(view("Linvoke_reflected_test;", "invokeStringBuilderAppendWithLong()V"))
         val charSequenceArray = VirtualType.of("[Ljava/lang/CharSequence;")
-        val arrayRef = frame.allocateArrayObject(
+        val arrayRef = frame.allocateArray(
             charSequenceArray,
             arrayOf(Value.Known(null, VirtualType.of("Ljava/lang/CharSequence;"))),
-        )
+        ).raw as HeapRef
         val builderRef = frame.allocateHostObject(builderType, StringBuilder("value"))
         frame.assign(0, Value.Known(builderRef, objectType))
         frame.assign(1, Value.Known(arrayRef, charSequenceArray))
@@ -2082,10 +2090,10 @@ class DirectHostObjectTest {
         val frame = Frame.entryFrame(view("Linvoke_reflected_test;", "invokeStringBuilderAppendWithLong()V"))
         val charSequence = VirtualType.of("Ljava/lang/CharSequence;")
         val charSequenceArray = VirtualType.of("[Ljava/lang/CharSequence;")
-        val arrayRef = frame.allocateArrayObject(
+        val arrayRef = frame.allocateArray(
             charSequenceArray,
             arrayOf(Value.Known(null, charSequence)),
-        )
+        ).raw as HeapRef
         frame.assign(0, Value.Known("value", objectType))
         frame.assign(1, Value.Known(arrayRef, charSequenceArray))
         frame.assign(2, Value.Known(0, intType))
@@ -2130,7 +2138,7 @@ class DirectHostObjectTest {
         }
         val vm = VmServices(CoreTester.classIndex)
         val view = view("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(objectType, arrayListOf<Any>())
         frame.assign(0, Value.Known(ref, objectType))
 
@@ -2168,7 +2176,7 @@ class DirectHostObjectTest {
         val classIndex = CoreTester.classIndex
         val vm = VmServices(classIndex)
         val view = classIndex.requireMethodView("Linvoke_backend_test;", descriptor)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val admitted = frame.admitHostSeeds(raws.zip(types) { raw, type -> HostSeed(Value.Known(raw, type)) })
         view.parameters.zip(admitted).forEach { (parameter, value) -> frame.assign(parameter.register, value) }
         val graph = vm.newSession(view, entryFrame = frame).run()
@@ -2190,7 +2198,7 @@ class DirectHostObjectTest {
     ): Pair<ExecutionSession, HeapRef> {
         val vm = VmServices(CoreTester.classIndex)
         val view = view(className, descriptor)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(type, raw)
         seed(frame, ref)
         return session(view, vm, frame, backends) to ref
@@ -2208,7 +2216,7 @@ class DirectHostObjectTest {
         Limits(),
         frame,
         opFactory,
-        Invoker(CoreTester.classIndex, backends),
+        invokerOf(CoreTester.classIndex, backends),
     )
 
     private fun identityObjectOpFactory(): (Int, MethodView, ClassIndex) -> Op = { address, method, index ->

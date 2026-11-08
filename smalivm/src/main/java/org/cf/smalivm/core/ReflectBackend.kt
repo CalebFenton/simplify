@@ -9,9 +9,6 @@ internal class ReflectBackend(
     private val policy: ReflectionPolicy,
     private val resolver: ProgramSnapshotResolver,
 ) : SynchronousBackend {
-    constructor(policy: ReflectionPolicy, classIndex: ClassIndex) :
-        this(policy, classIndex.resolver(classIndex.currentSnapshot))
-
     override val name: String get() = "reflection"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe {
@@ -48,18 +45,14 @@ internal class ReflectBackend(
     }
 
     override fun execute(call: SelectedHostCall): SynchronousCallResult {
-        val declaringClass: Class<*>
-        val parameterClasses: Array<Class<*>>
-        val returnClass: Class<*>
-        try {
-            declaringClass = hostClass(call.target.definingClass)
-            parameterClasses = call.parameterTypes.map(::hostClass).toTypedArray()
-            returnClass = hostClass(call.returnType)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return SynchronousCallResult.InfrastructureFailure(failure)
+        val classLoader = resolver.classLoader
+        val classes = hostBoundary({ return SynchronousCallResult.InfrastructureFailure(it) }) {
+            listOf(call.target.definingClass, *call.parameterTypes.toTypedArray(), call.returnType)
+                .map { it.hostClass(classLoader) }
         }
+        val declaringClass = classes.first()
+        val parameterClasses = classes.subList(1, classes.lastIndex).toTypedArray()
+        val returnClass = classes.last()
 
         return if (call.kind == InvokeKind.DIRECT && call.target.name == "<init>") {
             invokeConstructor(declaringClass, parameterClasses, call)
@@ -73,12 +66,8 @@ internal class ReflectBackend(
         parameterClasses: Array<Class<*>>,
         call: SelectedHostCall,
     ): SynchronousCallResult {
-        val constructor = try {
+        val constructor = hostBoundary({ return SynchronousCallResult.InfrastructureFailure(it) }) {
             declaringClass.getDeclaredConstructor(*parameterClasses)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return SynchronousCallResult.InfrastructureFailure(failure)
         }
         return invokeTarget {
             ConstructedHostObjectResult(constructor.newInstance(*call.arguments.toTypedArray()))
@@ -91,25 +80,11 @@ internal class ReflectBackend(
         returnClass: Class<*>,
         call: SelectedHostCall,
     ): SynchronousCallResult {
-        val matches = try {
-            declaringClass.declaredMethods.filter { method ->
-                method.name == call.target.name &&
-                    method.parameterTypes.contentEquals(parameterClasses) &&
-                    method.returnType == returnClass
-            }
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return SynchronousCallResult.InfrastructureFailure(failure)
-        }
-        val method = when (matches.size) {
-            0 -> return SynchronousCallResult.InfrastructureFailure(
-                NoSuchMethodException("No exact JVM method matches ${call.target}"),
-            )
-            1 -> matches.single()
-            else -> return SynchronousCallResult.InfrastructureFailure(
-                IllegalStateException("Multiple exact JVM methods match ${call.target}"),
-            )
+        val method = hostBoundary({ return SynchronousCallResult.InfrastructureFailure(it) }) {
+            exactMethod(declaringClass, call.target.name, parameterClasses, returnClass)
+                ?: return SynchronousCallResult.InfrastructureFailure(
+                    NoSuchMethodException("No exact JVM method matches ${call.target}"),
+                )
         }
         val isStatic = Modifier.isStatic(method.modifiers)
         if ((call.kind == InvokeKind.STATIC) != isStatic) {
@@ -121,6 +96,27 @@ internal class ReflectBackend(
         return invokeTarget {
             val raw = method.invoke(if (isStatic) null else call.receiver, *call.arguments.toTypedArray())
             SynchronousCallResult.Returned(importReturn(raw, call.returnType))
+        }
+    }
+
+    /**
+     * The method [declaringClass] declares with exactly this JVM descriptor. `getDeclaredMethod` picks the most
+     * specific return type among same-parameter bridge methods, so only a different return type scans the rest.
+     */
+    private fun exactMethod(
+        declaringClass: Class<*>,
+        name: String,
+        parameterClasses: Array<Class<*>>,
+        returnClass: Class<*>,
+    ): Method? {
+        val candidate = try {
+            declaringClass.getDeclaredMethod(name, *parameterClasses)
+        } catch (_: NoSuchMethodException) {
+            return null
+        }
+        if (candidate.returnType == returnClass) return candidate
+        return declaringClass.declaredMethods.firstOrNull { method ->
+            method.name == name && method.returnType == returnClass && method.parameterTypes.contentEquals(parameterClasses)
         }
     }
 
@@ -142,12 +138,8 @@ internal class ReflectBackend(
                 IllegalArgumentException("Method.invoke requires an Object[] argument"),
             )
         }
-        return try {
+        return hostBoundary({ targetThrew(it) }) {
             SynchronousCallResult.Returned(importReturn(target.invoke(call.arguments[0], *arguments), call.returnType))
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (targetFailure: Throwable) {
-            targetResult(targetFailure)
         }
     }
 
@@ -169,47 +161,19 @@ internal class ReflectBackend(
         return if (decision is ReflectionDecision.Denied) "reflection policy denied $reflected by ${decision.rule}" else null
     }
 
-    private inline fun invokeTarget(block: () -> SynchronousCallResult): SynchronousCallResult = try {
-        block()
-    } catch (wrapper: InvocationTargetException) {
-        val target = wrapper.targetException ?: return SynchronousCallResult.InfrastructureFailure(wrapper)
-        if (target is VirtualMachineError) throw target
-        targetResult(target)
-    } catch (fatal: VirtualMachineError) {
-        throw fatal
-    } catch (target: LinkageError) {
-        targetResult(target)
-    } catch (failure: Throwable) {
-        SynchronousCallResult.InfrastructureFailure(failure)
-    }
+    private inline fun invokeTarget(block: () -> SynchronousCallResult): SynchronousCallResult =
+        hostBoundary({ failure ->
+            when (failure) {
+                is InvocationTargetException -> {
+                    val target = failure.targetException ?: return SynchronousCallResult.InfrastructureFailure(failure)
+                    if (target is VirtualMachineError) throw target
+                    targetThrew(target)
+                }
+                is LinkageError -> targetThrew(failure)
+                else -> SynchronousCallResult.InfrastructureFailure(failure)
+            }
+        }, block)
 
-    private fun targetResult(target: Throwable): SynchronousCallResult.TargetThrew =
-        SynchronousCallResult.TargetThrew(HostThrowable(virtualTypeOfHostClass(target.javaClass), target))
-
-    private fun importReturn(raw: Any?, declaredType: VirtualType): HostReturn {
-        if (declaredType.isVoid) return HostReturn.Void
-        if (declaredType.isPrimitive) {
-            return HostReturn.Value(HostValue.Primitive(requireNotNull(raw), declaredType))
-        }
-        if (raw == null) return HostReturn.Value(HostValue.TypedNull(declaredType))
-        return HostReturn.Value(HostValue.Reference(raw, virtualTypeOfHostClass(raw.javaClass)))
-    }
-
-    private fun hostClass(type: VirtualType): Class<*> = when (type.descriptor) {
-        "Z" -> Boolean::class.javaPrimitiveType!!
-        "B" -> Byte::class.javaPrimitiveType!!
-        "C" -> Char::class.javaPrimitiveType!!
-        "S" -> Short::class.javaPrimitiveType!!
-        "I" -> Int::class.javaPrimitiveType!!
-        "J" -> Long::class.javaPrimitiveType!!
-        "F" -> Float::class.javaPrimitiveType!!
-        "D" -> Double::class.javaPrimitiveType!!
-        "V" -> Void.TYPE
-        else -> Class.forName(type.hostClassName(), false, resolver.classLoader)
-    }
-}
-
-private fun VirtualType.hostClassName(): String = when {
-    descriptor.startsWith("[") -> descriptor.replace('/', '.')
-    else -> descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')
+    private fun importReturn(raw: Any?, declaredType: VirtualType): HostReturn =
+        if (declaredType.isVoid) HostReturn.Void else HostReturn.Value(raw.toHostValue(declaredType))
 }

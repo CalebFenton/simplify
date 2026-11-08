@@ -16,9 +16,9 @@ class HostGraphDepthTest {
         val innermost = ArrayList<Any>()
         var outermost: ArrayList<Any> = innermost
         repeat(DEPTH - 1) { outermost = arrayListOf(outermost) }
-        val state = HostGraphState.fromRoots(listOf(outermost))
+        val state = HostGraphState.empty().addRoots(listOf(outermost)).state
 
-        val clone = HostObjectCloner().cloneGraph(state).state
+        val clone = cloneHostGraph(state)
 
         assertEquals(DEPTH, clone.nodeCount)
         var clonedInnermost = clone.objectAt(HostGraphNodeId(0)) as ArrayList<Any>
@@ -39,9 +39,9 @@ class HostGraphDepthTest {
         val last = Link(0, null)
         var head = last
         repeat(DEPTH - 1) { head = Link(it + 1, head) }
-        val state = HostGraphState.fromRoots(listOf(head))
+        val state = HostGraphState.empty().addRoots(listOf(head)).state
 
-        val clone = HostObjectCloner().cloneGraph(state).state
+        val clone = cloneHostGraph(state)
 
         assertEquals(DEPTH, clone.nodeCount)
         var clonedLast = clone.objectAt(HostGraphNodeId(0)) as Link

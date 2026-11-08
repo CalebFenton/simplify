@@ -548,11 +548,13 @@ class InvokerTest {
     fun theInvokerResolvesAStaticTargetToARunnableBodyWithoutASession() {
         // The Invoker returns a PLAN and applies nothing, which is what makes it testable like this and
         // what keeps the scheduler's two-phase commit the only writer of node/frame/frontier state.
-        val invoker = Invoker(classIndex)
+        val invoker = defaultInvoker(classIndex)
+        val caller = viewOf(CALLER, "passesAnArgument()I")
         val preparation = invoker.prepare(
             Invocation(descriptorOf(CALLEE, "identityInt", "(I)I"), InvokeKind.STATIC, listOf(Value.Known(4, int))),
+            caller.definingClass,
         )
-        val plan = invoker.plan(preparation as InvocationPreparation.Ready)
+        val plan = invoker.planOn(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))
         assertTrue(plan is InvocationPlan.RunGuest, "a present static method with a body is runnable: $plan")
         val guest = plan as InvocationPlan.RunGuest
         assertEquals("Lcalls/callee;->identityInt(I)I", guest.view.signature)

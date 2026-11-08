@@ -37,13 +37,11 @@ class SelectedHostCall private constructor(
     /** Finalizes array copy-back and exact graph comparison on every non-fatal execution path. */
     internal fun finalize(frame: Frame): HostGraphComparison {
         frame.verifyHostGraphCheckpoint(checkpoint)
-        try {
-            copyArraysBack(frame)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
+        hostBoundary({ failure ->
             frame.finalizeHostGraph(checkpoint)
             throw failure
+        }) {
+            copyArraysBack(frame)
         }
         return frame.finalizeHostGraph(checkpoint)
     }
@@ -94,12 +92,8 @@ class SelectedHostCall private constructor(
             }
             frame.applyArrayReplacementsAtomically(converted)
         } catch (failure: Throwable) {
-            try {
+            hostBoundary({ rollbackFailure -> if (rollbackFailure !== failure) failure.addSuppressed(rollbackFailure) }) {
                 frame.rollbackFailedCopyback(transaction, arrays.map { it.ref }.toSet())
-            } catch (fatal: VirtualMachineError) {
-                throw fatal
-            } catch (rollbackFailure: Throwable) {
-                if (rollbackFailure !== failure) failure.addSuppressed(rollbackFailure)
             }
             throw failure
         }
@@ -364,7 +358,7 @@ private class ArrayMaterializer(
         }
         val component = requireNotNull(tracked.type.componentType)
         val raw = try {
-            ReflectArray.newInstance(hostClass(component, classLoader), tracked.length)
+            ReflectArray.newInstance(component.hostClass(classLoader), tracked.length)
         } catch (e: ClassNotFoundException) {
             throw SelectedHostCallUnavailable("No JVM array component for $component", e)
         }
@@ -415,38 +409,4 @@ private fun validateCopiedElement(raw: Any?, component: VirtualType, hostCompone
     require(hostComponent.isPrimitive || hostComponent.isInstance(raw)) {
         "${raw.javaClass.name} is not compatible with ${hostComponent.name}"
     }
-}
-
-private fun hostClass(type: VirtualType, classLoader: ClassLoader): Class<*> = when (type.descriptor) {
-    "Z" -> Boolean::class.javaPrimitiveType!!
-    "B" -> Byte::class.javaPrimitiveType!!
-    "C" -> Char::class.javaPrimitiveType!!
-    "S" -> Short::class.javaPrimitiveType!!
-    "I" -> Int::class.javaPrimitiveType!!
-    "J" -> Long::class.javaPrimitiveType!!
-    "F" -> Float::class.javaPrimitiveType!!
-    "D" -> Double::class.javaPrimitiveType!!
-    else -> Class.forName(type.hostClassName(), false, classLoader)
-}
-
-private fun VirtualType.hostClassName(): String = when {
-    descriptor.startsWith("[") -> descriptor.replace('/', '.')
-    else -> descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')
-}
-
-internal fun virtualTypeOfHostClass(hostClass: Class<*>): VirtualType {
-    val name = hostClass.name.replace('.', '/')
-    return VirtualType.of(if (name.startsWith("[")) name else "L$name;")
-}
-
-internal fun virtualTypeOfHostFieldClass(hostClass: Class<*>): VirtualType = when (hostClass) {
-    java.lang.Boolean.TYPE -> VirtualType.of("Z")
-    java.lang.Byte.TYPE -> VirtualType.of("B")
-    java.lang.Character.TYPE -> VirtualType.of("C")
-    java.lang.Short.TYPE -> VirtualType.of("S")
-    java.lang.Integer.TYPE -> VirtualType.of("I")
-    java.lang.Long.TYPE -> VirtualType.of("J")
-    java.lang.Float.TYPE -> VirtualType.of("F")
-    java.lang.Double.TYPE -> VirtualType.of("D")
-    else -> virtualTypeOfHostClass(hostClass)
 }

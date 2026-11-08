@@ -68,34 +68,10 @@ internal data class TrackedFieldValue(
     }
 }
 
-/** JVM initialization dependencies for one static field owner, without initializing any class. */
-internal fun hostFieldInitializationChain(declaringClass: Class<*>): List<VirtualType> {
-    val chain = linkedSetOf<Class<*>>()
-
-    fun addDefaultInterfaces(owner: Class<*>) {
-        for (interfaceClass in owner.interfaces) {
-            addDefaultInterfaces(interfaceClass)
-            if (interfaceClass.declaredMethods.any { it.isDefault }) chain += interfaceClass
-        }
-    }
-
-    fun addClass(owner: Class<*>) {
-        owner.superclass?.let(::addClass)
-        addDefaultInterfaces(owner)
-        chain += owner
-    }
-
-    addClass(declaringClass)
-    return chain.map(::virtualTypeOfHostClass)
-}
-
+/** Whether the VM's class loader resolves [field]'s declaring type to the exact host class the field came from. */
 internal fun hostDeclaringClassMatchesVm(field: TrackedFieldValue, classIndex: ClassIndex): Boolean {
     val domain = field.domain as? TrackedFieldDomain.Host ?: return false
-    return try {
+    return hostBoundary({ false }) {
         classIndex.loadClassConstant(field.declaringType.descriptor) === domain.declaringClass
-    } catch (fatal: VirtualMachineError) {
-        throw fatal
-    } catch (_: Throwable) {
-        false
     }
 }

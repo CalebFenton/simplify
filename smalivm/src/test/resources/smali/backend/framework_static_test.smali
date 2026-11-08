@@ -7,13 +7,13 @@
     return v0
 .end method
 
-.method public static primitive()I
+.method public static primitive()C
     .locals 1
-    sget v0, Landroid/util/DisplayMetrics;->DENSITY_DEVICE_STABLE:I
+    sget-char v0, Ljava/io/File;->separatorChar:C
     return v0
 .end method
 
-.method public static nullable()Ljava/lang/ClassLoader;
+.method public static hostAbsentClassField()Ljava/lang/ClassLoader;
     .locals 1
     sget-object v0, Ljava/lang/ClassLoader$SystemClassLoader;->loader:Ljava/lang/ClassLoader;
     return-object v0
@@ -31,38 +31,16 @@
     return-object v0
 .end method
 
-.method public static throwableReference()Ljava/lang/Object;
-    .locals 1
-    sget-object v0, Lorg/json/JSONObject;->NULL:Ljava/lang/Object;
-    return-object v0
-.end method
-
 .method public static unsafeSystemField()Ljava/io/PrintStream;
     .locals 1
     sget-object v0, Ljava/lang/System;->out:Ljava/io/PrintStream;
     return-object v0
 .end method
 
-.method public static unsafeAncestorField()I
+.method public static subclassField()Ljava/lang/Class;
     .locals 1
-    sget v0, Lcom/android/server/connectivity/metrics/nano/IpConnectivityLogClass$DefaultNetworkEvent;->NONE:I
-    return v0
-.end method
-
-.method public static realInitializerError()I
-    .locals 2
-    :try_start
-    sget v0, Landroid/util/DisplayMetrics;->DENSITY_DEVICE_STABLE:I
-    :try_end
-    const/4 v1, 0x0
-    return v1
-
-    .catch Ljava/lang/AssertionError; {:try_start .. :try_end} :caught
-
-    :caught
-    move-exception v0
-    const/4 v1, 0x1
-    return v1
+    sget-object v0, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
+    return-object v0
 .end method
 
 .method public static putOverridesProjection()Ljava/lang/Boolean;
@@ -74,22 +52,6 @@
     return-object v0
 .end method
 
-.method public static catchesProjectionThrow()I
-    .locals 2
-    :try_start
-    sget-object v0, Ljava/lang/Boolean;->TRUE:Ljava/lang/Boolean;
-    :try_end
-    const/4 v1, 0x0
-    return v1
-
-    .catch Ljava/lang/Throwable; {:try_start .. :try_end} :caught
-
-    :caught
-    move-exception v0
-    const/4 v1, 0x1
-    return v1
-.end method
-
 .method public static siblingProjection(I)Ljava/util/List;
     .locals 1
     if-eqz p0, :zero
@@ -97,19 +59,6 @@
     return-object v0
 
     :zero
-    sget-object v0, Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;
-    return-object v0
-.end method
-
-.method public static siblingProjectionMutation(I)Ljava/util/List;
-    .locals 2
-    if-eqz p0, :unmutated
-    sget-object v0, Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;
-    const-string v1, "changed"
-    invoke-interface {v0, v1}, Ljava/util/List;->add(Ljava/lang/Object;)Z
-    return-object v0
-
-    :unmutated
     sget-object v0, Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;
     return-object v0
 .end method

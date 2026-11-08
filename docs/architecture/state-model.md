@@ -46,7 +46,7 @@ A later trigger allocates a fresh `NoClassDefFoundError` caused by the stored ou
   cache entries. Instruction read bookkeeping is distinct from debugger observation.
 - Mutable host objects belong behind `HeapRef` identities in one path-local `HostGraphState`.
   A selected, accepted synchronous backend detaches that graph before receiving executable Java
-  objects. `HostObjectCloner` uses one identity map across all roots to preserve nested aliases
+  objects. `cloneHostGraph` uses one identity map across all roots to preserve nested aliases
   and cycles; sibling frame roots are not exposed for host mutation.
 - `HeapStore.finalizeHostGraph` compares the detached graph exactly. Only `Equal` can restore the
   original graph root, and restoration is suppressed when dirty array mirrors were synchronized.
@@ -57,6 +57,5 @@ A later trigger allocates a fresh `NoClassDefFoundError` caused by the stored ou
   failures pass through selected-call finalization. `VirtualMachineError` is deliberately rethrown
   rather than treated as a recoverable result.
 
-These contracts are implemented by `core/Frame.kt`, `HeapStore.kt`, `ClassInit.kt`, `HostGraphState.kt`,
-`HostObjectCloner.kt`, `SelectedHostCall.kt`, and `ExecutionSession.kt`. They do not claim whole-JVM
-isolation: host execution remains subject to the configured backend and reflection policy.
+These contracts do not claim whole-JVM isolation: host execution remains subject to the configured
+backend and reflection policy.

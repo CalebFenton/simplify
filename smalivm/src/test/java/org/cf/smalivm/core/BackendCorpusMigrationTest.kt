@@ -231,7 +231,7 @@ class BackendCorpusMigrationTest {
         // Oracle: Class.getComponentType on int[].class is exactly int.class.
         val view = view(INVOKE_FIXTURE, "primitiveArrayComponent(Ljava/lang/Object;)Ljava/lang/Class;")
         val vm = VmServices(classIndex)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val arrayRef = frame.allocateArray(INT_ARRAY, arrayOf(Value.Known(3, INT))).raw as HeapRef
         frame.assign(1, Value.Known(arrayRef, OBJECT))
         val run = execute(view, vm, frame)
@@ -245,7 +245,7 @@ class BackendCorpusMigrationTest {
         // Oracle: JVM getClass and Plan 11 both use receiver runtime class; no raw guest object is materialized.
         val view = view(INVOKE_FIXTURE, "trackedRuntimeClass(Ljava/lang/Object;)Ljava/lang/Class;")
         val vm = VmServices(classIndex)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val runtimeType = VirtualType.of("Lhash_code;")
         val receiver = frame.allocateObject(runtimeType, classIndex.instanceFieldDefaults(runtimeType)!!)
         frame.assign(1, Value.Known(receiver.raw, OBJECT))
@@ -275,7 +275,7 @@ class BackendCorpusMigrationTest {
 
         val vm = VmServices(classIndex, policy)
         val view = view(SIDE_EFFECT_FIXTURE, "provenHostCalls()Ljava/lang/String;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         // Measure the calls' effects, not skipped framework initialization on first allocation.
         generateSequence(BUILDER, classIndex::superclassOf).forEach(frame::completeClassInit)
         val run = execute(view, vm, frame)
@@ -320,7 +320,7 @@ class BackendCorpusMigrationTest {
         // Oracle: Plan 11 debugger contract makes one accepted synchronous invoke one scheduler step.
         val view = view(INVOKE_FIXTURE, "appendLong(Ljava/lang/StringBuilder;J)Ljava/lang/StringBuilder;")
         val vm = VmServices(classIndex)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val ref = frame.allocateHostObject(BUILDER, StringBuilder("step"))
         frame.assign(0, Value.Known(ref, BUILDER))
         frame.assign(1, Value.Known(9L, LONG))
@@ -358,7 +358,7 @@ class BackendCorpusMigrationTest {
         val length = method(BUILDER, "length", "()I")
         val vm = vm(setOf(length))
         val view = view(INVOKE_FIXTURE, "suspendedCallerKeepsOtherRoot(Ljava/lang/StringBuilder;Ljava/lang/StringBuilder;)I")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val admitted = frame.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(StringBuilder("alpha"), BUILDER)),
@@ -385,7 +385,7 @@ class BackendCorpusMigrationTest {
         val length = method(BUILDER, "length", "()I")
         val vm = vm(setOf(fresh, length))
         val view = view(INVOKE_FIXTURE, "siblingBranchLocalRoot(ILjava/lang/StringBuilder;)I")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val admitted = frame.admitHostSeeds(
             listOf(HostSeed(Value.Known(StringBuilder("alpha"), BUILDER))),
         ).single()
@@ -424,7 +424,7 @@ class BackendCorpusMigrationTest {
         expectedCompletion: CompletionStatus = CompletionStatus.Complete,
     ): FixtureRun {
         val view = view(className, descriptor)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val entries = initial.entries.toList()
         val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
         val seeded = entries.zip(admitted).associate { (entry, value) -> entry.key to value }

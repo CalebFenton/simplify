@@ -58,3 +58,40 @@ class VirtualType private constructor(val descriptor: String) {
         }
     }
 }
+
+/** The JVM binary name of a reference type, in the form `Class.forName` accepts. */
+internal fun VirtualType.hostClassName(): String = when {
+    isArray -> descriptor.replace('/', '.')
+    else -> descriptor.removePrefix("L").removeSuffix(";").replace('/', '.')
+}
+
+/** The host class for [type]; reference types load through [classLoader] without initialization. */
+internal fun VirtualType.hostClass(classLoader: ClassLoader): Class<*> = when (descriptor) {
+    "Z" -> java.lang.Boolean.TYPE
+    "B" -> java.lang.Byte.TYPE
+    "C" -> java.lang.Character.TYPE
+    "S" -> java.lang.Short.TYPE
+    "I" -> java.lang.Integer.TYPE
+    "J" -> java.lang.Long.TYPE
+    "F" -> java.lang.Float.TYPE
+    "D" -> java.lang.Double.TYPE
+    "V" -> java.lang.Void.TYPE
+    else -> Class.forName(hostClassName(), false, classLoader)
+}
+
+/** The descriptor of [hostClass], primitives and void included. */
+internal fun virtualTypeOfHostClass(hostClass: Class<*>): VirtualType = when (hostClass) {
+    java.lang.Boolean.TYPE -> VirtualType.of("Z")
+    java.lang.Byte.TYPE -> VirtualType.of("B")
+    java.lang.Character.TYPE -> VirtualType.of("C")
+    java.lang.Short.TYPE -> VirtualType.of("S")
+    java.lang.Integer.TYPE -> VirtualType.of("I")
+    java.lang.Long.TYPE -> VirtualType.of("J")
+    java.lang.Float.TYPE -> VirtualType.of("F")
+    java.lang.Double.TYPE -> VirtualType.of("D")
+    java.lang.Void.TYPE -> VirtualType.of("V")
+    else -> {
+        val name = hostClass.name.replace('.', '/')
+        VirtualType.of(if (hostClass.isArray) name else "L$name;")
+    }
+}

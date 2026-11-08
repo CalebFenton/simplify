@@ -11,52 +11,29 @@ package org.cf.smalivm.core
 class Invoker internal constructor(
     internal val resolver: ProgramSnapshotResolver,
     private val backends: List<Backend>,
-    private val classInit: ClassInitPlanner,
-    private val onEvent: (String) -> Unit,
 ) {
+    private val classInit = ClassInitPlanner(resolver)
 
-    internal constructor(classIndex: ClassIndex) : this(
-        InvocationServices(classIndex).capture(classIndex.resolver(classIndex.currentSnapshot)),
+    /** The production backends in selection order, with the emulators [services] holds when the session starts. */
+    internal constructor(resolver: ProgramSnapshotResolver, services: InvocationServices) : this(
+        resolver,
+        listOf(
+            EmulateBackend(services.sessionEmulators(resolver.classIndex)),
+            ApplicationBytecodeBackend(resolver),
+            ReflectBackend(services.reflectionPolicy, resolver),
+            FrameworkBytecodeBackend(resolver),
+        ),
     )
-
-    internal constructor(services: SnapshotInvocationServices) :
-        this(
-            services.resolver,
-            listOf(
-                EmulateBackend(services.emulators),
-                ApplicationBytecodeBackend(services.resolver),
-                ReflectBackend(services.reflectionPolicy, services.resolver),
-                FrameworkBytecodeBackend(services.resolver),
-            ),
-            ClassInitPlanner(services.resolver),
-            {},
-        )
-
-    internal constructor(classIndex: ClassIndex, backends: List<Backend>) :
-        this(classIndex.resolver(classIndex.currentSnapshot), backends)
-
-    internal constructor(classIndex: ClassIndex, backends: List<Backend>, onEvent: (String) -> Unit) :
-        this(classIndex.resolver(classIndex.currentSnapshot), backends, onEvent)
-
-    internal constructor(resolver: ProgramSnapshotResolver, backends: List<Backend>) :
-        this(resolver, backends, ClassInitPlanner(resolver), {})
-
-    internal constructor(
-        resolver: ProgramSnapshotResolver,
-        backends: List<Backend>,
-        onEvent: (String) -> Unit,
-    ) : this(resolver, backends, ClassInitPlanner(resolver), onEvent)
 
     /** Resolves and logically binds [call]. This method never probes a backend or changes run state. */
     fun prepare(
         call: Invocation,
-        callerClass: VirtualType = call.target.definingClass,
+        callerClass: VirtualType,
         receiverType: VirtualType? = null,
     ): InvocationPreparation {
-        onEvent("resolve")
         val resolved = resolver.resolveInvocation(call.target, call.kind, callerClass, receiverType)
         if (resolved is InvocationLookup.Ambiguous) {
-            return InvocationPreparation.Opaque(call.target.returnType, resolved.candidates)
+            return OpaqueInvocation(call.target.returnType, resolved.candidates)
         }
         resolved as InvocationLookup.Resolved
         val method = when (val lookup = resolved.lookup) {
@@ -71,29 +48,17 @@ class Invoker internal constructor(
             is MethodLookup.DefaultConflict -> lookup.method
         }
 
-        onEvent("bind")
-        val expectedWords = method.parameterTypes.sumOf { if (it.isWide) 2 else 1 } +
-            if (call.kind == InvokeKind.STATIC) 0 else 1
-        if (call.registerFrameValues.size != expectedWords) {
-            return InvocationPreparation.Opaque(
+        val words = method.target.argumentWords(call.kind)
+        if (call.registerFrameValues.size != words.wordCount) {
+            return OpaqueInvocation(
                 method.returnType,
                 resolved.candidates,
                 "${call.target} was invoked with ${call.registerFrameValues.size} argument register(s), but " +
-                    "${method.target} requires $expectedWords",
+                    "${method.target} requires ${words.wordCount}",
             )
         }
-
-        var word = 0
-        val receiver = if (call.kind == InvokeKind.STATIC) {
-            null
-        } else {
-            bindFrameValue(call.registerFrameValues[word++], method.target.definingClass)
-        }
-        val arguments = ArrayList<FrameValue>(method.parameterTypes.size)
-        for (parameterType in method.parameterTypes) {
-            arguments.add(bindFrameValue(call.registerFrameValues[word], parameterType))
-            word += if (parameterType.isWide) 2 else 1
-        }
+        val bound = words.arguments.map { bindFrameValue(call.registerFrameValues[it.word], it.type) }
+        val receiver = if (call.kind == InvokeKind.STATIC) null else bound.first()
         return InvocationPreparation.Ready(
             PreparedInvocation.fromFrameValues(
                 method.target,
@@ -102,27 +67,17 @@ class Invoker internal constructor(
                 method.returnType,
                 method.parameterTypes,
                 receiver,
-                arguments,
+                if (receiver == null) bound else bound.drop(1),
             ),
             resolved.lookup,
             resolved.candidates,
         )
     }
 
-    /** Checks the prepared receiver after resolution and binding, but before backend selection. */
-    internal fun receiverIsNull(preparation: InvocationPreparation.Ready): Boolean {
-        onEvent("null-check")
-        return preparation.invocation.receiver?.readsAsNullReference == true
-    }
-
     /** Returns the applicable runtime class-init target before any backend is probed. */
-    internal fun applicableClassInitTarget(call: PreparedInvocation): VirtualType? =
-        call.classInitTarget.also { if (it != null) onEvent("class-init-trigger") }
+    internal fun applicableClassInitTarget(call: PreparedInvocation): VirtualType? = call.classInitTarget
 
     /** Selects a backend for an already prepared call. The scheduler applies the returned plan. */
-    fun plan(preparation: InvocationPreparation.Ready): InvocationPlan =
-        plan(preparation, ::isMaterializableWithoutHeap) { false }
-
     internal fun plan(
         preparation: InvocationPreparation.Ready,
         hostMaterializable: (Value) -> Boolean,
@@ -133,7 +88,7 @@ class Invoker internal constructor(
         for (backend in backends) {
             when (val probe = backend.probe(metadata, preparation.lookup)) {
                 is BackendProbe.Declined -> declines += "${backend.name}: ${probe.diagnostic}"
-                is BackendProbe.Denied -> return InvocationPlan.Opaque(
+                is BackendProbe.Denied -> return OpaqueInvocation(
                     preparation.invocation.returnType,
                     preparation.candidates,
                     probe.diagnostic,
@@ -150,16 +105,12 @@ class Invoker internal constructor(
                 }
             }
         }
-        onEvent("opaque")
-        return InvocationPlan.Opaque(
+        return OpaqueInvocation(
             preparation.invocation.returnType,
             preparation.candidates,
             declines.joinToString("; ").ifEmpty { "no invocation backend is configured" },
         )
     }
-
-    private fun isMaterializableWithoutHeap(value: Value): Boolean =
-        value is Value.Known && value.raw !is HeapRef && (value.raw == null || value.raw.isDirectHostImmutable())
 
     private fun planGuest(call: PreparedInvocation, schedule: BackendProbe.Schedule): InvocationPlan {
         val values = ArrayList<FrameValue>(
@@ -201,16 +152,13 @@ class Invoker internal constructor(
         return if (rebound == null) Value.Unknown(parameterType) else Value.Known(rebound, parameterType)
     }
 
-    /**
-     * What initializing [type] requires on the path [state] describes -- see [ClassInitPlan], and
-     * [ClassInitPlanner.plan] for the walk.
-     *
-     * Takes the read-only [ClassState] rather than the [Frame]: the planner must not be able to mark
-     * anything, for the same reason [Invocation] carries values rather than registers. The scheduler applies
-     * the plan, to a successor's own frame.
-     */
+    /** What initializing [type] requires on the path [state] describes. The scheduler applies the plan. */
     internal fun planClassInit(state: Frame, type: VirtualType): ClassInitPlan = classInit.plan(state, type)
 }
+
+/** Whether a call of [kind] whose receiver word holds [receiver] throws NullPointerException before dispatch. */
+internal fun receiverIsNull(kind: InvokeKind, receiver: Value?): Boolean =
+    kind != InvokeKind.STATIC && receiver?.readsAsNullReference == true
 
 /** Pure result of invocation resolution and logical binding. */
 sealed interface InvocationPreparation {
@@ -227,31 +175,19 @@ sealed interface InvocationPreparation {
     }
 
     class ThrowResolution(val exceptionType: VirtualType) : InvocationPreparation
-
-    class Opaque(
-        val returnType: VirtualType,
-        val candidates: Set<String>,
-        val diagnostic: String? = null,
-    ) : InvocationPreparation
 }
 
 /** One argument's landing place in the callee's frame. Public inspection unwraps [value]. */
 class ParameterBinding internal constructor(val register: Int, internal val frameValue: FrameValue) {
-    constructor(register: Int, value: Value) : this(register, FrameValue.plain(value))
     val value: Value get() = frameValue.value
 }
 
-/**
- * What the [Invoker] decided about one call. Sealed so the scheduler is forced to handle every case, and so
- * a later task adding one (a synthetic fork for a partitioned merge, a class-init prelude) cannot be
- * silently defaulted.
- */
+/** What the [Invoker] decided about one call. Sealed so the scheduler handles every case. */
 sealed interface InvocationPlan {
     /**
      * Run [view] as a nested [Activation], entering at [entryAddress] with [parameterBindings] seeded into
-     * the callee's own frame. The callee's frame **shares the caller's heap id space**
-     * (`CARRY-FORWARD.md` Plan 9 item 10) -- the scheduler does that through `Frame.calleeEntryFrame`, so
-     * no plan can get it wrong by forgetting.
+     * the callee's own frame. The callee's frame shares the caller's heap id space; the scheduler builds it
+     * through `Frame.calleeEntryFrame`, so no plan can choose otherwise.
      */
     class RunGuest(
         val view: MethodView,
@@ -277,13 +213,17 @@ sealed interface InvocationPlan {
             return SelectedSynchronousCall(call, executor)
         }
     }
-
-    class Opaque(
-        val returnType: VirtualType,
-        val candidates: Set<String>,
-        val diagnostic: String? = null,
-    ) : InvocationPlan
 }
+
+/**
+ * A call no backend models: resolution was ambiguous, the call site's arity contradicts the resolved method,
+ * policy denied it, or every backend declined. The same answer whether binding or backend selection found it.
+ */
+class OpaqueInvocation internal constructor(
+    val returnType: VirtualType,
+    val candidates: Set<String>,
+    val diagnostic: String? = null,
+) : InvocationPreparation, InvocationPlan
 
 private val MethodDescriptor.returnType: VirtualType
     get() = VirtualType.of(proto.substringAfter(')'))

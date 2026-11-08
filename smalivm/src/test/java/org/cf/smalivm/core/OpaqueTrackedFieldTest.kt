@@ -98,7 +98,7 @@ class OpaqueTrackedFieldTest {
     fun opaqueSuccessorCollapsesReachableStateAndLeavesTheCallerFrameUnchanged() {
         val vm = VmServices(classIndex)
         val entry = view("opaqueMixedCall(Ljava/lang/reflect/Field;[ILorg/cf/smalivm/DummyClass;Ljava/lang/StringBuilder;)I")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val field = frame.allocateTrackedField(privateStaticField())
         val fieldRef = field.raw as HeapRef
         val array = frame.allocateArray(INT_ARRAY, arrayOf(Value.Known(7, INT)))
