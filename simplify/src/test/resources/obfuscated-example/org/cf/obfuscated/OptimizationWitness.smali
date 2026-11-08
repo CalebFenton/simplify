@@ -1,7 +1,7 @@
 .class public Lorg/cf/obfuscated/OptimizationWitness;
 .super Ljava/lang/Object;
 
-.field private static message:Ljava/lang/String; = "field value"
+.field private static final message:Ljava/lang/String; = "field value"
 
 .method public static main([Ljava/lang/String;)V
     .locals 0

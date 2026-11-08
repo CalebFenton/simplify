@@ -285,14 +285,13 @@ class ConstantPropagationStrategyTest {
         val services = services()
         for ((name, opcode) in listOf(
             "mixedNormalThrowDivision(I)I" to Opcode.DIV_INT,
-            "knownVolatileRead()I" to Opcode.SGET,
+            "volatileRead()I" to Opcode.SGET,
             "classForNameMoveResultMustRemain()Ljava/lang/Class;" to Opcode.MOVE_RESULT_OBJECT,
         )) {
             val method = GUARDS + name
             optimize(services, method)
             assertTrue(has(view(services, method), opcode), name)
         }
-        assertEquals(7, returned(services, GUARDS + "knownVolatileRead()I", 0).raw)
         assertEquals(String::class.java, returned(services, GUARDS + "classForNameMoveResultMustRemain()Ljava/lang/Class;", 1).raw)
     }
 

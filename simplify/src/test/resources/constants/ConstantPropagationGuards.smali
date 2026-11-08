@@ -19,7 +19,7 @@
     return v0
 .end method
 
-.method public static knownVolatileRead()I
+.method public static volatileRead()I
     .locals 1
     const/4 v0, 0x0
     sput v0, LConstantPropagationGuards;->initTrigger:I
