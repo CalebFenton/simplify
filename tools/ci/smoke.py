@@ -149,12 +149,12 @@ class Smoke:
     def framework_step(self, label, command):
         source = ROOT / "sdbg/src/test/resources/debugger"
         output = self.run(label, command,
-                          [source, "LDebugFixture;->frameworkCall()Ljava/lang/StringBuilder;"],
-                          "break 3\ncontinue\nstep\nwhere\nprint p1\n")
-        require("#0 in Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;" in output,
+                          [source, "LDebugFixture;->frameworkCall()Ljava/lang/Object;"],
+                          "break 1\ncontinue\nstep\nstep\nwhere\nprint p0\n")
+        require("#0 in Ljava/util/AbstractList;-><init>()V" in output,
                 f"{label}: did not enter the captured framework body")
-        require(re.search(r"p1\(r\d+\): Known\(raw=2, type=[^)]*\)", output),
-                f"{label}: framework frame lost the caller's wide argument")
+        require(re.search(r"p0\(r\d+\): Known\(raw=HeapRef\(id=\d+\), type=LDebugFixtureList;\)", output),
+                f"{label}: framework frame lost the caller's receiver")
         require(not re.search(r"(?:Threw|Aborted)\(", output), f"{label}: exceptional outcome")
 
     def demo(self, label, command):
