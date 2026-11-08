@@ -28,7 +28,7 @@ Simplify the included [obfuscated example app](simplify/ObfuscatedApp/README.md)
 java -jar simplify/build/libs/simplify.jar -it "org/cf/obfuscated" -et "MainActivity" simplify/obfuscated-app.apk
 ```
 
-The run takes several minutes, ends with a summary of optimized, failed, and skipped methods, and writes
+The run takes under a minute, ends with a summary of optimized, failed, and skipped methods, and writes
 `obfuscated-app_simple.apk` to the current directory; `-o` chooses another path. Run
 `java -jar simplify/build/libs/simplify.jar --help` for every option.
 
