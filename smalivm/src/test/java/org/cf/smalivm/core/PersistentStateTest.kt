@@ -175,9 +175,10 @@ class PersistentStateTest {
 
         assertEquals(ClassInitState.INITIALIZED, lifecycleChanged.initState(objectType))
         assertEquals(Value.Known(1, int), lifecycleChanged.getStaticField(objectType, STATIC_FIELD))
-        assertEquals(ClassInitState.UNINITIALIZED, staticChanged.initState(objectType))
+        // An entry frame's untriggered class reads by the default arbitrary-entry state.
+        assertEquals(ClassInitState.UNKNOWN, staticChanged.initState(objectType))
         assertEquals(Value.Known(2, int), staticChanged.getStaticField(objectType, STATIC_FIELD))
-        assertEquals(ClassInitState.UNINITIALIZED, parent.initState(objectType))
+        assertEquals(ClassInitState.UNKNOWN, parent.initState(objectType))
         assertEquals(Value.Known(1, int), parent.getStaticField(objectType, STATIC_FIELD))
     }
 

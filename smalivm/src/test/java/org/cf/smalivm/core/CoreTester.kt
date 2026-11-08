@@ -32,19 +32,24 @@ internal object CoreTester {
      */
     val classLoader: SmaliClassLoader get() = classIndex.classLoader
 
-    /** Runs a method to completion. [initialRegisters] seeds the entry frame to explore one input. */
+    /**
+     * Runs a method to completion. [initialRegisters] seeds the entry frame to explore one input. A test of
+     * class-initialization or static-field semantics that starts at process start passes
+     * [EntryClassState.FRESH_PROCESS]; every entry point below takes the same parameter.
+     */
     fun execute(
         className: String,
         methodDescriptor: String,
         initialRegisters: Map<Int, Value> = emptyMap(),
         limits: Limits = Limits(),
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ): ExecutionGraph {
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val frame = Frame.entryFrame(view)
         val entries = initialRegisters.entries.toList()
         val admitted = frame.heap.admitHostSeeds(entries.map { HostSeed(it.value) })
         entries.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
-        return vmServices.newSession(view, limits, frame).run()
+        return vmServices.newSession(view, limits, frame, entryClassState).run()
     }
 
     /**
@@ -61,8 +66,9 @@ internal object CoreTester {
         expected: Value,
         register: Int = 0,
         initialRegisters: Map<Int, Value> = emptyMap(),
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ) {
-        val graph = execute(className, methodDescriptor, initialRegisters)
+        val graph = execute(className, methodDescriptor, initialRegisters, entryClassState = entryClassState)
         assertEquals(CompletionStatus.Complete, graph.completion(), "exploration must complete to be trusted")
         val trusted = graph.trusted()
         assertNotNull(trusted, "a Complete exploration must yield a trusted view")
@@ -82,7 +88,13 @@ internal object CoreTester {
      * assertion is exactly the "act on this value" a consumer does, so the harness walks the
      * consumer's own path and the completion check becomes unskippable.
      */
-    fun test(className: String, methodDescriptor: String, initial: CoreState, expected: CoreState) {
+    fun test(
+        className: String,
+        methodDescriptor: String,
+        initial: CoreState,
+        expected: CoreState,
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
+    ) {
         // An expectation with no register, array, or static field asserts only that the run completed.
         require(expected.registers.isNotEmpty() || expected.arrays.isNotEmpty() || expected.staticFields.isNotEmpty()) {
             "CoreTester.test needs at least one expected register, array or static field, or it asserts " +
@@ -105,7 +117,7 @@ internal object CoreTester {
                 "$className->$methodDescriptor's [0, ${view.registerCount}) -- which would compare " +
                 "Value.Top against Value.Top and pass while asserting nothing"
         }
-        val graph = execute(className, methodDescriptor, initial)
+        val graph = execute(className, methodDescriptor, initial, entryClassState = entryClassState)
         assertEquals(
             CompletionStatus.Complete, graph.completion(),
             "exploration must complete before any consensus may be trusted",
@@ -153,8 +165,12 @@ internal object CoreTester {
         }
     }
 
-    fun test(className: String, methodDescriptor: String, expected: CoreState) =
-        test(className, methodDescriptor, CoreState(), expected)
+    fun test(
+        className: String,
+        methodDescriptor: String,
+        expected: CoreState,
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
+    ) = test(className, methodDescriptor, CoreState(), expected, entryClassState)
 
     /**
      * Asserts exactly which addresses executed, with [initial] seeded so a visitation claim can depend
@@ -173,8 +189,9 @@ internal object CoreTester {
         methodDescriptor: String,
         initial: CoreState,
         expectedAddresses: IntArray,
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ) {
-        val graph = execute(className, methodDescriptor, initial)
+        val graph = execute(className, methodDescriptor, initial, entryClassState = entryClassState)
         assertEquals(
             CompletionStatus.Complete, graph.completion(),
             "an unreached address is only a dead-code claim on a run that explored everything",
@@ -237,8 +254,9 @@ internal object CoreTester {
         initial: CoreState = CoreState(),
         exceptionType: String,
         message: String? = null,
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ) {
-        val graph = execute(className, methodDescriptor, initial)
+        val graph = execute(className, methodDescriptor, initial, entryClassState = entryClassState)
         assertEquals(
             CompletionStatus.Complete, graph.completion(),
             "a throw claim is only half of what its callers mean, and the other half needs a finished run",
@@ -320,8 +338,9 @@ internal object CoreTester {
         message: String? = null,
         caughtInRegister: Int = 0,
         unreachedAddress: Int? = null,
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ) {
-        val graph = execute(className, methodDescriptor, initial)
+        val graph = execute(className, methodDescriptor, initial, entryClassState = entryClassState)
         assertEquals(
             CompletionStatus.Complete, graph.completion(),
             "a caught throw is not a truncation, so $className->$methodDescriptor must complete",
@@ -381,6 +400,7 @@ internal object CoreTester {
         methodDescriptor: String,
         initial: CoreState,
         limits: Limits = Limits(),
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ): ExecutionGraph {
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val frame = Frame.entryFrame(view)
@@ -399,7 +419,7 @@ internal object CoreTester {
         val admitted = frame.heap.admitHostSeeds(seeds.map { it.second })
         seeds.zip(admitted).forEach { (seed, value) -> frame.assign(seed.first, value) }
         seedStaticFields(frame, initial)
-        return vmServices.newSession(view, limits, frame).run()
+        return vmServices.newSession(view, limits, frame, entryClassState).run()
     }
 
     /**
@@ -420,7 +440,7 @@ internal object CoreTester {
      * Seeds [initial]'s static fields onto [frame] **and marks each named class `INITIALIZED`**.
      *
      * **The mark is not a convenience -- without it the seed is destroyed by the very next instruction.** A
-     * `sget`/`sput` of an `UNINITIALIZED` class triggers initialization, and JVMS §5.4.2 preparation then gives
+     * `sget`/`sput` of a class the path has not triggered triggers initialization, and JVMS §5.4.2 preparation then gives
      * every declared static its literal or type default (`ClassInitPlan.staticSeeds`) -- overwriting whatever
      * the test poked in. Marking the class initialized says what a corpus seed MEANS: "this field already holds
      * this value when the method is entered", which is only expressible for a class whose initialization has

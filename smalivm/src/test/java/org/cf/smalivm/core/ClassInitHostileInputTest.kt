@@ -25,7 +25,7 @@ class ClassInitHostileInputTest {
 
     @Test
     fun aDeepSuperclassChainOfInitializersRunsTopDownInBoundedTime(@TempDir temp: Path) {
-        // Each class's initializer stores one more than its superclass's static, so the read is the chain depth
+        // Each class's initializer stores one more than its superclass's final static, so the read is the chain depth
         // only when every initializer ran exactly once, superclass first. Planning re-asks once per initializer,
         // so per-plan work linear in the chain keeps the whole run quadratic in small constants; per-plan work that
         // re-resolves every waiting class's initializer does not finish inside the bound.
@@ -42,7 +42,7 @@ class ClassInitHostileInputTest {
                 .class public Ldeep/C$index;
                 .super $superclass
 
-                .field public static depth:I
+                .field public static final depth:I
 
                 .method static constructor <clinit>()V
                     .registers 1

@@ -1,10 +1,10 @@
 .class public Lunreflection;
 .super Ljava/lang/Object;
 
-.field public static number:I = 0x29
-.field public static text:Ljava/lang/String; = "static"
+.field public static final number:I = 0x29
+.field public static final text:Ljava/lang/String; = "static"
 .field public instance:I
-.field public static flag:Z = true
+.field public static final flag:Z = true
 
 .method public static readFlag()Ljava/lang/Object;
     .registers 3

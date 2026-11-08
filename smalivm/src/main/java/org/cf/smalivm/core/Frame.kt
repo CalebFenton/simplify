@@ -182,6 +182,21 @@ public class Frame private constructor(
     }
 
     /**
+     * Starts a run at this frame's method under [entryState]. A run whose entry is a `<clinit>` finds that class
+     * [ClassInitState.INITIALIZING] over its prepared statics, because nothing can initialize a class before its
+     * own initializer runs.
+     */
+    internal fun enterSession(entryState: EntryClassState, planner: ClassInitPlanner) {
+        classes.enter(entryState)
+        val type = view.definingClass
+        if (view.signature.isClassInitializer && classInitAction(type) == ClassInitAction.StartInitialization) {
+            val preparation = planner.ownInitializerPreparation(type)
+            classes.prepare(preparation.staticSeeds, preparation.finalStatics)
+            classes.start(type)
+        }
+    }
+
+    /**
      * Applies everything [plan] settled without running anything, then marks the class whose guest `<clinit>` is
      * about to run [ClassInitState.INITIALIZING]. The mark lands on the callee's own entry frame, so a `<clinit>`
      * that transitively triggers its own class sees `INITIALIZING` from inside the nested call.
@@ -189,13 +204,13 @@ public class Frame private constructor(
     internal fun applyClassInit(plan: ClassInitPlan) {
         // JVMS §5.4.2: preparation precedes every mark and the initializer, so a `<clinit>` reading a static of
         // its own class sees the prepared value.
-        classes.prepare(plan.staticSeeds)
+        classes.prepare(plan.staticSeeds, plan.finalStatics)
         for (settled in plan.settled) classes.complete(settled)
         plan.context?.activeInitializer?.type?.let(classes::start)
     }
 
     internal fun completeClassInit(context: ClassInitContext) {
-        classes.complete(context.activeInitializer.type)
+        classes.completeInitializer(context.activeInitializer.type, context.triggerState)
     }
 
     internal fun failClassInit(context: ClassInitContext, failure: ThrownSubject, hierarchy: ThrowableHierarchy) {
@@ -485,8 +500,9 @@ public class Frame private constructor(
          * type (a caller's argument is not known to the method being analyzed in isolation). Seeding is not an
          * assignment by the method, so it does not appear in [registersAssigned].
          *
-         * [classes] starts empty for a run's own entry frame, so the entry method's own defining class is not
-         * initialized; the first trigger inside the method initializes it, as one inside a callee would.
+         * [classes] starts empty for a run's own entry frame: no class is triggered yet, and [enterSession] sets
+         * what an untriggered class reads as. The first trigger inside the method handles the entry method's own
+         * class, as one inside a callee would.
          */
         private fun entryFrame(view: MethodView, heap: HeapStore, classes: ClassStore): Frame {
             val frame = Frame(

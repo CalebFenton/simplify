@@ -1,7 +1,7 @@
 .class public Ldeadcode/Initializer;
 .super Ljava/lang/Object;
 
-.field private static root:[I
+.field private static final root:[I
 .field private static marker:I
 
 .method static constructor <clinit>()V

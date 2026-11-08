@@ -147,21 +147,27 @@ class DeadRemovalStrategyTest {
         }
     }
 
-    @Test fun structuralDeadCodeIsRemovedButAStaticValueDoesNotProveAnotherBranchDead() {
+    @Test fun structurallyUnreachableStrongCallIsRemoved() {
         val services = services()
         val structural = OWNER + "unreachableStrong()V"
-        val mutable = OWNER + "mutableStaticMakesOneBranchLookDead()V"
         optimize(services, structural)
-        optimize(services, mutable)
         assertFalse(has(view(services, structural), Opcode.INVOKE_STATIC))
-        assertTrue(has(view(services, mutable), Opcode.INVOKE_STATIC))
-        // The branch that returns p0 never ran, so liveness has no read evidence for it and keeps the definition.
+    }
+
+    @Test fun aMutableStaticDoesNotProveEitherBranchDeadThroughTheFullPipeline() {
+        // The analysed method can run after any write to the static, so both branches are reachable on a device.
+        val services = services()
+        val gc = OWNER + "mutableStaticMakesOneBranchLookDead()V"
         val definition = GUARDS + "reachedDefinitionUsedOnlyByMutableBranch(I)I"
-        optimize(services, definition)
-        val edited = view(services, definition)
-        assertTrue(edited.instructionAddresses.any {
-            (edited.instructionAt(it) as? NarrowLiteralInstruction)?.narrowLiteral == 7
-        })
+        pipeline(services, gc)
+        pipeline(services, definition)
+        assertTrue(hasCall(view(services, gc), "gc"))
+        // Returns 7 when mutableBranch is non-zero and 0 when it is zero.
+        assertEquals(
+            setOf<Any?>(0, 7),
+            execute(services, definition).outcomes.map { ((it as Outcome.Returned).value as Value.Known).raw }.toSet(),
+        )
+        assertEquals(3342, returned(services, GUARDS + "run()Ljava/lang/Object;", 0).raw)
     }
 
     @Test fun unknownArrayAccessMixedCallAndClassForNameAreNotDeleted() {
@@ -280,6 +286,11 @@ class DeadRemovalStrategyTest {
     private data class UnusedResult(val name: String, val call: Opcode, val result: Opcode, val expected: Any)
     private fun optimize(services: VmServices, method: String) =
         Optimizer(services, LIMITS, 10, listOf(DeadRemovalStrategy())).optimize(method)
+    /** The strategies `Launcher` runs by default, in its order. */
+    private fun pipeline(services: VmServices, method: String) = Optimizer(
+        services, LIMITS, 10,
+        listOf(ConstantPropagationStrategy(), DeadRemovalStrategy(), PeepholeStrategy(), UnreflectionStrategy()),
+    ).optimize(method)
     private fun services(root: String = "src/test/resources/dead-code") = VmServices(ClassIndex.open(File(root), 20))
     private fun view(services: VmServices, method: String) = requireNotNull(services.classIndex.methodView(method))
     private fun execute(services: VmServices, method: String) = services.newSession(view(services, method), LIMITS).run()

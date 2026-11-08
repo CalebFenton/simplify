@@ -295,7 +295,7 @@ class FrameworkStaticTest {
         value: Value,
         provenance: StaticCellProvenance,
     ): ClassStore = ClassStore().apply {
-        prepare(mapOf(descriptor to StaticCell(value, provenance)))
+        prepare(mapOf(descriptor to StaticCell(value, provenance)), emptySet())
     }
 
     private fun returningNodes(graph: ExecutionGraph, view: MethodView): List<ExecutionNode> =

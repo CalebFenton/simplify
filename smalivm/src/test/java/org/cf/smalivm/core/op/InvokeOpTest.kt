@@ -6,6 +6,7 @@ import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
+import org.cf.smalivm.core.EntryClassState
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
@@ -44,9 +45,11 @@ class InvokeOpTest {
         returns(CLASS_NAME, "knownVirtual()I", mapOf(0 to known(2))),
         returns(STATIC, "invokeReturnInt()V", mapOf(0 to known(7))),
         returns(STATIC, "invokeReturnParameter()V", mapOf(0 to known(5)), initial = mapOf(0 to known(5))),
+        // In a fresh process nothing has written the field yet.
         returns(
             STATIC, "invokeReturnUninitializedField()V",
             mapOf(0 to Value.Known(null, type("Ljava/lang/String;"))),
+            entryClassState = EntryClassState.FRESH_PROCESS,
         ),
         returns(VIRTUAL, "invokeReturnInt()V", mapOf(0 to known(7))),
         returns(VIRTUAL, "invokeReturnParameter()V", mapOf(1 to known(5), 2 to known(5)), initial = mapOf(1 to known(5))),
@@ -283,7 +286,11 @@ class InvokeOpTest {
         val initial = CoreState().apply {
             setFields(STATIC, "sometimes_initialized:Ljava/lang/String;", "i have been initialized")
         }
-        val graph = CoreTester.execute(STATIC, "invokeMethodOutsideClassThatAccessesThisClass()V", initial)
+        // A fresh process runs the callee class's <clinit>, whose write is then known.
+        val graph = CoreTester.execute(
+            STATIC, "invokeMethodOutsideClassThatAccessesThisClass()V", initial,
+            entryClassState = EntryClassState.FRESH_PROCESS,
+        )
         assertEquals(Value.Known("i have been initialized", type("Ljava/lang/String;")), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(
             Value.Known("Uhhh, about 11, sir.", type("Ljava/lang/String;")),
@@ -391,8 +398,9 @@ class InvokeOpTest {
         method: String,
         expected: Map<Int, Value>,
         initial: Map<Int, Value> = emptyMap(),
+        entryClassState: EntryClassState = EntryClassState.ARBITRARY,
     ): DynamicTest = DynamicTest.dynamicTest("$className $method -> $expected") {
-        val graph = CoreTester.execute(className, method, initial)
+        val graph = CoreTester.execute(className, method, initial, entryClassState = entryClassState)
         assertEquals(CompletionStatus.Complete, graph.completion())
         val trusted = graph.trusted()!!
         for ((register, value) in expected) assertEquals(value, trusted.terminatingConsensus(register), "r$register")
