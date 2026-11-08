@@ -288,7 +288,10 @@ class ClassInitTest {
     fun constClassStillDoesNotInitialize() {
         // Measured on device: `tools/art-runner/fixtures/Fx_ConstClassDoesNotInitialize.smali` against its control
         // `Fx_StaticFieldDoesInitialize.smali`.
-        val graph = CoreTester.execute("Lclass_init/const_class_probe;", "resolvesWitnessClass()Ljava/lang/Class;")
+        val graph = CoreTester.execute(
+            "Lclass_init/const_class_probe;", "resolvesWitnessClass()Ljava/lang/Class;",
+            entryClassState = EntryClassState.FRESH_PROCESS,
+        )
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(emptyList<String>(), initializersRun(graph), "const-class resolves without initializing")
         assertEquals(ClassInitState.UNINITIALIZED, initStateAtReturn(graph, WITNESS))
@@ -308,8 +311,9 @@ class ClassInitTest {
     /** A fresh path state on which nothing is initialized yet, for planner-only questions. */
     private fun plannerFrame(): Frame = Frame.entryFrame(viewOf(TRIGGER, "newWitness()I"))
 
+    /** Runs from process start, where every class begins `Uninitialized`. */
     private fun run(className: String, descriptor: String): ExecutionGraph =
-        CoreTester.vmServices.newSession(viewOf(className, descriptor)).run()
+        CoreTester.vmServices.newSession(viewOf(className, descriptor), entryClassState = EntryClassState.FRESH_PROCESS).run()
 
     /**
      * Every node the run created, entry activation and callees alike, in walk order. A `<clinit>`'s nodes

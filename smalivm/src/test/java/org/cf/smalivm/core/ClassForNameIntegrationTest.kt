@@ -162,7 +162,9 @@ class ClassForNameIntegrationTest {
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(binary))
     }
 
-    private fun session(descriptor: String): ExecutionSession = owner.newSession(view(descriptor))
+    /** From process start, so the fixture's initializer counts its own runs in statics this test can read. */
+    private fun session(descriptor: String): ExecutionSession =
+        owner.newSession(view(descriptor), entryClassState = EntryClassState.FRESH_PROCESS)
 
     private fun view(descriptor: String): MethodView =
         classIndex.requireMethodView(FIXTURE, descriptor)

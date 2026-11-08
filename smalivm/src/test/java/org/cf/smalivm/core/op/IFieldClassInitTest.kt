@@ -1,6 +1,7 @@
 package org.cf.smalivm.core.op
 
 import org.cf.smalivm.core.CompletionStatus
+import org.cf.smalivm.core.EntryClassState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.ExecutionNode
@@ -17,8 +18,11 @@ class IFieldClassInitTest {
     @Test
     fun allocationInitializesOnceAndInstanceAccessUsesDeclaredCellsWithoutRetriggering() {
         // This pins only observable integration: allocation runs the initializer once, fresh instance
-        // cells hold declared defaults, and later iget/iput do not cause another initializer activation.
-        val graph = CoreTester.execute(CLASS_NAME, "exerciseAllocationAndFields()V")
+        // cells hold declared defaults, and later iget/iput do not cause another initializer activation. The run
+        // starts as a fresh process, so the initializer's count of its own runs is known.
+        val graph = CoreTester.execute(
+            CLASS_NAME, "exerciseAllocationAndFields()V", entryClassState = EntryClassState.FRESH_PROCESS,
+        )
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(TARGET), initializersRun(graph), "the target <clinit> runs exactly once")
 

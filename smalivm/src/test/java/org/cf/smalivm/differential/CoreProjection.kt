@@ -5,6 +5,7 @@ import org.cf.smalivm.core.Agreement
 import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreTester
+import org.cf.smalivm.core.EntryClassState
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapObject
@@ -38,7 +39,8 @@ class CoreProjection(classPath: String = "src/test/resources/smali") {
             seeds.map { (_, seed) -> HostSeed(Value.Known(seed.first, VirtualType.of(seed.second))) },
         )
         seeds.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
-        val graph = vmServices.newSession(view, LIMITS, frame).run()
+        // Every reference result comes from a process that runs this method first, so nothing is initialized.
+        val graph = vmServices.newSession(view, LIMITS, frame, EntryClassState.FRESH_PROCESS).run()
 
         val registers = fixture.observeRegisters.associateWith { normalize(it, graph) }
 

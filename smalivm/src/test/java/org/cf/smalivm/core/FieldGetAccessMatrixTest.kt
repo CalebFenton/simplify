@@ -60,7 +60,10 @@ class FieldGetAccessMatrixTest {
             "readClinitLong()" to 7L,
         )
         for ((method, expected) in cases) {
-            val graph = CoreTester.execute(WIDE_STATIC.descriptor, "${method}Ljava/lang/Object;")
+            // From process start, so each non-final static holds its literal, default, or <clinit> value.
+            val graph = CoreTester.execute(
+                WIDE_STATIC.descriptor, "${method}Ljava/lang/Object;", entryClassState = EntryClassState.FRESH_PROCESS,
+            )
 
             assertEquals(CompletionStatus.Complete, graph.completion(), method)
             assertEquals(
@@ -91,7 +94,7 @@ class FieldGetAccessMatrixTest {
     fun realStaticOverrideInitializesTheDeclaringGuestClassBeforeReading() {
         val view = view(UNRELATED, "readInitializedStaticWithOverride()I")
         val vm = VmServices(classIndex)
-        val session = vm.newSession(view)
+        val session = vm.newSession(view, entryClassState = EntryClassState.FRESH_PROCESS)
         val root = session.frontier.single()
 
         val graph = session.run()
@@ -125,7 +128,9 @@ class FieldGetAccessMatrixTest {
 
     @Test
     fun callCompletionPartitionsIncompatibleAccessibilityBeforeCallerGet() {
-        val graph = CoreTester.execute(UNRELATED.descriptor, "branchOverrideThroughCall(I)I")
+        val graph = CoreTester.execute(
+            UNRELATED.descriptor, "branchOverrideThroughCall(I)I", entryClassState = EntryClassState.FRESH_PROCESS,
+        )
         val getNodes = graph.addresses()
             .flatMap(graph::nodePile)
             .filter { it.invocationTarget() == FIELD_GET }

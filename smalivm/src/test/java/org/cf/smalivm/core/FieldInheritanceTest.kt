@@ -2,7 +2,10 @@ package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Test
 
-/** Port of the three formerly commented `TestFieldInheritance` behaviors. */
+/**
+ * Port of the three formerly commented `TestFieldInheritance` behaviors. The fixture's statics are not final, so
+ * each run starts as a fresh process, where their `<clinit>` and literal values are known.
+ */
 class FieldInheritanceTest {
 
     @Test
@@ -34,8 +37,9 @@ class FieldInheritanceTest {
         assertInt("getInterfaceFieldThroughChild()I", 6)
     }
 
-    private fun assertInt(method: String, expected: Int) =
-        CoreTester.assertReturns(CLASS_NAME, method, Value.Known(expected, VirtualType.of("I")))
+    private fun assertInt(method: String, expected: Int) = CoreTester.assertReturns(
+        CLASS_NAME, method, Value.Known(expected, VirtualType.of("I")), entryClassState = EntryClassState.FRESH_PROCESS,
+    )
 
     private companion object {
         private const val CLASS_NAME = "Lchild_class;"

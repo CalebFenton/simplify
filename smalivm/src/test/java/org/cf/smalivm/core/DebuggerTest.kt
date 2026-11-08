@@ -185,7 +185,8 @@ class DebuggerTest {
     @Test
     fun classForNameInitializerHonorsBreakpointThenReturnsToTheSameInvokeAddress() {
         val caller = viewOf(CLASS_FOR_NAME, "guestInitializationIsVisibleThenRetryReturnsStableClass()Ljava/lang/Class;")
-        val session = CoreTester.vmServices.newSession(caller)
+        // From process start, so the initializer's run count is a known static.
+        val session = CoreTester.vmServices.newSession(caller, entryClassState = EntryClassState.FRESH_PROCESS)
         val debugger = Debugger(session)
         val invokeIndex = caller.addresses.indexOfFirst { caller.opcodeAt(it) == Opcode.INVOKE_STATIC }
         val invokeAddress = caller.codeAddressAtInstructionIndex(invokeIndex)

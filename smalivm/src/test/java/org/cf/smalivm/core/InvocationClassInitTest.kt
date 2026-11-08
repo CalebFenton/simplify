@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
+/** Every run starts as a fresh process, so a class the run does not trigger stays `Uninitialized`. */
 class InvocationClassInitTest {
     private val classIndex = CoreTester.classIndex
 
@@ -32,7 +33,7 @@ class InvocationClassInitTest {
             emulatedStates += call.classInitStatus.stateOf(type(TARGET))
             SynchronousCallResult.Returned(HostReturn.Void)
         }
-        val emulated = vm.newSession(view(CALLER, "callStatic()V")).run()
+        val emulated = vm.newSession(view(CALLER, "callStatic()V"), entryClassState = FRESH).run()
 
         assertEquals(CompletionStatus.Complete, emulated.completion())
         assertEquals(listOf(TARGET), initializersRun(emulated))
@@ -135,7 +136,7 @@ class InvocationClassInitTest {
     fun classWithoutInitializerIsSettledBeforeSelectionAndExecution() {
         val noClinit = type(NO_CLINIT)
         val view = view("Lclass_init/trigger;", "callsNoClinitTouch()I")
-        val session = CoreTester.vmServices.newSession(view)
+        val session = CoreTester.vmServices.newSession(view, entryClassState = FRESH)
         assertEquals(ClassInitState.UNINITIALIZED, session.frontier.single().frame.initState(noClinit))
 
         val graph = session.run()
@@ -149,7 +150,7 @@ class InvocationClassInitTest {
             emulatedStates += call.classInitStatus.stateOf(noClinit)
             SynchronousCallResult.Returned(HostReturn.Void)
         }
-        val emulated = vm.newSession(view).run()
+        val emulated = vm.newSession(view, entryClassState = FRESH).run()
 
         assertEquals(listOf(Outcome.Returned(Value.Known(7, type("I")))), emulated.outcomes)
         assertEquals(listOf(ClassInitState.INITIALIZED), emulatedStates)
@@ -182,7 +183,7 @@ class InvocationClassInitTest {
     }
 
     private fun run(descriptor: String): ExecutionGraph =
-        CoreTester.vmServices.newSession(view(CALLER, descriptor)).run()
+        CoreTester.vmServices.newSession(view(CALLER, descriptor), entryClassState = FRESH).run()
 
     private fun runWithReceiver(descriptor: String, runtimeType: String): ExecutionGraph =
         sessionWithReceiver(descriptor, runtimeType).run()
@@ -191,14 +192,14 @@ class InvocationClassInitTest {
         val view = view(CALLER, descriptor)
         val frame = Frame.entryFrame(view)
         frame.assign(view.parameters.single().register, frame.allocateObject(type(runtimeType), emptyMap()))
-        return CoreTester.vmServices.newSession(view, Limits(), frame)
+        return CoreTester.vmServices.newSession(view, Limits(), frame, FRESH)
     }
 
     private fun runInstanceEntry(className: String, descriptor: String): ExecutionGraph {
         val view = view(className, descriptor)
         val frame = Frame.entryFrame(view)
         frame.assign(view.parameters.single().register, frame.allocateObject(type(className), emptyMap()))
-        return CoreTester.vmServices.newSession(view, Limits(), frame).run()
+        return CoreTester.vmServices.newSession(view, Limits(), frame, FRESH).run()
     }
 
     private fun assertNoInitialization(graph: ExecutionGraph, className: String) {
@@ -262,5 +263,6 @@ class InvocationClassInitTest {
         const val IMPLEMENTATION = "Linvocation_class_init_impl;"
         const val NO_CLINIT = "Lclass_init/no_clinit;"
         const val TARGET_RUNS = "$TARGET->runs:I"
+        val FRESH = EntryClassState.FRESH_PROCESS
     }
 }

@@ -3,6 +3,7 @@ package org.cf.smalivm.core.op
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
+import org.cf.smalivm.core.EntryClassState
 import org.cf.smalivm.core.CoreTester.test
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
@@ -147,7 +148,8 @@ class SPutOpTest {
     fun theClinitPreludeRunsBeforeTheTriggeringWriteLands() {
         expected.setRegisters(0, 0x2a, "I")
         expected.setFields(STATIC_FIELDS, "testInt1:I", 0x2a, "testInt2:I", 1)
-        test(STATIC_FIELDS, "putThenGetTestInt1()I", initial, expected)
+        // From process start, so the <clinit>'s write to the non-final testInt2 is known.
+        test(STATIC_FIELDS, "putThenGetTestInt1()I", initial, expected, EntryClassState.FRESH_PROCESS)
     }
 
     /**

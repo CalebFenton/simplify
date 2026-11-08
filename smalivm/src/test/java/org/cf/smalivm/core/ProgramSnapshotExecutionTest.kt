@@ -238,7 +238,7 @@ class ProgramSnapshotExecutionTest {
             """
                 .class public Ltask54/Init;
                 .super Ljava/lang/Object;
-                .field public static value:I
+                .field public static final value:I
 
                 .method static constructor <clinit>()V
                     .registers 1

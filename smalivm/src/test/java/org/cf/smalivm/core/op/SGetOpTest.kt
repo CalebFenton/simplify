@@ -4,7 +4,7 @@ import org.cf.smalivm.core.ClassInitState
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
-import org.cf.smalivm.core.CoreTester.test
+import org.cf.smalivm.core.EntryClassState
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.ExecutionNode
 import org.cf.smalivm.core.Outcome
@@ -41,6 +41,9 @@ import org.junit.jupiter.api.Test
  * address, so the first pass contributes `Value.Top` to `explored.consensus(address, register)`
  * (`ExecutionSession.planInitClass`'s ⚠️ note). Terminating consensus reads returning nodes only and is
  * what the oracle's `Tester.test` asserted through, so the migration is faithful.
+ *
+ * Every run starts as a fresh process ([EntryClassState.FRESH_PROCESS]): preparation and `<clinit>` values are
+ * the subject, and a method entered from arbitrary state cannot know them (`EntryClassStateTest`).
  */
 class SGetOpTest {
     private lateinit var expected: CoreState
@@ -313,7 +316,7 @@ class SGetOpTest {
         expected.setFields(PARENT, "parentTouched:I", 1)
         test(CHILD, "getParentTouchedThroughChildReference()I", initial, expected)
 
-        val graph = CoreTester.execute(CHILD, "getParentTouchedThroughChildReference()I")
+        val graph = CoreTester.execute(CHILD, "getParentTouchedThroughChildReference()I", entryClassState = FRESH)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(
             listOf(PARENT), initializersRun(graph),
@@ -383,6 +386,12 @@ class SGetOpTest {
     // so a <clinit>'s nodes are reachable only through ExecutionNode.children.
     // ------------------------------------------------------------------------------------------
 
+    private fun test(className: String, descriptor: String, initial: CoreState, expected: CoreState) =
+        CoreTester.test(className, descriptor, initial, expected, FRESH)
+
+    private fun test(className: String, descriptor: String, expected: CoreState) =
+        CoreTester.test(className, descriptor, expected, FRESH)
+
     private fun allNodes(graph: ExecutionGraph): List<ExecutionNode> {
         val out = mutableListOf<ExecutionNode>()
         fun walk(node: ExecutionNode) {
@@ -411,5 +420,6 @@ class SGetOpTest {
         private const val CLASS_NAME = "Lsget_test;"
         private const val PARENT = "Lstatic_fields_parent_test;"
         private const val CHILD = "Lstatic_fields_child_test;"
+        private val FRESH = EntryClassState.FRESH_PROCESS
     }
 }
