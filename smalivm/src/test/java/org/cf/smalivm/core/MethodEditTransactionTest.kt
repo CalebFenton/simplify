@@ -278,6 +278,41 @@ class MethodEditTransactionTest {
     }
 
     @Test
+    fun aDeadNopCarryingALineBeforeAPayloadDoesNotFallIntoIt() {
+        // dx puts a `.line` on the alignment nop after the last return. ART's verifier checks flow only from reachable
+        // instructions, so the dead nop does not fall into the payload and the method is valid.
+        val index = index(SHAPE_SOURCE)
+        val viewA = requireNotNull(index.methodView(LINE_ON_PADDING))
+        val edit = VmServices(index).methodEditor.beginEdit(viewA)
+        edit.replaceInstruction(0, listOf(encoded(ImmutableInstruction11n(Opcode.CONST_4, 1, 3))))
+
+        val result = edit.commit()
+
+        assertTrue(result is MethodEditCommitResult.Committed, result.toString())
+        val viewB = (result as MethodEditCommitResult.Committed).editedMethodView
+        assertEquals(Opcode.NOP, viewB.opcodeAt(7))
+        assertArrayEquals(intArrayOf(8), viewB.payloadAddresses)
+        assertEquals(7, lineNumbers(index.currentSnapshot, LINE_ON_PADDING).single().codeAddress)
+    }
+
+    @Test
+    fun aLineAtAPayloadAddressSurvivesAnEdit() {
+        // Debug info is an address-to-line table that ART does not check against instruction kinds, so a `.line` at
+        // a payload address is valid metadata, not a reason to refuse every edit of the method.
+        val index = index(SHAPE_SOURCE)
+        val viewA = requireNotNull(index.methodView(LINE_ON_PAYLOAD))
+        val edit = VmServices(index).methodEditor.beginEdit(viewA)
+        edit.replaceInstruction(0, listOf(encoded(ImmutableInstruction11n(Opcode.CONST_4, 1, 3))))
+
+        val result = edit.commit()
+
+        assertTrue(result is MethodEditCommitResult.Committed, result.toString())
+        val viewB = (result as MethodEditCommitResult.Committed).editedMethodView
+        assertArrayEquals(intArrayOf(8), viewB.payloadAddresses)
+        assertEquals(8, lineNumbers(index.currentSnapshot, LINE_ON_PAYLOAD).single().codeAddress)
+    }
+
+    @Test
     fun staleAndConflictingEditsRejectWithoutPublication() {
         val index = index(BASE_SOURCE)
         val editor = VmServices(index).methodEditor
@@ -655,6 +690,8 @@ class MethodEditTransactionTest {
         const val MULTI_REPLACEMENT = "Ledit/Shape;->multiReplacement()I"
         const val TRY_CLEANUP = "Ledit/Shape;->tryCleanup()V"
         const val LABEL_AND_DEBUG = "Ledit/Shape;->labelAndDebug()I"
+        const val LINE_ON_PADDING = "Ledit/Shape;->lineOnPadding()V"
+        const val LINE_ON_PAYLOAD = "Ledit/Shape;->lineOnPayload()V"
 
         const val VALUE = "Ledit/Edit;->value()I"
         const val LINEAR = "Ledit/Edit;->linear()I"
@@ -765,6 +802,36 @@ class MethodEditTransactionTest {
                 .line 42
                 const/4 v0, 0x2
                 return v0
+            .end method
+
+            .method public static lineOnPadding()V
+                .registers 2
+                const/4 v1, 0x2
+                new-array v1, v1, [B
+                fill-array-data v1, :data
+                return-void
+                .line 7
+                nop
+                :data
+                .array-data 1
+                    0x1t
+                    0x2t
+                .end array-data
+            .end method
+
+            .method public static lineOnPayload()V
+                .registers 2
+                const/4 v1, 0x2
+                new-array v1, v1, [B
+                fill-array-data v1, :data
+                return-void
+                nop
+                .line 7
+                :data
+                .array-data 1
+                    0x1t
+                    0x2t
+                .end array-data
             .end method
         """
 

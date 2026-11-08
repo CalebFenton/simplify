@@ -76,16 +76,8 @@ internal object MethodEditValidator {
             validatePayloadKeys(payload)?.let { return it }
         }
 
-        val paddingFreeRecords = body.instructions.filter { it.position !in body.syntheticPayloadPaddingPositions }
-        if (paddingFreeRecords.firstOrNull()?.position in payloadPositions) return PayloadAtMethodEntry
-        paddingFreeRecords.zipWithNext().forEach { (previous, next) ->
-            if (next.position in payloadPositions && previous.instruction.opcode.canContinue()) {
-                return FallsIntoPayload(next.codeAddress)
-            }
-            if (next.instruction.opcode == Opcode.MOVE_EXCEPTION && previous.instruction.opcode.canContinue()) {
-                return FallsIntoMoveException(next.codeAddress)
-            }
-        }
+        val entry = body.instructions.firstOrNull { it.position !in body.syntheticPayloadPaddingPositions }
+        if (entry?.position in payloadPositions) return PayloadAtMethodEntry
         val moveExceptionAddresses = body.instructions
             .filter { it.instruction.opcode == Opcode.MOVE_EXCEPTION }
             .associate { it.position to it.codeAddress }
@@ -95,11 +87,6 @@ internal object MethodEditValidator {
 
         validateTryRegions(body, recordsByPosition, payloadPositions)?.let { return it }
         for (item in body.debugItems) {
-            if (item.position != body.endPosition &&
-                (item.position !in recordsByPosition || item.position in payloadPositions)
-            ) {
-                return DebugItemNotAtInstruction
-            }
             val register = debugRegister(item.item)
             if (register != null && register !in 0 until body.registerCount) return RegisterOverflow(register)
             if (item.item !is LineNumber && item.item !is StartLocal && item.item !is EndLocal &&
@@ -165,12 +152,10 @@ internal object MethodEditValidator {
             return RegisterCountReduced(candidate.baselineRegisterCount, body.registerCount)
         }
         if (body.registerCount > DexLimits.MAX_REGISTER_COUNT) return RegisterOverflow(body.registerCount - 1)
-        val executableInstructions = body.instructions.filter {
-            it.instruction.opcode !in OpcodeGroups.PAYLOAD &&
-                it.position !in body.syntheticPayloadPaddingPositions
+        val hasExecutableCode = body.instructions.any {
+            it.instruction.opcode !in OpcodeGroups.PAYLOAD && it.position !in body.syntheticPayloadPaddingPositions
         }
-        if (executableInstructions.isEmpty()) return NoExecutableCode
-        if (executableInstructions.last().instruction.opcode.canContinue()) return FallsPastMethodEnd
+        if (!hasExecutableCode) return NoExecutableCode
         val handlerAddresses = body.implementation.tryBlocks.flatMap { block ->
             block.exceptionHandlers.map { it.handlerCodeAddress }
         }.toSet()
@@ -355,7 +340,12 @@ internal object MethodEditValidator {
         else -> null
     }
 
-    /** Reports only definite violations: a read of a never-assigned register, or a return of the wrong category. */
+    /**
+     * Reports only definite violations on reachable instructions: a read of a never-assigned register, a return of
+     * the wrong category, or a fall-through into payload data, move-exception or past the method end. ART verifies
+     * flow only from reachable instructions, so dead code (such as dx's alignment nop after the last return) may
+     * precede any of them.
+     */
     private fun validateRegisterFlow(
         candidate: ApplicationMethodDefinitionCandidate,
     ): MethodEditRejectionReason? {
@@ -363,13 +353,18 @@ internal object MethodEditValidator {
         val flow = RegisterFlow.analyze(body, candidate.declaration, body.registerCount) {
             it.instruction.registerOperands()
         }
-        for (record in body.instructions) {
-            val state = flow.before(record.position) ?: continue
+        body.instructions.forEachIndexed { index, record ->
+            val state = flow.before(record.position) ?: return@forEachIndexed
             for (register in readRegisters(record.instruction)) {
                 if (state[register] == RegisterValue.UNDEFINED) return ReadBeforeAssignment(record.codeAddress, register)
             }
             if (hasReturnCategoryMismatch(record.instruction, state)) {
                 return ReturnCategoryMismatch(record.codeAddress, (record.instruction as OneRegisterInstruction).registerA)
+            }
+            if (record.instruction.opcode.canContinue()) {
+                val next = body.instructions.getOrNull(index + 1) ?: return FallsPastMethodEnd
+                if (next.instruction.opcode in OpcodeGroups.PAYLOAD) return FallsIntoPayload(next.codeAddress)
+                if (next.instruction.opcode == Opcode.MOVE_EXCEPTION) return FallsIntoMoveException(next.codeAddress)
             }
         }
         return null

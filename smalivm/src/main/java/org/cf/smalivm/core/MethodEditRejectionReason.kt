@@ -81,7 +81,6 @@ sealed interface MethodEditRejectionReason {
     data class HandlerListOffsetOverflow(val offset: Long) : MethodEditRejectionReason
     data class MoveExceptionOutsideHandler(val codeAddress: Int) : MethodEditRejectionReason
 
-    data object DebugItemNotAtInstruction : MethodEditRejectionReason
     data class UnsupportedDebugItem(val debugItemType: Int) : MethodEditRejectionReason
 
     data class RegisterOverflow(val register: Int) : MethodEditRejectionReason
@@ -162,7 +161,6 @@ sealed interface MethodEditRejectionReason {
         is HandlerListOffsetOverflow ->
             "Encoded exception-handler offset $offset exceeds the limit ${DexLimits.MAX_HANDLER_OFFSET}"
         is MoveExceptionOutsideHandler -> "move-exception at $codeAddress does not start an exception handler"
-        DebugItemNotAtInstruction -> "Debug metadata does not target an executable boundary"
         is UnsupportedDebugItem -> "Unsupported debug item type $debugItemType"
         is RegisterOverflow -> "Register v$register does not fit the method register file"
         is RegisterCountReduced ->
