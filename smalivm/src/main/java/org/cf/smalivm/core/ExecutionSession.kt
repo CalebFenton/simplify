@@ -484,6 +484,9 @@ public class ExecutionSession internal constructor(
                 planClassInitTrigger(node, type)?.let { return@planContained it }
             }
             if (preparation.isSynchronized) raiseEffect(node, SideEffectLevel.WEAK)
+            invoker.reflectiveCall(invocation, node.frame)?.let {
+                return@planContained planReflectiveCall(node, invocation, it)
+            }
             when (val plan = invoker.plan(preparation, node.frame)) {
                 is InvocationPlan.RunGuest -> planGuestCall(node, invocation, plan)
                 is InvocationPlan.Execute -> {
@@ -503,12 +506,15 @@ public class ExecutionSession internal constructor(
 
     /**
      * Enters [plan]'s callee as a nested [Activation]. The resume address is computed here, in the caller's own
-     * method, and carried on the callee's [ReturnSite] until its `return` needs it.
+     * method, and carried on the callee's [ReturnSite] until its `return` needs it. [fallback] is the call an aborted
+     * callee path resumes through opaquely: [invocation] itself, or the `Method.invoke` that made a reflective call.
      */
     private fun planGuestCall(
         node: ExecutionNode,
         invocation: PreparedInvocation,
         plan: InvocationPlan.RunGuest,
+        reflectiveReturn: ReflectiveReturn? = null,
+        fallback: PreparedInvocation = invocation,
     ): Committable {
         val receiverRef = (invocation.receiver as? Value.Known)?.raw as? HeapRef
         val activation = Activation(
@@ -518,9 +524,10 @@ public class ExecutionSession internal constructor(
                 node,
                 node.view.nextAddress(node.address),
                 completedReceiver(invocation, node),
-                fallbackArguments = invocation.opaqueArguments(),
-                fallbackArgumentTypes = invocation.opaqueArgumentTypes(),
-                fallbackReturnType = invocation.returnType,
+                fallbackArguments = fallback.opaqueArguments(),
+                fallbackArgumentTypes = fallback.opaqueArgumentTypes(),
+                fallbackReturnType = fallback.returnType,
+                reflectiveReturn = reflectiveReturn,
             ),
             constructing = receiverRef.takeIf { invocation.target.isConstructor },
         )
@@ -533,6 +540,26 @@ public class ExecutionSession internal constructor(
             ),
             null,
         )
+    }
+
+    /**
+     * Applies a `Method.invoke` of an application method ([reflectiveCall]): the declaring class's initialization
+     * first, then `Method.invoke`'s own failure, or the selected target as a nested activation whose exits its
+     * [ReturnSite.reflectiveReturn] converts. The invoke node takes the target's effect and nothing more.
+     */
+    private fun planReflectiveCall(
+        node: ExecutionNode,
+        methodInvoke: PreparedInvocation,
+        call: ReflectiveCall,
+    ): Committable {
+        call.classInitTarget?.let { type -> planClassInitTrigger(node, type)?.let { return it } }
+        return when (call) {
+            is ReflectiveCall.Throw -> planFreshThrow(node, call.recipe)
+            is ReflectiveCall.Call -> {
+                if (call.preparation.isSynchronized) raiseEffect(node, SideEffectLevel.WEAK)
+                planGuestCall(node, call.preparation.invocation, call.plan, call.reflectiveReturn, methodInvoke)
+            }
+        }
     }
 
     /** Records an accepted backend's effect, runs it on this path, then applies its direct result. */

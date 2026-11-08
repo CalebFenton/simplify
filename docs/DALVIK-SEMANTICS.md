@@ -1141,6 +1141,31 @@ private member only to its declaring class and grants nestmates nothing (**ART**
 `const-class` and reflective class loads go through one host class loader per program, loading without
 initialization, so `const-class` identity holds program-wide.
 
+### `Method.invoke` of an application method
+
+libcore's `Method.invoke` is a native method, so its rules are ART's `InvokeMethod` (`runtime/reflection.cc`).
+When the `Method` is a known host `Method` of an application class, the engine applies them on the current path
+(`ReflectiveCall.kt`) in ART's order:
+
+| Step | Engine | Tier |
+|---|---|---|
+| 1. initialization | a static target initializes its declaring class through the ordinary [trigger](#triggers); an instance target does so only when the receiver check below fails, because an instance of the class proves it initialized | **ART** (`EnsureInitialized` before every check); an initializer failure leaves unwrapped |
+| 2. receiver | static: ignored. Instance: a null receiver throws `NullPointerException("null receiver")`; a receiver that is not an instance of the declaring class throws `IllegalArgumentException("Expected receiver of type …, but got …")`. Neither is wrapped | **ART** (`VerifyObjectIsClass`, `InvalidReceiverError`) |
+| 3. selection | a private target runs as declared; any other instance target is selected on the receiver's runtime class as `invoke-virtual` (`invoke-interface` for an interface) selects it | **ART** (`FindVirtualMethodForVirtualOrInterface`) |
+| 4. argument count | a null argument array has length 0; a length other than the parameter count throws `IllegalArgumentException("Wrong number of arguments; expected N, got M")` | **ART** (`CheckArgsForInvokeMethod`) |
+| 5. access | unless the `Method` is accessible, the selected method's flags must admit the caller (the class whose code calls `Method.invoke`): public, the declaring class itself, a non-private member of the caller's package, or a protected member of a superclass of the caller whose receiver is an instance of the caller; else `IllegalAccessException` with ART's text. Accessibility is the host `Method`'s own flag, which the path's host graph holds and `setAccessible` sets (libcore `setAccessible0` refuses no `Method`) | **ART** (`VerifyAccess`) |
+| 6. unboxing | in order; the first failing argument throws `IllegalArgumentException("method C.m argument N has type T, got U")`. A reference parameter takes null or an instance. A primitive parameter takes its own wrapper or one that widens to it (`short` from `Byte`; `int` from `Character`, `Short`, `Byte`; `long`, `float`, `double` likewise down the chain); `boolean`, `byte`, `char` take only their own wrapper; null never | **ART** (`BuildArgArrayFromObjectArray`) |
+| 7. call | the selected method runs as a nested guest activation; the call site's effect is the target's | **ENGINE CHOICE**: the same call path as `invoke-*` |
+| 8. result | a primitive result is boxed as `valueOf` boxes it; a void target returns null | **ART** (`BoxPrimitive`) |
+| 9. target throw | every throwable the target throws, `Error`s included, leaves as the cause of a new `InvocationTargetException`, routed through the caller's handlers | **ART** (`InvokeMethodImpl`) |
+
+Anything a step needs and the path does not know keeps the call opaque, through the reflection policy as before:
+an unknown `Method` (one an opaque call collapsed), an unknown receiver class or argument
+array, an unknown argument at or before the first failing one (except for an `Object` parameter, which takes
+anything), a class relation the hierarchy cannot decide, or a selected method that is not runnable application
+bytecode (**ENGINE CHOICE**). `Constructor.newInstance` of an application constructor stays opaque: it also
+allocates the object, which this path does not model.
+
 ---
 
 ## Engine choices for verifier-excluded input

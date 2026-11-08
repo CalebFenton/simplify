@@ -148,6 +148,17 @@ internal fun defaultEmulatorRegistrations(
                 "()Ljava/lang/Throwable;",
             ),
         ),
+        // InvocationTargetException keeps its target in its own field, and both readers return it.
+        throwableCauseRegistration(
+            MethodSignature(SynthesizedThrowable.INVOCATION_TARGET.type, "getCause", "()Ljava/lang/Throwable;"),
+        ),
+        throwableCauseRegistration(
+            MethodSignature(
+                SynthesizedThrowable.INVOCATION_TARGET.type,
+                "getTargetException",
+                "()Ljava/lang/Throwable;",
+            ),
+        ),
         EmulatorRegistration(
             EmulatorMatcher.Predicate("object-get-class") { target ->
                 (target.definingClass == VirtualType.OBJECT || target.definingClass.isArray) &&

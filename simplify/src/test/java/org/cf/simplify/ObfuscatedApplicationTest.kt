@@ -45,9 +45,9 @@ class ObfuscatedApplicationTest {
         val knownClass = after.classIndex.methodView(PREFIX + "knownClass()Ljava/lang/Class;")!!
         assertFalse(hasCall(knownClass, "Ljava/lang/Class;", "forName"))
         assertTrue(knownClass.instructionAddresses.any { knownClass.opcodeAt(it) == Opcode.CONST_CLASS })
-        // The engine does not resolve this Method.invoke, so the call stays reflective.
+        // The engine runs this Method.invoke of an application method, so the call is lowered to a direct call.
         val reflective = after.classIndex.methodView(PREFIX + "invokeReflective()Ljava/lang/Object;")!!
-        assertTrue(hasCall(reflective, "Ljava/lang/reflect/Method;", "invoke"))
+        assertFalse(hasCall(reflective, "Ljava/lang/reflect/Method;", "invoke"))
         assertTrue(report.optimizationCounts.getValue("constantized ops") > 0)
         assertTrue(report.optimizationCounts.getValue("constantized ifs") > 0)
         val second = temporaryDirectory.resolve("application-second.dex")

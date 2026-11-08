@@ -120,3 +120,68 @@
     move-result-object v4
     return-object v4
 .end method
+
+.method private static addInts(II)I
+    .registers 3
+    add-int v0, p0, p1
+    return v0
+.end method
+
+.method private static widenToLong(J)J
+    .registers 2
+    return-wide p0
+.end method
+
+.method public static applicationIntegerArguments()Ljava/lang/Object;
+    .registers 5
+    const-class v0, Lreflective_invocation;
+    const-string v1, "addInts"
+    const/4 v2, 0x2
+    new-array v2, v2, [Ljava/lang/Class;
+    sget-object v3, Ljava/lang/Integer;->TYPE:Ljava/lang/Class;
+    const/4 v4, 0x0
+    aput-object v3, v2, v4
+    const/4 v4, 0x1
+    aput-object v3, v2, v4
+    invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    move-result-object v0
+    const/4 v2, 0x2
+    new-array v2, v2, [Ljava/lang/Object;
+    const/16 v3, 0x28
+    invoke-static {v3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    move-result-object v3
+    const/4 v4, 0x0
+    aput-object v3, v2, v4
+    const/4 v3, 0x2
+    invoke-static {v3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    move-result-object v3
+    const/4 v4, 0x1
+    aput-object v3, v2, v4
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    move-result-object v0
+    return-object v0
+.end method
+
+.method public static applicationWidenedArgument()Ljava/lang/Object;
+    .registers 5
+    const-class v0, Lreflective_invocation;
+    const-string v1, "widenToLong"
+    const/4 v2, 0x1
+    new-array v2, v2, [Ljava/lang/Class;
+    sget-object v3, Ljava/lang/Long;->TYPE:Ljava/lang/Class;
+    const/4 v4, 0x0
+    aput-object v3, v2, v4
+    invoke-virtual {v0, v1, v2}, Ljava/lang/Class;->getDeclaredMethod(Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;
+    move-result-object v0
+    const/4 v2, 0x1
+    new-array v2, v2, [Ljava/lang/Object;
+    const/4 v3, 0x5
+    invoke-static {v3}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    move-result-object v3
+    aput-object v3, v2, v4
+    const/4 v1, 0x0
+    invoke-virtual {v0, v1, v2}, Ljava/lang/reflect/Method;->invoke(Ljava/lang/Object;[Ljava/lang/Object;)Ljava/lang/Object;
+    move-result-object v0
+    return-object v0
+.end method

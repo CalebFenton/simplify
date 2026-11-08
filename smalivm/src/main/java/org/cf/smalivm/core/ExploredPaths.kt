@@ -79,6 +79,21 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
         heapRefIn(node.frame, register)?.let { (node.frame.heapObject(it) as? HeapObject.TrackedArray)?.length }
     }
 
+    /**
+     * The runtime class of each element of the tracked array [register] holds over the union of nodes at
+     * [addresses], null for a null element. Absent when a node holds no tracked array there or does not know the
+     * class of an element.
+     */
+    public fun arrayElementClasses(addresses: IntArray, register: Int): Agreement<List<VirtualType?>> =
+        agreement(addresses) { node ->
+            val ref = heapRefIn(node.frame, register) ?: return@agreement null
+            val array = node.frame.heapObject(ref) as? HeapObject.TrackedArray ?: return@agreement null
+            array.elements().map { element ->
+                if (element.readsAsNullReference) null
+                else knownRuntimeClass(element, node.frame) ?: return@agreement null
+            }
+        }
+
     /** The immutable String [register] denotes after [address], without exposing any host object. */
     public fun knownString(address: Int, register: Int): Agreement<String> = agreement(intArrayOf(address)) { node ->
         when (val raw = (valueIn(node.frame, register) as? Value.Known)?.raw) {

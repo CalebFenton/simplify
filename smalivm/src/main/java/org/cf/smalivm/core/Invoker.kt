@@ -31,24 +31,8 @@ internal class Invoker internal constructor(
         callerClass: VirtualType,
         receiverType: VirtualType? = null,
     ): InvocationPreparation {
-        val resolved = resolver.resolveInvocation(call.target, call.kind, callerClass, receiverType)
-        if (resolved is InvocationLookup.Ambiguous) {
-            return OpaqueInvocation(call.target.returnType, resolved.candidates)
-        }
-        resolved as InvocationLookup.Resolved
-        val method = when (val lookup = resolved.lookup) {
-            MethodLookup.NoSuchClass -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.unresolvedClass(call.target.definingClass, resolver.hierarchy),
-            )
-            MethodLookup.NoSuchMethod -> return InvocationPreparation.ThrowResolution(
-                GuestThrowables.noSuchMethod(call.target, call.kind),
-            )
-            is MethodLookup.Runnable -> lookup.method
-            is MethodLookup.NoBody -> lookup.method
-            is MethodLookup.DefaultConflict -> lookup.method
-            is MethodLookup.AbstractSelection -> lookup.method
-        }
-
+        val resolved = resolve(call.target, call.kind, callerClass, receiverType) { return it }
+        val method = resolved.method
         val words = method.target.argumentWords(call.kind)
         if (call.registerFrameValues.size != words.wordCount) {
             return OpaqueInvocation(
@@ -60,19 +44,70 @@ internal class Invoker internal constructor(
         }
         val bound = words.arguments.map { bindFrameValue(call.registerFrameValues[it.word], it.type) }
         val receiver = if (call.kind == InvokeKind.STATIC) null else bound.first()
-        return InvocationPreparation.Ready(
+        return resolved.ready(call.kind, callerClass, receiver, if (receiver == null) bound else bound.drop(1))
+    }
+
+    /**
+     * Resolves [target] as `Method.invoke` calls it: [receiver] and [arguments] are already logical values, one per
+     * parameter, as the reflected call unboxed them. Like [prepare], this never probes a backend.
+     */
+    internal fun prepareReflective(
+        target: MethodSignature,
+        kind: InvokeKind,
+        callerClass: VirtualType,
+        receiverType: VirtualType?,
+        receiver: FrameValue?,
+        arguments: List<FrameValue>,
+    ): InvocationPreparation {
+        val resolved = resolve(target, kind, callerClass, receiverType) { return it }
+        return resolved.ready(kind, callerClass, receiver, arguments)
+    }
+
+    private class ResolvedCall(val method: ResolvedMethod, val lookup: MethodLookup, val candidates: Set<String>) {
+        fun ready(
+            kind: InvokeKind,
+            callerClass: VirtualType,
+            receiver: FrameValue?,
+            arguments: List<FrameValue>,
+        ): InvocationPreparation.Ready = InvocationPreparation.Ready(
             PreparedInvocation.fromFrameValues(
                 method.target,
                 callerClass,
-                call.kind,
+                kind,
                 method.target.returnType,
                 method.target.parameterTypes,
                 receiver,
-                if (receiver == null) bound else bound.drop(1),
+                arguments,
             ),
-            resolved.lookup,
-            resolved.candidates,
+            lookup,
+            candidates,
         )
+    }
+
+    /** The method [target] selects, or the preparation [fail] receives when resolution decides the call. */
+    private inline fun resolve(
+        target: MethodSignature,
+        kind: InvokeKind,
+        callerClass: VirtualType,
+        receiverType: VirtualType?,
+        fail: (InvocationPreparation) -> Nothing,
+    ): ResolvedCall {
+        val resolved = resolver.resolveInvocation(target, kind, callerClass, receiverType)
+        if (resolved is InvocationLookup.Ambiguous) fail(OpaqueInvocation(target.returnType, resolved.candidates))
+        resolved as InvocationLookup.Resolved
+        val method = when (val lookup = resolved.lookup) {
+            MethodLookup.NoSuchClass -> fail(
+                InvocationPreparation.ThrowResolution(GuestThrowables.unresolvedClass(target.definingClass, resolver.hierarchy)),
+            )
+            MethodLookup.NoSuchMethod -> fail(
+                InvocationPreparation.ThrowResolution(GuestThrowables.noSuchMethod(target, kind)),
+            )
+            is MethodLookup.Runnable -> lookup.method
+            is MethodLookup.NoBody -> lookup.method
+            is MethodLookup.DefaultConflict -> lookup.method
+            is MethodLookup.AbstractSelection -> lookup.method
+        }
+        return ResolvedCall(method, resolved.lookup, resolved.candidates)
     }
 
     /** Returns the applicable runtime class-init target before any backend is probed. */
