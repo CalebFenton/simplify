@@ -11,7 +11,7 @@ import org.cf.smalivm.core.VmServices
 import org.cf.smalivm.core.canTrustConsensus
 import org.cf.smalivm.core.joinAll
 
-/** Embedding examples; org.cf.demosmali contains Java guest sources, not the host application. */
+/** Embedding examples that execute the guest smali of org.cf.demosmali in smalivm. */
 object Main {
     private const val GUEST_CLASS = "Lorg/cf/demosmali/Main;"
 
@@ -37,9 +37,7 @@ object Main {
         printFrame.assign(printArgument.register, Value.Known(42, printArgument.type))
         execute(services, printParameter, printFrame, "Known print parameter 42")
 
-        // parameterLogic is an INSTANCE method: p0 is the receiver, p1 is its integer argument.
-        // Keep the receiver typed but unknown (the fixture never reads it), rather than inventing
-        // a heap reference or mistakenly writing the integer into the receiver's register.
+        // p0 is the unread receiver, kept typed but unknown; p1 is the integer argument.
         val receiver = parameterLogic.parameters[0]
         val argument = parameterLogic.parameters[1]
         val unknownFrame = Frame.entryFrame(parameterLogic)
@@ -74,8 +72,7 @@ object Main {
 
     private fun execute(services: VmServices, method: MethodView, frame: Frame, label: String): ExecutionGraph {
         val graph = services.newSession(method, entryFrame = frame).run()
-        // A returned void main alone does not imply every nested operation produced a known value.
-        // Report actual completion and exceptional outcomes rather than promising fixture output.
+        // A returned void main does not imply every nested operation produced a known value.
         println("$label: ${graph.completion()}")
         graph.outcomes.filterNot { it is Outcome.Returned }.forEach { println("  $it") }
         return graph

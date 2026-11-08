@@ -60,6 +60,17 @@ subprojects {
 
     plugins.withId('application') {
         distributions.main.contents { with legalFiles }
+        application.applicationDefaultJvmArgs = ['--add-opens=java.base/java.lang=ALL-UNNAMED']
+
+        tasks.register('fatJar', Jar) {
+            dependsOn configurations.runtimeClasspath
+            archiveFileName = "${project.name}.jar"
+            duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+            exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+            manifest.attributes('Main-Class': application.mainClass.get(), 'Add-Opens': 'java.base/java.lang')
+            from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+            with jar
+        }
     }
 
     tasks.withType(JavaCompile).configureEach {
@@ -72,15 +83,6 @@ subprojects {
         useJUnitPlatform()
         jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED'
         maxParallelForks = Runtime.runtime.availableProcessors()
-    }
-
-    if (project.name == 'simplify') {
-        tasks.withType(Test).configureEach {
-            maxParallelForks = 2
-            minHeapSize = '128m'
-            maxHeapSize = '4g'
-            jvmArgs '-XX:-UseGCOverheadLimit'
-        }
     }
 
     tasks.withType(JacocoReport).configureEach {
