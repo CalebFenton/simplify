@@ -12,32 +12,29 @@ import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
-/** Behavioral coverage added for Task 19. The retired oracle test asserted a no-op self-assignment. */
+/**
+ * `iput*`. Expected behaviour follows `docs/DALVIK-SEMANTICS.md#fields`; a write read back through `iget` is
+ * covered by `IGetOpTest.aReadReturnsTheResolvedFieldsCell`.
+ */
 class IPutOpTest {
 
-    @Test
-    fun aWriteIsObservableThroughAFollowingRead() {
-        CoreTester.assertReturns("Liget_test;", "putThenGetInt()I", Value.Known(0x42, type("I")), register = 2)
-    }
-
     /**
-     * The instance-field twin of `SPutOpTest.aNarrowStoreKeepsOnlyItsFieldsWidth`, read back through the
-     * matching `iget-*`: ART's `GetFieldValue` casts the 32-bit register to the field's width before storing.
+     * ART's `GetFieldValue` casts the 32-bit register to the field's width before storing
+     * (`docs/DALVIK-SEMANTICS.md#stores-narrow-to-the-field-width`), so `0x1ff` stored to a byte reads back as -1.
+     * A boolean byte other than 0 or 1 is real on a device but has no `Boolean` raw, so it is `Unknown(Z)`.
      */
-    @Test
-    fun aNarrowStoreKeepsOnlyItsFieldsWidth() {
-        fun assertReadsBack(method: String, written: Int, stored: Value) = CoreTester.assertReturns(
-            "Lifield_forms_test;", method, stored, register = 1,
-            initialRegisters = mapOf(2 to Value.Known(written, type("I"))),
-        )
-        assertReadsBack("putByte(B)B", 0x1ff, Value.Known((-1).toByte(), type("B")))
-        assertReadsBack("putShort(S)S", 0x18000, Value.Known((-32768).toShort(), type("S")))
-        assertReadsBack("putChar(C)C", 0x10041, Value.Known('A', type("C")))
-        assertReadsBack("putBoolean(Z)Z", 0x101, Value.Known(true, type("Z")))
-        assertReadsBack("putBoolean(Z)Z", 2, Value.Unknown(type("Z")))
-    }
+    @TestFactory
+    fun aNarrowStoreKeepsOnlyItsFieldsWidth(): List<DynamicTest> = listOf(
+        narrowStore("putByte(B)B", 0x1ff, Value.Known((-1).toByte(), type("B"))),
+        narrowStore("putShort(S)S", 0x18000, Value.Known((-32768).toShort(), type("S"))),
+        narrowStore("putChar(C)C", 0x10041, Value.Known('A', type("C"))),
+        narrowStore("putBoolean(Z)Z", 0x101, Value.Known(true, type("Z"))),
+        narrowStore("putBoolean(Z)Z", 2, Value.Unknown(type("Z"))),
+    )
 
     @Test
     fun aliasesShareOneFieldCell() {
@@ -74,35 +71,40 @@ class IPutOpTest {
         )
     }
 
-    @Test
-    fun definiteNullStoresHaveNoContinuationOrSiblingStore() {
-        assertDefiniteNullStore("putIntoNullReceiver()V")
-        assertDefiniteNullStore("putIntoPrimitiveTaggedReceiver()V")
-    }
+    /** A literal zero and a primitive-tagged register both read as a null receiver. */
+    @TestFactory
+    fun aStoreThroughANullReceiverThrowsTheOnlyOutcome(): List<DynamicTest> =
+        listOf("putIntoNullReceiver()V", "putIntoPrimitiveTaggedReceiver()V").map { method ->
+            DynamicTest.dynamicTest(method) {
+                // ART's `ThrowNullPointerExceptionForFieldAccess` text over the resolved field and the running method.
+                CoreTester.testThrows(
+                    CLASS_NAME, method,
+                    exceptionType = "Ljava/lang/NullPointerException;",
+                    message = "Attempt to write to field 'int iput_test.myInt' on a null object reference in method " +
+                        "'void iput_test.${method.substringBefore('(')}()'",
+                )
+                val graph = CoreTester.execute(CLASS_NAME, method)
+                assertEquals(CompletionStatus.Complete, graph.completion())
+                assertEquals(
+                    listOf("Ljava/lang/NullPointerException;"),
+                    CoreTester.escapingTypes(graph),
+                    "the null store has one feasible outcome; testThrows alone cannot exclude a sibling",
+                )
+                assertFalse(graph.wasReached(5), "a definite NPE must not continue or perform a store")
+                assertEquals(0, graph.nodePile(3).single().children.size, "a definite escaping throw has no sibling")
+            }
+        }
 
-    @Test
-    fun putResolutionFailuresPrecedeNullAndNeverStore() {
-        val missingClass = CoreTester.execute(CLASS_NAME, "putMissingClassOnNullReceiver()V")
-        assertEquals(CompletionStatus.Complete, missingClass.completion())
-        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(missingClass))
-        assertFalse(missingClass.wasReached(5), "resolution fails before the null receiver can produce NPE")
-        assertEquals(SideEffectLevel.NONE, missingClass.explored.sideEffectLevel(3))
-
-        val missingMember = CoreTester.execute(CLASS_NAME, "putMissingMember()V")
-        assertEquals(CompletionStatus.Complete, missingMember.completion())
-        assertEquals(listOf("Ljava/lang/NoSuchFieldError;"), CoreTester.escapingTypes(missingMember))
-        assertFalse(missingMember.wasReached(6), "a definite missing member has no write continuation")
-        assertEquals(SideEffectLevel.NONE, missingMember.explored.sideEffectLevel(4))
-    }
-
-    @Test
-    fun anInstanceWriteCannotResolveAStaticOnlyField() {
-        val graph = CoreTester.execute(CLASS_NAME, "putStaticFieldWithInstanceOpcode()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NoSuchFieldError;"), CoreTester.escapingTypes(graph))
-        assertFalse(graph.wasReached(6), "static-only declarations are absent from instance resolution")
-        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(4))
-    }
+    /**
+     * Resolution precedes the receiver null check, and a static-only declaration is absent from instance
+     * resolution (`docs/DALVIK-SEMANTICS.md#resolution`). A failed resolution writes nothing.
+     */
+    @TestFactory
+    fun aResolutionFailureThrowsBeforeTheStore(): List<DynamicTest> = listOf(
+        resolutionFailure("putMissingClassOnNullReceiver()V", "Ljava/lang/NoClassDefFoundError;", putAt = 3, nextAt = 5),
+        resolutionFailure("putMissingMember()V", "Ljava/lang/NoSuchFieldError;", putAt = 4, nextAt = 6),
+        resolutionFailure("putStaticFieldWithInstanceOpcode()V", "Ljava/lang/NoSuchFieldError;", putAt = 4, nextAt = 6),
+    )
 
     @Test
     fun anUnknownReceiverPreservesNormalAndNullOutcomesWithoutInventingAFieldTarget() {
@@ -110,8 +112,7 @@ class IPutOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
         assertTrue(graph.outcomes.contains(Outcome.Returned(null)))
-        // VERIFIER-tier malformed input. No target is provable, so spec 2.2 requires STRONG rather
-        // than inventing a target or understating an unmodelled write.
+        // No target is provable, so the continuation records STRONG rather than inventing a target.
         assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(setOf(0, 1), graph.registersRead(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
@@ -157,10 +158,13 @@ class IPutOpTest {
         assertEquals(Value.Known(0, type("I")), objectConsensus.field("Liput_test;->myInt:I"))
     }
 
+    /**
+     * Verifier-excluded input: a known non-null receiver that identifies no modelled heap cell. The engine records
+     * STRONG, writes nothing, and invents no exception
+     * (`docs/DALVIK-SEMANTICS.md#engine-choices-for-verifier-excluded-input`).
+     */
     @Test
     fun aKnownNonHeapRefReceiverContinuesWithStrongUnmodelledEffect() {
-        // VERIFIER-tier malformed input, not a runtime claim. Spec 2.2 requires STRONG because the known
-        // non-null receiver identifies no modelled heap cell.
         val graph = CoreTester.execute(CLASS_NAME, "putThroughKnownNonHeapRefReceiver()I")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph), "no guest exception is invented")
@@ -180,10 +184,12 @@ class IPutOpTest {
         )
     }
 
+    /**
+     * Verifier-excluded input: the receiver is a real tracked object of another class, so the resolved cell does
+     * not exist on it. Same engine choice as the non-heap receiver: STRONG and no fabricated store.
+     */
     @Test
     fun aTrackedObjectWithoutTheResolvedCellContinuesWithStrongUnmodelledEffect() {
-        // VERIFIER-tier malformed input, not a runtime claim. The HeapRef is real, but writeField cannot
-        // find the resolved declaring-class cell. Spec 2.2 requires STRONG and forbids a fabricated store.
         val graph = CoreTester.execute(CLASS_NAME, "putThroughTrackedObjectWithoutResolvedCell()Liget_test;")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph), "no guest exception is invented")
@@ -205,8 +211,9 @@ class IPutOpTest {
         )
     }
 
+    /** `iput-object` stores a register that reads as null, here a primitive-tagged 5, as `null`. */
     @Test
-    fun iputObjectUsesReferenceReadCoercion() {
+    fun anObjectStoreOfAPrimitiveTaggedValueStoresNull() {
         CoreTester.assertReturns(
             CLASS_NAME,
             "putObjectWithPrimitiveTaggedValue()Ljava/lang/String;",
@@ -240,24 +247,23 @@ class IPutOpTest {
         assertEquals(emptySet<Int>(), graph.registersAssigned(4))
     }
 
-    private fun assertDefiniteNullStore(method: String) {
-        // ART's `ThrowNullPointerExceptionForFieldAccess` text over the resolved field and the running method.
-        CoreTester.testThrows(
-            CLASS_NAME, method,
-            exceptionType = "Ljava/lang/NullPointerException;",
-            message = "Attempt to write to field 'int iput_test.myInt' on a null object reference in method " +
-                "'void iput_test.${method.substringBefore('(')}()'",
-        )
-        val graph = CoreTester.execute(CLASS_NAME, method)
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(
-            listOf("Ljava/lang/NullPointerException;"),
-            CoreTester.escapingTypes(graph),
-            "the null store has one feasible outcome; testThrows alone cannot exclude a sibling",
-        )
-        assertFalse(graph.wasReached(5), "a definite NPE must not continue or perform a store")
-        assertEquals(0, graph.nodePile(3).single().children.size, "a definite escaping throw has no sibling")
-    }
+    /** Writes [written] through `iput-*` and reads it back through the matching `iget-*`. */
+    private fun narrowStore(method: String, written: Int, stored: Value): DynamicTest =
+        DynamicTest.dynamicTest("$method stores 0x${written.toString(16)} as $stored") {
+            CoreTester.assertReturns(
+                "Lifield_forms_test;", method, stored, register = 1,
+                initialRegisters = mapOf(2 to Value.Known(written, type("I"))),
+            )
+        }
+
+    private fun resolutionFailure(method: String, error: String, putAt: Int, nextAt: Int): DynamicTest =
+        DynamicTest.dynamicTest("$method -> $error") {
+            val graph = CoreTester.execute(CLASS_NAME, method)
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            assertEquals(listOf(error), CoreTester.escapingTypes(graph))
+            assertFalse(graph.wasReached(nextAt), "a definite resolution failure has no write continuation")
+            assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(putAt))
+        }
 
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 

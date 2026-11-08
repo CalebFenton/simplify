@@ -20,35 +20,59 @@ import org.cf.smalivm.core.VmServices
 import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import org.junit.jupiter.api.io.TempDir
 import org.cf.smalivm.core.requireMethodView
 
 class InvokeOpTest {
-    @Test
-    fun staticInvokeReturnsThroughMoveResult() {
-        CoreTester.assertReturns(CLASS_NAME, "staticReturn()I", known(7))
-    }
+    /**
+     * Each expected value is what the fixture callee computes from its arguments. The rows cover static, virtual,
+     * and range calls, wide argument words, and an integral zero bound to a reference parameter (which becomes null).
+     */
+    @TestFactory
+    fun aCallReturnsWhatItsCalleeComputes(): List<DynamicTest> = listOf(
+        returns(CLASS_NAME, "staticReturn()I", mapOf(0 to known(7))),
+        returns(CLASS_NAME, "wideRange()J", mapOf(0 to Value.Known(3L, type("J")))),
+        returns(
+            CLASS_NAME, "zeroBecomesNull()Ljava/lang/Object;",
+            mapOf(0 to Value.Known(null, type("Ljava/lang/Object;"))),
+        ),
+        // Dispatch uses the receiver's tracked runtime type.
+        returns(CLASS_NAME, "knownVirtual()I", mapOf(0 to known(2))),
+        returns(STATIC, "invokeReturnInt()V", mapOf(0 to known(7))),
+        returns(STATIC, "invokeReturnParameter()V", mapOf(0 to known(5)), initial = mapOf(0 to known(5))),
+        returns(
+            STATIC, "invokeReturnUninitializedField()V",
+            mapOf(0 to Value.Known(null, type("Ljava/lang/String;"))),
+        ),
+        returns(VIRTUAL, "invokeReturnInt()V", mapOf(0 to known(7))),
+        returns(VIRTUAL, "invokeReturnParameter()V", mapOf(1 to known(5), 2 to known(5)), initial = mapOf(1 to known(5))),
+        returns(
+            VIRTUAL, "invokeRangeManyParameters()V", mapOf(8 to known(3)),
+            initial = mapOf(
+                1 to Value.Known(0x100L, type("J")),
+                3 to Value.Known(0x200L, type("J")),
+                5 to Value.Known(0x300L, type("J")),
+                7 to known(3),
+            ),
+        ),
+    )
 
-    @Test
-    fun rangeBindingAccountsForEveryWideWord() {
-        CoreTester.assertReturns(CLASS_NAME, "wideRange()J", Value.Known(3L, type("J")))
-    }
-
-    @Test
-    fun integralZeroPassedToAReferenceParameterBecomesNull() {
-        CoreTester.assertReturns(
-            CLASS_NAME,
-            "zeroBecomesNull()Ljava/lang/Object;",
-            Value.Known(null, type("Ljava/lang/Object;")),
-        )
-    }
-
-    @Test
-    fun knownReceiverDispatchUsesItsTrackedRuntimeType() {
-        CoreTester.assertReturns(CLASS_NAME, "knownVirtual()I", known(2))
+    /** A void call returns normally and assigns no result register. */
+    @TestFactory
+    fun aVoidCallAssignsNoRegister(): List<DynamicTest> = listOf(
+        STATIC to 0,
+        VIRTUAL to 5,
+    ).map { (className, invokeAt) ->
+        DynamicTest.dynamicTest("$className invokeReturnVoid()V") {
+            val graph = CoreTester.execute(className, "invokeReturnVoid()V")
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            assertTrue(graph.outcomes.all { it == Outcome.Returned(null) })
+            assertTrue(graph.registersAssigned(invokeAt).isEmpty(), "void call has no result register")
+        }
     }
 
     /**
@@ -88,47 +112,29 @@ class InvokeOpTest {
         )
     }
 
-    /** ART's text is `ThrowNullPointerExceptionForMethodAccess` over the referenced method (`common_throws.cc`). */
-    @Test
-    fun definiteNullReceiverHasOnlyTheGuestNpeOutcome() {
-        val graph = invokeRun("nullVirtual()I")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertFreshInvokeThrowable(
-            graph,
-            expectedType = "Ljava/lang/NullPointerException;",
-            expectedClass = NullPointerException::class.java,
-            expectedMessage = "Attempt to invoke virtual method 'int java.lang.String.length()' on a null object reference",
-        )
-        assertFalse(graph.wasReached(4), "a definite NPE must not also reach move-result")
-    }
-
-    /** ART's `ThrowNoSuchMethodError` text, as the Tier-A recording shows for `Fx_InvokeMissingMethodNullReceiver`. */
-    @Test
-    fun resolutionFailurePrecedesReceiverNull() {
-        val graph = invokeRun("missingBeforeNull()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertFreshInvokeThrowable(
-            graph,
-            expectedType = "Ljava/lang/NoSuchMethodError;",
-            expectedClass = NoSuchMethodError::class.java,
-            expectedMessage = "No virtual method missing()V in class Linvoke_task20; or its super classes",
-        )
-        assertTrue("Ljava/lang/NullPointerException;" !in CoreTester.escapingTypes(graph))
-        assertFalse(graph.wasReached(4))
-    }
-
-    /** ART's `DoResolveType` text, as the Tier-A recording shows for `Fx_InvokeAbsentType`. */
-    @Test
-    fun absentDefiningClassThrowsGuestNoClassDefFoundError() {
-        val graph = invokeRun("absentClass()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertFreshInvokeThrowable(
-            graph,
-            expectedType = "Ljava/lang/NoClassDefFoundError;",
-            expectedClass = NoClassDefFoundError::class.java,
-            expectedMessage = "Failed resolution of: Linvoke_task20_absent;",
-        )
-    }
+    /**
+     * Each failing call throws one fresh guest throwable carrying ART's message: `ThrowNullPointerExceptionForMethodAccess`
+     * and `ThrowNoSuchMethodError` (`common_throws.cc`) and `DoResolveType`'s text, as the device recordings of
+     * `Fx_InvokeMissingMethodNullReceiver` and `Fx_InvokeAbsentType` show. Resolution precedes the receiver null check.
+     */
+    @TestFactory
+    fun aFailingCallThrowsOneGuestThrowableWithArtsMessage(): List<DynamicTest> = listOf(
+        failingCall(
+            "nullVirtual()I", NullPointerException::class.java,
+            "Attempt to invoke virtual method 'int java.lang.String.length()' on a null object reference",
+            moveResultAt = 4,
+        ),
+        failingCall(
+            "missingBeforeNull()V", NoSuchMethodError::class.java,
+            "No virtual method missing()V in class Linvoke_task20; or its super classes",
+            moveResultAt = 4,
+        ),
+        failingCall(
+            "absentClass()V", NoClassDefFoundError::class.java,
+            "Failed resolution of: Linvoke_task20_absent;",
+            moveResultAt = null,
+        ),
+    )
 
     @Test
     fun opaqueCallPreservesArrayIdentityAndCollapsesItsElements() {
@@ -178,13 +184,6 @@ class InvokeOpTest {
     }
 
     @Test
-    fun constructorsAreNeverInherited() {
-        val graph = CoreTester.execute(CLASS_NAME, "inheritedConstructorIsMissing()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NoSuchMethodError;"), CoreTester.escapingTypes(graph))
-    }
-
-    @Test
     fun returnAndThrowStatesRouteToSeparateCallerPartitions() {
         val graph = CoreTester.execute(CLASS_NAME, "mixedReturnAndThrow(I)I")
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -204,31 +203,45 @@ class InvokeOpTest {
         assertTrackedObject(graph.trusted()!!.terminatingConsensus(0), graph, uninitialized = true)
     }
 
-    // Host-object and array-clone invocation cases live in BackendCorpusMigrationTest.
-
-    @Test
-    fun objectClassInitializationCreatesCorrectClass() {
-        val graph = CoreTester.execute("Lhash_code;", "createInstanceForInvokeTest()Lhash_code;")
-        assertInitializedObject(graph, 0, "Lhash_code;")
+    /** `new-instance` then the matching `<init>` returning normally leaves an initialized tracked object. */
+    @TestFactory
+    fun aConstructorCallInitializesItsObject(): List<DynamicTest> = listOf(
+        Triple("Lhash_code;", "createInstanceForInvokeTest()Lhash_code;", "Lhash_code;"),
+        Triple("Lextends_enum;", "createForInvokeTest()Lextends_enum;", "Lextends_enum;"),
+        Triple(DIRECT, "callInitOfClassWithDefaultConstructor()V", "Lclass_with_default_constructor;"),
+    ).map { (className, method, descriptor) ->
+        DynamicTest.dynamicTest("$className $method") {
+            assertInitializedObject(CoreTester.execute(className, method), 0, descriptor)
+        }
     }
 
-    @Test
-    fun enumClassInitializationCreatesCorrectClass() {
-        val graph = CoreTester.execute("Lextends_enum;", "createForInvokeTest()Lextends_enum;")
-        assertInitializedObject(graph, 0, "Lextends_enum;")
+    /** The constructor receives the caller's char array by reference and leaves its contents intact. */
+    @TestFactory
+    fun aConstructorWithAnArrayArgumentInitializesItsObjectAndKeepsTheArray(): List<DynamicTest> = listOf(
+        "callInitOfClassWithoutDefaultConstructor()V" to "Lclass_without_default_constructor;",
+        "callInitOfClassWithoutDefaultConstructorWhichChecksForNullArgument()V" to
+            "Lclass_without_default_constructor_checks_null;",
+    ).map { (method, descriptor) ->
+        DynamicTest.dynamicTest(method) {
+            val initial = CoreState().apply { setRegisters(1, charArrayOf('4', '2'), "[C") }
+            val graph = CoreTester.execute(DIRECT, method, initial)
+            assertInitializedObject(graph, 0, descriptor)
+            assertExactCharArray(graph, 1, 2)
+        }
     }
 
+    /** `String(byte[])` with an unknown argument still initializes its receiver and leaves the argument unknown. */
     @Test
-    fun initStringWithByteArrayWithUnknownParameter() {
+    fun aStringConstructorWithAnUnknownArgumentInitializesTheReceiver() {
         val initial = CoreState().apply { setRegister(1, Value.Unknown(type("[B"))) }
         val graph = CoreTester.execute("Linvoke_reflected_test;", "initStringWithByteArray()V", initial)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(type("[B")), graph.trusted()!!.terminatingConsensus(1))
-        assertInitializedObject(graph, 0, "Ljava/lang/String;") // adjudication 9: preserve the ref
+        assertInitializedObject(graph, 0, "Ljava/lang/String;")
     }
 
     @Test
-    fun invokeLongValueOfWithLongGetsCorrectParameters() {
+    fun aWideArgumentSurvivesACallToLongValueOf() {
         val initial = CoreState().apply { setRegisters(0, 0x1000L, "J") }
         CoreTester.test(
             "Linvoke_reflected_test;",
@@ -238,8 +251,12 @@ class InvokeOpTest {
         )
     }
 
+    /**
+     * `System.arraycopy` declares `Object` parameters. An opaque call keeps each argument's more specific `[B` type
+     * and its identity, and collapses the elements it may have written.
+     */
     @Test
-    fun invokeMethodCausingAssumeMaximumUnknownWithSignatureTypeLessSpecificThanKnownArgumentsTypeRetainsSpecificType() {
+    fun anOpaqueCallKeepsAKnownArgumentsSpecificTypeAndIdentity() {
         val initial = CoreState().apply {
             setRegisters(0, byteArrayOf(1, 2), "[B", 1, 0, "I", 2, byteArrayOf(3, 4), "[B", 3, 0, "I", 4, 2, "I")
         }
@@ -248,7 +265,7 @@ class InvokeOpTest {
     }
 
     @Test
-    fun invokeMethodCausingAssumeMaximumUnknownWithSignatureTypeLessSpecificThanUnknownArgumentsTypeRetainsSpecificType() {
+    fun anOpaqueCallKeepsAnUnknownArgumentsSpecificType() {
         val initial = CoreState().apply {
             setRegister(0, Value.Unknown(type("[B")))
             setRegisters(1, 0, "I")
@@ -262,7 +279,7 @@ class InvokeOpTest {
     }
 
     @Test
-    fun invokeMethodOutsideClassThatAccessesThisClassReturnsExpectedValue() {
+    fun aCalleeInAnotherClassInitializesThatClassAndReadsTheCallersStatics() {
         val initial = CoreState().apply {
             setFields(STATIC, "sometimes_initialized:Ljava/lang/String;", "i have been initialized")
         }
@@ -277,25 +294,25 @@ class InvokeOpTest {
     }
 
     @Test
-    fun invokeMutateStaticClassFieldNonDeterministicallyPropagatesUnknown() {
+    fun aStaticArrayMutatedOnOnePathJoinsToUnknown() {
         val graph = CoreTester.execute(
             STATIC,
             "invokeMutateStaticClassFieldTrackedNonDeterministically(I)V",
         )
         val array = staticArray(graph)
         assertEquals(Value.Known(0, type("I")), array.element(0))
-        assertEquals(Value.Unknown(type("I")), array.element(1)) // adjudication 8 + heap identity
+        assertEquals(Value.Unknown(type("I")), array.element(1))
         assertEquals(Value.Known(3, type("I")), array.element(2))
     }
 
     @Test
-    fun invokeMutateStaticClassFieldPropagatesChanges() {
+    fun aStaticArrayMutatedByTheCalleeIsSeenByTheCaller() {
         val array = staticArray(CoreTester.execute(STATIC, "invokeMutateStaticClassFieldTracked()V"))
         assertEquals(listOf(0, 3, 3), array.elements().map { (it as Value.Known).raw })
     }
 
     @Test
-    fun invokeMutateStringDoesNotMutateParameter() {
+    fun aCalleeCannotMutateTheCallersString() {
         val initial = CoreState().apply { setRegisters(0, "not mutated", "Ljava/lang/String;") }
         CoreTester.test(
             STATIC,
@@ -306,44 +323,14 @@ class InvokeOpTest {
     }
 
     @Test
-    fun invokeReturnIntReturnsInt() {
-        CoreTester.assertReturns(STATIC, "invokeReturnInt()V", known(7), register = 0)
-    }
-
-    @Test
-    fun invokeReturnParameterReturnsParameter() {
-        CoreTester.assertReturns(
-            STATIC, "invokeReturnParameter()V", known(5), register = 0,
-            initialRegisters = mapOf(0 to known(5)),
-        )
-    }
-
-    @Test
-    fun invokeReturnUninitializedFieldReturnsNull() {
-        CoreTester.assertReturns(
-            STATIC,
-            "invokeReturnUninitializedField()V",
-            Value.Known(null, type("Ljava/lang/String;")),
-        )
-    }
-
-    @Test
-    fun invokeReturnVoidReturnsVoid() {
-        val graph = CoreTester.execute(STATIC, "invokeReturnVoid()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertTrue(graph.outcomes.all { it == Outcome.Returned(null) })
-        assertTrue(graph.registersAssigned(0).isEmpty(), "void call has no result register")
-    }
-
-    @Test
-    fun knownMutableParametersAreMutatedWithDeterministicExecution() {
+    fun aKnownArrayArgumentIsMutatedWhenTheCalleesBranchIsDecided() {
         val initial = CoreState().apply { setRegisters(0, intArrayOf(5), "[I", 1, 0, "I") }
         val expected = CoreState().apply { setRegisters(0, intArrayOf(0), "[I", 1, 0, "I") }
         CoreTester.test(STATIC, "invokeSet0thElementOfFirstParameterTo0IfSecondParameterIs0()V", initial, expected)
     }
 
     @Test
-    fun knownMutableParametersAreMutatedWithNonDeterministicExecution() {
+    fun aKnownArrayArgumentJoinsToUnknownWhenTheCalleesBranchIsUndecided() {
         val initial = CoreState().apply {
             setRegisters(0, intArrayOf(5), "[I")
             setRegister(1, Value.Unknown(type("I")))
@@ -355,7 +342,7 @@ class InvokeOpTest {
     }
 
     @Test
-    fun possiblyUninitializedClassHasUnknownFieldValues() {
+    fun aClassInitializedOnOnlyOnePathHasNoAgreedFieldValue() {
         val graph = CoreTester.execute(STATIC, "initializeClassIfArgumentIsZero(I)V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(
@@ -363,19 +350,29 @@ class InvokeOpTest {
             graph.trusted()!!.terminatingStaticFieldConsensus(
                 type("Lclass_with_static_init;"), "Lclass_with_static_init;->string:Ljava/lang/String;",
             ),
-            "resolved decision 9 preserves the absent class-state vote instead of existentially initializing",
+            "the path that skips initialization casts no vote for the field, so the paths do not agree",
         )
     }
 
-    @Test
-    fun alwaysThrownExceptionIsBubbledUp() {
-        val graph = CoreTester.execute(STATIC, "invokeMethodWhichThrowsNullPointerException()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
+    /**
+     * A callee that always throws escapes its throwable; `<init>` is never inherited, so a constructor the class
+     * does not declare is `NoSuchMethodError`; a callee in an absent class is `NoClassDefFoundError`.
+     */
+    @TestFactory
+    fun aDefiniteThrowEscapesTheCaller(): List<DynamicTest> = listOf(
+        Triple(STATIC, "invokeMethodWhichThrowsNullPointerException()V", "Ljava/lang/NullPointerException;"),
+        Triple(CLASS_NAME, "inheritedConstructorIsMissing()V", "Ljava/lang/NoSuchMethodError;"),
+        Triple(STATIC, "invokeNonExistentMethod()V", "Ljava/lang/NoClassDefFoundError;"),
+    ).map { (className, method, thrown) ->
+        DynamicTest.dynamicTest("$method -> $thrown") {
+            val graph = CoreTester.execute(className, method)
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            assertEquals(listOf(thrown), CoreTester.escapingTypes(graph))
+        }
     }
 
     @Test
-    fun sometimesThrownExceptionExecutesExceptionalAndNormalExecutionPaths() {
+    fun aCalleeThatMayThrowExploresBothTheThrowAndTheReturn() {
         val graph = CoreTester.execute(STATIC, "invokeMethodWhichMayThrowNullPointerException()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertTrue(graph.outcomes.contains(Outcome.Returned(null)))
@@ -383,73 +380,22 @@ class InvokeOpTest {
     }
 
     @Test
-    fun canCallInitOfClassWithDefaultConstructorAndGetNewInstance() {
-        assertInitializedObject(CoreTester.execute(DIRECT, "callInitOfClassWithDefaultConstructor()V"), 0, "Lclass_with_default_constructor;")
-    }
-
-    @Test
-    fun canCallInitOfClassWithoutDefaultConstructorAndGetNewInstance() {
-        val initial = CoreState().apply { setRegisters(1, charArrayOf('4', '2'), "[C") }
-        val graph = CoreTester.execute(DIRECT, "callInitOfClassWithoutDefaultConstructor()V", initial)
-        assertInitializedObject(graph, 0, "Lclass_without_default_constructor;")
-        assertExactCharArray(graph, 1, 2)
-    }
-
-    @Test
-    fun canCallInitOfClassWithoutDefaultConstructorWhichChecksForNullArgumentAndGetNewInstance() {
-        val initial = CoreState().apply { setRegisters(1, charArrayOf('4', '2'), "[C") }
-        val graph = CoreTester.execute(DIRECT, "callInitOfClassWithoutDefaultConstructorWhichChecksForNullArgument()V", initial)
-        assertInitializedObject(graph, 0, "Lclass_without_default_constructor_checks_null;")
-        assertExactCharArray(graph, 1, 2)
-    }
-
-    @Test
-    fun instanceInitializerWorksAsExpected() {
-        assertInitializedObject(CoreTester.execute("Lhash_code;", "createInstanceForInvokeTest()Lhash_code;"), 0, "Lhash_code;")
-    }
-
-    @Test
-    fun virtualInvokeReturnIntReturnsInt() {
-        CoreTester.assertReturns(VIRTUAL, "invokeReturnInt()V", known(7), register = 0)
-    }
-
-    @Test
-    fun virtualInvokeReturnParameterReturnsParameter() {
-        val graph = CoreTester.execute(VIRTUAL, "invokeReturnParameter()V", mapOf(1 to known(5)))
-        assertEquals(known(5), graph.trusted()!!.terminatingConsensus(1))
-        assertEquals(known(5), graph.trusted()!!.terminatingConsensus(2))
-    }
-
-    @Test
-    fun virtualInvokeReturnVoidReturnsVoid() {
-        val graph = CoreTester.execute(VIRTUAL, "invokeReturnVoid()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertTrue(graph.outcomes.all { it == Outcome.Returned(null) })
-    }
-
-    @Test
-    fun invokeVirtualManyParametersThrowsNoExceptions() {
-        val initial = mapOf(
-            1 to Value.Known(0x100L, type("J")),
-            3 to Value.Known(0x200L, type("J")),
-            5 to Value.Known(0x300L, type("J")),
-            7 to known(3),
-        )
-        CoreTester.assertReturns(VIRTUAL, "invokeRangeManyParameters()V", known(3), register = 8, initialRegisters = initial)
-    }
-
-    @Test
-    fun invokeNonExistentMethodThrowsException() {
-        val graph = CoreTester.execute(STATIC, "invokeNonExistentMethod()V")
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph))
-    }
-
-    @Test
-    fun hasExpectedToString() {
+    fun toStringRendersTheInstruction() {
         val view = CoreTester.classIndex.requireMethodView(STATIC, "invokeReturnVoid()V")
         val op = OpBuilder.build(0, view, CoreTester.classIndex.currentResolver())
         assertEquals("invoke-static {}, Linvoke_static_test;->returnVoid()V", op.toString())
+    }
+
+    private fun returns(
+        className: String,
+        method: String,
+        expected: Map<Int, Value>,
+        initial: Map<Int, Value> = emptyMap(),
+    ): DynamicTest = DynamicTest.dynamicTest("$className $method -> $expected") {
+        val graph = CoreTester.execute(className, method, initial)
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        val trusted = graph.trusted()!!
+        for ((register, value) in expected) assertEquals(value, trusted.terminatingConsensus(register), "r$register")
     }
 
     private fun assertTrackedObject(value: Value, graph: org.cf.smalivm.core.ExecutionGraph, uninitialized: Boolean) {
@@ -462,6 +408,23 @@ class InvokeOpTest {
     private fun invokeRun(descriptor: String): ExecutionGraph {
         val view = CoreTester.classIndex.requireMethodView(CLASS_NAME, descriptor)
         return CoreTester.vmServices.newSession(view).run()
+    }
+
+    private fun failingCall(
+        method: String,
+        expectedClass: Class<out Throwable>,
+        expectedMessage: String,
+        moveResultAt: Int?,
+    ): DynamicTest = DynamicTest.dynamicTest("$method -> ${expectedClass.simpleName}") {
+        val graph = invokeRun(method)
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertFreshInvokeThrowable(
+            graph,
+            expectedType = "L" + expectedClass.name.replace('.', '/') + ";",
+            expectedClass = expectedClass,
+            expectedMessage = expectedMessage,
+        )
+        if (moveResultAt != null) assertFalse(graph.wasReached(moveResultAt), "a definite throw must not continue")
     }
 
     private fun assertFreshInvokeThrowable(
