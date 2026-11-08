@@ -667,7 +667,7 @@ class SwitchOpTest {
      * path-local, so reconvergence is not mistaken for 502 loop iterations and the default budget of 500
      * keeps every feasible path.
      *
-     * **`SwitchOp` does NOT cap its fork arity** with `OpArm.Abort(POLICY_REFUSED)` above some N. (1) It
+     * **`SwitchOp` does NOT cap its fork arity** with an abort above some N. (1) It
      * would refuse methods the engine handles: 501 forks in one `commit` completes here, and a 60000-case
      * table whose cases all target ONE address dedupes to a single successor -- a cap keyed on table size
      * would refuse it anyway. (2) The address limit already converts the cliff into a refusal, with a reason
@@ -676,8 +676,7 @@ class SwitchOpTest {
      * of two. The residual: a maximal 65535-case table builds 65536 persistent frame wrappers inside one
      * `commit`; address and step limits act only after dequeue, and a `VirtualMachineError` escapes the run.
      *
-     * The `POLICY_REFUSED` assertion below is what makes the decision falsifiable: adding a cap changes the
-     * reason set.
+     * The `Complete` assertions below are what make the decision falsifiable: a cap would abort paths.
      */
     @Test
     fun fiveHundredAndOneDistinctTargetsKeepEveryLoopFreeSiblingPath() {

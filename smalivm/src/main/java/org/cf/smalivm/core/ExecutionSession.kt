@@ -170,12 +170,15 @@ class ExecutionSession internal constructor(
     private val frontierNodes = ArrayDeque<ExecutionNode>()
     private val pendingCallRoutings = ArrayDeque<PendingCallRouting>()
 
+    /** The run's ended paths and truncation reasons: the entry activation's [PathSink]. */
+    private val runOutcomes = RunOutcomes()
+
     /**
      * The run's outermost [Activation]. Every node the session ever schedules belongs to this one or to an
      * activation reachable from it through [Activation.caller], so this is the root of the call tree as well
      * as the thing [graph] describes.
      */
-    private val entryActivation = Activation.entry(methodView)
+    private val entryActivation = Activation.entry(methodView, runOutcomes)
 
     /**
      * Every [Activation] this run has created, entry first, in creation order.
@@ -195,25 +198,6 @@ class ExecutionSession internal constructor(
     // are different program points, and merging them lets a callee's own `Outcome.Returned` node vote in the
     // caller's return consensus (item 2) while giving N loop-free callees one shared visit budget (item 1).
     // See `Activation.addressToNodes`, Frame's path-local address visits, and InvokerTest's collision tests.
-
-    private val recordedOutcomes = mutableListOf<Outcome>()
-    private val abortReasons = linkedSetOf<AbortReason>()
-
-    // TASK 6 PILING DECISION: a node whose op never ran (a bound stopped it right after dequeue,
-    // before `execute()`) is still added to `addressToNodes` below -- see `step()` and `abortRun()`
-    // -- so a consumer can find and attribute its abort by address instead of it vanishing as some
-    // sibling's unqueried `children` entry. This set is what keeps that safe: it is the ONLY
-    // authority for "did this node's op actually run", because `outcome`/`children` alone cannot
-    // distinguish a terminal-after-running node from a limit-aborted-before-running one (both can
-    // be non-null-outcome, childless). `ExecutionGraph`/`ExploredPaths` filter every FRAME-VALUE-bearing query
-    // (`wasReached`, `explored.consensus`, `explored.registerValues`) through this
-    // set; `nodePile` does not, by
-    // design, so the raw pile stays visible, and liveness (`getOp`, `registersRead`,
-    // `registersAssigned`) does not either -- decode is static and never touches a `Frame`, so no
-    // such filter is needed there. Identity-keyed: `ExecutionNode` defines no `equals`/`hashCode`,
-    // which is exactly what membership here needs -- two nodes at the same address must never be
-    // confused with each other.
-    private val executedNodes = linkedSetOf<ExecutionNode>()
 
     private var steps = 0
     private var deadlineMillis = 0L
@@ -254,36 +238,23 @@ class ExecutionSession internal constructor(
     internal val nextNode: ExecutionNode? get() = frontierNodes.lastOrNull()
 
     /** A stable snapshot with one [Outcome] per path that ended: returned, threw, or aborted. */
-    val outcomes: List<Outcome> get() = recordedOutcomes.toList()
+    val outcomes: List<Outcome> get() = runOutcomes.outcomes.toList()
 
     val isFinished: Boolean get() = frontierNodes.isEmpty() && pendingCallRoutings.isEmpty()
 
     /**
-     * Whether this run explored everything it set out to, **as of the moment it is asked** -- spec
-     * §5.1's "a real, single completion status per run", three-valued so that the single status is
-     * honest at every moment of the run and not only after it ends.
+     * Whether this run explored everything it set out to, as of the moment it is asked (spec §5.1).
      *
-     * Any run-level abort -- limit, unsupported opcode, host failure -- makes it [CompletionStatus.Partial],
-     * which is what gates consumer trust in consensus (spec §6.4). Nested ordinary-callee aborts discharged
-     * through opaque continuation are not run-level aborts. With nothing aborted, an
-     * unfinished run is [CompletionStatus.InProgress] and only a finished one is
-     * [CompletionStatus.Complete].
+     * Any abort -- limit, unsupported opcode, host failure, at any call depth -- makes it
+     * [CompletionStatus.Partial], which gates consumer trust in consensus (spec §6.4). With nothing aborted, an
+     * unfinished run is [CompletionStatus.InProgress] and only a finished one is [CompletionStatus.Complete], so a
+     * mid-run [graph] snapshot never hands out [ExecutionGraph.trusted].
      *
-     * **This reads the FRONTIER as well as the abort set, and that is the load-bearing part.**
-     * [graph] is documented as safe to call mid-run because Plan 10's debugger is that consumer, so
-     * while this answered from `abortReasons` alone, a mid-run snapshot reported `Complete` and
-     * handed out a non-null [ExecutionGraph.trusted] -- authorizing exactly what the finished run
-     * refuses. [CompletionStatus.InProgress]'s KDoc records the demonstrated case; do not
-     * "simplify" the `!isFinished` branch away.
-     *
-     * The order is deliberate: an already non-empty abort set outranks a non-empty frontier, because
-     * truncation is permanent and no amount of further stepping can un-truncate an abandoned path.
-     * Answering `InProgress` there would be a status that IMPROVES to `Complete` later, which is the
-     * same bug wearing the new case as a disguise (pinned by
-     * `DebuggerTest.breakpointSnapshotsRemainUntrustedUntilCleanCompletionAndAfterAbort`).
+     * Partial outranks InProgress because truncation is permanent: a status must never improve with further
+     * stepping (`DebuggerTest.breakpointSnapshotsRemainUntrustedUntilCleanCompletionAndAfterAbort`).
      */
     fun completion(): CompletionStatus = when {
-        abortReasons.isNotEmpty() -> CompletionStatus.Partial(abortReasons.toSet())
+        runOutcomes.abortReasons.isNotEmpty() -> CompletionStatus.Partial(runOutcomes.abortReasons.toSet())
         !isFinished -> CompletionStatus.InProgress
         else -> CompletionStatus.Complete
     }
@@ -307,23 +278,29 @@ class ExecutionSession internal constructor(
         val node = frontierNodes.removeLast()
         currentNode = node
 
-        // Piled unconditionally, BEFORE the limit check (the Task 6 piling decision): a node the
-        // scheduler stops before running its op still belongs in this address's pile, so a
-        // consumer can find it. `executedNodes` -- not this call -- is what later distinguishes
-        // "piled" from "actually ran".
+        // Piled before the limit check: a node a bound stops before its op runs still belongs in this
+        // address's pile, so a consumer can find it. [ExecutionNode.progress] says whether it ran.
         addToPile(node)
 
-        // A node stopped by a limit never ran its op, so it is not recorded as having executed.
         if (exceededLimits(node)) {
             drainPendingCallRoutings()
             return node
         }
 
-        node.opExecutionStarted = true
-        val execution = contained(node) { node.op.execute(node.frame) }
+        // The host-failure boundary around foreign code (spec §7). It must go through hostFailureOutcome, which
+        // rethrows a VirtualMachineError: converted, it would not drop the frontier, and the loop would re-fail
+        // up to maxSteps. InvocationClassInitTest drives this boundary with a scripted StackOverflowError.
+        val execution = try {
+            node.op.execute(node.frame)
+        } catch (failure: Throwable) {
+            val aborted = hostFailureOutcome(failure)
+            node.executeFailed()
+            end(node, ActivationExit.Aborted(node.frame, aborted))
+            null
+        }
         // A synchronized method's entry acquires a monitor. The activation records it as well, because
-        // `ExecutionGraph` describes one activation and `planReturn` moves a callee's declared effect onto
-        // the caller's invoke node (spec §4.5: an effect is a statement about ONE address).
+        // `ExecutionGraph` describes one activation and the drained callee's declared effect moves onto the
+        // caller's invoke node (spec §4.5: an effect is a statement about ONE address).
         if (node.isCallEntry && node.view.isSynchronized) {
             node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.WEAK)
             node.activation.raiseDeclaredEffect(SideEffectLevel.WEAK)
@@ -332,7 +309,7 @@ class ExecutionSession internal constructor(
             drainPendingCallRoutings()
             return node
         }
-        executedNodes.add(node)
+        node.executeReturned()
         // All transitions commit together, so a fork cannot half-apply, end a node twice, or leak a terminal
         // slot write into a sibling's frame. Public outcome order is not a semantic contract.
         applyAll(execution, node)
@@ -350,10 +327,10 @@ class ExecutionSession internal constructor(
      * abort to the transition that declared it -- see [commit].
      *
      * A node still ends **at most one** path ([ExecutionNode.endWith] allows one), but the op that
-     * fires it may end SEVERAL: [commit] stamps the first ending on the node and records any others
-     * through [recordUnattributedEnding] -- allowed only when every requested ending is a guest throw
-     * (Task 7's `aget`, ambiguous about both nullness and range). A host failure created while preparing
-     * or planning one arm is separate from this check because it must not discard a feasible sibling.
+     * fires it may end SEVERAL: [commit] stamps the first ending on the node and records the others without
+     * a node -- allowed only when every requested ending is a guest throw (an `aget` ambiguous about both
+     * nullness and range). A host failure created while preparing or planning one arm is separate from this
+     * check because it must not discard a feasible sibling.
      */
     private fun applyAll(execution: OpExecution, node: ExecutionNode) {
         val sourceFrame = node.frame
@@ -437,7 +414,7 @@ class ExecutionSession internal constructor(
         } catch (fatal: VirtualMachineError) {
             throw fatal
         } catch (failure: Throwable) {
-            PreparedOpArm.Aborted(arm, armFrame, hostFailureOutcome(node, failure))
+            PreparedOpArm.Aborted(arm, armFrame, hostFailureOutcome(failure))
         }
     }
 
@@ -464,56 +441,22 @@ class ExecutionSession internal constructor(
     }
 
     /**
-     * A node's terminal [outcome], plus **whose** path it ends -- and that second half is a sealed case
-     * rather than a boolean because the two are recorded differently and confusing them is silent.
-     *
-     * [ExecutionSession.outcomes] is one `Outcome` per path of the RUN (spec §4.4). A node's
-     * [ExecutionNode.outcome] is one per path of its own ACTIVATION. Those coincide for everything except a
-     * callee's `return`, where the activation is over and the run's path carries on in the caller -- so that
-     * one stamps the node and adds nothing to the run's list.
+     * A path one transition ends. Whether it is a run outcome or a callee exit is decided by the ending
+     * activation's [PathSink], not by the planner.
      */
     private sealed interface Ending {
-        val outcome: Outcome
-        val frame: Frame
-        val returnValue: FrameValue? get() = null
-        val activationExit: ActivationExit? get() = null
+        val exit: ActivationExit
 
-        /**
-         * A class whose `<clinit>` this ending FAILED, marked on the ending node's frame -- or null, which is
-         * every ending but one.
-         *
-         * **Carried on the ending rather than written where it is decided, and the deferral is the point.**
-         * [escapeEnding] is reached during PLANNING, and `commit` phase 1 copies every successor's frame from
-         * the node's post-op frame afterwards -- so marking there would put `Failed` into the frame of each
-         * HANDLER successor of the same ambiguous throw, i.e. onto paths on which the `<clinit>` catches its
-         * own exception and goes on to return normally. That is a wrong answer in the worst direction: those
-         * paths would then skip the rest of initialization. Phase 2 runs after every frame is copied, which is
-         * the ordering the `thrown` slot write already relies on for the identical reason.
-         */
-        /** The ordinary case: a path of the run ended here, so [ExecutionSession.outcomes] gains an entry. */
-        class RunPath(
-            override val outcome: Outcome,
-            override val frame: Frame,
-            override val returnValue: FrameValue? = null,
-        ) : Ending
+        /** A path the op's own transition ended. */
+        class Requested(override val exit: ActivationExit) : Ending
 
-        /** A host failure confined to one op arm rather than the other arms of the same execution. */
-        class ArmFailure(
-            override val outcome: Outcome.Aborted,
-            override val frame: Frame,
-        ) : Ending
-
-        /**
-         * A callee's terminal path. The node carries its [Outcome] while the run continues in the caller.
-         * [activationExit] becomes a completion vote only when commit reaches phase 2.
-         */
-        class ActivationOnly(
-            override val outcome: Outcome,
-            override val frame: Frame,
-            override val returnValue: FrameValue? = null,
-            override val activationExit: ActivationExit,
-        ) : Ending
+        /** A host failure confined to one op arm, so the other arms of the same execution still commit. */
+        class ArmFailure(override val exit: ActivationExit.Aborted) : Ending
     }
+
+    /** A transition that ends its path on [reason], in [frame]. */
+    private fun abortedTransition(frame: Frame, reason: AbortReason): Committable =
+        Committable(emptyList(), Ending.Requested(ActivationExit.Aborted(frame, Outcome.Aborted(reason))))
 
     /**
      * Plans ONE transition, including each successor's own [OnUnbuildable] policy -- which is where
@@ -525,7 +468,8 @@ class ExecutionSession internal constructor(
      * Preparation and planning failures become an ending for this arm, so sibling arms still commit.
      */
     private fun planFor(prepared: PreparedOpArm, node: ExecutionNode): Committable = when (prepared) {
-        is PreparedOpArm.Aborted -> Committable(emptyList(), Ending.ArmFailure(prepared.outcome, prepared.frame))
+        is PreparedOpArm.Aborted ->
+            Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(prepared.frame, prepared.outcome)))
         is PreparedOpArm.Ready -> planFor(prepared, node)
     }
 
@@ -538,7 +482,7 @@ class ExecutionSession internal constructor(
                 ),
             ),
             null,
-        ).also { node.normalContinuationObserved = true }
+        ).also { node.observeNormalContinuation() }
         // `OnUnbuildable.SKIP_ONE`: a malformed fall-through target is no reason to discard a feasible
         // exceptional sibling. An arm-local register write already landed on this arm's own frame in
         // [prepareArm], so siblings never see it.
@@ -550,13 +494,13 @@ class ExecutionSession internal constructor(
                 ),
             ),
             null,
-        ).also { node.normalContinuationObserved = true }
+        ).also { node.observeNormalContinuation() }
         is OpArm.Jump -> Committable(
             listOf(
                 SuccessorSpec(arm.address, node.activation, OnUnbuildable.SKIP_ONE, FrameOrigin.Continuation),
             ),
             null,
-        ).also { node.normalContinuationObserved = true }
+        ).also { node.observeNormalContinuation() }
         is OpArm.Return -> planReturn(node, arm.frameValue)
         is OpArm.Throw -> planThrow(
             node,
@@ -565,10 +509,8 @@ class ExecutionSession internal constructor(
                 ExceptionPc.AT_INSTRUCTION -> node.address
                 ExceptionPc.AFTER_INSTRUCTION -> node.view.nextAddress(node.address)
             },
-        ).also { node.exceptionalContinuationObserved = true }
-        is OpArm.Abort -> Committable(emptyList(), Ending.RunPath(Outcome.Aborted(arm.reason), node.frame)).also {
-            node.exceptionalContinuationObserved = true
-        }
+        ).also { node.observeExceptionalContinuation() }
+        is OpArm.Abort -> abortedTransition(node.frame, arm.reason).also { node.observeExceptionalContinuation() }
         is OpArm.Invoke -> planInvoke(node, arm)
         is OpArm.InitClass -> planInitClass(node, arm.type)
         is OpArm.ProjectStatic -> planStaticProjection(node, arm)
@@ -711,7 +653,7 @@ class ExecutionSession internal constructor(
     /** Ends a malformed path, fails on a failed ancestor, schedules an initializer, or applies settled marks. */
     private fun ClassInitPlan.classInitPreludeOrRetry(node: ExecutionNode): Committable {
         if (malformedInitializer != null) {
-            return Committable(emptyList(), Ending.RunPath(Outcome.Aborted(AbortReason.MALFORMED_INPUT), node.frame))
+            return abortedTransition(node.frame, AbortReason.MALFORMED_INPUT)
         }
         dependencyFailure?.let { return dependencyFailure(node, this, it) }
         return initializerPrelude(node)
@@ -1189,7 +1131,7 @@ class ExecutionSession internal constructor(
                 },
             ),
             null,
-        ).also { node.normalContinuationObserved = true }
+        ).also { node.observeNormalContinuation() }
     }
 
     private fun importHostValue(
@@ -1431,38 +1373,18 @@ class ExecutionSession internal constructor(
         )
 
     /**
-     * Plans a `return`: either a path of the run ends, or the **caller** resumes.
+     * Plans a `return`. The value goes into the resumed caller frame's `result` slot, where the following
+     * `move-result*` reads it ([Frame.takeResult]). The callee's declared side effects are raised onto the
+     * invoke node when its activation drains, so `ExploredPaths.sideEffectLevel` reports them at the address
+     * that caused them (see [Activation.declaredEffect]).
      *
-     * Which one is decided by [Activation.returnSite], not by comparing methods: a self-recursive method's
-     * innermost `return` and the entry activation's `return` are the same instruction in the same method, and
-     * only the activation can tell them apart.
-     *
-     * Two things travel to the caller and the split is deliberate. The **value** goes into the resumed
-     * frame's `result` slot, which is where the immediately following `move-result*` reads it from
-     * ([Frame.takeResult]). Any other next instruction expires it. The callee's **declared
-     * side effects** are raised onto the INVOKE node, so `ExecutionGraph.sideEffectLevel` reports them at the
-     * address that caused them; see [Activation.declaredEffect] for the hole that closes.
-     *
-     * **The callee's returning node still carries [Outcome.Returned]** ([Ending.ActivationOnly]) even though
-     * no path of the run ended. The activation is over, but its ordered exit token resumes the caller later.
-     *
-     * Compatible return state merges once after the activation drains. Ordered tokens then expand back to one
-     * caller continuation each, so duplicate path results remain observable.
+     * The returning node carries [Outcome.Returned] either way. In the entry activation that is a run outcome;
+     * in a callee it is an exit that resumes the caller once the activation drains, where compatible return
+     * states merge and then expand back to one caller continuation each, so duplicate path results remain
+     * observable.
      */
-    private fun planReturn(node: ExecutionNode, value: FrameValue?): Committable {
-        if (node.activation.returnSite == null) {
-            return Committable(emptyList(), Ending.RunPath(Outcome.Returned(value?.value), node.frame, returnValue = value))
-        }
-        return Committable(
-            emptyList(),
-            Ending.ActivationOnly(
-                Outcome.Returned(value?.value),
-                node.frame,
-                returnValue = value,
-                activationExit = ActivationExit.Returned(node.frame, value),
-            ),
-        )
-    }
+    private fun planReturn(node: ExecutionNode, value: FrameValue?): Committable =
+        Committable(emptyList(), Ending.Requested(ActivationExit.Returned(node.frame, value)))
 
     /**
      * The ONE place a node's successors and ending are committed. Two phases, and the split is the
@@ -1472,15 +1394,10 @@ class ExecutionSession internal constructor(
      *     post-op state BEFORE any terminal slot write below. Without this ordering a `[Continue,
      *     Throw]` fork hands the normal-path child a frame already carrying `thrown` -- a path that did
      *     not throw looking like one that did, which is a wrong answer rather than a loud failure.
-     *     (Stated that way rather than "mutates nothing", which would not be true: [buildSuccessor]
-     *     records a decode throwable on [node] via [hostFailureOutcome], and a [VirtualMachineError]
-     *     rethrows out of this phase. Neither touches a [Frame] and neither ends a path, which is the
-     *     invariant the ordering above actually needs.)
-     *  2. **Commit.** Children attached, frontier pushed, node ended AT MOST ONCE. `record` is
-     *     reached from exactly one place per call, so a fork can no longer double-end a node. The op
-     *     may still have asked for SEVERAL endings (every one a guest throw -- [applyAll] enforces
-     *     that); only the first is stamped here, and the rest are recorded via
-     *     [recordUnattributedEnding], which ends its path without a node of its own.
+     *     ([buildSuccessor] can rethrow a [VirtualMachineError] out of this phase; that ends no path.)
+     *  2. **Commit.** Children attached, frontier pushed, node ended AT MOST ONCE. The op may still have
+     *     asked for SEVERAL endings (every one a guest throw -- [applyAll] enforces that); the first is
+     *     stamped on the node, and every ending goes to the activation's [PathSink] with the lost paths.
      *
      * Successors are pushed in REVERSE because the frontier is LIFO: the first spec is the first path
      * explored. Callers order their specs meaningfully (ascending handler address, normal before
@@ -1492,21 +1409,13 @@ class ExecutionSession internal constructor(
      * terminal, one lost path -- and every other group commits exactly as if it had been alone. Groups
      * do not interact.
      *
-     * **And every lost path carries its OWN [AbortReason], never a reason this function chose.** The
-     * losses used to be a `lost: Int`, so all three of the recording sites below had to name one
-     * reason for every loss and named [AbortReason.HOST_FAILURE] -- which made an off-the-end jump,
-     * routine in the obfuscated input this engine exists for, indistinguishable in aggregate from a bug
-     * in this codebase. [buildSuccessor] now reports *why* it failed and this function only forwards
-     * it. `OnUnbuildable` still decides how MUCH is abandoned; it never decides whose fault the loss
-     * was.
+     * **Every lost path carries its own [ActivationExit.Aborted] from [buildSuccessor]**, so an off-the-end
+     * jump stays MALFORMED_INPUT and a decode bug stays HOST_FAILURE with its throwable. `OnUnbuildable`
+     * decides how much is abandoned, never whose fault the loss was.
      *
-     * Building `groups` as one flat successor list is what makes that false, and it is the mistake to
-     * not re-make: [OnUnbuildable.ALL_OR_NOTHING] then has to abort out of [commit] entirely, taking
-     * with it any successor already built for an earlier [OnUnbuildable.SKIP_ONE] group. Concretely
-     * `[Continue, Throw]` with a malformed handler table killed the fall-through child too -- a fully
-     * resolved normal-execution path that never consults the try-block table at all. Not unsound (the
-     * abort still makes the run Partial), but a precision loss against spec §2.2's "more forks never
-     * fewer", in exactly the shape Task 8's `div-int` inside a try block has.
+     * Groups stay separate: with one flat successor list, an [OnUnbuildable.ALL_OR_NOTHING] failure would
+     * discard successors already built for an [OnUnbuildable.SKIP_ONE] group, such as the fall-through child
+     * of a `[Continue, Throw]` whose handler table is malformed (spec §2.2: more forks, never fewer).
      */
     private fun commit(node: ExecutionNode, groups: List<Committable>) {
         // A node must go SOMEWHERE. Neither a successor nor an ending leaves it invisible to every
@@ -1527,18 +1436,13 @@ class ExecutionSession internal constructor(
 
         // --- phase 1: build, one group at a time ---
         val built = ArrayList<ExecutionNode>(groups.sumOf { it.successors.size })
-        val endings = ArrayList<Ending>(1)
-        val armFailures = ArrayList<Ending.ArmFailure>(0)
-        // One entry per LOST PATH, carrying that path's own reason -- not a count. A count could not
-        // say why: [buildSuccessor] fails for two causes that mean opposite things about whose fault
-        // it is (see [SuccessorAttempt]), and a single `lost: Int` forced all three recording sites
-        // below to pick one reason for every loss. They picked [AbortReason.HOST_FAILURE], so every
-        // off-the-end jump in an obfuscated APK -- the expected input -- reported as an engine bug.
-        val rejected = ArrayList<SuccessorAttempt.Unbuildable>(0)
+        val endings = ArrayList<ActivationExit>(1)
+        val armFailures = ArrayList<ActivationExit>(0)
+        val lost = ArrayList<ActivationExit.Aborted>(0)
         for (group in groups) {
             val fromGroup = ArrayList<ExecutionNode>(group.successors.size)
-            var abandonedBecause: SuccessorAttempt.Unbuildable? = null
-            val skipped = ArrayList<SuccessorAttempt.Unbuildable>(0)
+            var abandonedBecause: ActivationExit.Aborted? = null
+            val skipped = ArrayList<ActivationExit.Aborted>(0)
             for (spec in group.successors) {
                 when (val attempt = buildSuccessor(spec, node, group.armFrame ?: node.frame)) {
                     is SuccessorAttempt.Built -> fromGroup.add(attempt.node)
@@ -1546,165 +1450,87 @@ class ExecutionSession internal constructor(
                         // Stop building this group: everything it would route is suspect, including
                         // specs already built above, which are dropped with it.
                         OnUnbuildable.ALL_OR_NOTHING -> {
-                            abandonedBecause = attempt
+                            abandonedBecause = attempt.exit
                             break
                         }
-                        OnUnbuildable.SKIP_ONE -> skipped.add(attempt)
+                        OnUnbuildable.SKIP_ONE -> skipped.add(attempt.exit)
                     }
                 }
             }
             if (abandonedBecause != null) {
-                // One lost path for the whole abandoned group, not one per spec: all-or-nothing treats
-                // the group's routing as a single indivisible decision, and that decision failed once.
-                // It is also what keeps a malformed 2-clause table reporting ONE abort, which is the
-                // behavior `ThrowRoutingTest.oneMalformedHandlerAbortsTheWholeForkRatherThanCommitting
-                // HalfOfIt` has pinned since Plan 3.
+                // One lost path for the whole abandoned group, with the failing spec's own reason: the group's
+                // routing is one indivisible decision, so a malformed 2-clause table reports ONE abort
+                // (`ThrowRoutingTest.oneMalformedHandlerAbortsTheWholeForkRatherThanCommittingHalfOfIt`).
+                // `skipped` is absorbed into it; no group mixes both policies (`Continue`/`Jump` groups are
+                // single-spec SKIP_ONE, `Throw` groups uniformly ALL_OR_NOTHING).
                 //
-                // The REASON is the failing spec's own, because `OnUnbuildable` decides how much is
-                // abandoned and never whose fault the loss was. A malformed handler address is
-                // therefore MALFORMED_INPUT, exactly as an off-the-end jump is.
-                //
-                // `skipped` is dropped here along with `fromGroup`, and that is the standing
-                // group-mixing latency (`CARRY-FORWARD.md`): in a group mixing both policies, losses
-                // recorded before the abandonment are absorbed into this single entry -- now their
-                // reasons as well as their count. Unreachable today (`Continue`/`Jump` groups are
-                // single-spec SKIP_ONE, `Throw` groups uniformly ALL_OR_NOTHING) and NOT fixed by this
-                // list: absorbing them is a property of dropping `skipped`, not of the counter's type.
-                // Left as-is because "one indivisible decision, one abort" is the stated policy and
-                // there is no seam to test a mixed group; `rejected.addAll(skipped)` is the whole
-                // fix if a later plan decides the policy should change.
-                rejected.add(abandonedBecause)
-                // The group's TERMINAL is dropped too. For a throw that is the point rather than a side
-                // effect: the unhandled residual comes from the same malformed table as the handlers, so
-                // "this escapes unhandled" is exactly as suspect as "this is caught at 9999" -- they
-                // must agree about one table or neither may be trusted (see [planThrow]).
+                // The group's ending is dropped too. For a throw the unhandled residual comes from the same
+                // malformed table as the handlers, so it is exactly as suspect (see [planThrow]).
+                lost.add(abandonedBecause)
                 continue
             }
             built.addAll(fromGroup)
-            rejected.addAll(skipped)
+            lost.addAll(skipped)
             when (val ending = group.ending) {
-                is Ending.ArmFailure -> armFailures.add(ending)
+                is Ending.ArmFailure -> armFailures.add(ending.exit)
+                is Ending.Requested -> endings.add(ending.exit)
                 null -> Unit
-                else -> endings.add(ending)
             }
         }
-        // Prefer an op-requested ending for the node itself. Arm-local failures still become outcomes,
-        // but placing them last also lets a direct Return sibling retain the node's terminal frame.
+        // Prefer an op-requested ending for the node itself. Arm-local failures still end paths, but placing
+        // them last lets a direct Return sibling keep the node's terminal frame.
         endings.addAll(armFailures)
 
-        // Every group was abandoned or emptied and there is no surviving ending: the node itself must
-        // end, or it would carry neither outcome nor children.
         if (built.isEmpty() && endings.isEmpty()) {
-            // `rejected` cannot be empty here: `groups` is non-empty and the `require` above forbids
-            // a group offering neither a successor nor a terminal, so a group that contributed nothing
-            // to `built` or `endings` contributed at least one loss. `first()` rather than a fallback
-            // reason on purpose -- inventing one would launder a scheduler bug into an abort, and this
-            // function fails loudly on those instead (the two `require`s above sit outside the
-            // host-failure boundary for the same reason).
-            //
-            // The FIRST reason is the node's, matching how `endings.first()` is chosen below: both
-            // follow the op's declared transition order. Note that `node.hostFailure` may hold a
-            // throwable belonging to a DIFFERENT lost path of the same node -- the imprecision
-            // [hostFailureOutcome] already documents -- so read `node.outcome` for this path's reason.
-            val first = rejected.first()
-            if (node.activation.callCompletion == null) {
-                record(node, Outcome.Aborted(first.reason), first.frame)
-            } else {
-                node.endWith(Outcome.Aborted(first.reason), first.frame)
-                node.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-            }
-            // The node's OWN ending accounts for exactly ONE of the lost paths; any others still need
-            // their own Outcome, because spec §4.4 is one Outcome per ended path and a node ends once.
-            // Without this, `[Jump(9999), Jump(8888)]` reported ONE abort for TWO dead paths while
-            // `[Jump(9999), Continue]` reported one per loss -- the same loss counted two ways.
-            if (node.activation.callCompletion == null) {
-                for (i in 1 until rejected.size) recordLostPath(node, rejected[i])
-            } else {
-                updateCallCompletion(
-                    node,
-                    emptyList(),
-                    rejected.map { ActivationExit.Aborted(it.frame, it.reason) },
-                )
-            }
+            // `lost` is not empty: the `require`s above forbid a group offering neither a successor nor an
+            // ending. The first loss, in the op's declared transition order, is the node's own ending; the
+            // others are still one ended path each.
+            node.endWith(lost.first())
+            replacePath(node, node.activation, 0, lost)
             return
         }
 
         // --- phase 2: commit ---
         built.forEach { node.addChild(it) }
         built.asReversed().forEach { frontierNodes.addLast(it) }
-        if (node.activation.callCompletion == null) rejected.forEach { recordLostPath(node, it) }
-        if (endings.isNotEmpty()) {
-            // Slot writes happen HERE, after every sibling frame has already been copied. That
-            // ordering IS the crosstalk fix, and it changes one behavior deliberately:
-            //
-            // PLAN 10 NOTE (moved here from the old `handlerNode`, restated for this ordering). A
-            // handler successor's frame no longer inherits the throwing path's `thrown` slot, because
-            // every successor above is copied before `setThrown` runs. Previously it did inherit it --
-            // `Frame.copy` copies the slot and nothing clears it -- so a handler node's frame carried
-            // BOTH `thrown` and `caught`. Under this ordering `Frame.thrownOrNull() != null` means
-            // "the node whose frame this is ended by throwing", which is a claim worth having, but
-            // read [ExecutionNode.outcome] if that is the question you are actually asking. Plan 12
-            // owns cross-frame unwind and may still want the thrown value visible while unwinding;
-            // if so it must carry it explicitly (a [SuccessorSpec.seed]), not by inheritance --
-            // inheritance is what made the normal successor of a `[Continue, Throw]` fork look like a
-            // throwing path, and picking that by accident is how the audit's exception defects
-            // happened.
-            //
-            // The FIRST ending is the one this node carries. The rest ended paths too and each needs
-            // its own Outcome (spec §4.4: one per ended path), but a node ends at most once
-            // (ExecutionNode.endWith), and stamping a second would silently replace one meaning with
-            // another. So they are recorded without a node -- the same shape `recordLostPath` uses,
-            // except that a guest throw is NOT a truncation and must not add an AbortReason (see
-            // [recordUnattributedEnding]).
-            for (ending in endings) {
-                when (val outcome = ending.outcome) {
-                    is Outcome.Returned -> ending.frame.setReturnFrameValue(ending.returnValue)
-                    is Outcome.Threw -> ending.frame.setThrown(outcome.exception)
-                    is Outcome.Aborted -> Unit
-                }
-            }
-            val first = endings.first()
-            // Whose path ended decides HOW it is recorded, and the compiler makes that a choice: a callee's
-            // `return` stamps the node without adding to `outcomes`, because the run's path did not end.
-            when (first) {
-                is Ending.RunPath, is Ending.ArmFailure -> {
-                    if (node.activation.callCompletion != null && first.outcome is Outcome.Aborted) {
-                        node.endWith(first.outcome, first.frame)
-                        node.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-                    } else {
-                        record(node, first.outcome, first.frame)
-                    }
-                }
-                is Ending.ActivationOnly -> node.endWith(first.outcome, first.frame)
-            }
-            endings.drop(1).forEach { recordUnattributedEnding(node, it) }
-        }
-        val activationExits = buildList {
-            endings.mapNotNullTo(this) { it.activationExit }
-            if (node.activation.callCompletion != null) {
-                endings.mapNotNullTo(this) { ending ->
-                    val aborted = ending.outcome as? Outcome.Aborted ?: return@mapNotNullTo null
-                    if (ending is Ending.ActivationOnly) null else ActivationExit.Aborted(ending.frame, aborted.reason)
-                }
-            }
-            if (node.activation.callCompletion != null) {
-                rejected.mapTo(this) { ActivationExit.Aborted(it.frame, it.reason) }
+        // Slot writes happen after every successor frame was copied, so no sibling inherits `thrown`, and
+        // `Frame.thrownOrNull() != null` means the node whose frame it is ended by throwing. A handler gets
+        // the thrown value through its own `caught` seed, never by inheritance.
+        for (exit in endings) {
+            when (exit) {
+                is ActivationExit.Returned -> exit.frame.setReturnFrameValue(exit.frameValue)
+                is ActivationExit.Threw -> exit.frame.setThrown(exit.exception)
+                is ActivationExit.Aborted -> Unit
             }
         }
-        updateCallCompletion(node, built, activationExits)
+        // A node ends at most once, so it carries the first ending; the others end paths with no node.
+        endings.firstOrNull()?.let(node::endWith)
+        replacePath(node, node.activation, built.size, endings + lost)
     }
 
-    /** Replaces one activation path and routes its immutable completion batch only after all paths end. */
-    private fun updateCallCompletion(
-        node: ExecutionNode,
-        built: List<ExecutionNode>,
-        exits: List<ActivationExit> = emptyList(),
+    /**
+     * Replaces one open path of [activation] with [openPaths] successors and the [ended] paths. The
+     * activation's [PathSink] decides what an ended path is: a run outcome for the entry activation, an exit
+     * the caller resumes from otherwise. A callee path that aborted leaves its call incomplete, so every
+     * enclosing invoke node becomes `STRONG` (spec §2.2: an unprovable effect errs upward).
+     */
+    private fun replacePath(
+        anchor: ExecutionNode,
+        activation: Activation,
+        openPaths: Int,
+        ended: List<ActivationExit>,
     ) {
-        val completion = node.activation.callCompletion ?: return
-        val sameActivation = built.count { it.activation === node.activation }
-        val nestedCalls = built.count { it.activation.caller === node.activation }
-        completion.replacePath(sameActivation + nestedCalls, exits)
-        completion.drainIfComplete()?.let { routeOrEnqueueCallCompletion(node, node.activation, it) }
+        if (ended.any { it is ActivationExit.Aborted }) activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
+        // A drained callee is routed from the step loop rather than recursively through the host stack.
+        activation.sink.replacePath(openPaths, ended)?.let { batch ->
+            pendingCallRoutings.addLast(PendingCallRouting(anchor, activation, batch))
+        }
+    }
+
+    /** Ends [node]'s own path, and only that path, with [exit]. */
+    private fun end(node: ExecutionNode, exit: ActivationExit) {
+        node.endWith(exit)
+        replacePath(node, node.activation, 0, listOf(exit))
     }
 
     private class PendingCallRouting(
@@ -1712,15 +1538,6 @@ class ExecutionSession internal constructor(
         val activation: Activation,
         val batch: CompletionBatch,
     )
-
-    /** Defers a newly completed parent boundary instead of recursing through the host stack. */
-    private fun routeOrEnqueueCallCompletion(
-        anchor: ExecutionNode,
-        activation: Activation,
-        batch: CompletionBatch,
-    ) {
-        pendingCallRoutings.addLast(PendingCallRouting(anchor, activation, batch))
-    }
 
     /** Runs completion-routing commands without exposing them as executable nodes. */
     private fun drainPendingCallRoutings() {
@@ -1746,7 +1563,6 @@ class ExecutionSession internal constructor(
      * or throw from the same initializer survives.
      */
     private fun transformInitializerThrows(
-        node: ExecutionNode,
         context: ClassInitContext,
         exits: List<ActivationExit.Threw>,
     ): List<ActivationExit> = buildList {
@@ -1754,8 +1570,7 @@ class ExecutionSession internal constructor(
             val transformed = try {
                 context.failInitializer(exit, throwableHierarchy)
             } catch (failure: Throwable) {
-                val abort = hostFailureOutcome(node, failure)
-                add(ActivationExit.Aborted(exit.frame, abort.reason))
+                add(ActivationExit.Aborted(exit.frame, hostFailureOutcome(failure)))
                 continue
             }
             addAll(transformed)
@@ -1770,12 +1585,12 @@ class ExecutionSession internal constructor(
         val returned = exits.filterIsInstance<ActivationExit.Returned>()
         var threw = exits.filterIsInstance<ActivationExit.Threw>()
         var aborted = exits.filterIsInstance<ActivationExit.Aborted>()
-        aborted.forEach { abortReasons += it.reason }
+        aborted.forEach { runOutcomes.markTruncated(it.outcome.reason) }
         val classInitContext = activation.classInitContext
         if (classInitContext == null) {
-            if (returned.isNotEmpty()) site.invokeNode.normalContinuationObserved = true
+            if (returned.isNotEmpty()) site.invokeNode.observeNormalContinuation()
             if (threw.isNotEmpty() || aborted.isNotEmpty()) {
-                site.invokeNode.exceptionalContinuationObserved = true
+                site.invokeNode.observeExceptionalContinuation()
             }
         }
 
@@ -1786,7 +1601,7 @@ class ExecutionSession internal constructor(
         }
 
         if (classInitContext != null && threw.isNotEmpty()) {
-            val transformed = transformInitializerThrows(site.invokeNode, classInitContext, threw)
+            val transformed = transformInitializerThrows(classInitContext, threw)
             threw = transformed.filterIsInstance<ActivationExit.Threw>()
             aborted += transformed.filterIsInstance<ActivationExit.Aborted>()
         }
@@ -1848,7 +1663,7 @@ class ExecutionSession internal constructor(
             site.invokeNode.sideEffectLevel = SideEffectLevel.STRONG
             activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
             aborted.mapTo(routingAborts) { exit ->
-                ActivationExit.Aborted(site.invokeNode.frame.resumedWith(exit.frame), exit.reason)
+                ActivationExit.Aborted(site.invokeNode.frame.resumedWith(exit.frame), exit.outcome)
             }
         }
         val throwGroups = mutableListOf<CallerThrowGroup>()
@@ -1871,20 +1686,20 @@ class ExecutionSession internal constructor(
                 is HandlerResolution.Routed -> CallerSourceRouting.Routed(callerFrame, resolution)
                 HandlerResolution.MalformedMetadata -> {
                     activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-                    CallerSourceRouting.Aborted(callerFrame, AbortReason.MALFORMED_INPUT)
+                    CallerSourceRouting.Aborted(
+                        ActivationExit.Aborted(callerFrame, Outcome.Aborted(AbortReason.MALFORMED_INPUT)),
+                    )
                 }
                 is HandlerResolution.HostFailure -> {
-                    val abort = hostFailureOutcome(site.invokeNode, resolution.failure)
+                    val exit = ActivationExit.Aborted(callerFrame, hostFailureOutcome(resolution.failure))
                     activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-                    CallerSourceRouting.Aborted(callerFrame, abort.reason)
+                    CallerSourceRouting.Aborted(exit)
                 }
             }
         }
         for ((_, key) in keyedExits) {
             when (val routing = requireNotNull(sourceRoutings[key])) {
-                is CallerSourceRouting.Aborted -> {
-                    routingAborts += ActivationExit.Aborted(routing.frame, routing.reason)
-                }
+                is CallerSourceRouting.Aborted -> routingAborts += routing.exit
                 is CallerSourceRouting.Routed -> {
                     val routeSpecs = routing.resolution.routes.map { route ->
                         SuccessorSpec(
@@ -1912,7 +1727,6 @@ class ExecutionSession internal constructor(
             anchor,
             caller,
             specs,
-            emptyList(),
             routingAborts,
             throwGroups,
         )
@@ -2013,7 +1827,7 @@ class ExecutionSession internal constructor(
     }
 
     private sealed interface CallerSourceRouting {
-        class Aborted(val frame: Frame, val reason: AbortReason) : CallerSourceRouting
+        class Aborted(val exit: ActivationExit.Aborted) : CallerSourceRouting
         class Routed(val frame: Frame, val resolution: HandlerResolution.Routed) : CallerSourceRouting
     }
 
@@ -2023,10 +1837,9 @@ class ExecutionSession internal constructor(
         val escape: ActivationExit.Threw?,
     )
 
-    private class RejectedSynthetic(val frame: Frame, val reason: AbortReason)
     private class SyntheticSchedule(
         val built: Int,
-        val rejected: List<RejectedSynthetic>,
+        val rejected: List<ActivationExit.Aborted>,
         val escapes: List<ActivationExit.Threw>,
     )
 
@@ -2036,24 +1849,22 @@ class ExecutionSession internal constructor(
         throwGroups: List<CallerThrowGroup>,
     ): SyntheticSchedule {
         val built = mutableListOf<ExecutionNode>()
-        val rejected = mutableListOf<RejectedSynthetic>()
+        val rejected = mutableListOf<ActivationExit.Aborted>()
         val escapes = mutableListOf<ActivationExit.Threw>()
         for (spec in specs) {
             when (val attempt = buildSuccessor(spec, anchor, anchor.frame)) {
                 is SuccessorAttempt.Built -> built += attempt.node
-                is SuccessorAttempt.Unbuildable -> {
-                    rejected += RejectedSynthetic(attempt.frame, attempt.reason)
-                }
+                is SuccessorAttempt.Unbuildable -> rejected += attempt.exit
             }
         }
         for (group in throwGroups) {
             val groupBuilt = mutableListOf<ExecutionNode>()
-            var rejection: RejectedSynthetic? = null
+            var rejection: ActivationExit.Aborted? = null
             for (spec in group.successors) {
                 when (val attempt = buildSuccessor(spec, anchor, anchor.frame)) {
                     is SuccessorAttempt.Built -> groupBuilt += attempt.node
                     is SuccessorAttempt.Unbuildable -> {
-                        rejection = RejectedSynthetic(group.abortFrame, attempt.reason)
+                        rejection = ActivationExit.Aborted(group.abortFrame, attempt.exit.outcome)
                         break
                     }
                 }
@@ -2070,67 +1881,37 @@ class ExecutionSession internal constructor(
         return SyntheticSchedule(built.size, rejected, escapes)
     }
 
-    /** Replace one suspended caller path with only the successors that were actually built. */
+    /**
+     * Replaces one suspended caller path with the successors that were actually built, plus its escapes and
+     * aborts. True when any partition aborted.
+     */
     private fun installSyntheticPartitions(
         anchor: ExecutionNode,
         caller: Activation,
         specs: List<SuccessorSpec>,
-        escapes: List<ActivationExit.Threw>,
-        routingAborts: List<ActivationExit.Aborted> = emptyList(),
-        throwGroups: List<CallerThrowGroup> = emptyList(),
+        routingAborts: List<ActivationExit.Aborted>,
+        throwGroups: List<CallerThrowGroup>,
     ): Boolean {
         val scheduled = scheduleSyntheticPartitions(anchor, specs, throwGroups)
-        val committedEscapes = escapes + scheduled.escapes
-        val parent = caller.callCompletion
-        if (parent == null) {
-            committedEscapes.forEach { recordedOutcomes += Outcome.Threw(it.path.subject.value) }
-            routingAborts.forEach {
-                recordedOutcomes += Outcome.Aborted(it.reason)
-                abortReasons += it.reason
-            }
-            scheduled.rejected.forEach {
-                recordedOutcomes += Outcome.Aborted(it.reason)
-                abortReasons += it.reason
-            }
-            return scheduled.rejected.isNotEmpty() || routingAborts.isNotEmpty()
-        }
-        val exits = buildList<ActivationExit> {
-            addAll(committedEscapes)
-            addAll(routingAborts)
-            scheduled.rejected.mapTo(this) { ActivationExit.Aborted(it.frame, it.reason) }
-        }
-        parent.replacePath(scheduled.built, exits)
-        parent.drainIfComplete()?.let { routeOrEnqueueCallCompletion(anchor, caller, it) }
+        replacePath(anchor, caller, scheduled.built, scheduled.escapes + routingAborts + scheduled.rejected)
         return scheduled.rejected.isNotEmpty() || routingAborts.isNotEmpty()
     }
 
     /**
-     * What trying to turn one [SuccessorSpec] into a node produced: the node, or the **reason** it
-     * could not be built.
-     *
-     * A nullable `ExecutionNode?` stood here and could not do the job. `null` meant two different
-     * things -- an address this method does not contain, and a successor whose construction threw --
-     * and [commit], which is where the abort is actually recorded, had no way to tell them apart. So
-     * it recorded both as [AbortReason.HOST_FAILURE] at all three of its recording sites, and every
-     * off-the-end jump in an obfuscated APK (the expected input for this tool) became
-     * indistinguishable in aggregate from a genuine bug in this codebase. The two causes are opposite
-     * claims about whose fault a lost path is, so collapsing them destroys the only signal that means
-     * "look at our code" -- and a blanket relabel in the other direction would have destroyed it just
-     * as thoroughly.
-     *
-     * A type rather than a comment, per the spec's "type-enforce the rule instead of documenting it":
-     * the cause is decided at the one place that can know it and merely *carried* afterwards.
+     * What trying to turn one [SuccessorSpec] into a node produced: the node, or the lost path with its own
+     * reason. A target the method does not contain is MALFORMED_INPUT; a construction that threw is
+     * HOST_FAILURE carrying the throwable. Those are opposite claims about whose fault the loss is, so the
+     * cause is decided here, where it is known, and only carried afterwards.
      */
     private sealed interface SuccessorAttempt {
         /** Built. Scheduled unless a sibling's [Unbuildable] abandons the whole group -- see [commit]. */
         class Built(val node: ExecutionNode) : SuccessorAttempt
 
         /**
-         * Not built. [reason] is the diagnostic and [frame] is the exact copied, seeded successor state.
-         * Result/caught slots and constructor completion belong to this rejected path and must reach an
-         * enclosing opaque fallback.
+         * Not built. [exit]'s frame is the exact copied, seeded successor state: result/caught slots and
+         * constructor completion belong to this lost path and must reach an enclosing opaque fallback.
          */
-        class Unbuildable(val reason: AbortReason, val frame: Frame) : SuccessorAttempt
+        class Unbuildable(val exit: ActivationExit.Aborted) : SuccessorAttempt
     }
 
     /**
@@ -2140,9 +1921,7 @@ class ExecutionSession internal constructor(
      * threw -- and that ordering is also what makes the two causes separable at all, since a caught
      * `IllegalArgumentException` from `requireNotNull` looks exactly like any other host failure.
      * Construction is foreign code, so its failure goes through [hostFailureOutcome] for the
-     * [VirtualMachineError] rethrow and to keep the real throwable on the node; that call's returned
-     * `Outcome` is discarded because WHERE the abort is recorded is [commit]'s decision -- only the
-     * reason and exact rejected frame travel back in the result.
+     * [VirtualMachineError] rethrow. Where the lost path is recorded is the caller's decision.
      *
      * The frame comes from [SuccessorSpec.frameOrigin] and is **never** an existing node's own instance:
      * normal and exceptional successors must not share state, or a speculative path would inherit or clobber
@@ -2161,89 +1940,15 @@ class ExecutionSession internal constructor(
             frame = seeded
             spec.seed(seeded)
             if (!spec.view.hasAddress(spec.address)) {
-                SuccessorAttempt.Unbuildable(AbortReason.MALFORMED_INPUT, seeded)
+                val malformed = Outcome.Aborted(AbortReason.MALFORMED_INPUT)
+                SuccessorAttempt.Unbuildable(ActivationExit.Aborted(seeded, malformed))
             } else {
                 SuccessorAttempt.Built(nodeAt(spec.address, spec.activation, seeded, node))
             }
         } catch (t: Throwable) {
-            hostFailureOutcome(node, t)
-            SuccessorAttempt.Unbuildable(AbortReason.HOST_FAILURE, frame ?: armFrame.copy())
+            SuccessorAttempt.Unbuildable(ActivationExit.Aborted(frame ?: armFrame.copy(), hostFailureOutcome(t)))
         }
     }
-
-    /**
-     * A path that ended before it ever had a node. At top level it is a run abort. Inside an ordinary
-     * callee it is an [ActivationExit.Aborted], so that outcome partition uses opaque fallback.
-     */
-    private fun recordLostPath(node: ExecutionNode, rejected: SuccessorAttempt.Unbuildable) {
-        node.activation.callCompletion?.let { completion ->
-            completion.replacePath(
-                replacementOpenPaths = 0,
-                exits = listOf(ActivationExit.Aborted(rejected.frame, rejected.reason)),
-            )
-            node.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-            completion.drainIfComplete()?.let { routeOrEnqueueCallCompletion(node, node.activation, it) }
-            return
-        }
-        recordedOutcomes.add(Outcome.Aborted(rejected.reason))
-        abortReasons.add(rejected.reason)
-        // [node] is the FORKING node, which is why this takes one at all: a lost path has no node of its own,
-        // but it was lost inside [node]'s activation, so if that is a callee the enclosing call did not
-        // complete on this path either. See [accountForIncompleteCall].
-        accountForIncompleteCall(node, Outcome.Aborted(rejected.reason))
-    }
-
-    /**
-     * A path that ended at a node which had already ended one. The full [Ending] is retained because a
-     * callee's activation-only throw belongs to its [CallCompletion], not the run's global outcomes.
-     *
-     * Distinct from [recordLostPath] in the one way that matters: **a guest throw is a guest-visible outcome,
-     * not a truncation, so it must not add an [AbortReason]** --
-     * `OpArmStateTest.unknownArrayReadProducesTwoDistinctThrowableOutcomes` pins that. An
-     * `Aborted` reaching here IS a truncation
-     * and does add one. A callee escape is activation-only and returns above before this run-level recording.
-     * A callee arm failure also returns above because [updateCallCompletion] records its activation exit.
-     * The `when` below keeps that distinction explicit.
-     *
-     * [Outcome.Returned] cannot reach here: [applyAll]'s `require` allows a second ending only when every
-     * path-ending arm is an [OpArm.Throw], and a throw never plans a `Returned`. Loud rather than
-     * silently tolerated, for the same reason that `require` is.
-     */
-    private fun recordUnattributedEnding(node: ExecutionNode, ending: Ending) {
-        val outcome = ending.outcome
-        if (ending is Ending.ActivationOnly) return
-        if (node.activation.callCompletion != null && outcome is Outcome.Aborted) return
-        recordedOutcomes.add(outcome)
-        accountForIncompleteCall(node, outcome)
-        when (outcome) {
-            is Outcome.Threw -> Unit
-            is Outcome.Aborted -> abortReasons.add(outcome.reason)
-            is Outcome.Returned -> error(
-                "A second ending of one node cannot be a return: only several guest throws may end several " +
-                    "paths at one node, and a callee's return continues the run's path rather than ending it",
-            )
-        }
-    }
-
-    /**
-     * The host-failure boundary (spec §7): runs one call into foreign code and converts ordinary host
-     * throwables into `Aborted(HOST_FAILURE)` on [node]'s path, returning null. [VirtualMachineError]
-     * escapes. Kept around individual foreign calls so scheduler invariants still fail loudly.
-     */
-    private inline fun <T> contained(node: ExecutionNode, body: () -> T): T? =
-        try {
-            body()
-        } catch (t: Throwable) {
-            // DO NOT INLINE THIS CONVERSION. It must go through hostFailureOutcome, which is where the
-            // VirtualMachineError rethrow lives. Inlining it -- even keeping the `node.hostFailure = t`
-            // half, which is what a "simplify this" refactor would do -- restores a hang: a JVM-fatal
-            // error would be converted into Aborted(HOST_FAILURE), the frontier is deliberately not
-            // dropped for a host failure, and the loop would re-fail up to maxSteps (10^6 by default),
-            // emitting a million identical aborts instead of dying fast.
-            // InvocationClassInitTest drives this exact boundary with a scripted StackOverflowError.
-            record(node, hostFailureOutcome(node, t))
-            null
-        }
 
     /** Converts a planning failure into one arm-local abort on the arm frame currently installed on [node]. */
     private inline fun planContained(node: ExecutionNode, body: () -> Committable): Committable =
@@ -2256,29 +1961,17 @@ class ExecutionSession internal constructor(
         }
 
     private fun hostFailureArm(node: ExecutionNode, failure: Throwable, frame: Frame = node.frame): Committable =
-        Committable(emptyList(), Ending.ArmFailure(hostFailureOutcome(node, failure), frame))
+        Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(frame, hostFailureOutcome(failure))))
 
     /**
-     * The boundary's conversion policy. A [VirtualMachineError] is **rethrown**: the JVM is out of
-     * memory or stack, calling that an aborted path would not be true, and -- because a host failure
-     * deliberately does not drop the frontier (per-path containment is the whole point) -- the loop
-     * would otherwise keep stepping and re-failing up to `maxSteps`, turning a fast crash into a long
-     * hang emitting a million identical aborts.
-     *
-     * [node] is where the failure HAPPENED, not necessarily a node that ends: under
-     * [OnUnbuildable.SKIP_ONE] this records on a forking node that keeps its live siblings. When
-     * several successors of one fork fail to decode, each call overwrites
-     * [ExecutionNode.hostFailure] and only the LAST throwable survives -- acceptable because the field
-     * is a debugging aid and every loss still gets its own [Outcome] via `recordLostPath`, but it means
-     * the field is "a throwable from this node", not "the throwable for a particular lost path".
-     * A lost path whose reason is [AbortReason.MALFORMED_INPUT] never reaches here at all, so the
-     * field can also be null on a node that ended by aborting, or hold a throwable belonging to a
-     * *sibling* lost path -- read [ExecutionNode.outcome] for a path's own reason.
+     * The boundary's conversion policy: an ordinary host throwable becomes `Aborted(HOST_FAILURE)` carrying it.
+     * A [VirtualMachineError] is rethrown: the JVM is out of memory or stack, calling that an aborted path would
+     * not be true, and because a host failure does not drop the frontier the loop would otherwise re-fail up to
+     * `maxSteps`.
      */
-    private fun hostFailureOutcome(node: ExecutionNode, t: Throwable): Outcome.Aborted {
-        if (t is VirtualMachineError) throw t
-        node.hostFailure = t
-        return Outcome.Aborted(AbortReason.HOST_FAILURE)
+    private fun hostFailureOutcome(failure: Throwable): Outcome.Aborted {
+        if (failure is VirtualMachineError) throw failure
+        return Outcome.Aborted(AbortReason.HOST_FAILURE, failure)
     }
 
     /** Runs to completion and returns the immutable result. */
@@ -2304,9 +1997,8 @@ class ExecutionSession internal constructor(
         // is the entry activation's alone.
         addressToNodes = unionedPileSnapshot(),
         addressToNodesInThisRunsActivation = entryActivation.pileSnapshot(),
-        outcomes = recordedOutcomes,
+        outcomes = runOutcomes.outcomes,
         completion = completion(),
-        executedNodes = executedNodes.toSet(),
         superclasses = resolver.hierarchy,
     )
 
@@ -2346,7 +2038,7 @@ class ExecutionSession internal constructor(
             // Frame copies share the persistent root until this one path records its next visit.
             val visits = node.frame.recordAddressVisit(node.address)
             if (visits > limits.maxAddressVisits) {
-                record(node, Outcome.Aborted(AbortReason.ADDRESS_LIMIT))
+                end(node, ActivationExit.Aborted(node.frame, Outcome.Aborted(AbortReason.ADDRESS_LIMIT)))
                 return true
             }
         }
@@ -2363,7 +2055,7 @@ class ExecutionSession internal constructor(
         // `frameCount` is the value that shares the oracle's origin, and Task 22's differential compares
         // limit behavior, so the origins have to match rather than merely be documented.
         if (limits.maxCallDepth > 0 && node.isCallEntry && node.activation.frameCount > limits.maxCallDepth) {
-            record(node, Outcome.Aborted(AbortReason.CALL_DEPTH))
+            end(node, ActivationExit.Aborted(node.frame, Outcome.Aborted(AbortReason.CALL_DEPTH)))
             return true
         }
         return false
@@ -2400,22 +2092,23 @@ class ExecutionSession internal constructor(
         while (pendingCallRoutings.isNotEmpty()) {
             val pending = pendingCallRoutings.removeLast()
             pending.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-            repeat(pending.batch.retainedFrames) { recordedOutcomes += Outcome.Aborted(reason) }
+            repeat(pending.batch.retainedFrames) { runOutcomes.record(Outcome.Aborted(reason)) }
             pending.batch.release()
         }
         for (activation in activations) {
-            val completion = activation.callCompletion ?: continue
+            val completion = activation.sink as? CallCompletion ?: continue
             if (completion.isDrained) continue
-            repeat(completion.cancelAndRelease().size) { recordedOutcomes += Outcome.Aborted(reason) }
+            repeat(completion.cancelAndRelease().size) { runOutcomes.record(Outcome.Aborted(reason)) }
         }
-        abortReasons += reason
+        runOutcomes.markTruncated(reason)
         return true
     }
 
     private fun abortScheduledNode(node: ExecutionNode, reason: AbortReason, pile: Boolean) {
         if (pile) addToPile(node)
-        if (node.outcome == null) node.endWith(Outcome.Aborted(reason))
-        recordedOutcomes += Outcome.Aborted(reason)
+        val aborted = Outcome.Aborted(reason)
+        if (node.outcome == null) node.endWith(ActivationExit.Aborted(node.frame, aborted))
+        runOutcomes.record(aborted)
         node.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
     }
 
@@ -2488,10 +2181,7 @@ class ExecutionSession internal constructor(
     ): Committable {
         val resolution = when (val result = resolveHandlers(throwAddress, path.subject, node.view, throwableHierarchy)) {
             is HandlerResolution.Routed -> result
-            HandlerResolution.MalformedMetadata -> return Committable(
-                emptyList(),
-                Ending.RunPath(Outcome.Aborted(AbortReason.MALFORMED_INPUT), path.frame),
-            )
+            HandlerResolution.MalformedMetadata -> return abortedTransition(path.frame, AbortReason.MALFORMED_INPUT)
             is HandlerResolution.HostFailure -> return hostFailureArm(node, result.failure, path.frame)
         }
         // Every route of one throw commits or none does: a malformed handler address makes the whole table
@@ -2506,27 +2196,9 @@ class ExecutionSession internal constructor(
                 ) { frame -> frame.setCaught(route.subject) }
             },
             ending = resolution.unhandled?.let {
-                escapeEnding(node, ThrowPath.create(path.frame, it.subject, throwableHierarchy))
+                Ending.Requested(ActivationExit.Threw(ThrowPath.create(path.frame, it.subject, throwableHierarchy)))
             },
         )
-    }
-
-    /** Ends an entry path or carries one residual into the existing caller completion. */
-    private fun escapeEnding(
-        node: ExecutionNode,
-        path: ThrowPath,
-    ): Ending {
-        val subject = path.subject
-        val exception = subject.value
-        return if (node.activation.returnSite == null) {
-            Ending.RunPath(Outcome.Threw(exception), path.frame)
-        } else {
-            Ending.ActivationOnly(
-                Outcome.Threw(exception),
-                path.frame,
-                activationExit = ActivationExit.Threw(path),
-            )
-        }
     }
 
     private fun PreparedInvocation.opaqueArguments(): List<Value> =
@@ -2547,49 +2219,6 @@ class ExecutionSession internal constructor(
      */
     private fun nodeAt(address: Int, activation: Activation, frame: Frame, parent: ExecutionNode?): ExecutionNode =
         ExecutionNode(address, decode(address, activation.view, resolver), frame, parent, activation)
-
-    /**
-     * Records a path ending: exactly one call per ended path, so [outcomes] has one entry per path.
-     * [ExecutionNode.endWith] enforces the once-per-node half of that and is intentionally not
-     * contained, so a scheduler bug that ends one path twice fails loudly instead of being converted
-     * into yet another aborted path.
-     */
-    private fun record(node: ExecutionNode, outcome: Outcome, exactFrame: Frame = node.frame) {
-        node.endWith(outcome, exactFrame)
-        if (outcome is Outcome.Aborted && node.activation.callCompletion != null) {
-            val completion = requireNotNull(node.activation.callCompletion)
-            completion.replacePath(0, listOf(ActivationExit.Aborted(exactFrame, outcome.reason)))
-            completion.drainIfComplete()?.let { routeOrEnqueueCallCompletion(node, node.activation, it) }
-            return
-        }
-        recordedOutcomes.add(outcome)
-        if (outcome is Outcome.Aborted) abortReasons.add(outcome.reason)
-        accountForIncompleteCall(node, outcome)
-    }
-
-    /**
-     * A path that ended inside a **callee** without returning means the enclosing call did not complete, so
-     * every invoke node above it declares `STRONG`: an incomplete call is unanalyzable by definition, and
-     * spec §2.2's direction for an unprovable side effect is `STRONG`.
-     *
-     * **Every incomplete ending, not only one that declared something.** The endings that reach here from a
-     * non-entry activation are an address-visit or call-depth truncation, a step/time limit drain, a host
-     * failure, and an [OpArm.Abort]. A modeled guest escape uses activation completion and does not raise
-     * effects by itself. A callee's own `return` does NOT reach here -- it is an
-     * [Ending.ActivationOnly] that goes through `ExecutionNode.endWith` directly -- so this needs no
-     * "did it return" test beyond the guard below, which exists only so a future caller cannot break that.
-     *
-     * Without this the caller's invoke address read `NONE`, i.e. *"no side effects, safe to delete"*, through
-     * `ExploredPaths.methodSideEffectLevel` -- an **ungated** query -- for a call this
-     * engine could not run to completion. It was also a regression against the pre-invocation baseline, where
-     * `planFor`'s no-op `Invoke` branch put the abort on the invoke node itself and `sideEffectLevel`'s
-     * `UNSUPPORTED_OP -> STRONG` rule answered `STRONG`. That rule cannot fire now, because the abort is on a
-     * callee node and `ExecutionGraph` is scoped to activations of its own method.
-     */
-    private fun accountForIncompleteCall(node: ExecutionNode, outcome: Outcome) {
-        if (outcome is Outcome.Returned) return
-        node.activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-    }
 
     /**
      * Piles [node] in **its own activation** (`CARRY-FORWARD.md` Plan 9 item 2). A bare address was only

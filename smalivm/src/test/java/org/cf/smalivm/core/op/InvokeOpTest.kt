@@ -473,7 +473,7 @@ class InvokeOpTest {
         val thrown = outcome.exception as Value.Known
         val ref = thrown.raw as HeapRef
         val throwingNode = graph.addresses().flatMap(graph::nodePile).single { it.outcome is Outcome.Threw }
-        val endingFrame = requireNotNull(throwingNode.endingFrame)
+        val endingFrame = throwingNode.terminalFrame
         val host = endingFrame.hostObjectAt(ref) as Throwable
 
         assertEquals(VirtualType.of(expectedType), thrown.type)

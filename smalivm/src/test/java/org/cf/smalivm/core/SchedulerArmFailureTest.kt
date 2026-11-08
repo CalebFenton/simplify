@@ -82,17 +82,15 @@ class SchedulerArmFailureTest {
 
         val graph = session.run()
 
-        assertEquals(
-            setOf(Outcome.Aborted(AbortReason.HOST_FAILURE), Outcome.Returned(Value.Known(7, INT))),
-            graph.outcomes.toSet(),
-        )
+        assertEquals(listOf(Outcome.Returned(Value.Known(7, INT))), graph.outcomes.filterIsInstance<Outcome.Returned>())
+        assertEquals(listOf(AbortReason.HOST_FAILURE), graph.outcomes.mapNotNull { it.abortReason })
         assertEquals(2, graph.outcomes.size)
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
         val fork = graph.nodePile(0).single()
         assertEquals(Value.Known(7, INT), fork.frame.peek(0), "only successfully prepared arms are reconciled")
         assertEquals(
             Value.Known(3, INT),
-            fork.endingFrame!!.peek(0),
+            fork.terminalFrame.peek(0),
             "the failed arm retains mutation completed before preparation failed",
         )
         assertEquals(1, fork.children.size, "the independently feasible arm must still commit")
@@ -110,14 +108,12 @@ class SchedulerArmFailureTest {
             OpArm.Continue(OpUpdate.assign(0, Value.Known(7, INT))),
         ).run()
 
-        assertEquals(
-            setOf(Outcome.Aborted(AbortReason.HOST_FAILURE), Outcome.Returned(Value.Known(7, INT))),
-            graph.outcomes.toSet(),
-        )
+        assertEquals(listOf(Outcome.Returned(Value.Known(7, INT))), graph.outcomes.filterIsInstance<Outcome.Returned>())
+        assertEquals(listOf(AbortReason.HOST_FAILURE), graph.outcomes.mapNotNull { it.abortReason })
         assertEquals(2, graph.outcomes.size)
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
         assertEquals(1, graph.nodePile(0).single().children.size)
-        assertTrue(graph.nodePile(0).single().hostFailure is IllegalArgumentException)
+        assertTrue(graph.nodePile(0).single().outcome.hostFailure is IllegalArgumentException)
     }
 
     @Test
@@ -132,10 +128,8 @@ class SchedulerArmFailureTest {
             OpArm.Return(Value.Known(7, INT)),
         ).run()
 
-        assertEquals(
-            setOf(Outcome.Aborted(AbortReason.HOST_FAILURE), Outcome.Returned(Value.Known(7, INT))),
-            graph.outcomes.toSet(),
-        )
+        assertEquals(listOf(Outcome.Returned(Value.Known(7, INT))), graph.outcomes.filterIsInstance<Outcome.Returned>())
+        assertEquals(listOf(AbortReason.HOST_FAILURE), graph.outcomes.mapNotNull { it.abortReason })
         assertEquals(2, graph.outcomes.size)
     }
 

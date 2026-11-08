@@ -103,11 +103,11 @@ class InvocationClassInitTest {
         val initializer = trigger.children.single()
         assertEquals("$TARGET-><clinit>()V", initializer.view.signature)
         assertEquals(type(TARGET), initializer.activation.classInitContext?.activeInitializer?.type)
-        assertTrue(initializer.opExecutionStarted)
+        assertTrue(initializer.progress is OpProgress.Executed)
         assertNotSame(trigger, retry)
         assertSame(trigger.activation, retry.activation)
         assertEquals(trigger.address, retry.address)
-        assertFalse(retry.opExecutionStarted)
+        assertEquals(OpProgress.Pending, retry.progress)
     }
 
     @Test
@@ -124,7 +124,7 @@ class InvocationClassInitTest {
         assertTrue(allDescendants(invoke).none { it.activation.classInitContext != null })
         assertSame(invoke.activation, continuation.activation)
         assertEquals(3, continuation.address)
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
     /**
@@ -175,7 +175,7 @@ class InvocationClassInitTest {
         val failure = assertThrows<StackOverflowError> { session.step() }
         assertSame(fatal, failure)
         assertSame(scheduled, session.currentNode)
-        assertEquals(null, session.currentNode?.hostFailure)
+        assertEquals(null, session.currentNode!!.outcome)
         assertTrue(session.currentNode!!.children.isEmpty())
         assertTrue(session.frontier.isEmpty())
         assertTrue(session.outcomes.isEmpty())

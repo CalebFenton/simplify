@@ -41,10 +41,10 @@ class DebuggerTest {
         assertSame(calleeReturn, session.currentNode)
         assertSame(calleeReturn, continuation.parent)
         assertEquals(CALLEE_RETURNS_SEVEN, calleeEntry.view.signature)
-        assertTrue(calleeEntry.opExecutionStarted)
-        assertTrue(calleeReturn.opExecutionStarted)
+        assertTrue(calleeEntry.progress is OpProgress.Executed)
+        assertTrue(calleeReturn.progress is OpProgress.Executed)
         assertEquals(3, continuation.address)
-        assertFalse(continuation.opExecutionStarted, "step-over stops before the caller continuation")
+        assertEquals(OpProgress.Pending, continuation.progress, "step-over stops before the caller continuation")
     }
 
     @Test
@@ -63,7 +63,7 @@ class DebuggerTest {
         assertSame(callerActivation, callerResume.activation)
         assertNotSame(calleeReturn.activation, callerResume.activation)
         assertEquals(3, callerResume.address)
-        assertFalse(callerResume.opExecutionStarted, "step-over stops before executing the ancestor caller")
+        assertEquals(OpProgress.Pending, callerResume.progress, "step-over stops before executing the ancestor caller")
     }
 
     @Test
@@ -86,8 +86,8 @@ class DebuggerTest {
         assertEquals(invoke.view.signature, recursiveEntry.view.signature)
         assertSame(invoke.activation, continuation.activation)
         assertEquals(6, continuation.address)
-        assertTrue(recursiveEntry.opExecutionStarted)
-        assertFalse(continuation.opExecutionStarted)
+        assertTrue(recursiveEntry.progress is OpProgress.Executed)
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
     @Test
@@ -108,10 +108,10 @@ class DebuggerTest {
         collect(outerInvoke)
         assertTrue(nestedNodes.any { it.view.signature == "$INVOKE_REVIEW->innerWithTwoHandlers()I" })
         assertTrue(nestedNodes.any { it.view.signature == "Linvoke_review_callee;->throwsNpe()V" })
-        assertTrue(nestedNodes.filter { it.activation !== outerInvoke.activation }.all { it.opExecutionStarted })
+        assertTrue(nestedNodes.filter { it.activation !== outerInvoke.activation }.all { it.progress is OpProgress.Executed })
         assertSame(outerInvoke.activation, continuation.activation)
         assertEquals(3, continuation.address)
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
     @Test
@@ -127,8 +127,8 @@ class DebuggerTest {
         assertNotSame(startingInvoke, handler)
         assertSame(startingInvoke.activation, handler.activation)
         assertEquals(Opcode.MOVE_EXCEPTION, handler.view.opcodeAt(handler.address))
-        assertFalse(handler.opExecutionStarted)
-        assertTrue(session.frontier.all { !it.opExecutionStarted })
+        assertEquals(OpProgress.Pending, handler.progress)
+        assertTrue(session.frontier.all { it.progress == OpProgress.Pending })
         assertSame(handler, session.frontier.last())
     }
 
@@ -157,9 +157,9 @@ class DebuggerTest {
 
         while (!session.isFinished) {
             val next = session.frontier.last()
-            assertFalse(next.opExecutionStarted)
+            assertEquals(OpProgress.Pending, next.progress)
             assertSame(next, session.step())
-            assertTrue(session.frontier.all { !it.opExecutionStarted })
+            assertTrue(session.frontier.all { it.progress == OpProgress.Pending })
         }
     }
 
@@ -173,13 +173,13 @@ class DebuggerTest {
 
         val initializerEntry = trigger.children.single()
         assertEquals(CLASS_INIT_WITNESS, initializerEntry.view.signature)
-        assertTrue(initializerEntry.opExecutionStarted)
-        assertTrue(initializerEntry.children.single().opExecutionStarted)
-        assertTrue(initializerEntry.children.single().children.single().opExecutionStarted)
+        assertTrue(initializerEntry.progress is OpProgress.Executed)
+        assertTrue(initializerEntry.children.single().progress is OpProgress.Executed)
+        assertTrue(initializerEntry.children.single().children.single().progress is OpProgress.Executed)
         assertNotSame(trigger, retry)
         assertSame(trigger.activation, retry.activation)
         assertEquals(trigger.address, retry.address)
-        assertFalse(retry.opExecutionStarted, "the visible trigger retry remains pre-op")
+        assertEquals(OpProgress.Pending, retry.progress, "the visible trigger retry remains pre-op")
     }
 
     @Test
@@ -202,7 +202,7 @@ class DebuggerTest {
         val initializerStop = debugger.runToBreakpoint()!!
         assertEquals(initializer.signature, initializerStop.view.signature)
         assertEquals(initializer.codeAddressAtInstructionIndex(1), initializerStop.address)
-        assertFalse(initializerStop.opExecutionStarted)
+        assertEquals(OpProgress.Pending, initializerStop.progress)
 
         debugger.removeBreakpoint(initializerBreakpoint)
         debugger.addBreakpoint(retryBreakpoint)
@@ -211,7 +211,7 @@ class DebuggerTest {
         assertEquals(invokeAddress, retry.address)
         assertNotSame(invoke, retry)
         assertSame(invoke.activation, retry.activation)
-        assertFalse(retry.opExecutionStarted)
+        assertEquals(OpProgress.Pending, retry.progress)
 
         debugger.removeBreakpoint(retryBreakpoint)
         assertNull(debugger.runToBreakpoint())
@@ -225,7 +225,7 @@ class DebuggerTest {
             graph.explored.terminatingStaticFieldConsensus(fixtureType, countField),
         )
         assertEquals(2, graph.nodePile(invokeAddress).size, "completion must not schedule a third retry")
-        assertTrue(graph.nodePile(caller.nextAddress(invokeAddress)).single().opExecutionStarted)
+        assertTrue(graph.nodePile(caller.nextAddress(invokeAddress)).single().progress is OpProgress.Executed)
     }
 
     @Test
@@ -243,7 +243,7 @@ class DebuggerTest {
         assertSame(invoke.activation, continuation.activation)
         assertSame(invoke.children.single(), continuation)
         assertEquals(Opcode.MOVE_RESULT, continuation.view.opcodeAt(continuation.address))
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
     @Test
@@ -271,7 +271,7 @@ class DebuggerTest {
         assertSame(invoke.activation, moveResult.activation)
         assertEquals(Opcode.MOVE_RESULT, moveResult.view.opcodeAt(moveResult.address))
         assertEquals(1, invoke.children.size)
-        assertFalse(moveResult.opExecutionStarted)
+        assertEquals(OpProgress.Pending, moveResult.progress)
     }
 
     @Test
@@ -324,7 +324,7 @@ class DebuggerTest {
         assertTrue(descendantNodes.any { it.outcome == Outcome.Aborted(AbortReason.ADDRESS_LIMIT) })
         assertSame(invoke.activation, resumedCaller.activation)
         assertEquals(4, resumedCaller.address)
-        assertFalse(resumedCaller.opExecutionStarted, "the fallback resumes the caller but step-over does not run it")
+        assertEquals(OpProgress.Pending, resumedCaller.progress, "the fallback resumes the caller but step-over does not run it")
     }
 
     @Test
@@ -342,14 +342,14 @@ class DebuggerTest {
         val returnPaths = calleeEntry.children
         assertEquals(2, returnPaths.size)
         assertNotSame(returnPaths[0], returnPaths[1])
-        assertTrue(returnPaths.all { it.opExecutionStarted })
+        assertTrue(returnPaths.all { it.progress is OpProgress.Executed })
         assertSame(returnPaths[1], session.currentNode, "both descendant paths execute in child order before resume")
         assertSame(returnPaths[1], continuation.parent)
         val callerChildren = returnPaths[1].children
         assertEquals(2, callerChildren.size)
         assertEquals(listOf(olderCallerSibling, callerChildren[1], continuation), session.frontier)
-        assertFalse(olderCallerSibling.opExecutionStarted, "the older non-descendant stays scheduled")
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, olderCallerSibling.progress, "the older non-descendant stays scheduled")
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
     @Test
@@ -363,14 +363,14 @@ class DebuggerTest {
 
         assertEquals(CALLEE_RETURNS_SEVEN, calleeReturn.view.signature)
         assertEquals(1, calleeReturn.address)
-        assertFalse(calleeReturn.opExecutionStarted)
+        assertEquals(OpProgress.Pending, calleeReturn.progress)
         assertSame(calleeReturn, debugger.cursor)
 
         val callerContinuation = debugger.runToBreakpoint()!!
-        assertTrue(calleeReturn.opExecutionStarted, "continue consumes the shared exact-node suppression marker")
+        assertTrue(calleeReturn.progress is OpProgress.Executed, "continue consumes the shared exact-node suppression marker")
         assertSame(calleeReturn.children.single(), callerContinuation)
         assertEquals(3, callerContinuation.address)
-        assertFalse(callerContinuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, callerContinuation.progress)
     }
 
     @Test
@@ -381,7 +381,7 @@ class DebuggerTest {
         val finalCursor = debugger.cursor!!
 
         assertNull(debugger.stepOver())
-        assertTrue(finalCursor.opExecutionStarted)
+        assertTrue(finalCursor.progress is OpProgress.Executed)
         assertTrue(debugger.isFinished)
         val lastNode = debugger.lastNode
         assertNull(debugger.stepOver())
@@ -398,12 +398,12 @@ class DebuggerTest {
         val next = debugger.stepOver()!!
         val revisit = debugger.runToBreakpoint()!!
 
-        assertTrue(stopped.opExecutionStarted)
+        assertTrue(stopped.progress is OpProgress.Executed)
         assertSame(stopped.children.single(), next)
         assertEquals(1, next.address)
         assertNotSame(stopped, revisit)
         assertEquals(stopped.address, revisit.address)
-        assertFalse(revisit.opExecutionStarted)
+        assertEquals(OpProgress.Pending, revisit.progress)
     }
 
     @Test
@@ -419,7 +419,7 @@ class DebuggerTest {
         assertSame(entry, stopped)
         assertSame(entry, debugger.cursor)
         assertTrue(debugger.isAtBreakpoint())
-        assertFalse(entry.opExecutionStarted, "the breakpoint stops before the entry op")
+        assertEquals(OpProgress.Pending, entry.progress, "the breakpoint stops before the entry op")
         assertNull(debugger.lastNode, "stopping at the initial cursor does not select a node")
     }
 
@@ -434,7 +434,7 @@ class DebuggerTest {
 
         assertEquals(1, stopped.address)
         assertEquals(1, debugger.currentInstructionIndex)
-        assertFalse(stopped.opExecutionStarted, "the matching instruction remains pre-op")
+        assertEquals(OpProgress.Pending, stopped.progress, "the matching instruction remains pre-op")
         assertSame(entry, debugger.lastNode, "only the instruction before the breakpoint executed")
     }
 
@@ -451,7 +451,7 @@ class DebuggerTest {
         assertTrue(debugger.isAtBreakpoint())
         assertEquals(CALLEE_RETURNS_SEVEN, stopped.view.signature)
         assertEquals(0, stopped.address)
-        assertFalse(stopped.opExecutionStarted)
+        assertEquals(OpProgress.Pending, stopped.progress)
         assertSame(invoke, debugger.lastNode)
         assertSame(invoke.activation, stopped.activation.caller)
     }
@@ -473,8 +473,8 @@ class DebuggerTest {
         assertSame(outerEntry.activation, recursiveEntry.activation.caller)
         assertEquals(outerEntry.view.signature, recursiveEntry.view.signature)
         assertEquals(outerEntry.address, recursiveEntry.address)
-        assertTrue(outerEntry.opExecutionStarted, "continue executes the exact stopped node")
-        assertFalse(recursiveEntry.opExecutionStarted, "the recursive visit stops before execution")
+        assertTrue(outerEntry.progress is OpProgress.Executed, "continue executes the exact stopped node")
+        assertEquals(OpProgress.Pending, recursiveEntry.progress, "the recursive visit stops before execution")
     }
 
     @Test
@@ -489,8 +489,8 @@ class DebuggerTest {
         assertNotSame(firstVisit, secondVisit)
         assertSame(firstVisit.activation, secondVisit.activation)
         assertEquals(firstVisit.address, secondVisit.address)
-        assertTrue(firstVisit.opExecutionStarted)
-        assertFalse(secondVisit.opExecutionStarted)
+        assertTrue(firstVisit.progress is OpProgress.Executed)
+        assertEquals(OpProgress.Pending, secondVisit.progress)
     }
 
     @Test
@@ -511,7 +511,7 @@ class DebuggerTest {
         )
 
         assertSame(revisit, debugger.runToBreakpoint())
-        assertFalse(revisit.opExecutionStarted, "the new node stops before execution")
+        assertEquals(OpProgress.Pending, revisit.progress, "the new node stops before execution")
     }
 
     @Test
@@ -528,8 +528,8 @@ class DebuggerTest {
         assertSame(firstSibling.parent, secondSibling.parent)
         assertSame(firstSibling.activation, secondSibling.activation)
         assertEquals(firstSibling.address, secondSibling.address)
-        assertTrue(firstSibling.opExecutionStarted)
-        assertFalse(secondSibling.opExecutionStarted)
+        assertTrue(firstSibling.progress is OpProgress.Executed)
+        assertEquals(OpProgress.Pending, secondSibling.progress)
     }
 
     @Test
@@ -543,10 +543,10 @@ class DebuggerTest {
         val entry = debugger.runToBreakpoint()!!
         val next = debugger.runToBreakpoint()!!
 
-        assertTrue(entry.opExecutionStarted)
+        assertTrue(entry.progress is OpProgress.Executed)
         assertSame(entry, debugger.lastNode)
         assertSame(entry.children.single(), next)
-        assertFalse(next.opExecutionStarted)
+        assertEquals(OpProgress.Pending, next.progress)
         assertEquals(1, debugger.currentInstructionIndex)
     }
 
@@ -560,13 +560,13 @@ class DebuggerTest {
         val next = debugger.stepInto()!!
         val revisit = debugger.runToBreakpoint()!!
 
-        assertTrue(stopped.opExecutionStarted)
+        assertTrue(stopped.progress is OpProgress.Executed)
         assertSame(stopped, debugger.lastNode?.parent)
         assertSame(stopped.children.single(), next)
         assertEquals(1, next.address)
         assertNotSame(stopped, revisit)
         assertEquals(stopped.address, revisit.address)
-        assertFalse(revisit.opExecutionStarted)
+        assertEquals(OpProgress.Pending, revisit.progress)
     }
 
     @Test
@@ -632,7 +632,7 @@ class DebuggerTest {
 
         assertEquals(returnIndex, debugger.currentInstructionIndex)
         assertEquals(returnAddress, stopped.address)
-        assertFalse(stopped.opExecutionStarted)
+        assertEquals(OpProgress.Pending, stopped.progress)
     }
 
     @Test
@@ -644,10 +644,10 @@ class DebuggerTest {
         val nextCursor = debugger.stepInto()!!
 
         assertSame(oldCursor, session.currentNode)
-        assertTrue(oldCursor.opExecutionStarted)
+        assertTrue(oldCursor.progress is OpProgress.Executed)
         assertSame(nextCursor, debugger.cursor)
         assertSame(oldCursor.children.single(), nextCursor)
-        assertFalse(nextCursor.opExecutionStarted, "the returned cursor has not executed")
+        assertEquals(OpProgress.Pending, nextCursor.progress, "the returned cursor has not executed")
         assertEquals(1, nextCursor.address)
     }
 
@@ -667,8 +667,8 @@ class DebuggerTest {
         assertSame(olderSibling, session.frontier[0])
         assertSame(nextCursor, session.frontier[1])
         assertEquals(listOf(1, 4), session.frontier.map { it.view.instructionIndexAtCodeAddress(it.address) })
-        assertFalse(olderSibling.opExecutionStarted, "the older sibling remains scheduled")
-        assertFalse(nextCursor.opExecutionStarted, "the selected node's child remains scheduled")
+        assertEquals(OpProgress.Pending, olderSibling.progress, "the older sibling remains scheduled")
+        assertEquals(OpProgress.Pending, nextCursor.progress, "the selected node's child remains scheduled")
     }
 
     @Test
@@ -715,7 +715,7 @@ class DebuggerTest {
         assertEquals(CALLEE_RETURNS_SEVEN, calleeEntry.view.signature)
         assertEquals(0, calleeEntry.address)
         assertSame(invoke.activation, calleeEntry.activation.caller)
-        assertFalse(calleeEntry.opExecutionStarted, "the debugger leaves the callee entry for the next scheduler step")
+        assertEquals(OpProgress.Pending, calleeEntry.progress, "the debugger leaves the callee entry for the next scheduler step")
     }
 
     @Test
@@ -732,7 +732,7 @@ class DebuggerTest {
         assertSame(throwingNode.activation, handler.activation)
         assertEquals(1, handler.address)
         assertTrue(handler.frame.copy().takeCaught() is Value.Unknown)
-        assertFalse(handler.opExecutionStarted)
+        assertEquals(OpProgress.Pending, handler.progress)
     }
 
     @Test
@@ -745,7 +745,7 @@ class DebuggerTest {
         assertNull(debugger.stepInto())
         assertSame(stoppedCursor, session.currentNode)
         assertEquals(Outcome.Aborted(AbortReason.METHOD_LIMIT), stoppedCursor.outcome)
-        assertFalse(stoppedCursor.opExecutionStarted)
+        assertEquals(OpProgress.Pending, stoppedCursor.progress)
         assertTrue(session.isFinished)
 
         val lastNode = session.currentNode
@@ -765,12 +765,12 @@ class DebuggerTest {
 
         while (true) {
             val node = direct.step() ?: break
-            directTrace += StructuralTrace(node.view.signature, node.address, node.outcome, node.opExecutionStarted)
+            directTrace += StructuralTrace(node.view.signature, node.address, node.outcome, node.progress is OpProgress.Executed)
         }
         while (!debugger.isFinished) {
             debugger.stepInto()
             val node = driven.currentNode!!
-            debuggerTrace += StructuralTrace(node.view.signature, node.address, node.outcome, node.opExecutionStarted)
+            debuggerTrace += StructuralTrace(node.view.signature, node.address, node.outcome, node.progress is OpProgress.Executed)
         }
 
         assertEquals(directTrace, debuggerTrace)
@@ -795,7 +795,7 @@ class DebuggerTest {
 
         assertSame(initial, session.step())
         assertSame(initial, debugger.lastNode)
-        assertTrue(initial.opExecutionStarted)
+        assertTrue(initial.progress is OpProgress.Executed)
         assertEquals(Value.Known(5, int), initial.frame.peek(0), "lastNode exposes the completed op state")
         val returnNode = session.frontier.single()
         assertSame(returnNode, debugger.cursor)
@@ -814,23 +814,23 @@ class DebuggerTest {
     }
 
     @Test
-    fun opExecutionStartedAndWasReachedKeepTheirExactPhaseTruthTable() {
+    fun opProgressAndWasReachedKeepTheirExactPhaseTruthTable() {
         val preOpLimit = sessionOf("returnFive()I", Limits(maxSteps = 1))
         preOpLimit.step()
         val stopped = preOpLimit.step()!!
-        assertFalse(stopped.opExecutionStarted, "a pre-op limit abort did not enter execute")
+        assertEquals(OpProgress.Pending, stopped.progress, "a pre-op limit abort did not enter execute")
         assertFalse(preOpLimit.graph().wasReached(stopped.address))
 
         val normal = sessionOf("returnFive()I")
         val executed = normal.step()!!
-        assertTrue(executed.opExecutionStarted)
+        assertTrue(executed.progress is OpProgress.Executed)
         assertTrue(normal.graph().wasReached(executed.address))
 
         val unsupported = sessionOf("unsupportedWideFilledArray()I")
         unsupported.step()
         val aborted = unsupported.step()!!
         assertEquals(Outcome.Aborted(AbortReason.UNSUPPORTED_OP), aborted.outcome)
-        assertTrue(aborted.opExecutionStarted, "UnsupportedOp returns Abort from execute")
+        assertTrue(aborted.progress is OpProgress.Executed, "UnsupportedOp returns Abort from execute")
         assertTrue(unsupported.graph().wasReached(aborted.address))
 
         val hostFailureView = viewOf(SPINE, "returnFive()I")
@@ -847,8 +847,8 @@ class DebuggerTest {
             }
         }
         val failed = hostFailure.step()!!
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failed.outcome)
-        assertTrue(failed.opExecutionStarted, "execute was entered before the host throwable escaped it")
+        assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
+        assertEquals(OpProgress.Failed, failed.progress, "execute was entered before the host throwable escaped it")
         assertFalse(hostFailure.graph().wasReached(failed.address), "wasReached still means execute returned")
     }
 
@@ -868,10 +868,10 @@ class DebuggerTest {
         assertSame(selected, stopped, "the LIFO cursor was the node selected for the limit check")
         assertTrue(drainedSibling !== stopped, "the other fork was drained by abortRun, not selected by step")
         assertEquals(Outcome.Aborted(AbortReason.METHOD_LIMIT), drainedSibling.outcome)
-        assertFalse(drainedSibling.opExecutionStarted)
+        assertEquals(OpProgress.Pending, drainedSibling.progress)
         assertEquals(Outcome.Aborted(AbortReason.METHOD_LIMIT), stopped.outcome)
         assertSame(stopped, debugger.lastNode, "draining siblings must not replace the selected current node")
-        assertFalse(stopped.opExecutionStarted)
+        assertEquals(OpProgress.Pending, stopped.progress)
         assertNull(debugger.cursor)
         assertNull(debugger.currentState)
         assertNull(debugger.currentInstructionIndex)
@@ -914,7 +914,7 @@ class DebuggerTest {
 
         val cleanBranch = abortedDebugger.runToBreakpoint()!!
         assertEquals(abortingView.codeAddressAtInstructionIndex(cleanIndex), cleanBranch.address)
-        assertFalse(cleanBranch.opExecutionStarted)
+        assertEquals(OpProgress.Pending, cleanBranch.progress)
         assertFalse(abortedDebugger.isFinished, "the breakpoint leaves the clean branch path scheduled")
         val afterAbort = aborted.graph()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), afterAbort.completion())
@@ -954,10 +954,9 @@ class DebuggerTest {
         debugger.stepInto()
 
         assertSame(failed, debugger.lastNode)
-        assertTrue(failed.opExecutionStarted)
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failed.outcome)
-        assertSame(failure, failed.hostFailure)
-        assertEquals("debugger host failure", failed.hostFailure!!.message)
+        assertEquals(OpProgress.Failed, failed.progress)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), failed.outcome)
+        assertEquals("debugger host failure", failed.outcome.hostFailure!!.message)
         assertTrue(failed.toString().contains("debugger host failure"))
         assertSame(survivingSibling, debugger.cursor)
 
@@ -971,7 +970,7 @@ class DebuggerTest {
         assertEquals(
             listOf(
                 Outcome.Threw(Value.Unknown(VirtualType.OBJECT)),
-                Outcome.Aborted(AbortReason.HOST_FAILURE),
+                Outcome.Aborted(AbortReason.HOST_FAILURE, failure),
                 Outcome.Returned(Value.Unknown(VirtualType.OBJECT)),
             ),
             session.outcomes,
@@ -1066,7 +1065,7 @@ class DebuggerTest {
             assertEquals(controlNode.address, observedNode.address)
             assertEquals(controlNode.children.map { it.address }, observedNode.children.map { it.address })
             assertEquals(controlNode.outcome, observedNode.outcome)
-            assertEquals(controlNode.opExecutionStarted, observedNode.opExecutionStarted)
+            assertEquals(controlNode.progress is OpProgress.Executed, observedNode.progress is OpProgress.Executed)
             assertEquivalentCursorState(
                 observedNode.frame,
                 controlNode.frame,
@@ -1130,14 +1129,14 @@ class DebuggerTest {
         val methodSignature: String,
         val address: Int,
         val outcome: Outcome?,
-        val opExecutionStarted: Boolean,
+        val executed: Boolean,
     )
 
     private data class FinalNodeFact(
         val methodSignature: String,
         val address: Int,
         val outcome: Outcome?,
-        val opExecutionStarted: Boolean,
+        val executed: Boolean,
         val children: List<Pair<String, Int>>,
         val sideEffectLevel: SideEffectLevel,
         val dispatchCandidates: Set<String>,
@@ -1220,7 +1219,7 @@ class DebuggerTest {
                     node.view.signature,
                     node.address,
                     node.outcome,
-                    node.opExecutionStarted,
+                    node.progress is OpProgress.Executed,
                     node.children.map { it.view.signature to it.address },
                     node.sideEffectLevel,
                     node.dispatchCandidates,

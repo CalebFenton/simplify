@@ -222,7 +222,7 @@ class BackendCorpusMigrationTest {
         val thrown = (run.graph.outcomes.single() as Outcome.Threw).exception as Value.Known
 
         assertEquals(NULL_POINTER, thrown.type)
-        assertTrue(run.graph.addresses().flatMap(run.graph::nodePile).all { it.hostFailure == null })
+        assertTrue(run.graph.addresses().flatMap(run.graph::nodePile).all { it.outcome.hostFailure == null })
     }
 
     @Test
@@ -334,7 +334,7 @@ class BackendCorpusMigrationTest {
         assertSame(invoke.activation, continuation.activation)
         assertEquals(1, invoke.children.size)
         assertEquals("step9", continuation.frame.hostObjectAt(ref).toString())
-        assertFalse(continuation.opExecutionStarted)
+        assertEquals(OpProgress.Pending, continuation.progress)
     }
 
 
@@ -461,7 +461,7 @@ class BackendCorpusMigrationTest {
 
     private fun invocationDiagnostics(graph: ExecutionGraph): String = graph.addresses()
         .flatMap(graph::nodePile)
-        .joinToString { "${it.view.signature}@${it.address}:${it.invocationDiagnostic}:${it.hostFailure}" }
+        .joinToString { "${it.view.signature}@${it.address}:${it.invocationDiagnostic}:${it.outcome.hostFailure}" }
 
     private data class FixtureRun(
         val session: ExecutionSession,

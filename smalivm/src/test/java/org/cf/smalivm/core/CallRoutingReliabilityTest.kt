@@ -55,8 +55,8 @@ class CallRoutingReliabilityTest {
         // Routing never ran: no caller resume node exists, and every reached node executed its op.
         assertTrue(session.isFinished)
         val nodes = allNodes(graph.nodePile(0).single())
-        assertEquals(4, nodes.count { it.opExecutionStarted })
-        assertFalse(nodes.any { !it.opExecutionStarted }, "routing must not publish a debugger-visible fake node")
+        assertEquals(4, nodes.count { it.progress is OpProgress.Executed })
+        assertTrue(nodes.none { it.progress == OpProgress.Pending }, "routing must not publish a debugger-visible fake node")
     }
 
     private fun assertPartialCollectionCancelled(

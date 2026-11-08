@@ -299,7 +299,7 @@ class DirectHostObjectTest {
         assertEquals(
             CompletionStatus.Complete,
             graph.completion(),
-            "comparison failure must not become host failure: ${graph.nodePile(0).single().hostFailure}",
+            "comparison failure must not become host failure: ${graph.nodePile(0).single().outcome.hostFailure}",
         )
         val returned = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame
 
@@ -326,7 +326,7 @@ class DirectHostObjectTest {
         assertEquals(
             CompletionStatus.Complete,
             graph.completion(),
-            "comparison failure must not become host failure: ${graph.nodePile(0).single().hostFailure}",
+            "comparison failure must not become host failure: ${graph.nodePile(0).single().outcome.hostFailure}",
         )
         val returned = requireNotNull(session.currentNode).frame
 
@@ -589,7 +589,7 @@ class DirectHostObjectTest {
         val graph = vm.newSession(view, entryFrame = frame).run()
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
-        assertEquals(listOf(Outcome.Aborted(AbortReason.HOST_FAILURE)), graph.outcomes)
+        assertEquals(listOf(AbortReason.HOST_FAILURE), graph.outcomes.map { it.abortReason })
     }
 
     @Test
@@ -1128,7 +1128,7 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(accepted, later)).step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertEquals(0, laterProbes)
     }
 
@@ -1154,7 +1154,7 @@ class DirectHostObjectTest {
 
             val node = session(view, vm, frame, listOf(backend)).step()!!
 
-            assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+            assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
             assertEquals(0, executions)
         }
     }
@@ -1364,8 +1364,7 @@ class DirectHostObjectTest {
         val node = session.step()!!
 
         assertEquals("value-before-failure", node.frame.hostObjectAt(ref).toString())
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertSame(failure, node.hostFailure)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), node.outcome)
     }
 
     @Test
@@ -1424,9 +1423,9 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
-        assertSame(primary, node.hostFailure)
+        assertSame(primary, node.outcome.hostFailure)
         assertEquals(1, primary.suppressed.size)
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertEquals(Value.Unknown(objectType), node.frame.arrayAt(ref)!!.element(0))
     }
 
@@ -1450,8 +1449,7 @@ class DirectHostObjectTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertSame(escaped, node.hostFailure)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, escaped), node.outcome)
         assertEquals("value-before-escape", node.frame.hostObjectAt(ref).toString())
     }
 
@@ -1502,7 +1500,7 @@ class DirectHostObjectTest {
 
         val node = session.step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertEquals("value-changed", node.frame.hostObjectAt(ref).toString())
         assertTrue(node.children.isEmpty())
     }
@@ -1521,7 +1519,7 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
         assertTrue(node.children.isEmpty())
     }
 
@@ -1700,7 +1698,7 @@ class DirectHostObjectTest {
         val failed = session(view, vm, frame, listOf(backend)).step()!!
         val tracked = failed.frame.arrayAt(ref)!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), failed.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
         assertEquals(Value.Unknown(objectType), tracked.element(0))
         assertEquals(Value.Unknown(objectType), tracked.element(1))
     }
@@ -1780,8 +1778,7 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertSame(failure, node.hostFailure)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, failure), node.outcome)
         assertEquals(Value.Known(8, intType), node.frame.arrayAt(ref)!!.element(0))
     }
 
@@ -1801,8 +1798,7 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertSame(escaped, node.hostFailure)
+        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE, escaped), node.outcome)
         assertEquals(Value.Known(9, intType), node.frame.arrayAt(ref)!!.element(0))
     }
 
@@ -1951,7 +1947,7 @@ class DirectHostObjectTest {
 
         session.step()
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), session.currentNode!!.outcome)
+        assertEquals(AbortReason.HOST_FAILURE, session.currentNode!!.outcome.abortReason)
     }
 
     @Test
@@ -1969,8 +1965,8 @@ class DirectHostObjectTest {
 
         val node = session(view, vm, frame, listOf(backend)).step()!!
 
-        assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
-        assertTrue(node.hostFailure is HostGraphOwnershipException)
+        assertEquals(AbortReason.HOST_FAILURE, node.outcome.abortReason)
+        assertTrue(node.outcome.hostFailure is HostGraphOwnershipException)
         assertEquals(HostGraphContents.Unknown, (node.frame.heapObject(ref) as HeapObject.HostObject).contents)
         assertEquals(null, node.frame.hostObjectAt(ref))
     }

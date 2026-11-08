@@ -69,7 +69,7 @@ class ClassInitFailureBehaviorTest {
         val returning = graph.addresses().flatMap(graph::nodePile).single {
             it.view.signature == "$CLASS_NAME->newInstance()I" && it.outcome is Outcome.Returned
         }
-        val frame = requireNotNull(returning.endingFrame)
+        val frame = returning.terminalFrame
         val throwableTypes = heapRefsOf(frame).mapNotNull { ref ->
             (frame.heapObject(ref) as? HeapObject.GuestThrowable)?.type?.descriptor
         }

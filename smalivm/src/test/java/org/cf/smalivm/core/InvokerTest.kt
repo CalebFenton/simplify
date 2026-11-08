@@ -332,7 +332,7 @@ class InvokerTest {
         assertEquals(Value.Unknown(int), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertTrue(
-            graph.nodePile(0).single().hostFailure == null,
+            graph.nodePile(0).single().outcome.hostFailure == null,
             "a declared-but-bodyless callee is a fact about the input, not a throwable to record",
         )
     }
@@ -343,7 +343,7 @@ class InvokerTest {
         val graph = run("callsAbsentClass()I", className = RESOLUTION_CALLER)
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph))
-        assertTrue(graph.nodePile(0).single().hostFailure == null, "an absent class is input, not an engine bug")
+        assertTrue(graph.nodePile(0).single().outcome.hostFailure == null, "an absent class is input, not an engine bug")
     }
 
     @Test
@@ -412,7 +412,7 @@ class InvokerTest {
             }
         }.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
-        val failure = graph.nodePile(0).single().hostFailure
+        val failure = graph.nodePile(0).single().outcome.hostFailure
         assertTrue(failure is IllegalArgumentException, "the frame's own range check is what raised: $failure")
     }
 

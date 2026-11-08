@@ -44,7 +44,7 @@ class TrustedGraphViewTest {
         assertTrue(call.trusted()!!.didEveryExecutionContinueNormally(0))
         val partial = graphOf("loopRevisitChangesRegister()V", Limits(maxAddressVisits = 1, maxSteps = 100))
         val stoppedAddress = partial.addresses().first { address ->
-            partial.nodePile(address).any { !it.opExecutionStarted }
+            partial.nodePile(address).any { it.progress == OpProgress.Pending }
         }
         assertFalse(partial.explored.didEveryExecutionContinueNormally(stoppedAddress))
         assertNull(partial.trusted())
