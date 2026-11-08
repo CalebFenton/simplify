@@ -12,7 +12,7 @@ import org.junit.jupiter.api.assertThrows
  * Every way a selected host call can end other than returning, and what each does to the path and the
  * mutated host graph.
  */
-class HostCallExitTest : DirectHostTestBase() {
+internal class HostCallExitTest : DirectHostTestBase() {
     @Test
     fun targetThrowKeepsMutationAndTheExactThrowable() {
         val view = hostView("appendThenThrow(Ljava/lang/StringBuilder;)V")

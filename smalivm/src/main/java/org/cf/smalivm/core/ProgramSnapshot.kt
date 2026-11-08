@@ -82,12 +82,12 @@ public class ProgramSnapshot private constructor(
                 "Application class map key does not match its class definition"
             }
             require(applicationClasses.keys == current.applicationClasses.keys) {
-                "Plan 13 cannot add or remove application classes"
+                "A program revision cannot add or remove application classes"
             }
             for ((type, definition) in applicationClasses) {
                 val previous = requireNotNull(current.applicationClasses[type])
                 require(definition.hasSameStructureAs(previous)) {
-                    "Plan 13 cannot change application class structure: $type"
+                    "A program revision cannot change application class structure: $type"
                 }
                 for (method in definition.methods) {
                     val previousMethod = requireNotNull(previous.methodsByDescriptor[method.methodSignature.nameAndProto])

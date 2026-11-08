@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test
  * What an opaque host call invalidates: the argument's reachable component when connectivity is provable,
  * otherwise the whole host graph.
  */
-class OpaqueHostCallInvalidationTest : DirectHostTestBase() {
+internal class OpaqueHostCallInvalidationTest : DirectHostTestBase() {
     @Test
     fun opaqueCollapseInvalidatesSeparatelyReferencedNestedAliases() {
         val frame = Frame.entryFrame(view("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;"))

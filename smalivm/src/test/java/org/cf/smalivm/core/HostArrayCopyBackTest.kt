@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 /** Materializing tracked arrays as Java arrays for a host call and copying their mutation back. */
-class HostArrayCopyBackTest : DirectHostTestBase() {
+internal class HostArrayCopyBackTest : DirectHostTestBase() {
     @Test
     fun primitiveAndObjectArraysMaterializeOnceAndCopyBack() {
         val view = view("Lcalls/caller;", "callsNativeCallee()I")

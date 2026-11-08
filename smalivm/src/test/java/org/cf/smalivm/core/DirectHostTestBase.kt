@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import java.math.BigInteger
 
 /** Shared harness for the host-call tests: production backends under a policy authorizing the host fixtures. */
-abstract class DirectHostTestBase {
+internal abstract class DirectHostTestBase {
     protected val objectType = VirtualType.of("Ljava/lang/Object;")
     protected val builderType = VirtualType.of("Ljava/lang/StringBuilder;")
     protected val stringType = VirtualType.of("Ljava/lang/String;")
