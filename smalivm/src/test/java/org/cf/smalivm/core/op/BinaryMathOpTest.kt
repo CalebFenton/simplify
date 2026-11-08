@@ -15,8 +15,10 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 /**
  * The twelve binary math/logic operators across four operand domains and three instruction shapes
@@ -1273,5 +1275,105 @@ class BinaryMathOpTest {
             expected.setRegisters(0, 0x12345abcdL xor 0x1234567890L, "J")
             CoreTester.test(CLASS_NAME, "xorLong2Addr()V", initial, expected)
         }
+    }
+
+    /**
+     * Two's-complement boundaries, where a plausible wrong implementation (widened arithmetic, a host
+     * `Math.*Exact`, a 6-bit int shift mask, a throw on `MIN_VALUE / -1`) disagrees with Dalvik. Dalvik's
+     * integral ops are the JVM's: JLS 15.17.2 (`MIN_VALUE / -1` overflows to `MIN_VALUE`, no exception),
+     * JLS 15.17.3 (the remainder takes the dividend's sign and `MIN_VALUE % -1` is 0), JLS 15.19 (an int
+     * shift uses the distance's low 5 bits, a long shift its low 6), and JLS 15.18.2/15.17.1 (add, sub and
+     * mul wrap). Every expected value is written out by hand from those rules.
+     */
+    @Nested
+    @DisplayName("at two's-complement boundaries")
+    inner class IntegralBoundaries {
+        @TestFactory
+        fun minValueOverMinusOneOverflowsWithoutThrowingInEveryDivRemForm(): List<DynamicTest> = listOf(
+            boundary("divInt()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            boundary("divInt2Addr()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            boundary("divIntLit8ByMinusOne()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I"),
+            boundary("divIntLit16ByMinusOne()V", int(Int.MIN_VALUE), 0, Int.MIN_VALUE, "I"),
+            boundary("remInt()V", int(0), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            boundary("remInt2Addr()V", int(0), 0, Int.MIN_VALUE, "I", 1, -1, "I"),
+            boundary("remIntLit8ByMinusOne()V", int(0), 0, Int.MIN_VALUE, "I"),
+            boundary("remIntLit16ByMinusOne()V", int(0), 0, Int.MIN_VALUE, "I"),
+            boundary("divLong()V", long(Long.MIN_VALUE), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            boundary("divLong2Addr()V", long(Long.MIN_VALUE), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            boundary("remLong()V", long(0L), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+            boundary("remLong2Addr()V", long(0L), 0, Long.MIN_VALUE, "J", 2, -1L, "J"),
+        )
+
+        /** JLS 15.17.2-3: the quotient rounds toward zero and the remainder takes the dividend's sign. */
+        @TestFactory
+        fun theRemainderTakesTheDividendsSignAndTheQuotientTruncatesTowardZero(): List<DynamicTest> = listOf(
+            boundary("remInt()V", int(-1), 0, -7, "I", 1, 3, "I"),
+            boundary("remInt()V", int(1), 0, 7, "I", 1, -3, "I"),
+            boundary("remIntLit8()V", int(-2), 0, -17, "I"),
+            boundary("divInt()V", int(-3), 0, -7, "I", 1, 2, "I"),
+            boundary("remLong()V", long(-1L), 0, -7L, "J", 2, 3L, "J"),
+            boundary("remLong()V", long(1L), 0, 7L, "J", 2, -3L, "J"),
+            boundary("divLong()V", long(-3L), 0, -7L, "J", 2, 2L, "J"),
+        )
+
+        /** JLS 15.19: an int shift reads the low 5 bits of its distance, so 32 is 0, 33 is 1 and -1 is 31. */
+        @TestFactory
+        fun anIntShiftMasksItsDistanceToFiveBits(): List<DynamicTest> = listOf(
+            boundary("shlInt()V", int(1), 0, 1, "I", 1, 32, "I"),
+            boundary("shlInt()V", int(2), 0, 1, "I", 1, 33, "I"),
+            boundary("shlInt()V", int(Int.MIN_VALUE), 0, 1, "I", 1, -1, "I"),
+            boundary("shrInt()V", int(-4), 0, -8, "I", 1, 33, "I"),
+            boundary("ushrInt()V", int(1), 0, -1, "I", 1, -1, "I"),
+            boundary("ushrInt2Addr()V", int(-1), 0, -1, "I", 1, 32, "I"),
+            boundary("shlIntLit8By33()V", int(2), 0, 1, "I"),
+            boundary("ushrIntLit8ByMinusOne()V", int(1), 0, -1, "I"),
+        )
+
+        /** JLS 15.19: a long shift reads the low 6 bits of its 32-bit distance, so 64 is 0 and -1 is 63. */
+        @TestFactory
+        fun aLongShiftMasksItsDistanceToSixBits(): List<DynamicTest> = listOf(
+            boundary("shlLong()V", long(1L), 0, 1L, "J", 2, 64, "I"),
+            boundary("shlLong()V", long(2L), 0, 1L, "J", 2, 65, "I"),
+            boundary("shlLong()V", long(Long.MIN_VALUE), 0, 1L, "J", 2, -1, "I"),
+            boundary("shrLong()V", long(-1L), 0, Long.MIN_VALUE, "J", 2, 127, "I"),
+            boundary("ushrLong()V", long(1L), 0, -1L, "J", 2, 127, "I"),
+            boundary("ushrLong2Addr()V", long(-1L), 0, -1L, "J", 2, 64, "I"),
+        )
+
+        /**
+         * JLS 15.18.2 and 15.17.1: the result is the low 32 (or 64) bits of the exact result. Hand values:
+         * `MAX + 0xff` is `MIN + 254`; `MAX * 15` is `15 * 2^31 - 15`, which is `2^31 - 15` mod 2^32;
+         * `0xff - MIN` is `2^31 + 255`, which is `MIN + 255`.
+         */
+        @TestFactory
+        fun addSubAndMulWrapRatherThanSaturateOrThrow(): List<DynamicTest> = listOf(
+            boundary("addInt()V", int(Int.MIN_VALUE), 0, Int.MAX_VALUE, "I", 1, 1, "I"),
+            boundary("subInt()V", int(Int.MAX_VALUE), 0, Int.MIN_VALUE, "I", 1, 1, "I"),
+            boundary("mulInt()V", int(-2), 0, Int.MAX_VALUE, "I", 1, 2, "I"),
+            boundary("mulInt()V", int(0), 0, 0x10000, "I", 1, 0x10000, "I"),
+            boundary("addIntLit16()V", int(-2147483394), 0, Int.MAX_VALUE, "I"),
+            boundary("mulIntLit8()V", int(2147483633), 0, Int.MAX_VALUE, "I"),
+            boundary("RSubInt()V", int(-2147483393), 0, Int.MIN_VALUE, "I"),
+            boundary("addLong()V", long(Long.MIN_VALUE), 0, Long.MAX_VALUE, "J", 2, 1L, "J"),
+            boundary("subLong()V", long(Long.MAX_VALUE), 0, Long.MIN_VALUE, "J", 2, 1L, "J"),
+            boundary("mulLong()V", long(-2L), 0, Long.MAX_VALUE, "J", 2, 2L, "J"),
+        )
+
+        /** Runs [method] on the `(register, raw, type)` [seeds] and asserts v0 folds to [expected] with no throw. */
+        private fun boundary(method: String, expected: Value, vararg seeds: Any?): DynamicTest =
+            DynamicTest.dynamicTest("$method ${seeds.toList()} -> $expected") {
+                val graph = CoreTester.execute(CLASS_NAME, method, CoreState().apply { setRegisters(*seeds) })
+                assertEquals(CompletionStatus.Complete, graph.completion())
+                assertEquals(
+                    emptyList<Outcome.Threw>(),
+                    graph.outcomes.filterIsInstance<Outcome.Threw>(),
+                    "only a zero divisor throws",
+                )
+                assertEquals(expected, graph.trusted()!!.terminatingConsensus(0))
+            }
+
+        private fun int(raw: Int) = Value.Known(raw, VirtualType.of("I"))
+
+        private fun long(raw: Long) = Value.Known(raw, VirtualType.of("J"))
     }
 }
