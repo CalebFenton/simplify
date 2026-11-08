@@ -122,7 +122,7 @@ class StaticFieldAccessTest {
             register is Value.Known && (register as Value.Known).raw is HeapRef,
             "r0 must hold the tracked array read back from the field: $register",
         )
-        val array = trusted.terminatingHeapObject((register as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((register as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray, "no tracked array behind the ref; got $array")
         assertEquals(1, (array as HeapObject.TrackedArray).length)
         assertEquals(

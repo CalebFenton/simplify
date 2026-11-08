@@ -4,7 +4,7 @@ import org.cf.util.ClassNameUtils
 
 /** Applies Java field access law before virtual or reauthorized host reads. */
 internal class FieldGetEmulator(
-    private val classIndex: ClassIndex,
+    private val resolver: ProgramSnapshotResolver,
     private val reflectionPolicy: ReflectionPolicy,
 ) : EmulatorHandler {
     override fun execute(call: EmulatorInvocation): SynchronousCallResult {
@@ -18,7 +18,7 @@ internal class FieldGetEmulator(
         if (metadata.storage == FieldStorage.INSTANCE && argument is EmulatorValue.Known && argument.javaValue == null) {
             return targetThrew(NullPointerException())
         }
-        if (metadata.domain is TrackedFieldDomain.Host && !hostFieldReadIsAuthorized(metadata, classIndex, reflectionPolicy)) {
+        if (metadata.domain is TrackedFieldDomain.Host && !hostFieldReadIsAuthorized(metadata, resolver, reflectionPolicy)) {
             return returnUnknown(fieldGetResultType(metadata.fieldType))
         }
         val receiverType = receiverType(argument)
@@ -70,7 +70,7 @@ internal class FieldGetEmulator(
         val samePackage = samePackage(caller, field)
         return when (field.visibility) {
             FieldVisibility.PUBLIC -> true
-            FieldVisibility.PRIVATE -> areNestmates(caller, field)
+            FieldVisibility.PRIVATE -> isDeclaringClass(caller, field)
             FieldVisibility.PACKAGE -> samePackage
             FieldVisibility.PROTECTED -> when {
                 samePackage -> true
@@ -85,16 +85,19 @@ internal class FieldGetEmulator(
     private fun samePackage(caller: VirtualType, field: TrackedFieldValue): Boolean = when (val domain = field.domain) {
         TrackedFieldDomain.Virtual -> packageName(caller) == packageName(field.declaringType)
         is TrackedFieldDomain.Host -> {
-            val callerClass = classIndex.loadClassConstant(caller.descriptor) ?: return false
+            val callerClass = resolver.loadClassConstant(caller.descriptor) ?: return false
             callerClass.packageName == domain.declaringClass.packageName &&
                 callerClass.classLoader === domain.declaringClass.classLoader
         }
     }
 
-    private fun areNestmates(caller: VirtualType, field: TrackedFieldValue): Boolean = when (val domain = field.domain) {
-        TrackedFieldDomain.Virtual -> classIndex.areNestmates(caller, field.declaringType)
-        is TrackedFieldDomain.Host ->
-            classIndex.loadClassConstant(caller.descriptor)?.isNestmateOf(domain.declaringClass) == true
+    /**
+     * ART's reflective access check (`reflection.cc` `VerifyAccess`) admits a private member only to its declaring
+     * class: unlike the JVM, it grants nestmates nothing.
+     */
+    private fun isDeclaringClass(caller: VirtualType, field: TrackedFieldValue): Boolean = when (val domain = field.domain) {
+        TrackedFieldDomain.Virtual -> caller == field.declaringType
+        is TrackedFieldDomain.Host -> resolver.loadClassConstant(caller.descriptor) === domain.declaringClass
     }
 
     private fun isSubtype(
@@ -103,7 +106,7 @@ internal class FieldGetEmulator(
         domain: TrackedFieldDomain,
         candidateClass: Class<*>? = null,
     ): Boolean = when (domain) {
-        TrackedFieldDomain.Virtual -> classIndex.isSubtypeOf(candidate, ancestor)
+        TrackedFieldDomain.Virtual -> resolver.hierarchy.isSubtypeOf(candidate, ancestor)
         is TrackedFieldDomain.Host -> {
             val actualCandidate = candidateClass ?: hostClass(candidate, domain) ?: return false
             val ancestorClass = hostClass(ancestor, domain) ?: return false
@@ -113,7 +116,7 @@ internal class FieldGetEmulator(
 
     private fun hostClass(type: VirtualType, domain: TrackedFieldDomain.Host): Class<*>? =
         if (type == virtualTypeOfHostClass(domain.declaringClass)) domain.declaringClass
-        else classIndex.loadClassConstant(type.descriptor)
+        else resolver.loadClassConstant(type.descriptor)
 
     private fun readAuthorizedHostField(field: TrackedFieldValue, argument: EmulatorValue): SynchronousCallResult {
         val receiver = if (field.storage == FieldStorage.STATIC) {

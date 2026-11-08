@@ -136,13 +136,13 @@ internal object GuestThrowables {
     /** ART's `ThrowNoSuchMethodError` over the call site's referenced [method] and invoke [kind]. */
     fun noSuchMethod(method: MethodDescriptor, kind: InvokeKind): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.NO_SUCH_METHOD,
-        "No ${kind.artName} method ${method.descriptor} in class ${method.definingClass.descriptor} or its super classes",
+        "No ${kind.artName} method ${method.nameAndProto} in class ${method.definingClass.descriptor} or its super classes",
     )
 
     /** A call that resolves to more than one maximally specific default method. */
     fun conflictingDefaultMethods(method: MethodDescriptor): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.INCOMPATIBLE_CLASS_CHANGE,
-        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.descriptor}",
+        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.nameAndProto}",
     )
 
     fun internalError(message: String): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.INTERNAL_ERROR, message)

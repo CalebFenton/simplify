@@ -36,8 +36,28 @@ class FrameworkCatalogTest {
         assertTrue(first.hierarchy.contains("Landroid/app/Activity;"))
         val lazyMethod = requireNotNull(first.frameworkCatalog.method("Landroid/app/Activity;->isFinishing()Z"))
         val secondProjection = requireNotNull(first.frameworkCatalog.method(lazyMethod.methodSignature))
-        assertEquals(lazyMethod.identity, secondProjection.identity)
+        assertSame(lazyMethod.identity, secondProjection.identity)
         assertNotNull(lazyMethod.body)
+    }
+
+    @Test
+    fun concurrentFirstLookupsShareOneMethodIdentity() {
+        // Bug class: a lazily filled cache mutated without a lock. Sessions on different threads that race to
+        // materialize one framework method each build their own definition, and views of the same method then
+        // compare as different methods. Released together so the races are real, on a fresh catalog.
+        val catalog = FrameworkCatalog.fromArtifact(FrameworkArtifact.load())
+        val signature = "Landroid/app/Activity;->isFinishing()Z"
+        val threads = 16
+        val start = java.util.concurrent.CountDownLatch(1)
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(threads)
+        try {
+            val lookups = List(threads) { pool.submit<FrameworkMethodIdentity> { start.await(); catalog.method(signature)!!.identity } }
+            start.countDown()
+            val identities = lookups.map { it.get(30, java.util.concurrent.TimeUnit.SECONDS) }
+            assertTrue(identities.all { it === identities.first() }, "one identity per framework method")
+        } finally {
+            pool.shutdownNow()
+        }
     }
 
     @Test

@@ -5,7 +5,6 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class ReflectedMemberQueryTest {
@@ -22,8 +21,7 @@ class ReflectedMemberQueryTest {
             String::class.java.modifiers,
         )
 
-        assertEquals(expected, graph.reflectedMethodOverExploredPaths(address, 0))
-        assertEquals(expected, graph.trusted()!!.reflectedMethod(address, 0))
+        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedMethod(address, 0))
     }
 
     @Test
@@ -35,31 +33,29 @@ class ReflectedMemberQueryTest {
             Modifier.PUBLIC or Modifier.FINAL,
         )
 
-        assertEquals(expected, graph.reflectedFieldOverExploredPaths(address, 0))
-        assertEquals(expected, graph.trusted()!!.reflectedField(address, 0))
+        assertEquals(Agreement.Agreed(expected), graph.trusted()!!.reflectedField(address, 0))
     }
 
     @Test
     fun parentAddressSetRetainsMethodBeforeReflectiveInvocation() {
         val graph = graphOf("invokeStringLengthReflectively()Ljava/lang/Object;")
+        val trusted = requireNotNull(graph.trusted())
         val invokeAddress = graph.methodView.addresses
             .filter { graph.methodView.opcodeAt(it) == Opcode.INVOKE_VIRTUAL }
             .last()
-        val parents = graph.parentAddresses(invokeAddress)
+        val parents = trusted.parentAddresses(invokeAddress)
 
         assertEquals(1, parents.size)
         assertEquals(Opcode.CONST_4, graph.methodView.opcodeAt(parents.single()))
         assertEquals(
-            ReflectedMethodMetadata(
-                STRING_LENGTH,
-                String::class.java.getDeclaredMethod("length").modifiers,
-                String::class.java.modifiers,
+            Agreement.Agreed(
+                ReflectedMethodMetadata(
+                    STRING_LENGTH,
+                    String::class.java.getDeclaredMethod("length").modifiers,
+                    String::class.java.modifiers,
+                ),
             ),
-            graph.reflectedMethodOverExploredPaths(parents, 0),
-        )
-        assertEquals(
-            graph.reflectedMethodOverExploredPaths(parents, 0),
-            requireNotNull(graph.trusted()).reflectedMethod(parents, 0),
+            trusted.reflectedMethod(parents, 0),
         )
     }
 
@@ -69,38 +65,38 @@ class ReflectedMemberQueryTest {
         val join = same.addressOf(Opcode.NOP)
         val sameMoveResults = same.addressesOf(Opcode.MOVE_RESULT_OBJECT)
         assertEquals(2, same.nodePile(join).size, "both branches reach the join")
-        assertEquals(LENGTH, same.reflectedMethodOverExploredPaths(join, 0))
-        assertEquals(LENGTH, same.trusted()!!.reflectedMethod(join, 0))
-        assertEquals(LENGTH, same.reflectedMethodOverExploredPaths(sameMoveResults, 0))
-        assertEquals(LENGTH, same.trusted()!!.reflectedMethod(intArrayOf(sameMoveResults[0], join), 0))
+        assertEquals(Agreement.Agreed(LENGTH), same.explored.reflectedMethod(join, 0))
+        assertEquals(Agreement.Agreed(LENGTH), same.trusted()!!.reflectedMethod(join, 0))
+        assertEquals(Agreement.Agreed(LENGTH), same.explored.reflectedMethod(sameMoveResults, 0))
+        assertEquals(Agreement.Agreed(LENGTH), same.trusted()!!.reflectedMethod(intArrayOf(sameMoveResults[0], join), 0))
 
         val different = execute(METHOD_ON_EITHER_BRANCH, 1 to string("length"), 2 to string("isEmpty"))
         val moveResults = different.addressesOf(Opcode.MOVE_RESULT_OBJECT)
-        assertEquals(LENGTH, different.reflectedMethodOverExploredPaths(moveResults[0], 0), "one branch alone agrees")
-        assertNull(different.reflectedMethodOverExploredPaths(join, 0))
-        assertNull(different.trusted()!!.reflectedMethod(join, 0))
-        assertNull(different.reflectedMethodOverExploredPaths(moveResults, 0))
-        assertNull(different.trusted()!!.reflectedMethod(moveResults, 0))
+        assertEquals(Agreement.Agreed(LENGTH), different.explored.reflectedMethod(moveResults[0], 0), "one branch alone agrees")
+        assertEquals(Agreement.Disagree, different.explored.reflectedMethod(join, 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.reflectedMethod(join, 0))
+        assertEquals(Agreement.Disagree, different.explored.reflectedMethod(moveResults, 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.reflectedMethod(moveResults, 0))
 
         val memberAndAbsent = execute(MEMBERS_ON_ONE_BRANCH)
         val methodMoveResult = memberAndAbsent.addressesOf(Opcode.MOVE_RESULT_OBJECT).first()
         val oneBranchJoin = memberAndAbsent.addressOf(Opcode.NOP)
-        assertEquals(LENGTH, memberAndAbsent.reflectedMethodOverExploredPaths(methodMoveResult, 0))
-        assertNull(memberAndAbsent.reflectedMethodOverExploredPaths(oneBranchJoin, 0))
-        assertNull(memberAndAbsent.trusted()!!.reflectedMethod(oneBranchJoin, 0))
+        assertEquals(Agreement.Agreed(LENGTH), memberAndAbsent.explored.reflectedMethod(methodMoveResult, 0))
+        assertEquals(Agreement.Absent, memberAndAbsent.explored.reflectedMethod(oneBranchJoin, 0))
+        assertEquals(Agreement.Absent, memberAndAbsent.trusted()!!.reflectedMethod(oneBranchJoin, 0))
     }
 
     @Test
     fun branchedParentsDisagreeAboutTheMethod() {
         val graph = graphOf("invokeOneOfTwoStringMethods(Z)Ljava/lang/Object;")
+        val trusted = requireNotNull(graph.trusted())
         val invokeAddress = graph.methodView.addresses
             .filter { graph.methodView.opcodeAt(it) == Opcode.INVOKE_VIRTUAL }
             .last()
-        val parents = graph.parentAddresses(invokeAddress)
+        val parents = trusted.parentAddresses(invokeAddress)
 
         assertEquals(2, parents.size)
-        assertNull(graph.reflectedMethodOverExploredPaths(parents, 0))
-        assertNull(requireNotNull(graph.trusted()).reflectedMethod(parents, 0))
+        assertEquals(Agreement.Disagree, trusted.reflectedMethod(parents, 0))
     }
 
     /**
@@ -118,7 +114,7 @@ class ReflectedMemberQueryTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertEquals(2, graph.nodePile(loop).size, "the executed visit and the limit-stopped revisit are both piled")
 
-        assertEquals(LENGTH, graph.reflectedMethodOverExploredPaths(loop, 0))
+        assertEquals(Agreement.Agreed(LENGTH), graph.explored.reflectedMethod(loop, 0))
     }
 
     @Test
@@ -138,9 +134,9 @@ class ReflectedMemberQueryTest {
         val join = same.addressOf(Opcode.NOP)
         val sameMoveResults = same.addressesOf(Opcode.MOVE_RESULT_OBJECT)
         assertEquals(2, same.nodePile(join).size, "both branches reach the join")
-        assertEquals(PUBLIC_FIELD, same.reflectedFieldOverExploredPaths(join, 0))
-        assertEquals(PUBLIC_FIELD, same.reflectedFieldOverExploredPaths(sameMoveResults, 0))
-        assertEquals(PUBLIC_FIELD, same.trusted()!!.reflectedField(intArrayOf(sameMoveResults[0], join), 0))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), same.explored.reflectedField(join, 0))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), same.explored.reflectedField(sameMoveResults, 0))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), same.trusted()!!.reflectedField(intArrayOf(sameMoveResults[0], join), 0))
 
         val different = execute(
             FIELD_ON_EITHER_BRANCH,
@@ -148,30 +144,30 @@ class ReflectedMemberQueryTest {
             2 to string("protectedInstanceField"),
         )
         val moveResults = different.addressesOf(Opcode.MOVE_RESULT_OBJECT)
-        assertEquals(PUBLIC_FIELD, different.reflectedFieldOverExploredPaths(moveResults[0], 0), "one branch alone agrees")
-        assertNull(different.reflectedFieldOverExploredPaths(join, 0))
-        assertNull(different.reflectedFieldOverExploredPaths(moveResults, 0))
-        assertNull(different.trusted()!!.reflectedField(moveResults, 0))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), different.explored.reflectedField(moveResults[0], 0), "one branch alone agrees")
+        assertEquals(Agreement.Disagree, different.explored.reflectedField(join, 0))
+        assertEquals(Agreement.Disagree, different.explored.reflectedField(moveResults, 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.reflectedField(moveResults, 0))
 
         val memberAndAbsent = execute(MEMBERS_ON_ONE_BRANCH)
         val fieldMoveResult = memberAndAbsent.addressesOf(Opcode.MOVE_RESULT_OBJECT).last()
         val oneBranchJoin = memberAndAbsent.addressOf(Opcode.NOP)
-        assertEquals(PUBLIC_FIELD, memberAndAbsent.reflectedFieldOverExploredPaths(fieldMoveResult, 1))
-        assertNull(memberAndAbsent.reflectedFieldOverExploredPaths(oneBranchJoin, 1))
-        assertNull(memberAndAbsent.trusted()!!.reflectedField(oneBranchJoin, 1))
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), memberAndAbsent.explored.reflectedField(fieldMoveResult, 1))
+        assertEquals(Agreement.Absent, memberAndAbsent.explored.reflectedField(oneBranchJoin, 1))
+        assertEquals(Agreement.Absent, memberAndAbsent.trusted()!!.reflectedField(oneBranchJoin, 1))
 
         // v1 holds the String class constant and v2 a tracked Class[]: values, but not members.
         val nonMembers = execute(METHOD_ON_EITHER_BRANCH, 1 to string("length"), 2 to string("length"))
         val nonMemberJoin = nonMembers.addressOf(Opcode.NOP)
         val branch = nonMembers.addressOf(Opcode.IF_EQZ)
         for (register in 1..2) {
-            assertNull(nonMembers.reflectedMethodOverExploredPaths(nonMemberJoin, register))
-            assertNull(nonMembers.reflectedFieldOverExploredPaths(nonMemberJoin, register))
+            assertEquals(Agreement.Absent, nonMembers.explored.reflectedMethod(nonMemberJoin, register))
+            assertEquals(Agreement.Absent, nonMembers.explored.reflectedField(nonMemberJoin, register))
         }
-        assertNull(nonMembers.reflectedMethodOverExploredPaths(branch, 0), "v0 is unassigned before the branch")
-        assertNull(nonMembers.reflectedFieldOverExploredPaths(branch, 0))
-        assertNull(nonMembers.reflectedMethodOverExploredPaths(999, 0), "no such address")
-        assertNull(nonMembers.reflectedFieldOverExploredPaths(999, 0))
+        assertEquals(Agreement.Absent, nonMembers.explored.reflectedMethod(branch, 0), "v0 is unassigned before the branch")
+        assertEquals(Agreement.Absent, nonMembers.explored.reflectedField(branch, 0))
+        assertEquals(Agreement.NoPath, nonMembers.explored.reflectedMethod(999, 0), "no such address")
+        assertEquals(Agreement.NoPath, nonMembers.explored.reflectedField(999, 0))
     }
 
     @Test
@@ -179,11 +175,11 @@ class ReflectedMemberQueryTest {
         val graph = execute("methodOrField(Z)V")
         val join = graph.addressOf(Opcode.NOP)
         val moveResults = graph.addressesOf(Opcode.MOVE_RESULT_OBJECT)
-        assertEquals(LENGTH, graph.reflectedMethodOverExploredPaths(moveResults[0], 0), "the method branch alone")
-        assertEquals(PUBLIC_FIELD, graph.reflectedFieldOverExploredPaths(moveResults[1], 0), "the field branch alone")
+        assertEquals(Agreement.Agreed(LENGTH), graph.explored.reflectedMethod(moveResults[0], 0), "the method branch alone")
+        assertEquals(Agreement.Agreed(PUBLIC_FIELD), graph.explored.reflectedField(moveResults[1], 0), "the field branch alone")
 
-        assertNull(graph.reflectedMethodOverExploredPaths(join, 0))
-        assertNull(graph.reflectedFieldOverExploredPaths(join, 0))
+        assertEquals(Agreement.Absent, graph.explored.reflectedMethod(join, 0))
+        assertEquals(Agreement.Absent, graph.explored.reflectedField(join, 0))
     }
 
     @Test
@@ -192,12 +188,12 @@ class ReflectedMemberQueryTest {
         val join = intArrayOf(same.addressOf(Opcode.NOP))
         assertEquals(2, same.nodePile(join.single()).size, "both branches reach the join")
 
-        assertEquals(3, same.arrayLengthOverExploredPaths(join, 0))
-        assertEquals(3, same.trusted()!!.arrayLength(join, 0))
+        assertEquals(Agreement.Agreed(3), same.explored.arrayLength(join, 0))
+        assertEquals(Agreement.Agreed(3), same.trusted()!!.arrayLength(join, 0))
 
         val different = execute(ARRAY_ON_EITHER_BRANCH, 1 to int(2), 2 to int(3))
-        assertNull(different.arrayLengthOverExploredPaths(join, 0))
-        assertNull(different.trusted()!!.arrayLength(join, 0))
+        assertEquals(Agreement.Disagree, different.explored.arrayLength(join, 0))
+        assertEquals(Agreement.Disagree, different.trusted()!!.arrayLength(join, 0))
     }
 
     /**
@@ -211,10 +207,10 @@ class ReflectedMemberQueryTest {
         val (fieldMoveResult, methodMoveResult) = recursive.addressesOf(Opcode.MOVE_RESULT_OBJECT)
         assertEquals(2, recursive.nodePile(methodMoveResult).size, "the recursive activation reached the lookup")
 
-        assertNull(recursive.reflectedMethodOverExploredPaths(methodMoveResult, 0))
-        assertNull(recursive.trusted()!!.reflectedMethod(methodMoveResult, 0))
-        assertNull(recursive.reflectedFieldOverExploredPaths(fieldMoveResult, 3))
-        assertNull(recursive.trusted()!!.reflectedField(fieldMoveResult, 3))
+        assertEquals(Agreement.Disagree, recursive.explored.reflectedMethod(methodMoveResult, 0))
+        assertEquals(Agreement.Disagree, recursive.trusted()!!.reflectedMethod(methodMoveResult, 0))
+        assertEquals(Agreement.Disagree, recursive.explored.reflectedField(fieldMoveResult, 3))
+        assertEquals(Agreement.Disagree, recursive.trusted()!!.reflectedField(fieldMoveResult, 3))
 
         val leaf = execute(RECURSIVE_LOOKUP, 0 to int(0))
         assertEquals(
@@ -223,7 +219,7 @@ class ReflectedMemberQueryTest {
                 String::class.java.getDeclaredMethod("isEmpty").modifiers,
                 String::class.java.modifiers,
             ),
-            leaf.reflectedMethodOverExploredPaths(methodMoveResult, 0),
+            leaf.explored.reflectedMethod(methodMoveResult, 0).agreed(),
             "without recursion the one activation names its method",
         )
         assertEquals(
@@ -231,7 +227,7 @@ class ReflectedMemberQueryTest {
                 ImmutableFieldReference("Lorg/cf/smalivm/DummyClass;", "protectedInstanceField", "I"),
                 Modifier.PROTECTED or Modifier.FINAL,
             ),
-            leaf.reflectedFieldOverExploredPaths(fieldMoveResult, 3),
+            leaf.explored.reflectedField(fieldMoveResult, 3).agreed(),
         )
     }
 

@@ -1,6 +1,5 @@
 package org.cf.smalivm.core.op
 
-import java.lang.reflect.Modifier
 import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.GuestThrowables
@@ -11,7 +10,6 @@ import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
 import org.cf.smalivm.core.OpUpdate
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.Superclasses
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.castOutcome
@@ -43,10 +41,8 @@ internal class APutOp(
     private val indexRegister: Int,
     /** True for `aput-object`, the one form whose value operand is read as a reference. */
     private val storesAReference: Boolean,
-    /** Answers `aastore`'s instance test and which classes are final, which need the class model. */
-    private val types: HierarchySnapshot,
-    /** Joins an element's old value with the stored one when the index is unprovable. */
-    private val superclasses: Superclasses,
+    /** Answers `aastore`'s instance test and which classes are final, and joins an element with the stored value. */
+    private val hierarchy: HierarchySnapshot,
 ) : Op(address) {
 
     /** Whether the store throws `ArrayStoreException`, and if it refuses, which rule refused it. */
@@ -130,7 +126,7 @@ internal class APutOp(
             ArrayIndex.Unprovable -> OpExecution.of(
                 buildList<OpArm> {
                     if (check.storeCanProceed) {
-                        val joined = List(length) { join(array.array.element(it), stored, superclasses) }
+                        val joined = List(length) { join(array.array.element(it), stored, hierarchy) }
                         add(OpArm.Continue(OpUpdate.writeArrayElements(array.ref, 0, joined).then(weak)))
                     }
                     add(GuestThrowables.throwing(GuestThrowables.arrayIndexOutOfBounds(length, null)))
@@ -152,7 +148,7 @@ internal class APutOp(
     private fun isExact(component: VirtualType): Boolean = when {
         component.isPrimitive -> true
         component.isArray -> isExact(requireNotNull(component.componentType))
-        else -> types.declarations[component.descriptor]?.let { Modifier.isFinal(it.accessFlags) } == true
+        else -> hierarchy.isFinal(component)
     }
 
     /** The class ART names for the stored value: a primitive's type, else the object's runtime class. */
@@ -198,7 +194,7 @@ internal class APutOp(
         // Only `aput-object` type-checks; no store of a primitive into a primitive array throws.
         if (valueIsPrimitive && component.isPrimitive) return StoreCheck.PERMITTED
         if (valueIsPrimitive != component.isPrimitive) return StoreCheck.REFUSED_BY_SHAPE
-        return when (castOutcome(value, component, types, heapObjectTypeOf)) {
+        return when (castOutcome(value, component, hierarchy, heapObjectTypeOf)) {
             CastOutcome.ReadsAsNull -> StoreCheck.PERMITTED
             CastOutcome.Definitely, CastOutcome.NullOrInstance ->
                 if (componentIsExact) StoreCheck.PERMITTED else StoreCheck.UNANSWERABLE

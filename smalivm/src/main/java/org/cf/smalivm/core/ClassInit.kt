@@ -69,8 +69,8 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
 }
 
 /**
- * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside [RegisterFile]
- * and [Heap], implementing the [ClassState] contract.
+ * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside the frame's
+ * registers and [HeapStore], implementing the [ClassState] contract.
  *
  * Per path, never session-global: a class initialized on only some callee paths must stay uninitialized on
  * the others, or later accesses skip initialization on paths where it never ran. [copy] shares immutable
@@ -124,7 +124,7 @@ internal class ClassInitStore private constructor(
      * type for a cell that does not exist.
      *
      * [type] is redundant with [fieldDescriptor], which already names the declaring class -- kept because
-     * [ClassState.getStaticField]'s contract is the class-keyed mirror of [Heap.getField]'s ref-keyed one, and
+     * [ClassState.getStaticField]'s contract is the class-keyed mirror of [ExecutionState.getField]'s ref-keyed one, and
      * because a caller passing a type that disagrees with the descriptor has a resolution bug worth being able
      * to see in a signature.
      */
@@ -157,7 +157,7 @@ internal class ClassInitStore private constructor(
     }
 
     /** Writes each of [descriptors] joined over [arms] under the same value and owner rule as [merge]. */
-    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: Superclasses) {
+    internal fun reconcileStatics(descriptors: Iterable<String>, arms: List<ClassInitStore>, superclasses: TypeHierarchy) {
         for (descriptor in descriptors) {
             setStaticCell(descriptor, mergeStaticCells(arms.map { it.statics[descriptor] }, superclasses))
         }
@@ -246,7 +246,7 @@ internal class ClassInitStore private constructor(
 
     companion object {
         /** Joins one exact-lifecycle call partition. Callers must partition incompatible states first. */
-        fun merge(stores: List<ClassInitStore>, superclasses: Superclasses): ClassInitStore {
+        fun merge(stores: List<ClassInitStore>, superclasses: TypeHierarchy): ClassInitStore {
             require(stores.isNotEmpty())
             val first = stores.first()
             if (stores.all { it.states === first.states && it.statics === first.statics }) return first.copy()
@@ -267,7 +267,7 @@ internal class ClassInitStore private constructor(
             return ClassInitStore(mergedStates, mergedStatics)
         }
 
-        private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: Superclasses): StaticCell {
+        private fun mergeStaticCells(cells: List<StaticCell?>, superclasses: TypeHierarchy): StaticCell {
             val present = cells.filterNotNull()
             if (present.isEmpty()) return StaticCell(Value.Top, StaticCellProvenance.GUEST_WRITE)
             if (present.size != cells.size) {
@@ -497,7 +497,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
             }
             // A framework class's `<clinit>` never runs, and is not even resolved. `Ljava/lang/Object;` declares
             // none and is on every chain, so only a framework class that declares one counts as skipped.
-            if (resolver.isFrameworkClass(ancestor)) {
+            if (resolver.hierarchy.isFrameworkClass(ancestor)) {
                 settled.add(ancestor)
                 if (resolver.hasClassInitializer(ancestor)) skippedAnInitializer = true
                 seeds.putAll(prepare(ancestor, initializerRuns = false))
@@ -575,7 +575,7 @@ internal class ClassInitPlanner(private val resolver: ProgramSnapshotResolver) {
         var current: VirtualType? = type
         while (current != null && seen.add(current)) {
             chain.add(current)
-            current = resolver.superclassOf(current)
+            current = resolver.hierarchy.superclassOf(current)
         }
         return chain.asReversed()
     }

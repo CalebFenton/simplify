@@ -21,7 +21,7 @@ class MonitorEnterOpTest {
         assertTrue(graph.getOp(0) is MonitorEnterOp)
         assertTrue(graph.wasReached(1), "the feasible monitor operation must continue")
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0))
         assertEquals(setOf(REGISTER), graph.registersRead(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
     }
@@ -35,7 +35,7 @@ class MonitorEnterOpTest {
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph), "unknown can also be null")
         assertEquals(1, graph.outcomes.count { it is Outcome.Returned })
         assertEquals(1, graph.outcomes.count { it is Outcome.Threw })
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0))
     }
 
     /** The message is ART's `MONITOR_ENTER` text from `ThrowNullPointerExceptionFromDexPC` (`common_throws.cc`). */
@@ -46,7 +46,7 @@ class MonitorEnterOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "a definite null has no feasible continuation")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
         CoreTester.testThrows(
             CLASS_NAME, METHOD, CoreState().apply { setRegister(REGISTER, Value.Known(null, OBJECT)) },
             exceptionType = NPE,
@@ -61,7 +61,7 @@ class MonitorEnterOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "Known(5, I) reads as a definite null reference in this engine")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
     }
 
     @Test
@@ -71,7 +71,7 @@ class MonitorEnterOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFalse(graph.wasReached(1), "Known(0, I) has no sibling continuation")
         assertEquals(listOf(NPE), CoreTester.escapingTypes(graph))
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
     }
 

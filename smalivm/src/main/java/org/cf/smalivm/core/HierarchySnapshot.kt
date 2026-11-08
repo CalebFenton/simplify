@@ -14,24 +14,73 @@ internal data class ClassHierarchyDeclaration(
     val framework: Boolean,
 )
 
-/** Complete immutable hierarchy facts captured with a program snapshot. */
-class HierarchySnapshot internal constructor(
+/**
+ * A hierarchy question about a well-formed descriptor has no answer because the program does not contain a class
+ * the answer depends on. Obfuscated input names absent classes routinely, so this is a fact about the input that
+ * callers answer conservatively, and it carries no stack trace.
+ */
+class ClassLoadFailure internal constructor(message: String) : RuntimeException(message, null, false, false)
+
+/**
+ * Class-hierarchy questions whose answer depends on declared ancestry. Each throws [ClassLoadFailure] when the
+ * program does not contain a class the answer depends on, and never answers such a question with a guess.
+ * [ThrowableHierarchy] answers throwable routing as tri-state facts instead.
+ */
+interface TypeHierarchy {
+    /**
+     * True if [candidate] is [ancestor] or inherits from it through superclasses, interfaces, or array
+     * covariance. Primitives and `void` relate only to themselves.
+     */
+    fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean
+
+    /**
+     * Whether a value of type [candidate] passes `instance-of` [target]. A primitive or `void` target is never
+     * satisfied ([BC] `instance-of`); for `check-cast` that is a definite `ClassCastException`. Every reference
+     * is an instance of `Ljava/lang/Object;`, and every array of `Ljava/lang/Cloneable;` and
+     * `Ljava/io/Serializable;` (JLS 4.10.3), with no class lookup, so obfuscated input that omits those classes
+     * still answers. A primitive candidate reads as a null reference, which is an instance of nothing.
+     */
+    fun isInstanceOf(candidate: VirtualType, target: VirtualType): Boolean
+
+    /**
+     * The declared direct superclass of [type]: one link, so a walk over it is a total order. Null for
+     * `Ljava/lang/Object;`, primitives, and `void`; arrays answer `Ljava/lang/Object;` (JLS 4.10.3).
+     */
+    fun superclassOf(type: VirtualType): VirtualType?
+}
+
+/**
+ * Complete immutable hierarchy facts captured with a program snapshot, and the one implementation of every
+ * hierarchy query. Built only by [from], which removes circular classes, so every ancestor walk terminates.
+ */
+internal class HierarchySnapshot private constructor(
     internal val declarations: PersistentMap<String, ClassHierarchyDeclaration>,
-) : TypeHierarchy, Superclasses, InstanceOfTest {
+    /** Every class reachable from an application class's superclass and interfaces is in the program. */
+    internal val applicationAncestryComplete: Boolean,
+) : TypeHierarchy, ThrowableHierarchy {
     private val throwableFacts = HashMap<VirtualType, ThrowableTypeFacts>()
-    internal val throwableHierarchy: ThrowableHierarchy = ThrowableHierarchy(::throwableFactsFor)
+
+    /**
+     * Each instantiable application class under itself, `Ljava/lang/Object;`, and every ancestor its declarations
+     * reach, in descriptor order. Built once so unknown-receiver dispatch does not walk the program per invoke.
+     */
+    private val applicationSubtypeIndex: Map<String, List<VirtualType>> by lazy {
+        val index = HashMap<String, MutableList<VirtualType>>()
+        val applicationTypes = declarations.filterValues { !it.framework && isInstantiable(it.accessFlags) }.keys
+        for (descriptor in applicationTypes.sorted()) {
+            val type = VirtualType.of(descriptor)
+            val supertypes = declaredAncestors(descriptor) + descriptor + VirtualType.OBJECT.descriptor
+            supertypes.forEach { index.getOrPut(it, ::ArrayList) += type }
+        }
+        index
+    }
 
     fun contains(type: String): Boolean = declarations.containsKey(type)
 
     override fun isSubtypeOf(candidate: VirtualType, ancestor: VirtualType): Boolean {
         if (candidate == ancestor) return true
         if (!candidate.isReference || !ancestor.isReference) return false
-        if (!isLoadable(candidate) || !isLoadable(ancestor)) {
-            throw ClassLoadFailure(
-                "Program snapshot cannot answer whether ${candidate.descriptor} is a subtype of ${ancestor.descriptor}",
-                IllegalStateException("A type is absent from the program snapshot"),
-            )
-        }
+        if (!isLoadable(candidate) || !isLoadable(ancestor)) throw notASubtypeAnswer(candidate, ancestor)
         if (ancestor == VirtualType.OBJECT) return true
         if (candidate.isArray) return isArraySubtype(candidate, ancestor)
 
@@ -42,10 +91,7 @@ class HierarchySnapshot internal constructor(
             val descriptor = pending.removeFirst()
             if (!seen.add(descriptor)) continue
             if (descriptor == ancestor.descriptor) return true
-            val declaration = declarations[descriptor] ?: throw ClassLoadFailure(
-                "Program snapshot cannot answer whether ${candidate.descriptor} is a subtype of ${ancestor.descriptor}",
-                IllegalStateException("No declaration for $descriptor in the program snapshot"),
-            )
+            val declaration = declarations[descriptor] ?: throw notASubtypeAnswer(candidate, ancestor)
             declaration.superclass?.let(pending::addLast)
             declaration.interfaces.forEach(pending::addLast)
         }
@@ -65,19 +111,29 @@ class HierarchySnapshot internal constructor(
         if (!type.isReference) return null
         if (type.isArray) return VirtualType.OBJECT
         if (type == VirtualType.OBJECT) return null
-        val declaration = declarations[type.descriptor] ?: throw ClassLoadFailure(
-            "Program snapshot cannot answer what ${type.descriptor} extends",
-            IllegalStateException("No declaration for ${type.descriptor} in the program snapshot"),
-        )
+        val declaration = declarations[type.descriptor] ?: throw absent(type, "extends")
         return declaration.superclass?.let(VirtualType::of)
     }
 
+    /**
+     * The interfaces [type] declares, in declaration order. Primitives and arrays declare none. An absent class
+     * throws [ClassLoadFailure] like [superclassOf]: an empty answer would claim the class implements nothing, and
+     * a member walk that took it would report a definite miss for a member the absent interface may declare.
+     */
+    internal fun directInterfaces(type: VirtualType): List<VirtualType> {
+        if (!type.isReference || type.isArray) return emptyList()
+        val declaration = declarations[type.descriptor] ?: throw absent(type, "implements")
+        return declaration.interfaces.map(VirtualType::of)
+    }
+
+    /** Whether the program contains [type]'s base class. Primitives and arrays of them always load. */
     internal fun isLoadable(type: VirtualType): Boolean {
         var base = type
         while (base.isArray) base = requireNotNull(base.componentType)
         return !base.isReference || contains(base.descriptor)
     }
 
+    /** Whether [type] is a bundled framework class rather than an application class; absent classes are neither. */
     internal fun isFrameworkClass(type: VirtualType): Boolean = declarations[type.descriptor]?.framework == true
 
     internal fun isInterface(type: VirtualType): Boolean {
@@ -86,8 +142,31 @@ class HierarchySnapshot internal constructor(
         return java.lang.reflect.Modifier.isInterface(declaration.accessFlags)
     }
 
-    internal fun directInterfaces(type: VirtualType): List<VirtualType> =
-        declarations[type.descriptor]?.interfaces?.map(VirtualType::of).orEmpty()
+    internal fun isFinal(type: VirtualType): Boolean {
+        if (!type.isReference || type.isArray) return false
+        val declaration = declarations[type.descriptor] ?: return false
+        return java.lang.reflect.Modifier.isFinal(declaration.accessFlags)
+    }
+
+    /** Instantiable application classes whose declared ancestry reaches [type], [type] included, in descriptor order. */
+    internal fun instantiableApplicationSubtypes(type: VirtualType): List<VirtualType> =
+        applicationSubtypeIndex[type.descriptor].orEmpty()
+
+    /** Every class [descriptor]'s superclass and interface declarations reach, itself excluded; absent ones are skipped. */
+    internal fun declaredAncestors(descriptor: String): Set<String> {
+        val ancestors = LinkedHashSet<String>()
+        val pending = ArrayDeque<String>()
+        declarations[descriptor]?.let { pending.addParents(it) }
+        while (pending.isNotEmpty()) {
+            val current = pending.removeFirst()
+            if (!ancestors.add(current)) continue
+            declarations[current]?.let { pending.addParents(it) }
+        }
+        return ancestors
+    }
+
+    @Synchronized
+    override fun facts(type: VirtualType): ThrowableTypeFacts = throwableFacts[type] ?: buildThrowableFacts(type)
 
     private fun isArraySubtype(candidate: VirtualType, ancestor: VirtualType): Boolean {
         if (ancestor.descriptor in ARRAY_SUPERINTERFACES) return true
@@ -100,9 +179,17 @@ class HierarchySnapshot internal constructor(
         return isSubtypeOf(candidateComponent, ancestorComponent)
     }
 
-    @Synchronized
-    private fun throwableFactsFor(type: VirtualType): ThrowableTypeFacts =
-        throwableFacts[type] ?: buildThrowableFacts(type)
+    private fun absent(type: VirtualType, relation: String) =
+        ClassLoadFailure("The program cannot answer what ${type.descriptor} $relation")
+
+    private fun notASubtypeAnswer(candidate: VirtualType, ancestor: VirtualType) = ClassLoadFailure(
+        "The program cannot answer whether ${candidate.descriptor} is a subtype of ${ancestor.descriptor}",
+    )
+
+    private fun ArrayDeque<String>.addParents(declaration: ClassHierarchyDeclaration) {
+        declaration.superclass?.let(::addLast)
+        declaration.interfaces.forEach(::addLast)
+    }
 
     private fun buildThrowableFacts(root: VirtualType): ThrowableTypeFacts {
         val visiting = mutableSetOf<VirtualType>()
@@ -342,7 +429,27 @@ class HierarchySnapshot internal constructor(
                 require(previous == null) { "Application class ${definition.type} is defined twice" }
             }
             declarations.keys.removeAll(circularClasses(declarations))
-            return HierarchySnapshot(declarations.toPersistentMap())
+            return HierarchySnapshot(
+                declarations.toPersistentMap(),
+                ancestryIsComplete(applicationClasses.map(ApplicationClassDefinition::type), declarations),
+            )
+        }
+
+        private fun isInstantiable(accessFlags: Int): Boolean =
+            !java.lang.reflect.Modifier.isAbstract(accessFlags) && !java.lang.reflect.Modifier.isInterface(accessFlags)
+
+        /** Whether every class reachable from [roots] through declared superclasses and interfaces is declared. */
+        private fun ancestryIsComplete(roots: List<String>, declarations: Map<String, ClassHierarchyDeclaration>): Boolean {
+            val pending = ArrayDeque(roots)
+            val seen = HashSet<String>()
+            while (pending.isNotEmpty()) {
+                val descriptor = pending.removeLast()
+                if (!seen.add(descriptor)) continue
+                val declaration = declarations[descriptor] ?: return false
+                declaration.superclass?.let(pending::addLast)
+                pending.addAll(declaration.interfaces)
+            }
+            return true
         }
 
         /**

@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test
  * because a `Class` is immutable and `core/Value.kt`'s rule (only *mutable* VM-tracked objects must be
  * `HeapRef`s) does not force it onto the heap; Plan 11's reflection work inherits that decision. The host
  * `Class` is resolved at decode time by `OpBuilder.buildConstClass` through
- * `ClassIndex.loadClassConstant`, WITHOUT initializing it: ART's entire `CONST_CLASS` handler is a resolve, a
+ * `ProgramSnapshotResolver.loadClassConstant`, WITHOUT initializing it: ART's entire `CONST_CLASS` handler is a resolve, a
  * `nullptr` check and a `SetVRegReference` (`interpreter_switch_impl-inl.h:755-767`;
  * `docs/DALVIK-SEMANTICS.md#const-class-21c`), so a non-initializing load is the faithful
  * answer and the node's effect is genuinely `NONE`. ⚠️ **Not because ART passes `can_run_clinit = false`,
@@ -316,7 +316,7 @@ class ConstOpTest {
     fun aConstClassLoadReportsNoSideEffect() {
         val graph = CoreTester.execute(CLASS_NAME, "constClassLocal()V")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(ADDRESS_CONST_CLASS),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(ADDRESS_CONST_CLASS),
             "a class-constant load mutates nothing outside its own frame",
         )
         val trusted = graph.trusted()

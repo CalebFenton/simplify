@@ -40,20 +40,20 @@ class ClassForNameIntegrationTest {
 
         assertEquals("org.cf.smalivm.core.ClassForNameHostInitProbe", (returned.raw as Class<*>).name)
         assertFalse(ClassForNameHostInitSentinel.initialized)
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     @Test
     fun sourceInvalidDexBinaryNameLoadsAsAStableLocalClassToken() {
         val first = session("sourceInvalidLocalBinaryNameLoads()Ljava/lang/Class;").run()
         val second = session("sourceInvalidLocalBinaryNameLoads()Ljava/lang/Class;").run()
-        val expected = classIndex.loadClassConstant(OBFUSCATED_FIXTURE)
+        val expected = classIndex.currentResolver().loadClassConstant(OBFUSCATED_FIXTURE)
         val firstToken = ((first.outcomes.single() as Outcome.Returned).value as Value.Known).raw
         val secondToken = ((second.outcomes.single() as Outcome.Returned).value as Value.Known).raw
 
         assertSame(expected, firstToken)
         assertSame(firstToken, secondToken)
-        assertEquals(SideEffectLevel.NONE, first.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, first.explored.methodSideEffectLevel())
         assertNull(first.nodePile(invokeAddress(first.methodView)).last().hostFailure)
     }
 
@@ -69,7 +69,7 @@ class ClassForNameIntegrationTest {
         assertEquals(2, invokes.size, "Class.forName must retry at the same invoke address")
         assertTrue(initializerNodes.isNotEmpty(), "guest initialization must be scheduler-visible")
         assertEquals(1, staticInt(graph, "guestInitCount"), "the guest initializer must run once")
-        assertSame(classIndex.loadClassConstant(FIXTURE), returned.raw)
+        assertSame(classIndex.currentResolver().loadClassConstant(FIXTURE), returned.raw)
         assertEquals(classType, returned.type)
         assertTrue(
             graph.nodePile(session.methodView.nextAddress(invokeAddress)).single().opExecutionStarted,
@@ -84,7 +84,7 @@ class ClassForNameIntegrationTest {
         assertEquals(Value.Known(0x29, VirtualType.of("I")), (graph.outcomes.single() as Outcome.Returned).value)
         assertEquals(0x29, staticInt(graph, "sentinel"))
         assertEquals(1, staticInt(graph, "guestInitCount"))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -123,7 +123,7 @@ class ClassForNameIntegrationTest {
             val graph = forName(name)
             val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
             assertSame(expected, returned.raw, name)
-            assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(), name)
+            assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(), name)
         }
     }
 
@@ -180,7 +180,7 @@ class ClassForNameIntegrationTest {
 
     private fun staticInt(graph: ExecutionGraph, name: String): Int {
         val descriptor = ClassIndex.fieldDescriptorOf(fixtureType, name, "I")
-        return (graph.terminatingStaticFieldConsensusOverExploredPaths(fixtureType, descriptor) as Value.Known).raw as Int
+        return (graph.explored.terminatingStaticFieldConsensus(fixtureType, descriptor) as Value.Known).raw as Int
     }
 
     private fun graphNodes(root: ExecutionNode): List<ExecutionNode> = buildList {

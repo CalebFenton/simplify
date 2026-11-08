@@ -410,7 +410,7 @@ class MethodEditTransaction internal constructor(
         }
         for (descriptor in descriptors) {
             MethodEditValidator.validateCatchTypeDescriptor(descriptor)?.let { return it }
-            val facts = snapshot.hierarchy.throwableHierarchy.facts(VirtualType.of(descriptor))
+            val facts = snapshot.hierarchy.facts(VirtualType.of(descriptor))
             if (facts.kind == ThrowableTypeKind.INTERFACE || facts.throwableRelation == TypeRelation.NO) {
                 return CatchTypeNotThrowable(descriptor)
             }

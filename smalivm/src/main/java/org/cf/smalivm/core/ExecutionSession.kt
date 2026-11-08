@@ -166,7 +166,7 @@ class ExecutionSession internal constructor(
     private val decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
     private val invoker: Invoker,
 ) {
-    private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy
+    private val throwableHierarchy: ThrowableHierarchy = resolver.hierarchy
     private val frontierNodes = ArrayDeque<ExecutionNode>()
     private val pendingCallRoutings = ArrayDeque<PendingCallRouting>()
 
@@ -205,8 +205,8 @@ class ExecutionSession internal constructor(
     // sibling's unqueried `children` entry. This set is what keeps that safe: it is the ONLY
     // authority for "did this node's op actually run", because `outcome`/`children` alone cannot
     // distinguish a terminal-after-running node from a limit-aborted-before-running one (both can
-    // be non-null-outcome, childless). `ExecutionGraph` filters every FRAME-VALUE-bearing query
-    // (`wasReached`, `consensusOverExploredPaths`, `registerValuesOverExploredPaths`) through this
+    // be non-null-outcome, childless). `ExecutionGraph`/`ExploredPaths` filter every FRAME-VALUE-bearing query
+    // (`wasReached`, `explored.consensus`, `explored.registerValues`) through this
     // set; `nodePile` does not, by
     // design, so the raw pile stays visible, and liveness (`getOp`, `registersRead`,
     // `registersAssigned`) does not either -- decode is static and never touches a `Frame`, so no
@@ -588,7 +588,7 @@ class ExecutionSession internal constructor(
         require(cell?.provenance == StaticCellProvenance.SEEDED_DEFAULT && cell.value is Value.Unknown) {
             "Static projection requested for a cell that is not an unresolved prepared seed: $field ($cell)"
         }
-        if (!resolver.isFrameworkClass(transition.definingClass)) {
+        if (!resolver.hierarchy.isFrameworkClass(transition.definingClass)) {
             raiseSynchronousEffect(node, SideEffectLevel.STRONG)
             return@planContained staticProjectionContinuation(node, transition, Value.Unknown(transition.fieldType))
         }
@@ -658,7 +658,7 @@ class ExecutionSession internal constructor(
      * Plans the class-init an op asked for: initialize this class, then run the op again at its own address.
      *
      * Inside [planContained] because [ClassInitPlanner] walks the superclass chain, and
-     * [ClassIndex.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
+     * [TypeHierarchy.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
      * end the path and not the run.
      */
     private fun planInitClass(node: ExecutionNode, type: VirtualType): Committable =
@@ -1157,7 +1157,7 @@ class ExecutionSession internal constructor(
         if (call.target.name != "<init>") return null
         val ref = (call.receiver as? Value.Known)?.raw as? HeapRef ?: return null
         val runtimeType = node.frame.heapObject(ref)?.type ?: return null
-        if (!resolver.isSubtypeOf(runtimeType, call.target.definingClass)) return null
+        if (!resolver.hierarchy.isSubtypeOf(runtimeType, call.target.definingClass)) return null
         val enclosingConstructor = node.view.signature.substringAfter("->").startsWith("<init>(")
         // The outer guest constructor owns final completion. Marking after its base call would make a later
         // throw from the outer constructor look like successful initialization.
@@ -2580,7 +2580,7 @@ class ExecutionSession internal constructor(
      * "did it return" test beyond the guard below, which exists only so a future caller cannot break that.
      *
      * Without this the caller's invoke address read `NONE`, i.e. *"no side effects, safe to delete"*, through
-     * `ExecutionGraph.methodSideEffectLevelOverExploredPaths` -- an **ungated** query -- for a call this
+     * `ExploredPaths.methodSideEffectLevel` -- an **ungated** query -- for a call this
      * engine could not run to completion. It was also a regression against the pre-invocation baseline, where
      * `planFor`'s no-op `Invoke` branch put the abort on the invoke node itself and `sideEffectLevel`'s
      * `UNSUPPORTED_OP -> STRONG` rule answered `STRONG`. That rule cannot fire now, because the abort is on a
@@ -2599,4 +2599,5 @@ class ExecutionSession internal constructor(
     private fun addToPile(node: ExecutionNode) {
         node.activation.addressToNodes.getOrPut(node.address) { mutableListOf() }.add(node)
     }
+
 }

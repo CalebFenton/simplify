@@ -20,13 +20,6 @@ class ClassIndexTest {
     private fun t(descriptor: String) = VirtualType.of(descriptor)
 
     @Test
-    fun typeOfReturnsValidatedCoreType() {
-        assertEquals(t("Ljava/lang/String;"), classIndex.typeOf("Ljava/lang/String;"))
-        assertEquals(t("I"), classIndex.typeOf("I"))
-        assertEquals(t("[[I"), classIndex.typeOf("[[I"))
-    }
-
-    @Test
     fun subtypeIsReflexive() {
         val npe = t("Ljava/lang/NullPointerException;")
         assertTrue(classIndex.isSubtypeOf(npe, npe))
@@ -56,19 +49,15 @@ class ClassIndexTest {
 
     @Test
     fun anUnloadableClassReportsATypedLoadFailure() {
-        // Bug class: signalling "this class is not in the loaded set" with a bare RuntimeException,
-        // which is indistinguishable from a bug in the engine. A caller that wants to answer the first
-        // conservatively (ExecutionSession's handler search forks on it, Task 7) is then forced to
-        // swallow the second too, laundering a real bug into silent over-approximation on a run that
-        // still reports Complete. Oracle: spec §7 -- classes absent from the virtual registry produce
-        // a conservative answer, never a host crash. `Lspine/absent;` is a well-formed descriptor with no
-        // smali behind it, which is the normal case in a real obfuscated APK.
+        // Bug class: signalling "this class is not in the program" with a bare RuntimeException, which is
+        // indistinguishable from an engine bug, so a caller that answers the first conservatively must
+        // swallow the second too. `Lspine/absent;` is well-formed with no smali behind it, the normal case
+        // in an obfuscated APK.
         val absent = t("Lspine/absent;")
         val failure = assertThrows(ClassLoadFailure::class.java) {
             classIndex.isSubtypeOf(absent, t("Ljava/lang/RuntimeException;"))
         }
         assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
-        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
         // Either operand, in either position.
         assertThrows(ClassLoadFailure::class.java) {
             classIndex.isSubtypeOf(t("Ljava/lang/RuntimeException;"), absent)
@@ -97,10 +86,10 @@ class ClassIndexTest {
         // The premise NewArrayOp's NoClassDefFoundError rests on. Asserted rather than assumed: if the
         // class model answered a bare, non-throwing "absent" instead, `isLoadable` would silently answer
         // true and `new-array [Ldoes/not/exist;` would allocate instead of throwing.
-        assertFalse(CoreTester.classIndex.isLoadable(VirtualType.of("[Ldoes/not/exist;")))
-        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("[Lnew_array_test;")))
-        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("[[I")), "a primitive component is always loadable")
-        assertTrue(CoreTester.classIndex.isLoadable(VirtualType.of("I")), "and so is a bare primitive")
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[Ldoes/not/exist;")))
+        assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[Lnew_array_test;")))
+        assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("[[I")), "a primitive component is always loadable")
+        assertTrue(CoreTester.classIndex.currentSnapshot.hierarchy.isLoadable(VirtualType.of("I")), "and so is a bare primitive")
     }
 
     // ---- isInstanceOf (Plan 8 Task 7) ----------------------------------------------------------
@@ -268,16 +257,13 @@ class ClassIndexTest {
 
     @Test
     fun instanceOfReportsATypedLoadFailureWhenItGenuinelyHasToWalk() {
-        // `isInstanceOf` is NOT total, and Tasks 8 and 9 must treat this as AMBIGUITY rather than as
-        // `false`: `instance-of` answers `Unknown(Z)` and `check-cast` forks, because answering `false`
-        // for an unanswerable question folds a wrong constant and invents a definite
-        // `ClassCastException` respectively (spec §2.2). The Object short-circuit above is what keeps
-        // this off the common path; a non-Object target on an absent class has no cheap answer.
+        // `isInstanceOf` is not total: an unanswerable question is ambiguity, never `false`, because
+        // `false` would fold a wrong `instance-of` constant and invent a definite `ClassCastException`
+        // (spec §2.2). The Object short-circuit keeps this off the common path.
         val failure = assertThrows(ClassLoadFailure::class.java) {
             classIndex.isInstanceOf(t("Lspine/absent;"), t("Ljava/lang/String;"))
         }
         assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
-        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
         // An absent TARGET fails the same way, and in the same direction.
         assertThrows(ClassLoadFailure::class.java) {
             classIndex.isInstanceOf(t("Ljava/lang/String;"), t("Lspine/absent;"))
@@ -328,9 +314,18 @@ class ClassIndexTest {
             classIndex.superclassOf(t("Lspine/absent;"))
         }
         assertTrue(failure.message!!.contains("Lspine/absent;"), "the diagnostic must name the descriptor")
-        assertNotNull(failure.cause, "the class model's own failure is kept as the cause")
     }
 
+    @Test
+    fun directInterfacesOfAnAbsentClassIsALoadFailureNotAnEmptyList() {
+        // Bug class: answering "implements nothing" for a class the program lacks. A member walk that took the
+        // empty list would report a definite miss for a member the absent class may declare; `superclassOf`
+        // already refuses the same question, so both parent queries share its failure rule.
+        val hierarchy = classIndex.currentSnapshot.hierarchy
+        assertThrows(ClassLoadFailure::class.java) { hierarchy.directInterfaces(t("Lspine/absent;")) }
+        assertEquals(listOf(t("Lgrandparent_interface;")), hierarchy.directInterfaces(t("Lgrandparent_class;")))
+        assertEquals(emptyList<VirtualType>(), hierarchy.directInterfaces(t("[Lspine/absent;")))
+    }
 
     @Test
     fun superclassMethodWinsBeforeADeclaredInterfaceMethod(@TempDir temp: Path) {
@@ -376,7 +371,7 @@ class ClassIndexTest {
         for ((id, instruction) in DYNAMIC_SITE_VARIANTS) {
             val ownerPath = Files.createDirectory(temp.resolve(id))
             val index = dynamicIndex(ownerPath, instruction)
-            assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE), id)
+            assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE), id)
         }
     }
 
@@ -384,14 +379,14 @@ class ClassIndexTest {
     fun staticEvidenceScansUnreachableMethodsInEveryLoadedApplicationClass(@TempDir temp: Path) {
         val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
 
-        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
     }
 
     @Test
     fun incompleteWorldDegradesOneCandidateAndRetainsItsDiagnosticSet(@TempDir temp: Path) {
         val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
 
-        val lookup = index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
+        val lookup = index.currentResolver().resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
 
         assertTrue(lookup is InvocationLookup.Ambiguous)
         assertEquals(setOf("Ldynamic/OnlyImplementation;->value()I"), (lookup as InvocationLookup.Ambiguous).candidates)
@@ -417,19 +412,19 @@ class ClassIndexTest {
     fun finalClassesAndArraysStayCompleteWhenDynamicLoadEvidenceExists(@TempDir temp: Path) {
         val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
 
-        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_FINAL))
-        assertTrue(index.dispatchWorldIsComplete(VirtualType.of("[I")))
-        assertTrue(index.dispatchWorldIsComplete(VirtualType.of("[Ljava/lang/String;")))
+        assertTrue(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_FINAL))
+        assertTrue(index.currentResolver().dispatchWorldIsComplete(VirtualType.of("[I")))
+        assertTrue(index.currentResolver().dispatchWorldIsComplete(VirtualType.of("[Ljava/lang/String;")))
         assertTrue(
-            index.resolveInvocation(DYNAMIC_FINAL_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+            index.currentResolver().resolveInvocation(DYNAMIC_FINAL_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
                 InvocationLookup.Resolved,
         )
         assertTrue(
-            index.resolveInvocation(ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+            index.currentResolver().resolveInvocation(ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
                 InvocationLookup.Resolved,
         )
         assertTrue(
-            index.resolveInvocation(REFERENCE_ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
+            index.currentResolver().resolveInvocation(REFERENCE_ARRAY_CLONE_TARGET, InvokeKind.VIRTUAL, DYNAMIC_SITE, receiverType = null) is
                 InvocationLookup.Resolved,
         )
     }
@@ -437,25 +432,25 @@ class ClassIndexTest {
     @Test
     fun ownerBuiltWithSiteRemainsIncompleteAfterKnownClassForNameLoadsAcrossSessions(@TempDir temp: Path) {
         val index = dynamicIndex(temp, CLASS_FOR_NAME_SITE)
-        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
 
         val tokens = loadKnownIndexedClassAcrossTwoSessions(index)
 
         assertSame(tokens.first(), tokens.last())
-        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
-        assertTrue(index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_SITE, null) is InvocationLookup.Ambiguous)
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.currentResolver().resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_SITE, null) is InvocationLookup.Ambiguous)
     }
 
     @Test
     fun unrelatedFrameworkEvidenceDoesNotDegradeApplicationDispatchAcrossSessions(@TempDir temp: Path) {
         val index = dynamicIndex(temp, "return-void")
-        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
 
         val tokens = loadKnownIndexedClassAcrossTwoSessions(index)
-        val lookup = index.resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
+        val lookup = index.currentResolver().resolveInvocation(DYNAMIC_TARGET, InvokeKind.INTERFACE, DYNAMIC_CALLER, receiverType = null)
 
         assertSame(tokens.first(), tokens.last())
-        assertTrue(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertTrue(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
         assertTrue(lookup is InvocationLookup.Resolved)
         assertEquals(setOf("Ldynamic/OnlyImplementation;->value()I"), (lookup as InvocationLookup.Resolved).candidates)
     }
@@ -464,7 +459,7 @@ class ClassIndexTest {
     fun missingApplicationSuperclassMakesNonFinalDispatchIncomplete(@TempDir temp: Path) {
         val index = dynamicIndex(temp, "return-void", MISSING_SUPERCLASS)
 
-        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
         assertTrue(
             index.lookupMethod(VirtualType.of("Ldynamic/MissingParentChild;"), "missing()V") is
                 MethodLookup.NoSuchClass,
@@ -475,7 +470,7 @@ class ClassIndexTest {
     fun missingApplicationInterfaceMakesNonFinalDispatchIncomplete(@TempDir temp: Path) {
         val index = dynamicIndex(temp, "return-void", MISSING_INTERFACE)
 
-        assertFalse(index.dispatchWorldIsComplete(DYNAMIC_INTERFACE))
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(DYNAMIC_INTERFACE))
         assertTrue(
             index.lookupMethod(VirtualType.of("Ldynamic/MissingInterfaceImplementor;"), "missing()V") is
                 MethodLookup.NoSuchClass,
@@ -487,12 +482,12 @@ class ClassIndexTest {
     fun classesOnAnInheritanceCycleAreNotLoadable(@TempDir temp: Path) {
         val index = indexOf(temp, CYCLE_A, CYCLE_B, CYCLE_CHILD, CYCLE_CALLER, INTERFACE_CYCLE_I, INTERFACE_CYCLE_J)
 
-        assertFalse(index.isLoadable(t("Lcycle/A;")))
-        assertFalse(index.isLoadable(t("Lcycle/B;")))
-        assertFalse(index.isLoadable(t("Lcycle/I;")))
-        assertFalse(index.isLoadable(t("Lcycle/J;")))
-        assertTrue(index.isLoadable(t("Lcycle/Caller;")))
-        assertFalse(index.dispatchWorldIsComplete(t("Lcycle/Caller;")))
+        assertFalse(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/A;")))
+        assertFalse(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/B;")))
+        assertFalse(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/I;")))
+        assertFalse(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/J;")))
+        assertTrue(index.currentSnapshot.hierarchy.isLoadable(t("Lcycle/Caller;")))
+        assertFalse(index.currentResolver().dispatchWorldIsComplete(t("Lcycle/Caller;")))
 
         val graph = run(index, "Lcycle/Caller;", "call()V")
         val escaping = CoreTester.escapingTypes(graph).single()
@@ -507,7 +502,7 @@ class ClassIndexTest {
         val index = indexOf(temp, CYCLE_A, CYCLE_B, CYCLE_CHILD)
 
         assertTimeoutPreemptively(Duration.ofSeconds(10)) {
-            assertThrows(ClassLoadFailure::class.java) { index.hostInitializationChain(t("Lcycle/Child;")) }
+            assertThrows(ClassLoadFailure::class.java) { index.currentResolver().hostInitializationChain(t("Lcycle/Child;")) }
         }
     }
 
@@ -571,7 +566,7 @@ class ClassIndexTest {
         val index = indexOf(temp, TO_STRING_OVERRIDE)
         val target = MethodDescriptor(VirtualType.OBJECT, "toString", "()Ljava/lang/String;")
 
-        val lookup = index.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Override;"), receiverType = null)
+        val lookup = index.currentResolver().resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Override;"), receiverType = null)
 
         assertTrue(lookup is InvocationLookup.Ambiguous, "a String receiver does not run the app override")
         val view = index.requireMethodView("Lfw/Override;", "call(Ljava/lang/Object;)Ljava/lang/String;")
@@ -582,7 +577,7 @@ class ClassIndexTest {
         assertNotEquals(Value.Known("override", t("Ljava/lang/String;")), returned.value)
 
         val control = indexOf(Files.createDirectory(temp.resolve("control")), TO_STRING_INHERITED)
-        val inherited = control.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Plain;"), receiverType = null)
+        val inherited = control.currentResolver().resolveInvocation(target, InvokeKind.VIRTUAL, t("Lfw/Plain;"), receiverType = null)
         assertTrue(inherited is InvocationLookup.Resolved, "no app class changes Object.toString's dispatch")
     }
 
@@ -591,7 +586,7 @@ class ClassIndexTest {
         val index = indexOf(temp, NATIVE_BASE, NATIVE_SUB)
         val target = MethodDescriptor(t("Lnb/Base;"), "f", "()I")
 
-        val lookup = index.resolveInvocation(target, InvokeKind.VIRTUAL, t("Lnb/Base;"), receiverType = null)
+        val lookup = index.currentResolver().resolveInvocation(target, InvokeKind.VIRTUAL, t("Lnb/Base;"), receiverType = null)
 
         assertTrue(lookup is InvocationLookup.Ambiguous, "a Base receiver runs the native Base.f, not Sub.f")
         assertEquals(setOf("Lnb/Base;->f()I", "Lnb/Sub;->f()I"), (lookup as InvocationLookup.Ambiguous).candidates)
@@ -600,9 +595,9 @@ class ClassIndexTest {
     /** `Class.forName` semantics: `java.util.Map.Entry` is not the binary name of `Map$Entry`. */
     @Test
     fun classConstantsAreLoadedByExactBinaryName() {
-        assertNull(classIndex.loadClassConstant("Ljava/util/Map/Entry;"))
-        assertSame(java.util.Map.Entry::class.java, classIndex.loadClassConstant("Ljava/util/Map\$Entry;"))
-        assertSame(Integer.TYPE, classIndex.loadClassConstant("I"))
+        assertNull(classIndex.currentResolver().loadClassConstant("Ljava/util/Map/Entry;"))
+        assertSame(java.util.Map.Entry::class.java, classIndex.currentResolver().loadClassConstant("Ljava/util/Map\$Entry;"))
+        assertSame(Integer.TYPE, classIndex.currentResolver().loadClassConstant("I"))
     }
 
     private fun indexOf(directory: Path, vararg sources: String): ClassIndex {
@@ -627,7 +622,7 @@ class ClassIndexTest {
         return List(2) {
             val frame = owner.newSession(view).frontier.single().frame
             frame.completeClassInit(loadedType)
-            val result = ClassForNameEmulator(index).execute(
+            val result = ClassForNameEmulator(index.currentResolver()).execute(
                 EmulatorInvocation(
                     target,
                     DYNAMIC_CALLER,

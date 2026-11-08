@@ -70,7 +70,7 @@ class FrameTest {
             value,
             ThrowableDomain.constrainedTo(
                 VirtualType.of("Ljava/lang/Exception;"),
-                classIndex.throwableHierarchy,
+                classIndex.currentSnapshot.hierarchy,
             ),
         )
 
@@ -122,10 +122,7 @@ class FrameTest {
     @Test
     fun registersAssignedTracksOnlyWrites() {
         // Bug class: registersAssigned() reporting a register that was only read, or omitting
-        // one assign() actually wrote -- either would mislead a consumer (e.g. Plan 14's
-        // dead-code strategy) about which registers this frame's op actually produced. Oracle:
-        // RegisterFile's contract (StateContracts.kt) -- registersAssigned is exactly the write
-        // set.
+        // one assign() actually wrote. Oracle: registersAssigned is exactly the write set.
         val f = frame()
         assertEquals(emptySet<Int>(), f.registersAssigned())
         f.assign(2, Value.Known(1, int))

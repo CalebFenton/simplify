@@ -8,6 +8,7 @@ import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
@@ -36,7 +37,7 @@ class IFieldClassInitTest {
         )
 
         val receiver = trusted.terminatingConsensus(0) as Value.Known
-        val objectState = trusted.terminatingHeapObject(receiver.raw as HeapRef) as HeapObject.TrackedObject
+        val objectState = trusted.terminatingHeapObject(receiver.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertEquals(Value.Known(7, type("I")), objectState.field("$TARGET->number:I"))
         assertEquals(Value.Known(null, type("Ljava/lang/String;")), objectState.field("$TARGET->text:Ljava/lang/String;"))
     }

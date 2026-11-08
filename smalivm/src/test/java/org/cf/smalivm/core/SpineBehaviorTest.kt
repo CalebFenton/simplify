@@ -74,7 +74,7 @@ class SpineBehaviorTest {
         val returned = graph.trusted()!!.terminatingConsensus(0) as Value.Known
         val ref = returned.raw as HeapRef
         assertEquals(thrown.type, returned.type)
-        val heapObject = graph.trusted()!!.terminatingHeapObject(ref)
+        val heapObject = graph.trusted()!!.terminatingHeapObject(ref).agreed()
         assertTrue(heapObject is HeapObject.GuestThrowable)
         assertTrue((heapObject as HeapObject.GuestThrowable).contents is HostGraphContents.Known)
         val host = CoreTester.terminatingHostObject(graph, ref)
@@ -97,7 +97,7 @@ class SpineBehaviorTest {
         // exploration as a dead-code proof. unsupportedWideFilledArray() aborts at its malformed [J operand,
         // return is never reached; the narrower set below is what such a test would wrongly assert.
         // Oracle: spec §9's completion-gated trust, applied to the query a dead-code strategy reads
-        // first (ExecutionGraphView.wasReached's own contract).
+        // first (ExecutionGraph.wasReached's own contract).
         val reachedBeforeTheAbort = intArrayOf(0, 1) // const/4, filled-new-array; return at 4 is not
         val failure = assertThrows(AssertionError::class.java) {
             CoreTester.assertVisited(spine, "unsupportedWideFilledArray()I", reachedBeforeTheAbort)
@@ -119,6 +119,6 @@ class SpineBehaviorTest {
         val graph = CoreTester.execute(spine, "unsupportedWideFilledArray()I")
         assertFalse(graph.completion().canTrustConsensus)
         assertNull(graph.trusted(), "a partial exploration hands out no view whose answers look actionable")
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 }

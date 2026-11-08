@@ -12,6 +12,7 @@ import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.cf.smalivm.core.agreesWith
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -82,7 +83,7 @@ class NewInstanceOpTest {
         val consensus = trusted!!.terminatingConsensus(register)
         assertTrue(consensus is Value.Known && consensus.raw is HeapRef, "must be a tracked object: $consensus")
         assertEquals(type, consensus.type, "the register tag is the instruction's type operand")
-        val obj = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        val obj = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(obj is HeapObject.TrackedObject, "no tracked object behind the ref; got $obj")
         assertEquals(type, (obj as HeapObject.TrackedObject).type)
         assertTrue(
@@ -104,7 +105,7 @@ class NewInstanceOpTest {
     fun aFreshAllocationOfAClassWithNoInitializerDeclaresNoSideEffect() {
         val graph = CoreTester.execute(CLASS_NAME, "newLocalInstance()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel())
     }
 
     /**
@@ -123,7 +124,7 @@ class NewInstanceOpTest {
             "but the class IS marked initialized, so a second trigger has nothing to do",
         )
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "an initializer that exists and did not run is unmodelled state, so the trigger is STRONG",
         )
     }
@@ -211,7 +212,7 @@ class NewInstanceOpTest {
         val secondRef = (second as Value.Known).raw as HeapRef
         assertNotEquals(firstRef, secondRef, "two allocations of one type must be two heap identities")
         assertNotSame(
-            trusted.terminatingHeapObject(firstRef), trusted.terminatingHeapObject(secondRef),
+            trusted.terminatingHeapObject(firstRef).agreed(), trusted.terminatingHeapObject(secondRef).agreed(),
             "and two objects -- a mark on one must be invisible to the other",
         )
         assertFalse(
@@ -221,7 +222,7 @@ class NewInstanceOpTest {
         )
         // Both are the same kind of thing to every OTHER query: same type, both uninitialized.
         for (ref in listOf(firstRef, secondRef)) {
-            val obj = trusted.terminatingHeapObject(ref)
+            val obj = trusted.terminatingHeapObject(ref).agreed()
             assertTrue(obj is HeapObject.TrackedObject && obj.type == type && obj.uninitialized)
         }
     }

@@ -18,7 +18,7 @@ class Invoker internal constructor(
     internal constructor(resolver: ProgramSnapshotResolver, services: InvocationServices) : this(
         resolver,
         listOf(
-            EmulateBackend(services.sessionEmulators(resolver.classIndex)),
+            EmulateBackend(services.sessionEmulators(resolver)),
             ApplicationBytecodeBackend(resolver),
             ReflectBackend(services.reflectionPolicy, resolver),
             FrameworkBytecodeBackend(resolver),

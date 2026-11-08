@@ -71,7 +71,7 @@ class SideEffectsTest {
             assertEquals(CompletionStatus.Partial(setOf(abortReason)), graph.completion(), method)
             assertNull(graph.trusted(), method)
         }
-        assertEquals(expected, graph.methodSideEffectLevelOverExploredPaths(), method)
+        assertEquals(expected, graph.explored.methodSideEffectLevel(), method)
     }
 
     private companion object {

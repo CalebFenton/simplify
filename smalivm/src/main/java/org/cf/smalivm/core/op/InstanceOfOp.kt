@@ -2,7 +2,7 @@ package org.cf.smalivm.core.op
 
 import org.cf.smalivm.core.CastOutcome
 import org.cf.smalivm.core.Frame
-import org.cf.smalivm.core.InstanceOfTest
+import org.cf.smalivm.core.TypeHierarchy
 import org.cf.smalivm.core.Op
 import org.cf.smalivm.core.OpArm
 import org.cf.smalivm.core.OpExecution
@@ -23,7 +23,7 @@ internal class InstanceOfOp(
     private val destRegister: Int,
     private val sourceRegister: Int,
     private val targetType: TypeOperand<Unit>,
-    private val types: InstanceOfTest,
+    private val hierarchy: TypeHierarchy,
 ) : Op(address) {
 
     override val registersRead: Set<Int> = setOf(sourceRegister)
@@ -32,7 +32,7 @@ internal class InstanceOfOp(
     override fun execute(frame: Frame): OpExecution {
         if (targetType is TypeOperand.Absent) return resolutionFailure(targetType.type)
         val source = frame.read(sourceRegister)
-        val result = when (castOutcome(source, targetType.type, types) { frame.heapObject(it)?.type }) {
+        val result = when (castOutcome(source, targetType.type, hierarchy) { frame.heapObject(it)?.type }) {
             // Null is an instance of nothing.
             CastOutcome.ReadsAsNull, CastOutcome.Never -> Value.Known(false, BOOL)
             CastOutcome.Definitely -> Value.Known(true, BOOL)

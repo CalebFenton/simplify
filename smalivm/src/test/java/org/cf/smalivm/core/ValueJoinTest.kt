@@ -22,7 +22,7 @@ class ValueJoinTest {
      * pass it explicitly -- which is the point: a default would let a production call site lose precision
      * engine-wide with nothing failing.
      */
-    private val hierarchy: Superclasses = CoreTester.classIndex
+    private val hierarchy: TypeHierarchy = CoreTester.classIndex
 
     @Test
     fun agreeingKnownsJoinToTheKnown() {
@@ -124,7 +124,7 @@ class ValueJoinTest {
     fun theFoldOverThreeOrMoreTypesIsInsensitiveToTheirORDERWithTheHierarchYEngaged() {
         // THE PROPERTY CRITICAL B IS ACTUALLY ABOUT, and the one a 2-ary commutativity test cannot state.
         // `joinAll` is a LEFT FOLD (`ValueJoin.kt`) over a node pile whose order is a scheduling artefact
-        // (`ExecutionGraph.consensusOverExploredPaths` maps over `executedPile`), so a register's consensus
+        // (`ExploredPaths.consensus` maps over `executedPile`), so a register's consensus
         // must not depend on which arm the scheduler happened to run first. Every existing associativity
         // test lands on `Value.Top` and therefore never reaches the hierarchy at all -- so with a
         // hierarchy-aware join this was the one place the determinism story had no witness.

@@ -124,7 +124,7 @@ class CallStackTest {
         val graph = session.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.CALL_DEPTH)), graph.completion())
         assertNull(graph.trusted())
-        assertEquals(Value.Unknown(int), graph.terminatingConsensusOverExploredPaths(0))
+        assertEquals(Value.Unknown(int), graph.explored.terminatingConsensus(0))
     }
 
     @Test

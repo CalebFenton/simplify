@@ -143,7 +143,7 @@ class ClassInitFailureBehaviorTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, INT))), graph.outcomes)
-        assertEquals(SideEffectLevel.WEAK, graph.addresses().maxOf(graph::sideEffectLevel))
+        assertEquals(SideEffectLevel.WEAK, graph.addresses().maxOf(graph.explored::sideEffectLevel))
     }
 
     @Test
@@ -204,7 +204,7 @@ class ClassInitFailureBehaviorTest {
             ),
         )
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = vm.newSession(view("hostOnlyError()I")).run()
         val clauses = graph.methodView.tryBlocks.flatMap(TryBlock::catches)
         val wrapperHandler = clauses.single {
@@ -234,7 +234,7 @@ class ClassInitFailureBehaviorTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.UNSUPPORTED_OP)), graph.completion())
         assertEquals(emptyList<Outcome.Threw>(), graph.outcomes.filterIsInstance<Outcome.Threw>())
         assertEquals(emptyList<Outcome.Returned>(), graph.outcomes.filterIsInstance<Outcome.Returned>())
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test

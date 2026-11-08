@@ -27,7 +27,7 @@ class FrameworkStaticTest {
         val graph = run("encodedLiteral()I", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -59,7 +59,7 @@ class FrameworkStaticTest {
         val graph = run("unsafeSystemField()Ljava/io/PrintStream;", VmServices(classIndex, policy))
 
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -88,7 +88,7 @@ class FrameworkStaticTest {
         val graph = run("immutableReference()Ljava/lang/Boolean;", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(Value.Unknown(BOOLEAN), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -102,7 +102,7 @@ class FrameworkStaticTest {
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test

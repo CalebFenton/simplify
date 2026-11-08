@@ -7,6 +7,7 @@ import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
@@ -143,11 +144,11 @@ class NewCoreDifferentialTest {
         val graph = CoreTester.execute("Ldifferential/invocation;", "callAbortedArrayCallee()[I")
         assertEquals(CompletionStatus.Partial(setOf(org.cf.smalivm.core.AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        val argument = graph.terminatingConsensusOverExploredPaths(1) as Value.Known
+        val argument = graph.explored.terminatingConsensus(1) as Value.Known
         assertTrue(argument.raw is HeapRef, "opaque fallback retains the argument reference")
-        val array = graph.terminatingHeapObjectOverExploredPaths(argument.raw as HeapRef) as org.cf.smalivm.core.HeapObject.TrackedArray
+        val array = graph.explored.terminatingHeapObject(argument.raw as HeapRef).agreed() as org.cf.smalivm.core.HeapObject.TrackedArray
         assertEquals(Value.Unknown(VirtualType.of("I")), array.element(0))
-        assertEquals(Value.Unknown(VirtualType.of("[I")), graph.terminatingConsensusOverExploredPaths(3))
+        assertEquals(Value.Unknown(VirtualType.of("[I")), graph.explored.terminatingConsensus(3))
     }
 
     @Test
@@ -183,7 +184,7 @@ class NewCoreDifferentialTest {
             val reached = graph.addresses().filter(graph::wasReached).toSet()
             assertEquals(setOf(0), reached, "${row.id}: only the invoke executes")
             assertFalse(graph.wasReached(3), "${row.id}: the infeasible return continuation stays dead")
-            assertEquals(Value.Top, graph.terminatingConsensusOverExploredPaths(0), "${row.id}: no return state")
+            assertEquals(Value.Top, graph.explored.terminatingConsensus(0), "${row.id}: no return state")
 
             val fixture = Fixtures.invocationCases.single { it.id == row.id }
             val projected = NEW_CORE.run(fixture)
@@ -206,9 +207,9 @@ class NewCoreDifferentialTest {
         )
         assertEquals(CompletionStatus.Partial(setOf(org.cf.smalivm.core.AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        val held = graph.terminatingConsensusOverExploredPaths(0) as Value.Known
+        val held = graph.explored.terminatingConsensus(0) as Value.Known
         assertTrue(held.raw is HeapRef, "the caller must retain its exact reference: $held")
-        val obj = graph.terminatingHeapObjectOverExploredPaths(held.raw as HeapRef) as org.cf.smalivm.core.HeapObject.TrackedObject
+        val obj = graph.explored.terminatingHeapObject(held.raw as HeapRef).agreed() as org.cf.smalivm.core.HeapObject.TrackedObject
         assertEquals(
             Value.Unknown(VirtualType.of("I")),
             obj.field("Ldifferential/invocation_target;->value:I"),
@@ -225,7 +226,7 @@ class NewCoreDifferentialTest {
         )
         assertTrue(graph.completion() is CompletionStatus.Partial)
         assertNull(graph.trusted(), "a truncated core run cannot expose trusted output")
-        assertEquals(Value.Known(11, VirtualType.of("I")), graph.terminatingConsensusOverExploredPaths(0))
+        assertEquals(Value.Known(11, VirtualType.of("I")), graph.explored.terminatingConsensus(0))
         assertEquals(setOf(0, 3, 4, 6, 7), graph.addresses().toSet())
 
         val fixture = Fixtures.invocationCases.single { it.id == "invoke-entrypoint-truncation" }

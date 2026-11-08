@@ -51,7 +51,7 @@ class CallRoutingReliabilityTest {
     ) {
         assertEquals(CompletionStatus.Partial(setOf(reason)), graph.completion())
         assertEquals(listOf(Outcome.Aborted(reason)), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         // Routing never ran: no caller resume node exists, and every reached node executed its op.
         assertTrue(session.isFinished)
         val nodes = allNodes(graph.nodePile(0).single())
@@ -72,7 +72,7 @@ class CallRoutingReliabilityTest {
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Returned })
         assertEquals(1, calleeTerminals.count { it.outcome is Outcome.Threw })
         assertEquals(1, calleeTerminals.count { it.outcome == Outcome.Aborted(reason) })
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         assertTrue(session.isFinished)
     }
 

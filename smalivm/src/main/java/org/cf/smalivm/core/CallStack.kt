@@ -42,7 +42,7 @@ class Activation internal constructor(
      * becomes [ClassInitState.FAILED]. Nothing else can answer "which class did the initializer that just
      * finished belong to": the returning node's own `view` names the `<clinit>`'s DECLARING class, which is
      * the same thing today but would silently be the wrong thing the moment a `<clinit>` were resolved through
-     * anything but a declared-only lookup ([ClassIndex.lookupClassInitializer] exists because the oracle's
+     * anything but a declared-only lookup ([ProgramSnapshotResolver.lookupClassInitializer] exists because the oracle's
      * ancestor-searching lookup does exactly that).
      *
      * It is **not** state a path carries: it is a property of the call, exactly like [view], and it is
@@ -82,7 +82,7 @@ class Activation internal constructor(
      * Every node this activation ever dequeued, by address -- `CARRY-FORWARD.md` Plan 9 item 2. The
      * caller's address 0 and the callee's address 0 are different program points, and one pile per bare
      * address merges them: a callee's own `Outcome.Returned` node piled at a colliding address would vote
-     * in the CALLER's `ExecutionGraph.terminatingConsensusOverExploredPaths`, inventing agreement about a
+     * in the CALLER's `ExploredPaths.terminatingConsensus`, inventing agreement about a
      * value the caller's method never returned.
      *
      * Unfiltered, exactly as [ExecutionGraph.nodePile] is: it holds nodes the scheduler stopped before
@@ -97,7 +97,7 @@ class Activation internal constructor(
      *
      * **This exists because filtering a graph's piles to one activation opens a hole in the other
      * direction.** `ExecutionGraph` describes ONE activation, so a callee's `STRONG` declaration is
-     * invisible to `sideEffectLevel`/`methodSideEffectLevelOverExploredPaths` for the caller's addresses
+     * invisible to `sideEffectLevel`/`methodSideEffectLevel` for the caller's addresses
      * -- and a caller whose callee perturbed state the engine does not model would report `NONE`, i.e.
      * "safe to delete", which is the answer-where-you-should-refuse direction spec §4.5's err-upward rule
      * exists to prevent. `ExecutionSession` reads this when the caller resumes and raises the INVOKE
@@ -123,7 +123,7 @@ class Activation internal constructor(
      * an `OpArm.Abort`) transfers nothing, and because the abort is recorded on a **callee** node that
      * `ExecutionGraph` never sees, `sideEffectLevel`'s `UNSUPPORTED_OP -> STRONG` rule cannot fire either.
      * The caller's invoke address then read `NONE` -- *"no side effects, safe to delete"* -- through
-     * `methodSideEffectLevelOverExploredPaths`, which is **ungated**, for a call this engine could not run
+     * `ExploredPaths.methodSideEffectLevel`, which is **ungated**, for a call this engine could not run
      * to completion. Measured as a regression against the pre-invocation baseline, where the invoke node
      * itself carried the abort and so answered `STRONG`.
      *

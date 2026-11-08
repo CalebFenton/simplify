@@ -247,7 +247,7 @@ class BackendCorpusMigrationTest {
         val vm = VmServices(classIndex)
         val frame = Frame.entryFrame(view)
         val runtimeType = VirtualType.of("Lhash_code;")
-        val receiver = frame.allocateObject(runtimeType, classIndex.instanceFieldDefaults(runtimeType)!!)
+        val receiver = frame.allocateObject(runtimeType, classIndex.currentResolver().instanceFieldDefaults(runtimeType)!!)
         frame.assign(1, Value.Known(receiver.raw, OBJECT))
         val run = execute(view, vm, frame)
         val returned = (run.graph.returnedValue() as Value.Known).raw as Class<*>
@@ -281,7 +281,7 @@ class BackendCorpusMigrationTest {
         val run = execute(view, vm, frame)
 
         assertEquals(Value.Known("seed-value", STRING), run.graph.returnedValue())
-        assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test

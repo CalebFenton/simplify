@@ -100,14 +100,13 @@ private class Decoding(
     val resolver: ProgramSnapshotResolver,
 ) {
     val name: String get() = instruction.opcode.name
-    val classIndex: ClassIndex get() = resolver.classIndex
     val unsupported: UnsupportedOp get() = UnsupportedOp(address, name)
 
     val registerA: Int get() = (instruction as OneRegisterInstruction).registerA
     val registerB: Int get() = (instruction as TwoRegisterInstruction).registerB
     val registerC: Int get() = (instruction as ThreeRegisterInstruction).registerC
     val reference: Reference get() = (instruction as ReferenceInstruction).reference
-    val typeReference: VirtualType get() = classIndex.typeOf((reference as TypeReference).type)
+    val typeReference: VirtualType get() = VirtualType.of((reference as TypeReference).type)
 
     /** dexlib resolves the label, so the target is a real code address and never a raw offset. */
     val target: Int
@@ -117,16 +116,13 @@ private class Decoding(
             else -> error("${instruction.opcode.name} is not an offset instruction")
         }
 
-    /**
-     * The register list of a `35c` or `3rc` instruction, or null when a `35c` declares more registers than
-     * its five fields, which `copyOf` would pad with reads of `v0` the instruction never names.
-     */
+    /** The register list of a `35c` or `3rc` instruction. */
     val registerList: IntArray?
         get() {
             val count = (instruction as VariableRegisterInstruction).registerCount
             return when (instruction) {
                 is RegisterRangeInstruction -> IntArray(count) { instruction.startRegister + it }
-                is FiveRegisterInstruction -> if (count > 5) null else intArrayOf(
+                is FiveRegisterInstruction -> intArrayOf(
                     instruction.registerC, instruction.registerD, instruction.registerE,
                     instruction.registerF, instruction.registerG,
                 ).copyOf(count)
@@ -136,7 +132,7 @@ private class Decoding(
 
     /** A type operand, present when the class is in the loaded set. */
     fun typeOperand(type: VirtualType): TypeOperand<Unit> =
-        if (classIndex.isLoadable(type)) TypeOperand.Present(type, Unit) else TypeOperand.Absent(type)
+        if (resolver.hierarchy.isLoadable(type)) TypeOperand.Present(type, Unit) else TypeOperand.Absent(type)
 }
 
 /**
@@ -144,8 +140,8 @@ private class Decoding(
  * register numbers, literals, target addresses and core types and never touch dexlib2 or the class model.
  *
  * Each opcode maps to one decoder row that carries the opcode's operator, domain, comparison or store kind
- * as a typed value. A malformed instruction (a payload target that is not a payload, a register list longer
- * than its format) decodes to an [UnsupportedOp] rather than throwing, because a decode throwable becomes
+ * as a typed value. A malformed instruction (a payload target that is not a payload) decodes to an
+ * [UnsupportedOp] rather than throwing, because a decode throwable becomes
  * `Aborted(HOST_FAILURE)`, indistinguishable from an engine bug.
  */
 internal object OpBuilder {
@@ -270,8 +266,7 @@ internal object OpBuilder {
             InstanceOfOp(d.address, d.name, d.registerA, d.registerB, d.typeOperand(d.typeReference), d.resolver.hierarchy)
         }
         Opcode.CHECK_CAST -> { d ->
-            val hierarchy = d.resolver.hierarchy
-            CheckCastOp(d.address, d.name, d.registerA, d.typeOperand(d.typeReference), hierarchy, hierarchy.throwableHierarchy)
+            CheckCastOp(d.address, d.name, d.registerA, d.typeOperand(d.typeReference), d.resolver.hierarchy)
         }
         Opcode.SGET, Opcode.SGET_WIDE, Opcode.SGET_OBJECT, Opcode.SGET_BOOLEAN, Opcode.SGET_BYTE, Opcode.SGET_CHAR,
         Opcode.SGET_SHORT -> { d -> SGetOp(d.address, d.name, d.registerA, staticField(d)) }
@@ -352,11 +347,11 @@ internal object OpBuilder {
      */
     private fun constClass(d: Decoding): Op {
         val descriptor = (d.reference as TypeReference).type
-        val hostClass = d.classIndex.loadClassConstant(descriptor)
-        val type = d.classIndex.typeOf(descriptor)
+        val hostClass = d.resolver.loadClassConstant(descriptor)
+        val type = VirtualType.of(descriptor)
         return when {
             hostClass != null -> ConstClassOp(d.address, d.registerA, TypeOperand.Present(type, hostClass))
-            !d.classIndex.isLoadable(type) -> ConstClassOp(d.address, d.registerA, TypeOperand.Absent(type))
+            !d.resolver.hierarchy.isLoadable(type) -> ConstClassOp(d.address, d.registerA, TypeOperand.Absent(type))
             else -> d.unsupported
         }
     }
@@ -392,7 +387,7 @@ internal object OpBuilder {
 
     private fun newInstance(d: Decoding): Op {
         val type = d.typeReference
-        val fields = d.classIndex.instanceFieldDefaults(type)
+        val fields = d.resolver.instanceFieldDefaults(type)
         val instance = if (fields != null) TypeOperand.Present(type, fields) else TypeOperand.Absent(type)
         return NewInstanceOp(d.address, d.name, d.registerA, instance)
     }
@@ -402,8 +397,7 @@ internal object OpBuilder {
     }
 
     private fun aput(storesAReference: Boolean): Decoder = { d ->
-        val hierarchy = d.resolver.hierarchy
-        APutOp(d.address, d.name, d.registerA, d.registerB, d.registerC, storesAReference, hierarchy, hierarchy)
+        APutOp(d.address, d.name, d.registerA, d.registerB, d.registerC, storesAReference, d.resolver.hierarchy)
     }
 
     /** A payload target that is not `.array-data` makes the instruction unsupported. */
@@ -441,12 +435,12 @@ internal object OpBuilder {
     /** The field's defining class, name and type all take part, so same-named fields of different types stay apart. */
     private fun staticField(d: Decoding): StaticFieldLookup {
         val reference = d.reference as FieldReference
-        return d.classIndex.resolveStaticField(d.classIndex.typeOf(reference.definingClass), reference.name, reference.type)
+        return d.resolver.resolveStaticField(VirtualType.of(reference.definingClass), reference.name, reference.type)
     }
 
     private fun instanceField(d: Decoding): InstanceFieldLookup {
         val reference = d.reference as FieldReference
-        return d.classIndex.resolveInstanceField(d.classIndex.typeOf(reference.definingClass), reference.name, reference.type)
+        return d.resolver.resolveInstanceField(VirtualType.of(reference.definingClass), reference.name, reference.type)
     }
 
     private fun invoke(kind: InvokeKind): Decoder = { d ->
@@ -458,7 +452,7 @@ internal object OpBuilder {
             val proto = "(${reference.parameterTypes.joinToString("")})${reference.returnType}"
             InvokeOp(
                 d.address, d.name,
-                MethodDescriptor(d.classIndex.typeOf(reference.definingClass), reference.name, proto),
+                MethodDescriptor(VirtualType.of(reference.definingClass), reference.name, proto),
                 registers, kind,
             )
         }

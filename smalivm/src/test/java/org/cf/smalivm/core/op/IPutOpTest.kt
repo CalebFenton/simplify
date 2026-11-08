@@ -8,6 +8,7 @@ import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -64,7 +65,7 @@ class IPutOpTest {
         val trusted = graph.trusted()!!
         assertEquals(Value.Unknown(type("I")), trusted.terminatingConsensus(2))
         val receiver = trusted.terminatingConsensus(0) as Value.Known
-        val objectConsensus = trusted.terminatingHeapObject(receiver.raw as HeapRef)
+        val objectConsensus = trusted.terminatingHeapObject(receiver.raw as HeapRef).agreed()
         assertTrue(objectConsensus is HeapObject.TrackedObject)
         assertEquals(
             Value.Unknown(type("I")),
@@ -85,13 +86,13 @@ class IPutOpTest {
         assertEquals(CompletionStatus.Complete, missingClass.completion())
         assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(missingClass))
         assertFalse(missingClass.wasReached(5), "resolution fails before the null receiver can produce NPE")
-        assertEquals(SideEffectLevel.NONE, missingClass.sideEffectLevel(3))
+        assertEquals(SideEffectLevel.NONE, missingClass.explored.sideEffectLevel(3))
 
         val missingMember = CoreTester.execute(CLASS_NAME, "putMissingMember()V")
         assertEquals(CompletionStatus.Complete, missingMember.completion())
         assertEquals(listOf("Ljava/lang/NoSuchFieldError;"), CoreTester.escapingTypes(missingMember))
         assertFalse(missingMember.wasReached(6), "a definite missing member has no write continuation")
-        assertEquals(SideEffectLevel.NONE, missingMember.sideEffectLevel(4))
+        assertEquals(SideEffectLevel.NONE, missingMember.explored.sideEffectLevel(4))
     }
 
     @Test
@@ -100,7 +101,7 @@ class IPutOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf("Ljava/lang/NoSuchFieldError;"), CoreTester.escapingTypes(graph))
         assertFalse(graph.wasReached(6), "static-only declarations are absent from instance resolution")
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(4))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(4))
     }
 
     @Test
@@ -111,7 +112,7 @@ class IPutOpTest {
         assertTrue(graph.outcomes.contains(Outcome.Returned(null)))
         // VERIFIER-tier malformed input. No target is provable, so spec 2.2 requires STRONG rather
         // than inventing a target or understating an unmodelled write.
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         assertEquals(setOf(0, 1), graph.registersRead(0))
         assertEquals(emptySet<Int>(), graph.registersAssigned(0))
 
@@ -148,11 +149,11 @@ class IPutOpTest {
             "the unknown receiver must fork to fall-through and the local NPE handler",
         )
         assertTrue(graph.wasReached(7), "the handler path must execute; one normal return is not enough")
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(2))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(2))
 
         val trusted = graph.trusted()!!
         val unrelated = trusted.terminatingConsensus(0) as Value.Known
-        val objectConsensus = trusted.terminatingHeapObject(unrelated.raw as HeapRef) as HeapObject.TrackedObject
+        val objectConsensus = trusted.terminatingHeapObject(unrelated.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertEquals(Value.Known(0, type("I")), objectConsensus.field("Liput_test;->myInt:I"))
     }
 
@@ -167,14 +168,14 @@ class IPutOpTest {
         val putAddress = view.addresses.single { view.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.IPUT }
         assertTrue(graph.wasReached(view.nextAddress(putAddress)), "the conservative malformed-input path must continue")
         assertEquals(Value.Known(42, type("I")), graph.trusted()!!.terminatingConsensus(1))
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(putAddress))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(putAddress))
         assertEquals(emptySet<Int>(), graph.registersAssigned(putAddress), "iput still assigns no register")
 
         val successful = CoreTester.execute(CLASS_NAME, "putInt()Liput_test;")
         assertEquals(CompletionStatus.Complete, successful.completion())
         assertEquals(
             SideEffectLevel.WEAK,
-            successful.sideEffectLevel(4),
+            successful.explored.sideEffectLevel(4),
             "the control identifies and writes a tracked cell, so it remains WEAK",
         )
     }
@@ -187,11 +188,11 @@ class IPutOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph), "no guest exception is invented")
         assertTrue(graph.wasReached(6), "the conservative malformed-input path must continue")
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(4))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(4))
 
         val trusted = graph.trusted()!!
         val receiver = trusted.terminatingConsensus(0) as Value.Known
-        val tracked = trusted.terminatingHeapObject(receiver.raw as HeapRef) as HeapObject.TrackedObject
+        val tracked = trusted.terminatingHeapObject(receiver.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertEquals(
             Value.Known(0, type("I")),
             tracked.field("Liget_test;->myInt:I"),
@@ -220,7 +221,7 @@ class IPutOpTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         val trusted = graph.trusted()!!
         val receiver = trusted.terminatingConsensus(0) as Value.Known
-        val stored = (trusted.terminatingHeapObject(receiver.raw as HeapRef) as HeapObject.TrackedObject)
+        val stored = (trusted.terminatingHeapObject(receiver.raw as HeapRef).agreed() as HeapObject.TrackedObject)
             .field("Liput_test;->myString:Ljava/lang/String;")
         assertEquals(
             Value.Known(null, type("Ljava/lang/String;")),
@@ -233,8 +234,8 @@ class IPutOpTest {
     fun aResolvedWriteIsWeakReadsBothOperandsAndAssignsNoRegister() {
         val graph = CoreTester.execute(CLASS_NAME, "putInt()Liput_test;")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(4))
-        assertEquals(SideEffectLevel.WEAK, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(4))
+        assertEquals(SideEffectLevel.WEAK, graph.explored.methodSideEffectLevel())
         assertEquals(setOf(0, 1), graph.registersRead(4))
         assertEquals(emptySet<Int>(), graph.registersAssigned(4))
     }

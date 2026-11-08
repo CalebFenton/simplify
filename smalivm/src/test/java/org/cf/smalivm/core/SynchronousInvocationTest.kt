@@ -159,8 +159,8 @@ class SynchronousInvocationTest {
         assertEquals(1, selections())
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        assertEquals(Value.Known(2, intType), graph.terminatingConsensusOverExploredPaths(0))
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(1))
+        assertEquals(Value.Known(2, intType), graph.explored.terminatingConsensus(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(1))
         assertTrue(allNodes(graph.nodePile(1).single()).any { it.outcome == Outcome.Aborted(AbortReason.ADDRESS_LIMIT) })
     }
 

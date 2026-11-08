@@ -41,7 +41,7 @@ class ProgramInputTest {
         val index = ClassIndex.open(root.toFile())
 
         assertNull(index.currentSnapshot.applicationClass("Ljava/lang/Integer;"))
-        assertTrue(index.isFrameworkClass(VirtualType.of("Ljava/lang/Integer;")))
+        assertTrue(index.currentSnapshot.hierarchy.isFrameworkClass(VirtualType.of("Ljava/lang/Integer;")))
         assertEquals(VirtualType.of("Ljava/lang/Number;"), index.superclassOf(VirtualType.of("Ljava/lang/Integer;")))
         assertNull(index.methodView("Ljava/lang/Integer;->appOnly()V"))
         assertEquals(setOf("Lcollide/Kept;"), index.currentSnapshot.applicationClasses.keys)

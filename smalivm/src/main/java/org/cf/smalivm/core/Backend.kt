@@ -306,7 +306,7 @@ internal class ApplicationBytecodeBackend(private val resolver: ProgramSnapshotR
     override val name: String get() = "application-bytecode"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe = when (lookup) {
-        is MethodLookup.Runnable -> if (resolver.isFrameworkClass(lookup.view.definingClass)) {
+        is MethodLookup.Runnable -> if (resolver.hierarchy.isFrameworkClass(lookup.view.definingClass)) {
             BackendProbe.Declined("framework method ${lookup.view.signature} has no runnable guest body")
         } else {
             BackendProbe.Schedule(lookup.view, ENTRY_ADDRESS)
@@ -327,7 +327,7 @@ internal class FrameworkBytecodeBackend(private val resolver: ProgramSnapshotRes
     override val name: String get() = "framework-bytecode"
 
     override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe = when (lookup) {
-        is MethodLookup.Runnable -> if (resolver.isFrameworkClass(lookup.view.definingClass)) {
+        is MethodLookup.Runnable -> if (resolver.hierarchy.isFrameworkClass(lookup.view.definingClass)) {
             BackendProbe.Schedule(lookup.view, ENTRY_ADDRESS)
         } else {
             BackendProbe.Declined("${lookup.view.signature} is an application method")

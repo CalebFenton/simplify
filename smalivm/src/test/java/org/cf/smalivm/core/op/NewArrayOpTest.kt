@@ -10,6 +10,7 @@ import org.cf.smalivm.core.MAX_TRACKED_ARRAY_LENGTH
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -71,7 +72,7 @@ class NewArrayOpTest {
         val consensus = trusted!!.terminatingConsensus(0)
         assertTrue(consensus is Value.Known && consensus.raw is HeapRef, "must be a tracked array: $consensus")
         assertEquals(VirtualType.of("[[$CLASS_NAME"), consensus.type)
-        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray, "no array behind the ref; got $array")
         assertEquals(length, (array as HeapObject.TrackedArray).length)
         assertEquals(VirtualType.of("[[$CLASS_NAME"), array.type)
@@ -139,7 +140,7 @@ class NewArrayOpTest {
         val consensus = trusted!!.terminatingConsensus(0)
         assertTrue(consensus is Value.Known && consensus.raw is HeapRef, "must be a tracked array: $consensus")
         assertEquals(VirtualType.of("[$CLASS_NAME"), consensus.type)
-        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray, "no array behind the ref; got $array")
         assertEquals(length, (array as HeapObject.TrackedArray).length)
         assertEquals(VirtualType.of("[$CLASS_NAME"), array.type)
@@ -342,7 +343,7 @@ class NewArrayOpTest {
         val trusted = graph.trusted()!!
         val consensus = trusted.terminatingConsensus(0)
         assertTrue(consensus is Value.Known && consensus.raw is HeapRef, "must be a tracked array: $consensus")
-        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertEquals(MAX_TRACKED_ARRAY_LENGTH, (array as HeapObject.TrackedArray).length)
     }
 

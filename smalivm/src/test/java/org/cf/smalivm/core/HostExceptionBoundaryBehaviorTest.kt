@@ -54,7 +54,7 @@ class HostExceptionBoundaryBehaviorTest {
 
             val graph = execute(vm, "identityRoundTrip()I")
 
-            assertEquals(effect, graph.addresses().maxOf(graph::sideEffectLevel))
+            assertEquals(effect, graph.addresses().maxOf(graph.explored::sideEffectLevel))
         }
     }
 
@@ -89,7 +89,7 @@ class HostExceptionBoundaryBehaviorTest {
             result = { SynchronousCallResult.TargetThrew(HostThrowable(runtimeType, thrown)) },
         )
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = execute(vm, "hostOnlyRuntimeFirstMatch()I")
         val clauses = graph.methodView.tryBlocks.flatMap(TryBlock::catches)
         val runtimeHandler = clauses.single { it.exceptionType == RUNTIME_EXCEPTION }.handlerAddress
@@ -101,7 +101,7 @@ class HostExceptionBoundaryBehaviorTest {
         assertTrue(graph.wasReached(runtimeHandler))
         assertFalse(graph.wasReached(exceptionHandler))
         assertFalse(
-            CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent,
+            CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent,
             "runtime evidence must remain attached to this throwable, not mutate ClassIndex",
         )
     }
@@ -118,7 +118,7 @@ class HostExceptionBoundaryBehaviorTest {
         ).single() as Value.Known
         frame.assign(view.parameters.single().register, source)
 
-        assertFalse(CoreTester.classIndex.throwableHierarchy.facts(runtimeType).descriptorPresent)
+        assertFalse(CoreTester.classIndex.currentSnapshot.hierarchy.facts(runtimeType).descriptorPresent)
         val graph = vm.newSession(view, entryFrame = frame).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val returnedRef = returned.raw as HeapRef
@@ -144,7 +144,7 @@ class HostExceptionBoundaryBehaviorTest {
             branching.outcomes.filterIsInstance<Outcome.Returned>().mapNotNull(Outcome.Returned::value),
         )
         assertEquals(1, branching.outcomes.count { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
-        assertEquals(SideEffectLevel.WEAK, branching.addresses().maxOf(branching::sideEffectLevel))
+        assertEquals(SideEffectLevel.WEAK, branching.addresses().maxOf(branching.explored::sideEffectLevel))
 
         val caught = execute(vm, "catchTarget()I")
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), caught.completion())
