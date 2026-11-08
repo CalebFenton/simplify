@@ -173,6 +173,5 @@ object DirectHostCallsFixture {
 
     @JvmStatic fun newIntArray(): Any = intArrayOf(2, 3)
 
-    @Suppress("UNCHECKED_CAST")
-    @JvmStatic fun storeNewIntArray(outer: Any) { (outer as Array<Any?>)[0] = intArrayOf(6) }
+    @JvmStatic fun storeNewIntArray(outer: Array<Any?>) { outer[0] = intArrayOf(6) }
 }

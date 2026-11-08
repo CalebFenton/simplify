@@ -955,6 +955,7 @@ class ReflectBackendFixture {
         }
         @JvmStatic fun returnNullString(): String? = null
         @JvmStatic fun identityObject(value: Any): Any = value
+        @JvmStatic fun identityIntArray(value: IntArray): IntArray = value
 
         @JvmStatic fun mutateOwned(builder: StringBuilder, list: MutableList<String>) {
             builder.append("-owned")

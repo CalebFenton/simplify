@@ -22,6 +22,9 @@
 .method public static native identityObject(Ljava/lang/Object;)Ljava/lang/Object;
 .end method
 
+.method public static native identityIntArray([I)[I
+.end method
+
 .method public static native mutateOwned(Ljava/lang/StringBuilder;Ljava/util/List;)V
 .end method
 

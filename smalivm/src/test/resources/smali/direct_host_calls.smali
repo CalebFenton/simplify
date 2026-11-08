@@ -83,6 +83,13 @@
     return-object p0
 .end method
 
+.method public static identityIntArray([I)[I
+    .registers 1
+    invoke-static {p0}, Lorg/cf/smalivm/core/ReflectBackendFixture;->identityIntArray([I)[I
+    move-result-object p0
+    return-object p0
+.end method
+
 .method public static throwAndRecord(Ljava/lang/Throwable;)V
     .registers 1
     invoke-static {p0}, Lorg/cf/smalivm/core/DirectHostCallsFixture;->throwAndRecord(Ljava/lang/Throwable;)V
@@ -102,8 +109,8 @@
     return-object v0
 .end method
 
-.method public static storeNewIntArray(Ljava/lang/Object;)V
+.method public static storeNewIntArray([Ljava/lang/Object;)V
     .registers 1
-    invoke-static {p0}, Lorg/cf/smalivm/core/DirectHostCallsFixture;->storeNewIntArray(Ljava/lang/Object;)V
+    invoke-static {p0}, Lorg/cf/smalivm/core/DirectHostCallsFixture;->storeNewIntArray([Ljava/lang/Object;)V
     return-void
 .end method

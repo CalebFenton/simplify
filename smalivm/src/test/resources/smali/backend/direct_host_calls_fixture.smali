@@ -45,7 +45,7 @@
 .method public static native newIntArray()Ljava/lang/Object;
 .end method
 
-.method public static native storeNewIntArray(Ljava/lang/Object;)V
+.method public static native storeNewIntArray([Ljava/lang/Object;)V
 .end method
 
 .method public static native boxedZero()Ljava/lang/Object;

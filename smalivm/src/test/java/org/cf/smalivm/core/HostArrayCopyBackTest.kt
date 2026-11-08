@@ -59,10 +59,10 @@ internal class HostArrayCopyBackTest : DirectHostTestBase() {
 
     @Test
     fun returnedMaterializedArrayMapsBackToItsSourceRef() {
-        val view = hostView("identityObject(Ljava/lang/Object;)Ljava/lang/Object;")
+        val view = hostView("identityIntArray([I)[I")
         val frame = Frame.entryFrame(view)
         val ref = frame.allocateArray(intArrayType, arrayOf(Value.Known(4, intType))).raw as HeapRef
-        frame.assign(0, Value.Known(ref, objectType))
+        frame.assign(0, Value.Known(ref, intArrayType))
         val graph = hostVm.newSession(view, entryFrame = frame).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
 
@@ -198,10 +198,10 @@ internal class HostArrayCopyBackTest : DirectHostTestBase() {
         val directRef = ((directGraph.outcomes.single() as Outcome.Returned).value as Value.Known).raw as HeapRef
         assertTrue(directGraph.trusted()!!.terminatingHeapObject(directRef).agreed() is HeapObject.TrackedArray)
 
-        val view = hostView("storeNewIntArray(Ljava/lang/Object;)V")
+        val view = hostView("storeNewIntArray([Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)
         val outer = frame.allocateArray(objectArrayType, arrayOf(Value.Known(null, objectType))).raw as HeapRef
-        frame.assign(0, Value.Known(outer, objectType))
+        frame.assign(0, Value.Known(outer, objectArrayType))
         val nestedGraph = hostVm.newSession(view, entryFrame = frame).run()
         val terminal = nestedGraph.nodePile(nestedGraph.methodView.terminalInstructionAddresses.single()).single().frame
         val nestedRef = (terminal.heap.arrayAt(outer)!!.element(0) as Value.Known).raw as HeapRef
