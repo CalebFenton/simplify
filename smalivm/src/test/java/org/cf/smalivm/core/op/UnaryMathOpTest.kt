@@ -4,8 +4,10 @@ import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import kotlin.experimental.inv
 
 /**
@@ -529,5 +531,71 @@ class UnaryMathOpTest {
             expected.setRegisters(0, 100L.inv(), "J")
             CoreTester.test(CLASS_NAME, "notLong()V", initial, expected)
         }
+    }
+
+    /**
+     * Conversions and negation at the edges of their domains, where a plausible wrong implementation (a
+     * checked or BigDecimal conversion, a widening read, sign-extending a `char`) disagrees with Dalvik.
+     * Dalvik's conversions are the JVM's: JLS 5.1.3 sends NaN to 0, rounds toward zero, and saturates a
+     * value beyond the target's range (infinities included) to its MIN/MAX; an integral narrowing keeps the
+     * low bits, which a `byte`/`short` reads sign-extended and a `char` zero-extended. JLS 15.15.4: negating
+     * MIN_VALUE overflows back to MIN_VALUE. Every expected value is written out from those rules.
+     */
+    @Nested
+    inner class DomainBoundaries {
+        @TestFactory
+        fun floatingToIntegralSendsNaNToZeroAndSaturates(): List<DynamicTest> = listOf(
+            conversion("floatToInt()V", Float.NaN, "F", 0, "I"),
+            conversion("floatToInt()V", Float.POSITIVE_INFINITY, "F", Int.MAX_VALUE, "I"),
+            conversion("floatToInt()V", Float.NEGATIVE_INFINITY, "F", Int.MIN_VALUE, "I"),
+            conversion("floatToInt()V", 3.0e9f, "F", Int.MAX_VALUE, "I"),
+            conversion("floatToInt()V", -3.0e9f, "F", Int.MIN_VALUE, "I"),
+            conversion("floatToLong()V", Float.NaN, "F", 0L, "J"),
+            conversion("floatToLong()V", Float.POSITIVE_INFINITY, "F", Long.MAX_VALUE, "J"),
+            conversion("floatToLong()V", Float.NEGATIVE_INFINITY, "F", Long.MIN_VALUE, "J"),
+            conversion("floatToLong()V", 1.0e19f, "F", Long.MAX_VALUE, "J"),
+            conversion("floatToLong()V", -1.0e19f, "F", Long.MIN_VALUE, "J"),
+            conversion("doubleToInt()V", Double.NaN, "D", 0, "I"),
+            conversion("doubleToInt()V", Double.POSITIVE_INFINITY, "D", Int.MAX_VALUE, "I"),
+            conversion("doubleToInt()V", Double.NEGATIVE_INFINITY, "D", Int.MIN_VALUE, "I"),
+            conversion("doubleToInt()V", 1.0e10, "D", Int.MAX_VALUE, "I"),
+            conversion("doubleToInt()V", -1.0e10, "D", Int.MIN_VALUE, "I"),
+            conversion("doubleToInt()V", 2147483647.9, "D", Int.MAX_VALUE, "I"),
+            conversion("doubleToLong()V", Double.NaN, "D", 0L, "J"),
+            conversion("doubleToLong()V", Double.POSITIVE_INFINITY, "D", Long.MAX_VALUE, "J"),
+            conversion("doubleToLong()V", Double.NEGATIVE_INFINITY, "D", Long.MIN_VALUE, "J"),
+            conversion("doubleToLong()V", 1.0e19, "D", Long.MAX_VALUE, "J"),
+            conversion("doubleToLong()V", -1.0e19, "D", Long.MIN_VALUE, "J"),
+        )
+
+        @TestFactory
+        fun integralNarrowingKeepsTheLowBitsWithTheTargetsExtension(): List<DynamicTest> = listOf(
+            conversion("longToInt()V", 0x123456789L, "J", 0x23456789, "I"),
+            conversion("longToInt()V", 0x80000000L, "J", Int.MIN_VALUE, "I"),
+            conversion("longToInt()V", 0xFFFFFFFFL, "J", -1, "I"),
+            conversion("longToInt()V", Long.MIN_VALUE, "J", 0, "I"),
+            conversion("intToByte()V", 0x80, "I", (-128).toByte(), "B"),
+            conversion("intToByte()V", 0xff, "I", (-1).toByte(), "B"),
+            conversion("intToByte()V", -129, "I", 127.toByte(), "B"),
+            conversion("intToShort()V", 0x8000, "I", (-32768).toShort(), "S"),
+            conversion("intToShort()V", 0x1ffff, "I", (-1).toShort(), "S"),
+            conversion("intToShort()V", -32769, "I", 32767.toShort(), "S"),
+            conversion("intToChar()V", -1, "I", '\uffff', "C"),
+            conversion("intToChar()V", 0x10041, "I", 'A', "C"),
+            conversion("intToChar()V", 0x8000, "I", '\u8000', "C"),
+        )
+
+        @TestFactory
+        fun negatingMinValueOverflowsBackToMinValue(): List<DynamicTest> = listOf(
+            conversion("negInt()V", Int.MIN_VALUE, "I", Int.MIN_VALUE, "I"),
+            conversion("negLong()V", Long.MIN_VALUE, "J", Long.MIN_VALUE, "J"),
+        )
+
+        private fun conversion(method: String, source: Any, sourceType: String, result: Any, resultType: String) =
+            DynamicTest.dynamicTest("$method $source:$sourceType -> $result:$resultType") {
+                val initial = CoreState().apply { setRegisters(0, source, sourceType) }
+                val expected = CoreState().apply { setRegisters(0, result, resultType) }
+                CoreTester.test(CLASS_NAME, method, initial, expected)
+            }
     }
 }
