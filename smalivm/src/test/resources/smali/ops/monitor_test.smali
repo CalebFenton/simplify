@@ -15,7 +15,7 @@
     return-void
 .end method
 
-# The try covers only the const AFTER the monitor. monitor-enter searches at its own address, outside
+# The try covers only the const after the monitor. monitor-enter searches at its own address, outside
 # this range, so a null receiver escapes. monitor-exit searches at the advanced pc and is caught.
 .method public static enterBeforeSingleInstructionTry(Ljava/lang/Object;)I
     .registers 4

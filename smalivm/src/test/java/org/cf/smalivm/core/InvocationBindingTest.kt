@@ -53,12 +53,12 @@ class InvocationBindingTest {
 
     private fun bindings(arguments: List<Value>): List<ParameterBinding> {
         val target = MethodSignature(
-            type("Linvoke_review_callee;"),
+            type("Linvoke_call_callee;"),
             "bindingMatrix",
             "(ZBCSIJFDLjava/lang/Object;)V",
         )
         val classIndex = CoreTester.classIndex
-        val caller = classIndex.requireMethodView("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val caller = classIndex.requireMethodView("Linvoke_call;", "callOpaqueClassResult()Linvoke_call_identity;")
         val invoker = defaultInvoker(classIndex)
         val preparation = invoker.prepare(Invocation(target, InvokeKind.STATIC, arguments), caller.definingClass)
         val plan = invoker.plan(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))

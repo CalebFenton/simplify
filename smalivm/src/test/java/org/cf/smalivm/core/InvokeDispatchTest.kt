@@ -26,7 +26,7 @@ class InvokeDispatchTest {
     @Test
     fun incompleteDispatchWorldDegradesOneCandidateWithoutSampleSpecificPolicy(@TempDir root: Path) {
         Files.writeString(root.resolve("orphan.smali"), ORPHAN_SOURCE.trimIndent())
-        val index = task53ClassIndex(root, INCOMPLETE_WORLD_SOURCE)
+        val index = classIndexFromSource(root, INCOMPLETE_WORLD_SOURCE)
         val view = index.requireMethodView(INCOMPLETE_WORLD, "incompleteWorld(Lincomplete/base;)I")
         val graph = VmServices(index).newSession(view).run()
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -55,7 +55,7 @@ class InvokeDispatchTest {
     }
 
     private companion object {
-        const val REVIEW = "Linvoke_review;"
+        const val REVIEW = "Linvoke_call;"
         const val INCOMPLETE_WORLD = "Lincomplete/base;"
 
         const val INCOMPLETE_WORLD_SOURCE = """

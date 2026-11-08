@@ -42,8 +42,6 @@
 
   invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
   return-void
-  #move-result-object v1
-  #return-object v1
 .end method
 
 .method public static invokeMethodWithNoSideEffects()V
@@ -109,10 +107,8 @@
   return-void
 .end method
 
-# Review correction: the old fixture used `sput` against the instance field above. That instruction is
-# illegal for an instance member. Task 19's authority says a successful tracked-object `iput` is WEAK,
-# while an unidentified target is STRONG. Allocate the target so this preserves the old test's WEAK
-# instance-write intent without preserving malformed bytecode.
+# An `iput` into a freshly allocated, tracked object: a WEAK side effect. An unidentified target
+# would be STRONG.
 .method public static modifyInstanceMember()V
   .locals 2
 

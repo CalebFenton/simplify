@@ -1,4 +1,4 @@
-.class public interface abstract Linvoke_review_default_iface;
+.class public interface abstract Linvoke_call_default_iface;
 .super Ljava/lang/Object;
 
 .method public value()I

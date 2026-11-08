@@ -120,6 +120,6 @@ class NestedCallAbortTest {
         CoreTester.classIndex.requireMethodView(owner, descriptor)
 
     private companion object {
-        const val REVIEW = "Linvoke_review;"
+        const val REVIEW = "Linvoke_call;"
     }
 }

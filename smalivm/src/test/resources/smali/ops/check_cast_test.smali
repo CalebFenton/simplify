@@ -105,15 +105,9 @@
     return-void
 .end method
 
-# A TYPE OPERAND THIS INPUT DOES NOT SHIP, and the same answer `instance-of` gets. [ART] resolves the
-# type operand BEFORE reading the register (`interpreter_switch_impl-inl.h:820-825` before `:829`), so
-# an unresolvable operand raises `NoClassDefFoundError` even for a null register -- the opposite of the
-# [JVMS] ordering. This core decides loadability at DECODE time and throws a guest
-# `NoClassDefFoundError` at EXECUTE time (Plan 9 Task 15 / ROW-23, reversing Plan 8's `UnsupportedOp`
-# refusal now that the type is measured: `[DEVICE](Tier A, -Xint, art_standalone 0_git20251009-r2)`,
-# `Fx_CheckCastAbsentType.smali`, whose source register is null and which still throws). Pinned by
-# `core/op/CheckCastOpTest.anAbsentCastTypeThrowsNoClassDefFoundErrorEvenOnANullSource` and
-# `core/OpBuilderTest.aCheckCastAgainstAnAbsentTypeDecodesToAThrowingOpRatherThanARefusal`.
+# A type operand this input does not ship. ART resolves the type operand before reading the register,
+# so an unresolvable operand raises `NoClassDefFoundError` even for a null register, unlike the [JVMS]
+# ordering (device fixture `Fx_CheckCastAbsentType.smali`; DALVIK-SEMANTICS.md, Type operations).
 .method public static castToAbsentClass()V
     .locals 1
 
@@ -122,19 +116,14 @@
     return-void
 .end method
 
-# Added by Plan 8 Task 9, and the ONE difference from `castToStringWithCatch()V` above is the register
-# `move-exception` targets. That method binds the caught exception into **v0 -- the register the cast is
-# on** -- so it cannot observe which arm of an ambiguous cast carries the narrowed declared type: the
-# handler path overwrites v0 before the join. Binding it into v1 instead leaves v0 holding exactly what
-# each arm left there, which is what makes `docs/architecture/opcodes.md:172`'s SECOND half (*"their
-# normal path omits target-type refinement"*) observable at all -- the oracle's `:38` exit performs no
-# `assignRegister`, and `exceptions.md:247` records the whole behaviour as untested. Consumed by
-# `core/op/CheckCastOpTest.theForksSuccessArmIsNarrowedAndItsThrowingArmIsNot`, which asserts the two arms
-# separately at @2 and @4.
+# Differs from `castToStringWithCatch()V` only in binding the caught exception to v1 rather than v0,
+# the cast register. With v0 untouched by the handler, each arm of an ambiguous cast is observable:
+# the success arm is narrowed to the target type and the throwing arm is not
+# (`CheckCastOpTest.theForksSuccessArmIsNarrowedAndItsThrowingArmIsNot`, at @2 and @4).
 #
-# Addresses, from the encoding rather than assumed: `check-cast` (21c, TWO code units) at @0, `nop` at
-# @2, `return-void` at @3, `move-exception` (11x) at @4, `goto` (10t) at @5. The trailing `return-void`
-# at @6 is unreachable and is kept only to mirror `castToStringWithCatch()V`.
+# Addresses: `check-cast` (21c, 2 units) at @0, `nop` at @2, `return-void` at @3, `move-exception`
+# (11x) at @4, `goto` (10t) at @5. The trailing `return-void` at @6 is unreachable and mirrors
+# `castToStringWithCatch()V`.
 .method public static castToStringWithCatchOnAnotherRegister()V
     .locals 2
 

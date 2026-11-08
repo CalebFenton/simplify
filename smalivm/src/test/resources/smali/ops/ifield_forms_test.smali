@@ -1,4 +1,4 @@
-# Task 19 audit matrix: every standard iget/iput opcode, plus both types shared by the generic and wide forms.
+# Every standard iget/iput opcode, plus both types shared by the generic and wide forms.
 .class public Lifield_forms_test;
 .super Ljava/lang/Object;
 

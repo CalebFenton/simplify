@@ -18,17 +18,11 @@
     .end array-data
 .end method
 
-# A payload with ZERO elements. Legal, and not a degenerate curiosity: [BC]'s requirement is that the table
-# "must contain no more elements than will fit in the array", which an empty table satisfies for EVERY array
-# length -- including 0. So this payload provably cannot overrun anything, and the bounds exception is
-# infeasible for it even when the array register is completely unknown. That is the single input which makes
-# `FillArrayDataOp`'s `payloadElements.isNotEmpty()` guard load-bearing rather than decorative; without the
-# guard, an unprovable array here forks an ArrayIndexOutOfBoundsException that cannot happen and tells a
-# deobfuscator a dead `catch` is live.
-#
-# smali assembles an empty element list happily. DO NOT "tidy" this method away as an empty payload with no
-# purpose -- it is the only fixture that can kill that guard. See
-# `core/op/FillArrayDataOpTest.aZeroElementPayloadCannotOverrunAnyArraySoNoBoundsExceptionIsForked`.
+# A zero-element payload. [BC] requires the table to "contain no more elements than will fit in the
+# array", which an empty table satisfies for every length, so the bounds exception is infeasible even
+# for an unknown array. This is the only fixture that exercises `FillArrayDataOp`'s
+# `payloadElements.isNotEmpty()` guard
+# (`FillArrayDataOpTest.aZeroElementPayloadCannotOverrunAnyArraySoNoBoundsExceptionIsForked`).
 .method public static fillArrayDataEmptyPayload()V
     .locals 1
 
@@ -41,12 +35,9 @@
     .end array-data
 .end method
 
-# A MALFORMED payload target: the "branch" offset points at an ordinary instruction rather than at an
-# `.array-data` table. smali assembles it because the operand is just a label, and it is exactly the shape
-# obfuscated output produces. The core must answer UNSUPPORTED_OP for it -- see
-# `core/OpBuilderTest.aFillArrayDataWhoseTargetIsNotAnArrayPayloadIsUnsupportedRatherThanAHostFailure` --
-# rather than let `MethodView.instructionAt`'s requireNotNull, or a failed cast, escape the decoder and
-# become an indistinguishable HOST_FAILURE.
+# A malformed payload target: the offset points at an ordinary instruction, not an `.array-data`
+# table, as obfuscated output can. The decoder answers UNSUPPORTED_OP rather than HOST_FAILURE
+# (`OpBuilderTest.aFillArrayDataWhoseTargetIsNotAnArrayPayloadIsUnsupportedRatherThanAHostFailure`).
 .method public static fillArrayDataWithMalformedPayloadTarget()V
     .locals 1
 
@@ -56,16 +47,12 @@
     return-void
 .end method
 
-# The same five-element payload as fillArrayDataInt()V, wrapped in a try with a
-# Ljava/lang/Exception; handler so the ArrayIndexOutOfBoundsException an over-long payload raises is
-# CAUGHT rather than escaping (core/op/FillArrayDataOpTest.aPayloadLongerThanTheArrayThrowsWithoutStoringAnything
-# drives it with a two-element array seed, so five elements do not fit).
+# The five-element payload of fillArrayDataInt()V inside a try with a Ljava/lang/Exception; handler,
+# so the ArrayIndexOutOfBoundsException from a too-short array is caught
+# (`FillArrayDataOpTest.aPayloadLongerThanTheArrayThrowsWithoutStoringAnything`).
 #
-# `.locals 2`, and `move-exception v1` rather than v0 -- DELIBERATE, and not a style choice to tidy
-# away. Every other method in this file uses `.locals 1`, where `move-exception` would have to target
-# v0 and would clobber the array register. v0 keeping the array is exactly what the second half of
-# that test needs: it reads the array back out of v0 after the catch to prove the failed fill stored
-# NOTHING. With `.locals 1` that half would be inexpressible.
+# `.locals 2` and `move-exception v1` keep the array in v0, so the test can read it back after the
+# catch and show that the failed fill stored nothing.
 .method public static fillArrayDataIntWithCatch()V
     .locals 2
 

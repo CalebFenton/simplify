@@ -1,8 +1,5 @@
-# Plan 9 Task 19: the `iput*` corpus -- an empty shell until this task, for iget_test.smali's reason
-# (adjudication 6: the old engine's IPutOp wrote NOTHING, `opcode/IPutOp.kt:25-33`).
-#
-# Receivers are `new-instance` allocations with no `<init>` call (Task 20's opcode); the engine does
-# not enforce the verifier's uninitialized-use rule.
+# Receivers are `new-instance` allocations with no `<init>` call; the engine does not enforce the
+# verifier's uninitialized-use rule.
 .class public Liput_test;
 .super Ljava/lang/Object;
 
@@ -10,7 +7,7 @@
 .field public myString:Ljava/lang/String;
 .field public static staticOnly:I
 
-# Returns the RECEIVER so the test can follow the ref into the heap and assert the stored cell.
+# Returns the receiver so the test can follow the ref into the heap and assert the stored cell.
 .method public static putInt()Liput_test;
     .locals 2
     new-instance v0, Liput_test;
@@ -20,7 +17,7 @@
 .end method
 
 # A definitely-null receiver: const/4 @0 (1 unit), const/16 @1 (2), iput @3 (2), return-void @5.
-# The NPE is DEFINITE and the store must not happen -- the fall-through at 5 must stay unreached.
+# The NPE is definite and the store must not happen -- the fall-through at 5 must stay unreached.
 .method public static putIntoNullReceiver()V
     .locals 2
     const/4 v0, 0x0
@@ -29,7 +26,7 @@
     return-void
 .end method
 
-# The VERIFIER-tier receiver row: a non-zero primitive under a reference read. Same addresses.
+# The verifier-tier receiver row: a non-zero primitive under a reference read. Same addresses.
 .method public static putIntoPrimitiveTaggedReceiver()V
     .locals 2
     const/4 v0, 0x5
@@ -65,7 +62,7 @@
     return-void
 .end method
 
-# An UNPROVABLE receiver: the write's target cannot be identified (STRONG), and the NPE is feasible
+# An unprovable receiver: the write's target cannot be identified (strong), and the NPE is feasible
 # alongside the fall-through. iput @0, return-void @2.
 .method public static putThroughUnknownReceiver(Liput_test;I)V
     .locals 0
@@ -101,8 +98,8 @@
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :catch_npe
 .end method
 
-# VERIFIER-tier malformed input: the receiver is a known, non-null host value rather than a tracked
-# object. No guest exception is invented. The target is unmodelled, so spec 2.2 requires STRONG.
+# Verifier-tier malformed input: the receiver is a known, non-null host value rather than a tracked
+# object. No guest exception is invented, and the unmodelled target makes the write strong.
 .method public static putThroughKnownNonHeapRefReceiver()I
     .locals 2
     const-string v0, "known but not tracked"
@@ -111,8 +108,8 @@
     return v1
 .end method
 
-# VERIFIER-tier malformed input: the receiver is tracked, but its object layout has no Liput_test
-# cell. Its own Liget_test cell must stay at the default. The unmodelled target is STRONG under spec 2.2.
+# Verifier-tier malformed input: the receiver is tracked, but its layout has no Liput_test cell. Its
+# own Liget_test cell must stay at the default, and the unmodelled target makes the write strong.
 .method public static putThroughTrackedObjectWithoutResolvedCell()Liget_test;
     .locals 2
     new-instance v0, Liget_test;
@@ -121,7 +118,7 @@
     return-object v0
 .end method
 
-# `iput-object` reads its VALUE register as a reference, so a primitive-tagged 5 stores null --
+# `iput-object` reads its value register as a reference, so a primitive-tagged 5 stores null --
 # sput-object's rule at iput's own call site. Read back through iget-object.
 .method public static putObjectWithPrimitiveTaggedValue()Ljava/lang/String;
     .locals 3
@@ -143,7 +140,7 @@
 .end method
 
 # Two arms write different constants into ONE object's cell; the read after the join must see them
-# DISAGREE (per-path heap isolation observed through the ops).
+# disagree (per-path heap isolation observed through the ops).
 .method public static putIntBranched(I)I
     .locals 3
     new-instance v0, Liput_test;
@@ -159,8 +156,8 @@
     return v2
 .end method
 
-# Two registers, ONE object: a write through the alias is visible through the other register,
-# because identity is the heap id (adjudication 8) and the cell lives on the OBJECT.
+# Two registers, one object: a write through the alias is visible through the other register, because
+# identity is the heap id and the cell lives on the object.
 .method public static putThroughAliasReadThroughOriginal()I
     .locals 4
     new-instance v0, Liput_test;
@@ -171,8 +168,7 @@
     return v3
 .end method
 
-# Two OBJECTS of one type: two distinct cells (identity is the id, never the type -- the oracle's
-# type-only equality would collapse them).
+# Two objects of one type: two distinct cells, because identity is the heap id, never the type.
 .method public static putIntoTwoObjectsKeepsCellsDistinct()V
     .locals 5
     new-instance v0, Liput_test;

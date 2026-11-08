@@ -1,20 +1,13 @@
 .class public Lclass_init/witness;
 .super Ljava/lang/Object;
 
-# ---------------------------------------------------------------------------------------
-# THE ORDINARY GUEST `<clinit>` (Plan 9 Task 16): a real body, run as a nested activation
-# through the same Invoker/VirtualBackend seam an ordinary call uses (design decision 1).
+# An ordinary guest `<clinit>`, run as a nested activation through the same invoker path as a
+# call. It allocates an array: caller and initializer share the heap id space, so the object
+# must be visible from the caller's resumed frame under an id that does not collide with the
+# caller's own.
 #
-# The `<clinit>` ALLOCATES an array rather than doing nothing, and that is the observable
-# the whole "nested call, shared heap" claim rests on. Static fields are Task 18's, so a
-# `<clinit>` has no other way to leave a trace this task can read -- and an allocation is
-# the stronger evidence anyway: `Frame.calleeEntryFrame`/`resumedWith` share the heap ID
-# SPACE, so the object this initializer allocates must be visible from the caller's resumed
-# frame under an id that cannot collide with any of the caller's own.
-#
-# Addresses, derived from the assembled instructions and not assumed:
+# Addresses, derived from the assembled instructions:
 #   <clinit>: @0 const/4 (11n, 1 unit), @1 new-array (22c, 2 units), @3 return-void.
-# ---------------------------------------------------------------------------------------
 
 .method public static constructor <clinit>()V
     .registers 2

@@ -1,4 +1,4 @@
-.class public Linvoke_review;
+.class public Linvoke_call;
 .super Ljava/lang/Object;
 
 .field public static committedInt:I
@@ -7,14 +7,14 @@
 
 .method public static abortArmDeclaredFirst(I)I
     .locals 1
-    invoke-static {p0}, Linvoke_review_callee;->loopOrReturnDeclaredFirst(I)I
+    invoke-static {p0}, Linvoke_call_callee;->loopOrReturnDeclaredFirst(I)I
     move-result v0
     return v0
 .end method
 
 .method public static returnArmDeclaredFirst(I)I
     .locals 1
-    invoke-static {p0}, Linvoke_review_callee;->returnOrLoopDeclaredFirst(I)I
+    invoke-static {p0}, Linvoke_call_callee;->returnOrLoopDeclaredFirst(I)I
     move-result v0
     return v0
 .end method
@@ -22,7 +22,7 @@
 .method public static nonzeroIntPassedAsReference()Ljava/lang/Object;
     .locals 1
     const/4 v0, 0x5
-    invoke-static {v0}, Linvoke_review_callee;->identityObject(Ljava/lang/Object;)Ljava/lang/Object;
+    invoke-static {v0}, Linvoke_call_callee;->identityObject(Ljava/lang/Object;)Ljava/lang/Object;
     move-result-object v0
     return-object v0
 .end method
@@ -34,47 +34,47 @@
     const/4 v2, 0x5
     const/4 v0, 0x0
     aput v2, v1, v0
-    invoke-static {v1}, Linvoke_review_callee;->seven()I
+    invoke-static {v1}, Linvoke_call_callee;->seven()I
     move-result v2
     return v2
 .end method
 
-.method public static conditionalThenTrigger(I)Linvoke_review_identity;
+.method public static conditionalThenTrigger(I)Linvoke_call_identity;
     .locals 1
-    invoke-static {p0}, Linvoke_review_callee;->conditionallyInitialize(I)V
-    sget-object v0, Linvoke_review_init_target;->identity:Linvoke_review_identity;
+    invoke-static {p0}, Linvoke_call_callee;->conditionallyInitialize(I)V
+    sget-object v0, Linvoke_call_init_target;->identity:Linvoke_call_identity;
     return-object v0
 .end method
 
 .method public static readAbortedClinit()I
     .locals 1
-    sget v0, Linvoke_review_abort_clinit;->value:I
+    sget v0, Linvoke_call_abort_clinit;->value:I
     return v0
 .end method
 
 .method public static invokeInheritedClinit()V
     .locals 0
-    invoke-static {}, Linvoke_review_clinit_child;-><clinit>()V
+    invoke-static {}, Linvoke_call_clinit_child;-><clinit>()V
     return-void
 .end method
 
 .method public static callInterfaceDefault()I
     .locals 1
-    new-instance v0, Linvoke_review_default_impl;
-    invoke-direct {v0}, Linvoke_review_default_impl;-><init>()V
-    invoke-virtual {v0}, Linvoke_review_default_impl;->callDefault()I
+    new-instance v0, Linvoke_call_default_impl;
+    invoke-direct {v0}, Linvoke_call_default_impl;-><init>()V
+    invoke-virtual {v0}, Linvoke_call_default_impl;->callDefault()I
     move-result v0
     return v0
 .end method
 
 .method public static malformedResumeInner()V
     .locals 0
-    invoke-static {}, Linvoke_review_callee;->returnsVoid()V
+    invoke-static {}, Linvoke_call_callee;->returnsVoid()V
 .end method
 
 .method public static nestedMalformedResume()I
     .locals 1
-    invoke-static {}, Linvoke_review;->malformedResumeInner()V
+    invoke-static {}, Linvoke_call;->malformedResumeInner()V
     const/4 v0, 0x1
     return v0
 .end method
@@ -82,7 +82,7 @@
 .method public static innerWithHandler()V
     .locals 1
     :try_start
-    invoke-static {}, Linvoke_review_callee;->throwsNpe()V
+    invoke-static {}, Linvoke_call_callee;->throwsNpe()V
     :try_end
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :handler
     return-void
@@ -93,19 +93,19 @@
 
 .method public static nestedMalformedHandler()I
     .locals 1
-    invoke-static {}, Linvoke_review;->innerWithHandler()V
+    invoke-static {}, Linvoke_call;->innerWithHandler()V
     const/4 v0, 0x2
     return v0
 .end method
 
 .method public static malformedResultInner()I
     .locals 0
-    invoke-static {}, Linvoke_review_callee;->seven()I
+    invoke-static {}, Linvoke_call_callee;->seven()I
 .end method
 
 .method public static nestedMalformedResult()I
     .locals 1
-    invoke-static {}, Linvoke_review;->malformedResultInner()I
+    invoke-static {}, Linvoke_call;->malformedResultInner()I
     move-result v0
     return v0
 .end method
@@ -118,70 +118,70 @@
 
 .method public static nestedMalformedConstructor()I
     .locals 1
-    invoke-static {}, Linvoke_review;->malformedConstructorInner()V
+    invoke-static {}, Linvoke_call;->malformedConstructorInner()V
     const/4 v0, 0x3
     return v0
 .end method
 
 .method public static committedResultInner()V
     .locals 1
-    invoke-static {}, Linvoke_review_callee;->seven()I
+    invoke-static {}, Linvoke_call_callee;->seven()I
     move-result v0
-    sput v0, Linvoke_review;->committedInt:I
-    invoke-static {}, Linvoke_review_callee;->returnsVoid()V
+    sput v0, Linvoke_call;->committedInt:I
+    invoke-static {}, Linvoke_call_callee;->returnsVoid()V
 .end method
 
 .method public static readCommittedResultAfterMalformedResume()I
     .locals 1
-    invoke-static {}, Linvoke_review;->committedResultInner()V
-    sget v0, Linvoke_review;->committedInt:I
+    invoke-static {}, Linvoke_call;->committedResultInner()V
+    sget v0, Linvoke_call;->committedInt:I
     return v0
 .end method
 
 .method public static committedCaughtInner()V
     .locals 1
     :try_start
-    invoke-static {}, Linvoke_review_callee;->throwsNpe()V
+    invoke-static {}, Linvoke_call_callee;->throwsNpe()V
     :try_end
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :handler
     return-void
     :handler
     move-exception v0
-    sput-object v0, Linvoke_review;->committedThrowable:Ljava/lang/Throwable;
-    invoke-static {}, Linvoke_review_callee;->returnsVoid()V
+    sput-object v0, Linvoke_call;->committedThrowable:Ljava/lang/Throwable;
+    invoke-static {}, Linvoke_call_callee;->returnsVoid()V
 .end method
 
 .method public static readCommittedCaughtAfterMalformedResume()Ljava/lang/Throwable;
     .locals 1
-    invoke-static {}, Linvoke_review;->committedCaughtInner()V
-    sget-object v0, Linvoke_review;->committedThrowable:Ljava/lang/Throwable;
+    invoke-static {}, Linvoke_call;->committedCaughtInner()V
+    sget-object v0, Linvoke_call;->committedThrowable:Ljava/lang/Throwable;
     return-object v0
 .end method
 
 .method public static committedConstructorInner()V
     .locals 1
     new-instance v0, Linvoke_ctor_target;
-    sput-object v0, Linvoke_review;->committedObject:Ljava/lang/Object;
+    sput-object v0, Linvoke_call;->committedObject:Ljava/lang/Object;
     invoke-direct {v0}, Linvoke_ctor_target;-><init>()V
 .end method
 
 .method public static readCommittedConstructorAfterMalformedResume()Ljava/lang/Object;
     .locals 1
-    invoke-static {}, Linvoke_review;->committedConstructorInner()V
-    sget-object v0, Linvoke_review;->committedObject:Ljava/lang/Object;
+    invoke-static {}, Linvoke_call;->committedConstructorInner()V
+    sget-object v0, Linvoke_call;->committedObject:Ljava/lang/Object;
     return-object v0
 .end method
 
-.method public static callOpaqueArrayResult()[Linvoke_review_identity;
+.method public static callOpaqueArrayResult()[Linvoke_call_identity;
     .locals 1
-    invoke-static {}, Linvoke_review_callee;->opaqueArrayResult()[Linvoke_review_identity;
+    invoke-static {}, Linvoke_call_callee;->opaqueArrayResult()[Linvoke_call_identity;
     move-result-object v0
     return-object v0
 .end method
 
-.method public static callOpaqueClassResult()Linvoke_review_identity;
+.method public static callOpaqueClassResult()Linvoke_call_identity;
     .locals 1
-    invoke-static {}, Linvoke_review_callee;->opaqueClassResult()Linvoke_review_identity;
+    invoke-static {}, Linvoke_call_callee;->opaqueClassResult()Linvoke_call_identity;
     move-result-object v0
     return-object v0
 .end method
@@ -189,7 +189,7 @@
 .method public static innerWithTwoHandlers()I
     .locals 2
     :try_start
-    invoke-static {}, Linvoke_review_callee;->throwsNpe()V
+    invoke-static {}, Linvoke_call_callee;->throwsNpe()V
     :try_end
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :npe
     .catch Ljava/lang/RuntimeException; {:try_start .. :try_end} :runtime
@@ -207,7 +207,7 @@
 
 .method public static nestedTwoHandlers()I
     .locals 1
-    invoke-static {}, Linvoke_review;->innerWithTwoHandlers()I
+    invoke-static {}, Linvoke_call;->innerWithTwoHandlers()I
     move-result v0
     return v0
 .end method

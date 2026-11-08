@@ -9,10 +9,10 @@ class InvokeCallerStateTest {
 
     @Test
     fun incompatibleClassInitStatesStayOnSeparateCallerPaths() {
-        val graph = CoreTester.execute(REVIEW, "conditionalThenTrigger(I)Linvoke_review_identity;")
+        val graph = CoreTester.execute(REVIEW, "conditionalThenTrigger(I)Linvoke_call_identity;")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(
-            Value.Unknown(VirtualType.of("Linvoke_review_identity;")),
+            Value.Unknown(VirtualType.of("Linvoke_call_identity;")),
             graph.trusted()!!.terminatingConsensus(0),
             "one concrete path initializes before the call returns; the other initializes after it",
         )
@@ -36,13 +36,13 @@ class InvokeCallerStateTest {
     fun opaqueReferenceResultsKeepTheirExactDeclaredArrayAndClassTypes() {
         CoreTester.assertReturns(
             REVIEW,
-            "callOpaqueArrayResult()[Linvoke_review_identity;",
-            Value.Unknown(VirtualType.of("[Linvoke_review_identity;")),
+            "callOpaqueArrayResult()[Linvoke_call_identity;",
+            Value.Unknown(VirtualType.of("[Linvoke_call_identity;")),
         )
         CoreTester.assertReturns(
             REVIEW,
-            "callOpaqueClassResult()Linvoke_review_identity;",
-            Value.Unknown(VirtualType.of("Linvoke_review_identity;")),
+            "callOpaqueClassResult()Linvoke_call_identity;",
+            Value.Unknown(VirtualType.of("Linvoke_call_identity;")),
         )
     }
 
@@ -63,6 +63,6 @@ class InvokeCallerStateTest {
     }
 
     private companion object {
-        const val REVIEW = "Linvoke_review;"
+        const val REVIEW = "Linvoke_call;"
     }
 }

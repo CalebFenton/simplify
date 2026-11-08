@@ -61,7 +61,7 @@ class InitialProgramImportTest {
 
     @Test
     fun initialImportOwnsCompleteApplicationDeclarationsAndBodies() {
-        val index = task53ClassIndex(root, SOURCE)
+        val index = classIndexFromSource(root, SOURCE)
         val snapshot = index.currentSnapshot
         val definition = requireNotNull(snapshot.applicationClass("Lprogram/Fixture;"))
 
@@ -77,7 +77,7 @@ class InitialProgramImportTest {
 
     @Test
     fun initialSnapshotKeepsTheRequestedOutputApi() {
-        Files.writeString(root.resolve("task53.smali"), SOURCE.trimIndent())
+        Files.writeString(root.resolve("fixture.smali"), SOURCE.trimIndent())
 
         val snapshot = ClassIndex.open(root.toFile(), 28).currentSnapshot
 
@@ -132,7 +132,7 @@ class InitialProgramImportTest {
 
     @Test
     fun importedSnapshotDoesNotRereadItsSourceFiles() {
-        val source = root.resolve("task53.smali")
+        val source = root.resolve("fixture.smali")
         Files.writeString(source, SOURCE.trimIndent())
         val index = ClassIndex.open(root.toFile())
         val imported = requireNotNull(index.methodView("Lprogram/Fixture;->value()I"))

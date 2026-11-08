@@ -60,9 +60,9 @@
     return-void
 .end method
 
-# Forks on the unknown parameter and each arm writes a DIFFERENT constant, so per-path static storage
+# Forks on the unknown parameter and each arm writes a different constant, so per-path static storage
 # joins Unknown(I) over the two returning paths -- while a session-global store would report whichever
-# write ran last as a definite value on BOTH paths. The pin named by ClassInitStore.copy's KDoc
+# write ran last as a definite value on both paths. The pin named by ClassInitStore.copy's KDoc
 # (core/op/SPutOpTest.oneBranchesStaticWriteIsInvisibleToTheOther).
 .method public static putStaticIntBranched(I)V
     .locals 1

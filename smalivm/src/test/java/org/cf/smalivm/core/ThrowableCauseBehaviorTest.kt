@@ -4,47 +4,52 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
-/** Plan 12 cause-root, merge, host-materialization, and EX-10 host-import contracts. */
+/**
+ * A guest throwable's cause: it is a guest heap root, it merges conservatively, and a host throwable imported
+ * through reflection keeps its cause identities, aliases, and cycles.
+ */
 class ThrowableCauseBehaviorTest {
-    @Test
-    fun unknownThrowableGetCauseReturnsUnknown() {
-        val graph = CoreTester.execute(
-            "Lthrowable_cause_test;",
-            "getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;",
-        )
-
-        assertEquals(
-            listOf(Outcome.Returned(Value.Unknown(VirtualType.of("Ljava/lang/Throwable;")))),
-            graph.outcomes,
-        )
+    @TestFactory
+    fun getCauseOfAnUnmodelledCauseReturnsUnknown(): List<DynamicTest> = listOf<Pair<String, (Frame, MethodView) -> Unit>>(
+        "unseeded parameter" to { _, _ -> },
+        // The host mirror has a cause the guest never modelled; it must not read as a guest null.
+        "host-only cause" to { frame, view ->
+            val host = IllegalStateException("outer", IllegalArgumentException("host-only cause"))
+            val throwable = frame.allocateThrowable(VirtualType.of("Ljava/lang/IllegalStateException;"), host)
+            frame.assign(view.parameters.single().register, throwable)
+        },
+    ).map { (name, seed) ->
+        DynamicTest.dynamicTest(name) {
+            val view = view(GET_CAUSE)
+            val frame = Frame.entryFrame(view).also { seed(it, view) }
+            val graph = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame).run()
+            assertEquals(listOf(Outcome.Returned(Value.Unknown(THROWABLE))), graph.outcomes)
+        }
     }
 
     @Test
     fun guestGetCauseReturnsTheExactCauseIdentityAfterPersistentCopies() {
-        val view = CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;",
-        "getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;",)
+        val view = view(GET_CAUSE)
         val frame = Frame.entryFrame(view)
-        val causeType = VirtualType.of("Ljava/lang/NullPointerException;")
-        val wrapperType = VirtualType.of("Ljava/lang/ExceptionInInitializerError;")
         val causeHost = NullPointerException("cause")
-        val cause = frame.allocateThrowable(causeType, causeHost)
-        val wrapperHost = ExceptionInInitializerError(causeHost)
-        val wrapper = frame.allocateThrowable(wrapperType, wrapperHost, cause)
+        val cause = frame.allocateThrowable(NPE, causeHost)
+        val wrapper = frame.allocateThrowable(EIIE, ExceptionInInitializerError(causeHost), cause)
         frame.assign(view.parameters.single().register, wrapper)
 
         val graph = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame.copy()).run()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(cause)), graph.outcomes)
-        assertSame(causeHost, wrapperHost.cause, "the host mirror must carry the semantic guest cause")
         assertTrue(frame.isHostMaterializable(wrapper), "a known cause chain has one complete host form")
     }
 
     @Test
     fun throwableCauseRemainsAGuestRootForSelectionAndOpaqueReachability() {
-        val view = view("getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;")
+        val view = view(GET_CAUSE)
         val frame = Frame.entryFrame(view)
         val cause = frame.allocateThrowable(NPE, NullPointerException("cause"))
         val wrapper = frame.allocateThrowable(
@@ -68,7 +73,7 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun throwableMergeTreatsMissingAndDifferentCausesConservatively() {
-        val base = Frame.entryFrame(view("getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;"))
+        val base = Frame.entryFrame(view(GET_CAUSE))
         val cause = base.allocateThrowable(NPE, NullPointerException("cause"))
         val host = ExceptionInInitializerError(base.heap.hostObjectAt(cause.raw as HeapRef) as Throwable)
         val wrapper = base.allocateThrowable(EIIE, host)
@@ -92,38 +97,8 @@ class ThrowableCauseBehaviorTest {
     }
 
     @Test
-    fun unknownModeledCauseDoesNotBecomeGuestNullFromTheHostMirror() {
-        val view = CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;",
-        "getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;",)
-        val frame = Frame.entryFrame(view)
-        val host = IllegalStateException("outer", IllegalArgumentException("host-only cause"))
-        val throwable = frame.allocateThrowable(VirtualType.of("Ljava/lang/IllegalStateException;"), host)
-        frame.assign(view.parameters.single().register, throwable)
-
-        val graph = VmServices(CoreTester.classIndex).newSession(view, entryFrame = frame).run()
-
-        assertEquals(
-            listOf(Outcome.Returned(Value.Unknown(VirtualType.of("Ljava/lang/Throwable;")))),
-            graph.outcomes,
-        )
-    }
-
-    @Test
     fun reflectedNestedCauseSurvivesCatchGetCauseAndRethrow() {
-        val target = MethodSignature(
-            VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
-            "throwNested",
-            "()V",
-        )
-        val vm = VmServices(
-            CoreTester.classIndex,
-            ReflectionPolicy(exactSafeMethods = setOf(target)),
-        )
-
-        val session = vm.newSession(
-            CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;",
-            "catchHostCauseAndRethrow()V",),
-        )
+        val session = reflectingVm("throwNested", "()V").newSession(view("catchHostCauseAndRethrow()V"))
         val graph = session.run()
         val thrown = (graph.outcomes.single() as Outcome.Threw).exception as Value.Known
         val causeRef = thrown.raw as HeapRef
@@ -132,51 +107,33 @@ class ThrowableCauseBehaviorTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(VirtualType.of("Ljava/lang/IllegalArgumentException;"), terminal.heapObject(causeRef)?.type)
         assertEquals("cause", (terminal.heap.hostObjectAt(causeRef) as Throwable).message)
-        assertEquals(Value.Known(null, VirtualType.of("Ljava/lang/Throwable;")), terminal.throwableCause(causeRef))
+        assertEquals(Value.Known(null, THROWABLE), terminal.throwableCause(causeRef))
     }
 
     @Test
     fun reflectedCauseCycleImportsEachIdentityOnceAndPreservesTheAlias() {
-        val target = MethodSignature(
-            VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
-            "throwCauseCycle",
-            "()V",
-        )
-        val vm = VmServices(
-            CoreTester.classIndex,
-            ReflectionPolicy(exactSafeMethods = setOf(target)),
-        )
-        val view = CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;",
-        "catchHostCauseCycle()Ljava/lang/Throwable;",)
-        val session = vm.newSession(view)
-
-        val graph = session.run()
+        val graph = reflectingVm("throwCauseCycle", "()V")
+            .newSession(view("catchHostCauseCycle()Ljava/lang/Throwable;"))
+            .run()
         val outcome = graph.outcomes.single()
         assertTrue(outcome is Outcome.Returned, "expected the cycle root to return, got $outcome")
         val returned = (outcome as Outcome.Returned).value as Value.Known
         val outerRef = returned.raw as HeapRef
         val outer = graph.explored.terminatingHeapObject(outerRef).agreed() as HeapObject.GuestThrowable
-        val cause = outer.cause as Value.Known
-        val causeRef = cause.raw as HeapRef
+        val causeRef = (outer.cause as Value.Known).raw as HeapRef
         val causeObject = graph.explored.terminatingHeapObject(causeRef).agreed() as HeapObject.GuestThrowable
         val outerHost = CoreTester.terminatingHostObject(graph, outerRef) as Throwable
         val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
 
-        assertNotEquals(outerRef, causeRef)
+        assertNotEquals(outerRef, causeRef, "the two-node cycle must keep two throwable refs")
         assertEquals(Value.Known(outerRef, outer.type), causeObject.cause)
-        assertEquals(2, setOf(outerRef, causeRef).size, "the two-node cycle must keep two throwable refs")
         assertSame(causeHost, outerHost.cause)
         assertSame(outerHost, causeHost.cause)
     }
 
     @Test
     fun selectedHostThrowableImportReusesTheRootAndPreservesNestedAliasedCycle() {
-        val target = MethodSignature(
-            VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
-            "throwProvided",
-            "(Ljava/lang/Throwable;)V",
-        )
-        val vm = VmServices(CoreTester.classIndex, ReflectionPolicy(exactSafeMethods = setOf(target)))
+        val vm = reflectingVm("throwProvided", "(Ljava/lang/Throwable;)V")
         val view = view("catchProvided(Ljava/lang/Throwable;)Ljava/lang/Throwable;")
         val frame = Frame.entryFrame(view)
         val outer = LinkedCauseThrowable("outer")
@@ -195,8 +152,7 @@ class ThrowableCauseBehaviorTest {
         val graph = session.run()
 
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
-        val terminalNode = requireNotNull(session.currentNode)
-        val terminal = terminalNode.terminalFrame
+        val terminal = requireNotNull(session.currentNode).terminalFrame
         assertEquals(rootRef, returned.raw, "the selected throw must reuse its source throwable ref")
         assertEquals(causeValue, terminal.throwableCause(rootRef), "the nested cause must reuse its source ref")
         assertEquals(root, terminal.throwableCause(causeRef), "the imported cause cycle must close on the source ref")
@@ -216,25 +172,18 @@ class ThrowableCauseBehaviorTest {
 
     @Test
     fun normallyReturnedHostThrowableImportsItsCauseIdentityAndNullTerminator() {
-        val target = MethodSignature(
-            VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"),
-            "returnNestedThrowable",
-            "()Ljava/lang/Throwable;",
-        )
-        val vm = VmServices(CoreTester.classIndex, ReflectionPolicy(exactSafeMethods = setOf(target)))
-        val session = vm.newSession(view("returnedThrowable()Ljava/lang/Throwable;"))
+        val session = reflectingVm("returnNestedThrowable", "()Ljava/lang/Throwable;")
+            .newSession(view("returnedThrowable()Ljava/lang/Throwable;"))
 
         val graph = session.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val rootRef = returned.raw as HeapRef
         val root = graph.explored.terminatingHeapObject(rootRef).agreed() as HeapObject.GuestThrowable
-        val cause = requireNotNull(root.cause) as Value.Known
-        val causeRef = cause.raw as HeapRef
+        val causeRef = (requireNotNull(root.cause) as Value.Known).raw as HeapRef
         val causeObject = graph.explored.terminatingHeapObject(causeRef).agreed() as HeapObject.GuestThrowable
         val rootHost = CoreTester.terminatingHostObject(graph, rootRef) as Throwable
         val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
-        val terminalNode = requireNotNull(session.currentNode)
-        val terminal = terminalNode.terminalFrame
+        val terminal = requireNotNull(session.currentNode).terminalFrame
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertNotEquals(rootRef, causeRef)
@@ -245,12 +194,19 @@ class ThrowableCauseBehaviorTest {
 
     private fun view(descriptor: String): MethodView = CoreTester.classIndex.requireMethodView("Lthrowable_cause_test;", descriptor)
 
+    /** A VM whose reflection policy allows exactly one `ReflectBackendFixture` method. */
+    private fun reflectingVm(name: String, descriptor: String): VmServices {
+        val target = MethodSignature(VirtualType.of("Lorg/cf/smalivm/core/ReflectBackendFixture;"), name, descriptor)
+        return VmServices(CoreTester.classIndex, ReflectionPolicy(exactSafeMethods = setOf(target)))
+    }
+
     private class LinkedCauseThrowable(message: String) : RuntimeException(message) {
         var linkedCause: Throwable? = null
         override val cause: Throwable? get() = linkedCause
     }
 
     private companion object {
+        const val GET_CAUSE = "getCause(Ljava/lang/Throwable;)Ljava/lang/Throwable;"
         val THROWABLE = VirtualType.of("Ljava/lang/Throwable;")
         val NPE = VirtualType.of("Ljava/lang/NullPointerException;")
         val EIIE = VirtualType.of("Ljava/lang/ExceptionInInitializerError;")

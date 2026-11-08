@@ -6,7 +6,9 @@ import java.util.function.BiConsumer
 import java.util.function.BiFunction
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 
 class ReflectionPolicyIntegrationTest {
     private val classIndex = CoreTester.classIndex
@@ -107,72 +109,35 @@ class ReflectionPolicyIntegrationTest {
         assertPolicyDenial(execute("deniedRandomConstructor()V", emptyList()))
     }
 
-    // A host value that depends on the analysis machine's clock, random state, identity hash, system
-    // properties, default charset, time zone or class path differs from what the device computes, so default
-    // policy must leave it Unknown instead of folding it.
-
-    @Test
-    fun strictMathRandomIsNotFolded() = assertNotFolded("strictMathRandom()D", "D")
-
-    @Test
-    fun systemCurrentTimeMillisIsNotFolded() = assertNotFolded("currentTimeMillis()J", "J")
-
-    @Test
-    fun systemNanoTimeIsNotFolded() = assertNotFolded("nanoTime()J", "J")
-
-    @Test
-    fun newDateReadsTheHostClockAndIsNotFolded() = assertNotFolded("newDateTime()J", "J")
-
-    @Test
-    fun dateToStringReadsTheHostTimeZoneAndIsNotFolded() =
-        assertNotFolded("epochDateString()Ljava/lang/String;", "Ljava/lang/String;")
-
-    @Test
-    fun calendarGetInstanceReadsTheHostClockAndIsNotFolded() = assertNotFolded("calendarInstanceTime()J", "J")
-
-    @Test
-    fun newGregorianCalendarReadsTheHostClockAndIsNotFolded() = assertNotFolded("gregorianCalendarTime()J", "J")
-
-    @Test
-    fun sqlDateToStringReadsTheHostTimeZoneAndIsNotFolded() =
-        assertNotFolded("epochSqlDateString()Ljava/lang/String;", "Ljava/lang/String;")
-
-    @Test
-    fun sqlTimestampToStringReadsTheHostTimeZoneAndIsNotFolded() =
-        assertNotFolded("epochTimestampString()Ljava/lang/String;", "Ljava/lang/String;")
-
-    @Test
-    fun enumHashCodeReadsTheHostIdentityHashAndIsNotFolded() = assertNotFolded("enumIdentityHash()I", "I")
-
-    @Test
-    fun booleanGetBooleanReadsAHostSystemPropertyAndIsNotFolded() =
-        assertNotFolded("booleanSystemProperty()Z", "Z")
-
-    @Test
-    fun integerGetIntegerReadsAHostSystemPropertyAndIsNotFolded() {
-        assertNotFolded("integerSystemProperty()Ljava/lang/Integer;", "Ljava/lang/Integer;")
-        assertNotFolded("integerSystemPropertyWithIntDefault()Ljava/lang/Integer;", "Ljava/lang/Integer;")
-        assertNotFolded("integerSystemPropertyWithBoxedDefault()Ljava/lang/Integer;", "Ljava/lang/Integer;")
+    /**
+     * A value that depends on the analysis host's clock, random state, identity hash, system properties, default
+     * charset, time zone or class path differs on the device, so default policy leaves it Unknown.
+     */
+    @TestFactory
+    fun hostDependentResultsAreNotFolded(): List<DynamicTest> = listOf(
+        "strictMathRandom()D" to "D",
+        "currentTimeMillis()J" to "J",
+        "nanoTime()J" to "J",
+        "newDateTime()J" to "J",
+        "epochDateString()Ljava/lang/String;" to "Ljava/lang/String;",
+        "calendarInstanceTime()J" to "J",
+        "gregorianCalendarTime()J" to "J",
+        "epochSqlDateString()Ljava/lang/String;" to "Ljava/lang/String;",
+        "epochTimestampString()Ljava/lang/String;" to "Ljava/lang/String;",
+        "enumIdentityHash()I" to "I",
+        "booleanSystemProperty()Z" to "Z",
+        "integerSystemProperty()Ljava/lang/Integer;" to "Ljava/lang/Integer;",
+        "integerSystemPropertyWithIntDefault()Ljava/lang/Integer;" to "Ljava/lang/Integer;",
+        "integerSystemPropertyWithBoxedDefault()Ljava/lang/Integer;" to "Ljava/lang/Integer;",
+        "longSystemProperty()Ljava/lang/Long;" to "Ljava/lang/Long;",
+        "longSystemPropertyWithLongDefault()Ljava/lang/Long;" to "Ljava/lang/Long;",
+        "longSystemPropertyWithBoxedDefault()Ljava/lang/Long;" to "Ljava/lang/Long;",
+        "urlEncodeWithDefaultCharset()Ljava/lang/String;" to "Ljava/lang/String;",
+        "urlDecodeWithDefaultCharset()Ljava/lang/String;" to "Ljava/lang/String;",
+        "hostPackage()Ljava/lang/Package;" to "Ljava/lang/Package;",
+    ).map { (descriptor, returnType) ->
+        DynamicTest.dynamicTest(descriptor) { assertNotFolded(descriptor, returnType) }
     }
-
-    @Test
-    fun longGetLongReadsAHostSystemPropertyAndIsNotFolded() {
-        assertNotFolded("longSystemProperty()Ljava/lang/Long;", "Ljava/lang/Long;")
-        assertNotFolded("longSystemPropertyWithLongDefault()Ljava/lang/Long;", "Ljava/lang/Long;")
-        assertNotFolded("longSystemPropertyWithBoxedDefault()Ljava/lang/Long;", "Ljava/lang/Long;")
-    }
-
-    @Test
-    fun urlEncoderDefaultCharsetEncodeIsNotFolded() =
-        assertNotFolded("urlEncodeWithDefaultCharset()Ljava/lang/String;", "Ljava/lang/String;")
-
-    @Test
-    fun urlDecoderDefaultCharsetDecodeIsNotFolded() =
-        assertNotFolded("urlDecodeWithDefaultCharset()Ljava/lang/String;", "Ljava/lang/String;")
-
-    @Test
-    fun packageLookupReadsTheHostClassPathAndIsNotFolded() =
-        assertNotFolded("hostPackage()Ljava/lang/Package;", "Ljava/lang/Package;")
 
     private fun execute(descriptor: String, arguments: List<Value>): ExecutionGraph {
         val view = classIndex.requireMethodView(FIXTURE, descriptor)
