@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.Timeout
 
 class CallRoutingReliabilityTest {
     @Test
@@ -29,16 +28,18 @@ class CallRoutingReliabilityTest {
     }
 
     @Test
-    @Timeout(value = 30, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun methodLimitCancelsManyOpenActivationsInOnePass() {
         // Each recursion level is still open when the step limit fires, so cancellation must visit each
-        // completion once rather than rescan every activation per open completion.
+        // completion once rather than rescan every activation per open completion. One pass costs about eight
+        // times as much for eight times the open activations; a rescan per completion costs about sixty-four times.
         val view = CoreTester.classIndex.requireMethodView("Lcalls/caller;", "callsRecursiveCallee()I")
-        val session = CoreTester.vmServices.newSession(view, Limits(maxCallDepth = 0, maxSteps = DEEP_STEPS))
+        fun deepSession(steps: Int) = CoreTester.vmServices.newSession(view, Limits(maxCallDepth = 0, maxSteps = steps))
 
+        assertCostRatio(24.0, { deepSession(DEEP_STEPS) }, { deepSession(8 * DEEP_STEPS) }) { it.run() }
+
+        val session = deepSession(8 * DEEP_STEPS)
         val graph = session.run()
-
-        assertEquals(DEEP_STEPS, session.callStack.depth, "every step entered one more open activation")
+        assertEquals(8 * DEEP_STEPS, session.callStack.depth, "every step entered one more open activation")
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)), graph.completion())
         assertEquals(listOf(Outcome.Aborted(AbortReason.METHOD_LIMIT)), graph.outcomes)
         assertTrue(session.isFinished)
@@ -111,6 +112,6 @@ class CallRoutingReliabilityTest {
     private companion object {
         const val OWNER = "Lexception_propagation_test;"
         const val CALLEE = "$OWNER->partialCompletionCallee(I)I"
-        const val DEEP_STEPS = 200_000
+        const val DEEP_STEPS = 5_000
     }
 }

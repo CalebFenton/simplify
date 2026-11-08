@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import java.time.Duration
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotSame
@@ -9,7 +8,6 @@ import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.junit.jupiter.api.assertTimeoutPreemptively
 
 /** Persistent frame, heap, and class-init state: isolation between paths and copy cost independent of size. */
 class PersistentStateTest {
@@ -22,16 +20,19 @@ class PersistentStateTest {
 
     @Test
     fun copiesTakeConstantTimeRegardlessOfLiveStateSize() {
-        // Bug class: a frame copy walks its registers, heap, or class store. Oracle: with 100,000 live heap
-        // objects and 10,000 statics, 100,000 copies that each walked the state visit over 10^10 entries;
-        // persistent-root copies finish within the bound.
-        val frame = populatedFrame(heapObjects = 100_000, statics = 10_000)
+        // Bug class: a frame copy walks its registers, heap, or class store. Oracle: copying a frame that holds
+        // 1,000 heap objects and 100 statics costs about what copying a frame holding one of each does, and a copy
+        // that walks the state costs hundreds of times as much.
+        val small = populatedFrame(heapObjects = 1, statics = 1)
+        val frame = populatedFrame(heapObjects = 1_000, statics = 100)
 
-        var copied = frame
-        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
-            repeat(100_000) { copied = copied.copy() }
+        assertCostRatio(4.0, { small }, { frame }) { source ->
+            var copied = source
+            repeat(COPIES) { copied = copied.copy() }
         }
 
+        var copied = frame
+        repeat(COPIES) { copied = copied.copy() }
         assertLiveState(copied, frame)
         copied.classes.setStaticField(STATIC_FIELD, Value.Known(2, int))
         assertEquals(Value.Known(1, int), frame.getStaticField(objectType, STATIC_FIELD))
@@ -39,17 +40,19 @@ class PersistentStateTest {
 
     @Test
     fun longNoWriteExecutionDoesNotCopyLiveStatePerNode() {
-        // Bug class: each scheduled node copies the live heap. Oracle: a loop of over 1,000 nodes over a
-        // 100,000-object seeded heap copies more than 10^8 entries per run if successors copy state.
+        // Bug class: each scheduled node copies the live heap. Oracle: a loop of over 1,000 nodes costs about the
+        // same over a 5,000-object seeded heap as over an empty one; copying the heap per node costs hundreds of
+        // times as much.
         val view = view(SPINE, "spinForever()V")
+        val limits = Limits(maxAddressVisits = 1_000, maxSteps = 5_000)
+        val empty = Frame.entryFrame(view)
         val seeded = Frame.entryFrame(view)
-        repeat(100_000) { seeded.allocateObject(objectType, mapOf(field to Value.Known(it, int))) }
+        repeat(5_000) { seeded.allocateObject(objectType, mapOf(field to Value.Known(it, int))) }
         val liveRef = seedLiveState(seeded)
 
-        val graph = assertTimeoutPreemptively(Duration.ofSeconds(20)) {
-            vm.newSession(view, Limits(maxAddressVisits = 1_000, maxSteps = 5_000), seeded).run()
-        }
+        assertCostRatio(4.0, { vm.newSession(view, limits, empty) }, { vm.newSession(view, limits, seeded) }) { it.run() }
 
+        val graph = vm.newSession(view, limits, seeded).run()
         val nodes = graph.nodePile(0) + graph.nodePile(1)
         assertTrue(nodes.size > 1_000, "the trace must be long enough to expose per-node state copying")
         val liveObject = seeded.heapObject(liveRef)
@@ -540,34 +543,28 @@ class PersistentStateTest {
     }
 
     @Test
-    fun compatibilityHashAndGroupingDoNotTraverseTenThousandEntryMaps() {
+    fun compatibilityHashAndGroupingDoNotTraverseTheirMaps() {
         // Bug class: CallCompatibilityKey equality/hash walks both compatibility maps at every group lookup.
-        // Oracle: a million lookups by a shared-root key over two 10,000-entry maps walk 2 * 10^10 entries if
-        // hashing or equality traverses; cached hashes and the shared-root equality fast path finish in the bound.
-        val frame = frame()
-        repeat(10_000) {
-            frame.allocateTrackedField(trackedMetadata(it))
-            frame.classes.complete(VirtualType.of("Lcompatibility/class$it;"))
-        }
+        // Oracle: group lookups by a shared-root key over two 1,000-entry maps cost about what they cost over
+        // one-entry maps; lookups that walk the maps cost thousands of times as much.
+        val small = compatibilityFrame(1)
+        val frame = compatibilityFrame(1_000)
         val key = frame.callCompatibilityKey()
         val sharedKey = frame.copy().callCompatibilityKey()
         assertNotSame(key, sharedKey)
         assertEquals(key, sharedKey)
         assertEquals(key.hashCode(), sharedKey.hashCode())
-        val groups = HashMap<CallCompatibilityKey, Int>()
-        groups[key] = 0
 
-        assertTimeoutPreemptively(Duration.ofSeconds(20)) {
-            repeat(1_000_000) { groups[sharedKey] = groups.getValue(sharedKey) + 1 }
+        assertCostRatio(4.0, { small }, { frame }) { source ->
+            val groups = hashMapOf(source.callCompatibilityKey() to 0)
+            val lookup = source.copy().callCompatibilityKey()
+            repeat(LOOKUPS) { groups[lookup] = groups.getValue(lookup) + 1 }
         }
 
-        assertEquals(1_000_000, groups.getValue(key))
-        val independentlyBuilt = frame()
-        repeat(10_000) {
-            independentlyBuilt.allocateTrackedField(trackedMetadata(it))
-            independentlyBuilt.classes.complete(VirtualType.of("Lcompatibility/class$it;"))
-        }
-        val independentKey = independentlyBuilt.callCompatibilityKey()
+        val groups = hashMapOf(key to 0)
+        repeat(LOOKUPS) { groups[sharedKey] = groups.getValue(sharedKey) + 1 }
+        assertEquals(mapOf(key to LOOKUPS), groups)
+        val independentKey = compatibilityFrame(1_000).callCompatibilityKey()
         assertEquals(key, independentKey, "independently rebuilt equal states must converge")
         val partitions = listOf(key, independentKey).groupBy { it }
         assertEquals(1, partitions.size)
@@ -597,16 +594,32 @@ class PersistentStateTest {
     @Test
     fun selectedCompactionCostIgnoresDeadGuestOnlyHeapObjects() {
         // Bug class: every selected call scans and sorts all historical HeapObjects before host execution.
-        // Oracle: work starts from live guest refs and the graph-backed ref index. With 300,000 dead objects,
-        // 3,000 selected calls that scan the heap visit about 10^9 records; live-root work finishes in the bound.
-        val frame = frame()
-        val raw = intArrayOf(0)
-        val arrayType = VirtualType.of("[I")
-        val value = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(raw, arrayType)))).single() as Value.Known
-        val ref = value.raw as HeapRef
-        frame.assign(0, value)
-        repeat(300_000) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
-        val invocation = PreparedInvocation(
+        // Oracle: work starts from live guest refs and the graph-backed ref index, so selected calls cost about the
+        // same beside 20,000 dead objects as beside none; scanning the heap per call costs hundreds of times as much.
+        val small = SelectedCallFrame(deadObjects = 0)
+        val large = SelectedCallFrame(deadObjects = 20_000)
+
+        // Each selection asserts the host argument holds the guest write made just before it.
+        assertCostRatio(4.0, { small }, { large }) { it.selectRepeatedly() }
+    }
+
+    private fun frame(descriptor: String = "moveChain()I"): Frame = Frame.entryFrame(view(SPINE, descriptor))
+
+    /** A frame holding [entries] tracked fields and [entries] completed classes. */
+    private fun compatibilityFrame(entries: Int): Frame = frame().also {
+        repeat(entries) { index ->
+            it.allocateTrackedField(trackedMetadata(index))
+            it.classes.complete(VirtualType.of("Lcompatibility/class$index;"))
+        }
+    }
+
+    /** A frame whose register 0 holds a host-seeded `int[1]`, beside [deadObjects] objects nothing references. */
+    private inner class SelectedCallFrame(deadObjects: Int) {
+        private val frame = frame()
+        private val arrayType = VirtualType.of("[I")
+        private val value = frame.heap.admitHostSeeds(listOf(HostSeed(Value.Known(intArrayOf(0), arrayType)))).single()
+        private val ref = (value as Value.Known).raw as HeapRef
+        private val invocation = PreparedInvocation(
             MethodSignature(VirtualType.of("Lcalls/callee;"), "host", "()V"),
             VirtualType.of("Lcalls/caller;"),
             InvokeKind.STATIC,
@@ -616,17 +629,19 @@ class PersistentStateTest {
             listOf(value),
         )
 
-        assertTimeoutPreemptively(Duration.ofSeconds(30)) {
-            repeat(3_000) { iteration ->
-                frame.heap.setArrayElement(ref, 0, Value.Known(iteration, int))
-                val selected = SelectedHostCall.from(invocation, frame, CoreTester.classIndex.classLoader)
-                assertEquals(iteration, (selected.arguments.single() as IntArray)[0])
-                selected.finalize(frame)
-            }
+        init {
+            frame.assign(0, value)
+            repeat(deadObjects) { frame.allocateObject(VirtualType.of("Ldead/object$it;"), emptyMap()) }
+        }
+
+        /** Selects the host call [SELECTED_CALLS] times, each after a guest write the host argument must see. */
+        fun selectRepeatedly() = repeat(SELECTED_CALLS) { iteration ->
+            frame.heap.setArrayElement(ref, 0, Value.Known(iteration, int))
+            val selected = SelectedHostCall.from(invocation, frame, CoreTester.classIndex.classLoader)
+            assertEquals(iteration, (selected.arguments.single() as IntArray)[0])
+            selected.finalize(frame)
         }
     }
-
-    private fun frame(descriptor: String = "moveChain()I"): Frame = Frame.entryFrame(view(SPINE, descriptor))
 
     private fun populatedFrame(heapObjects: Int, statics: Int): Frame = frame().also {
         it.assign(0, Value.Known(1, int))
@@ -713,5 +728,8 @@ class PersistentStateTest {
         val INIT_TARGET_TYPE = VirtualType.of("Linvocation_class_init_target;")
         const val STATIC_FIELD = "Lpersistent_state/object;->staticValue:I"
         const val EXTRA_STATIC_FIELD = "Lpersistent_state/object;->extra:I"
+        const val COPIES = 50_000
+        const val LOOKUPS = 50_000
+        const val SELECTED_CALLS = 300
     }
 }
