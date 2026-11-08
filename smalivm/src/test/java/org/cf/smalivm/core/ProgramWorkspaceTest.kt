@@ -31,7 +31,7 @@ class ProgramWorkspaceTest {
     fun changedBodyRequiresANewSignatureBoundMethodRevision() {
         val index = task53ClassIndex(root, SOURCE)
         val snapshot = index.currentSnapshot
-        val definition = requireNotNull(snapshot.applicationClass("Ltask53/Workspace;"))
+        val definition = requireNotNull(snapshot.applicationClass("Lworkspace/Workspace;"))
         val method = definition.methods.single()
         val body = MethodBody.import(
             ImmutableMethodImplementation(
@@ -61,11 +61,11 @@ class ProgramWorkspaceTest {
     @Test
     fun methodBodyCandidateCannotChangeClassStructure() {
         val index = task53ClassIndex(root, SOURCE)
-        val definition = requireNotNull(index.currentSnapshot.applicationClass("Ltask53/Workspace;"))
+        val definition = requireNotNull(index.currentSnapshot.applicationClass("Lworkspace/Workspace;"))
         val changed = ApplicationClassDefinition(
             definition.type,
             definition.accessFlags,
-            "Ltask53/OtherSuperclass;",
+            "Lworkspace/OtherSuperclass;",
             definition.interfaces,
             definition.sourceFile,
             definition.annotations,
@@ -129,7 +129,7 @@ class ProgramWorkspaceTest {
 
     private companion object {
         const val SOURCE = """
-            .class public Ltask53/Workspace;
+            .class public Lworkspace/Workspace;
             .super Ljava/lang/Object;
 
             .method public static value()I

@@ -4,10 +4,12 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestFactory
 import java.io.File
 
-/** Compile and behavior coverage for the public execution path defined by Plan 12 Task 44. */
+/** Behavior of the public session API: running a method, its outcomes, limits, and completion status. */
 class PublicExecutionApiTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
     private val vmServices = VmServices(classIndex)
@@ -75,34 +77,24 @@ class PublicExecutionApiTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
     }
 
-    @Test
-    fun guestCreatedThrowableEscapesAsKnownHeapRefOutcome() {
-        val graph = vmServices.newSession(
-            classIndex.requireMethodView(SPINE, "createsAndThrowsRuntimeException()V")
-        ).run()
+    @TestFactory
+    fun guestCreatedThrowableEscapesAsKnownHeapRefOutcome(): List<DynamicTest> = listOf(
+        Triple(SPINE, "createsAndThrowsRuntimeException()V", VirtualType.of("Ljava/lang/RuntimeException;")),
+        Triple(EXCEPTIONAL_CODE, "createAndThrowException()V", CUSTOM_EXCEPTION),
+    ).map { (classType, method, exceptionType) ->
+        DynamicTest.dynamicTest("$classType->$method") {
+            val graph = vmServices.newSession(classIndex.requireMethodView(classType, method)).run()
 
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        val exception = (graph.outcomes.single() as Outcome.Threw).exception
-        assertTrue(exception is Value.Known, "the guest-created throwable must remain concrete: $exception")
-        assertEquals(VirtualType.of("Ljava/lang/RuntimeException;"), exception.type)
-        assertTrue((exception as Value.Known).raw is HeapRef, "the concrete throwable must preserve guest identity")
+            assertEquals(CompletionStatus.Complete, graph.completion())
+            val exception = (graph.outcomes.single() as Outcome.Threw).exception
+            assertTrue(exception is Value.Known, "the guest-created throwable must remain concrete: $exception")
+            assertEquals(exceptionType, exception.type)
+            assertTrue((exception as Value.Known).raw is HeapRef, "the concrete throwable must preserve guest identity")
+        }
     }
 
     @Test
-    fun `EX-12 direct guest-defined CustomException escape is Complete and concrete`() {
-        val graph = vmServices.newSession(
-            classIndex.requireMethodView(EXCEPTIONAL_CODE, "createAndThrowException()V"),
-        ).run()
-
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        val exception = (graph.outcomes.single() as Outcome.Threw).exception
-        assertTrue(exception is Value.Known, "the guest-defined throwable must remain concrete: $exception")
-        assertEquals(CUSTOM_EXCEPTION, exception.type)
-        assertTrue((exception as Value.Known).raw is HeapRef)
-    }
-
-    @Test
-    fun `EX-12 callsExceptionalMethod catch and rethrow preserve the CustomException HeapRef`() {
+    fun catchAndRethrowPreserveTheGuestDefinedExceptionHeapRef() {
         val graph = vmServices.newSession(
             classIndex.requireMethodView(EXCEPTIONAL_CODE,
             "callsExceptionalMethodAndReturnsException()Lorg/cf/test/CustomException;",),
@@ -120,7 +112,7 @@ class PublicExecutionApiTest {
         assertTrue(heapObject is HeapObject.TrackedObject)
         val tracked = heapObject as HeapObject.TrackedObject
         assertEquals(CUSTOM_EXCEPTION, tracked.type)
-        // Plan 12 principle 7 forbids reconstructing a throwable from its type during catch and rethrow.
+        // Catch and rethrow must keep the guest object, not rebuild a throwable from its type.
         assertEquals(known, tracked.field(CAUGHT_IDENTITY_FIELD))
     }
 
