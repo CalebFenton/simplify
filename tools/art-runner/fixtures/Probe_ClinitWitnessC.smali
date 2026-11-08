@@ -1,17 +1,8 @@
-# The THIRD class-initialization witness, for `Fx_NewInstanceDoesInitialize` -- Plan 9
-# Task 16 Step 0.
+# Class-initialization witness for `Fx_NewInstanceDoesInitialize`; identical to Probe_ClinitWitnessA
+# and B apart from the name it prints. Each question gets its own witness because every fixture in a
+# batch shares one runtime, so a class initialized by one fixture stays initialized for later ones.
 #
-# Identical to `Probe_ClinitWitnessA`/`Probe_ClinitWitnessB` apart from the name it prints.
-# A witness per question is the invariant those two files established and it is what makes
-# a SILENT result mean anything: every fixture in a batch shares one runtime, so a class
-# initialized by one fixture is already initialized for every later one. If this fixture's
-# question reused witness A, `Fx_ConstClassDoesNotInitialize` (which runs FIRST under the
-# batch's byte order) would leave A uninitialized and the reading would still work by luck
-# -- and the day a fixture name sorted differently the experiment would silently invert.
-# One witness, one question.
-#
-# NOT named `Fx_*`, so `RunFixtures` never invokes it directly -- `Class.forName`
-# initializes what it loads, which would answer this fixture's question for it.
+# Not named `Fx_*`, so `RunFixtures` never invokes it: `Class.forName` initializes what it loads.
 .class public LProbe_ClinitWitnessC;
 .super Ljava/lang/Object;
 

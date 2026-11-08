@@ -1,4 +1,4 @@
-# WORKLIST ROW 23 CONTROL -- const-class naming a PRESENT type (java.lang.String).
+# Control: Const-class naming a PRESENT type (java.lang.String).
 # The control for Fx_ConstClassAbsentType: same opcode, a type that DOES resolve on the boot
 # classpath, so a batch in which "everything fails to resolve" would show here as a failure too
 # and be caught. A clean return proves const-class's resolution path works and isolates the

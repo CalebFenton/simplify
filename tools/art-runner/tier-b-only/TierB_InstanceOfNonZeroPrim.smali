@@ -1,16 +1,9 @@
-# TIER-B-ONLY PROBE. VERIFIER-INVALID BY DESIGN. NOT A CORPUS FIXTURE.
+# Tier B probe, verifier-invalid by design; not a corpus fixture. It asks what default-mode modern
+# ART (nterp) does when a dereferencing op reads a register holding a non-zero primitive where a
+# reference is expected. See run-tier-b-probes.sh.
 #
-# This file lives in tools/art-runner/tier-b-only/ -- a SIBLING of fixtures/, never under it --
-# on purpose. It measures the ONE question Tier A cannot answer: what a default-mode modern-ART
-# device (nterp) does when a dereferencing op reads a register holding a NON-ZERO primitive where
-# a reference is expected. See tools/art-runner/tier-b-only/run-tier-b-probes.sh and Task 9.
-#
-# It is NOT under fixtures/ because the in-JVM engines build their class model from
-# DeviceFixtures.classPath (= tools/art-runner/fixtures) via Utils.getFilesWithSmaliExtension,
-# which uses java.nio.file.Files.walk -- RECURSIVE. A verifier-invalid class anywhere under
-# fixtures/ would be parsed into the engine class model and break DeviceFixturesTest's
-# 79-class enumeration. run-batch.sh's `fixtures/*.smali` glob and DeviceFixtures.files'
-# listFiles() are non-recursive and would NOT see a subdir, but the classPath walk would.
+# It lives beside fixtures/, not under it: the core loads its class model from that directory
+# recursively, and a verifier-invalid class there would enter the device corpus.
 #
 # The probe: put 0x11223344 (a distinctive, non-zero primitive) in a register, then run
 # `instance-of` treating it as a reference. Verifier-invalid (a non-reference register in a

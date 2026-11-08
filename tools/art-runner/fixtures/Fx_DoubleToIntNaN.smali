@@ -1,4 +1,4 @@
-# WORKLIST ROW 3 -- Double->Int narrowing, the genuinely D-tagged verifier-valid case.
+# Double->Int narrowing, the genuinely D-tagged verifier-valid case.
 # The source register holds a real double (const-wide of the NaN bit pattern), so this is a
 # true narrowing conversion, NOT the sub-word bit-reinterpretation the section separates out.
 # [JLS] 5.1.3: a narrowing double->int with a NaN source yields 0.

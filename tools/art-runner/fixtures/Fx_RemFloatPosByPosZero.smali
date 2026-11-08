@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- rem-float (JVM counterpart frem). (+1.0f) rem (+0.0f).
+# Rem-float (JVM counterpart frem). (+1.0f) rem (+0.0f).
 # [JVMS] frem (IEEE-754 remainder): any finite value modulo zero is the invalid operation -> NaN;
 # no exception is thrown, unlike the integral rem-int.
 # Expected: java.lang.Float(NaN).

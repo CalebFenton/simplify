@@ -1,7 +1,5 @@
-# PLAN 9 TASK 15 STEP 4c CONTROL -- `invoke-static` on a PRESENT class with a PRESENT method.
-# The control for Fx_InvokeAbsentType and Fx_InvokeMissingMethod: same opcode, a defining class and a
-# method that both resolve, so a batch in which invocation itself is broken would show here too.
-# Expected: java.lang.String(1).
+# Control for Fx_InvokeAbsentType and Fx_InvokeMissingMethod: the same opcode with a class and a
+# method that both resolve. Expected: java.lang.String(1).
 .class public LFx_InvokePresentType;
 .super Ljava/lang/Object;
 

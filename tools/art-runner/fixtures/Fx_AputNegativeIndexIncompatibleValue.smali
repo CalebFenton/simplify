@@ -1,4 +1,4 @@
-# WORKLIST ROW 12, FOURTH CELL -- AIOOBE strictly precedes ASE, proved a SECOND way: with the index
+# AIOOBE strictly precedes ASE, proved a SECOND way: with the index
 # NEGATIVE rather than too large.
 #
 # THIS FIXTURE'S CELL: a valid, non-null `String[1]`, an index of -1, AND an unassignable `Object`
@@ -7,7 +7,7 @@
 #   AIOOBE -> the bounds check runs before the store's assignability check, and a negative index is
 #             out of range (as `Fx_AputNegativeIndex` shows on its own). The inherited [JVMS]
 #             `aastore` "Otherwise" chaining holds for a negative index too.
-#   ASE    -> assignability is checked before bounds, and the row-12 ordering is backwards.
+#   ASE    -> assignability is checked before bounds, and the documented NPE -> AIOOBE -> ASE ordering is backwards.
 #
 # `Fx_AputBadIndexIncompatibleValue` is the same cell with a TOO-LARGE index (5); this is its
 # NEGATIVE-index twin, so the pair shows AIOOBE-before-ASE does not depend on the direction the index

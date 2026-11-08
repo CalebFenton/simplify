@@ -1,4 +1,4 @@
-# WORKLIST ROW 14 -- filled-new-array naming an ABSENT type (via the resolution PROCEDURE, not a
+# Filled-new-array naming an ABSENT type (via the resolution PROCEDURE, not a
 # counterpart instruction). Lcom/example/DefinitelyMissing; resolves against nothing; building
 # [Lcom/example/DefinitelyMissing; forces resolution, which fails. One null element (assignable to
 # any reference component), so the only failure is the type resolution itself. Left to propagate.

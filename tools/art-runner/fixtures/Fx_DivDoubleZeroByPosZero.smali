@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- div-double (JVM counterpart ddiv). (+0.0) / (+0.0).
+# Div-double (JVM counterpart ddiv). (+0.0) / (+0.0).
 # [JVMS] ddiv (IEEE-754): zero divided by zero is the invalid operation -> NaN (not an exception).
 # Expected: java.lang.Double(NaN).
 .class public LFx_DivDoubleZeroByPosZero;

@@ -71,25 +71,15 @@ esac
 # Fixture class names come from the `.class` directives, not from file names, so a
 # renamed file cannot silently drop a fixture out of the batch.
 #
-# ONLY `Fx_*` is auto-invoked, and that filter is load-bearing rather than cosmetic.
-# `fixtures/` also holds SUPPORT classes (`Probe_*`) that exist to be acted upon, not
-# invoked -- e.g. the `<clinit>` witnesses. `RunFixtures` reaches a fixture through
-# `Class.forName`, which INITIALIZES it ([JLS] 12.4.1 lists reflective calls as a
-# trigger), so invoking a witness directly initializes the very class whose silence
-# another fixture is measuring. Before this filter, a no-argument run did exactly that
-# and `Fx_ConstClassDoesNotInitialize` stayed correct only because alphabetical order
-# happened to put it first -- renaming either file would have silently inverted the
-# experiment. An explicit argument still runs anything, including a `Probe_`, on purpose.
+# Only `Fx_*` is auto-invoked. `fixtures/` also holds support classes (`Probe_*`), such as
+# `<clinit>` witnesses. `RunFixtures` reaches a fixture through `Class.forName`, which
+# initializes it ([JLS] 12.4.1), so invoking a witness would initialize the class whose
+# silence another fixture measures. An explicit argument runs anything, including a `Probe_`.
 if [[ $# -gt 0 ]]; then
     FIXTURES=("$@")
 else
-    # `LC_ALL=C sort` -- byte order, not the caller's locale. This order IS the dispatch order and
-    # therefore the golden's line order, and the in-JVM harness reproduces this enumeration with
-    # Kotlin's `String` ordering (also by code unit). Under a UTF-8 locale GNU `sort` collates
-    # case- and punctuation-sensitively, so the two would disagree the moment a fixture name mixed
-    # case or added an underscore -- a cross-tool divergence in the FIXTURES, which is exactly what
-    # this harness must never confuse for a runtime divergence. For today's all-`Fx_`-uppercase names
-    # the orders coincide, so this pins the invariant without moving a line.
+    # `LC_ALL=C sort`: byte order, not the caller's locale. This is the dispatch order and the
+    # golden's line order, and `DeviceFixtures` reproduces it with Kotlin's code-unit ordering.
     mapfile -t FIXTURES < <(
         sed -n 's/^\.class[^L]*L\(Fx_[^;]*\);.*/\1/p' "$HERE"/fixtures/*.smali | LC_ALL=C sort
     )

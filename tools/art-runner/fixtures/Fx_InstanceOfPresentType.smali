@@ -1,4 +1,4 @@
-# WORKLIST ROW 20 CONTROL -- instance-of naming a PRESENT type (java.lang.String), non-null source.
+# Control: Instance-of naming a PRESENT type (java.lang.String), non-null source.
 # The control for Fx_InstanceOfAbsentType: same opcode, a type that DOES resolve. Answering 1 proves
 # instance-of's resolution path works and isolates the absent-type fixture's throw.
 # Expected: java.lang.Integer(1).

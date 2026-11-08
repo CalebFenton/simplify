@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- rem-double (JVM counterpart drem). (+1.0) rem (+0.0).
+# Rem-double (JVM counterpart drem). (+1.0) rem (+0.0).
 # [JVMS] drem (IEEE-754 remainder): any finite value modulo zero is the invalid operation -> NaN;
 # no exception is thrown, unlike the integral rem-long.
 # Expected: java.lang.Double(NaN).
