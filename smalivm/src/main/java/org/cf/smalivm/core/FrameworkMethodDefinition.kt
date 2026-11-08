@@ -3,11 +3,11 @@ package org.cf.smalivm.core
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 
 /** Immutable bundled-framework method declaration and optional modeled body. */
-class FrameworkMethodDefinition internal constructor(
-    val identity: FrameworkMethodIdentity,
+internal class FrameworkMethodDefinition internal constructor(
+    internal val identity: FrameworkMethodIdentity,
     internal val declaration: ImmutableMethod,
-    val body: MethodBody?,
-    val dynamicLoadingEvidence: DynamicLoadingEvidence,
+    internal val body: MethodBody?,
+    internal val dynamicLoadingEvidence: DynamicLoadingEvidence,
 ) {
-    val methodSignature: MethodSignature = MethodSignature.of(declaration)
+    internal val methodSignature: MethodSignature = MethodSignature.of(declaration)
 }

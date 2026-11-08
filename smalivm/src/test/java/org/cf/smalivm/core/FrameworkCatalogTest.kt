@@ -97,7 +97,7 @@ class FrameworkCatalogTest {
 
     private companion object {
         const val SOURCE = """
-            .class public Ltask53/FrameworkCaller;
+            .class public Lprogram/FrameworkCaller;
             .super Ljava/lang/Object;
 
             .method public static call(Ljava/lang/Object;)Ljava/lang/Object;

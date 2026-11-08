@@ -5,19 +5,22 @@ import java.io.InputStreamReader
 import java.nio.charset.StandardCharsets
 
 /** The policy rule that made one reflection decision. */
-enum class ReflectionRule { EXACT_UNSAFE, EXACT_SAFE, SAFE_CLASS, DEFAULT_DENY }
+internal enum class ReflectionRule { EXACT_UNSAFE, EXACT_SAFE, SAFE_CLASS, DEFAULT_DENY }
 
 /** A policy decision. Denial is not a backend decline and does not permit fallback. */
-sealed interface ReflectionDecision {
+internal sealed interface ReflectionDecision {
+    /** The rule that decided. */
     val rule: ReflectionRule
 
+    /** The call may run reflectively. */
     data class Allowed(override val rule: ReflectionRule) : ReflectionDecision
 
+    /** The call must not run reflectively. */
     data class Denied(override val rule: ReflectionRule) : ReflectionDecision
 }
 
 /** Immutable reflection authorization with explicit priority. */
-class ReflectionPolicy(
+public class ReflectionPolicy(
     exactUnsafeMethods: Set<MethodSignature> = emptySet(),
     exactSafeMethods: Set<MethodSignature> = emptySet(),
     safeClasses: Set<VirtualType> = emptySet(),
@@ -30,7 +33,7 @@ class ReflectionPolicy(
     private val methodEffects = methodEffects.toMap()
     private val exactSafeStaticFields = exactSafeStaticFields.toSet()
 
-    fun decide(
+    internal fun decide(
         target: MethodSignature,
         hostInitializationChain: List<VirtualType> = emptyList(),
     ): ReflectionDecision = when {
@@ -43,10 +46,10 @@ class ReflectionPolicy(
     }
 
     /** Authorization does not imply purity. Only an explicit proof narrows the default strong effect. */
-    fun effectOf(target: MethodSignature): SideEffectLevel = methodEffects[target] ?: SideEffectLevel.STRONG
+    internal fun effectOf(target: MethodSignature): SideEffectLevel = methodEffects[target] ?: SideEffectLevel.STRONG
 
     /** Authorizes one static read without exposing policy collections or loading a host class. */
-    fun decideStaticRead(
+    internal fun decideStaticRead(
         field: FieldSignature,
         hostInitializationChain: List<VirtualType>,
     ): ReflectionDecision = when {
@@ -73,9 +76,9 @@ class ReflectionPolicy(
         else -> ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY)
     }
 
-    companion object {
+    public companion object {
         /** Loads fresh immutable policy data for one VM owner. */
-        fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy =
+        public fun defaults(classLoader: ClassLoader = ReflectionPolicy::class.java.classLoader): ReflectionPolicy =
             ReflectionPolicy(
                 exactUnsafeMethods = loadDefinitions(classLoader, "unsafe_methods.cfg").map(MethodSignature::parse).toSet(),
                 exactSafeMethods = loadDefinitions(classLoader, "safe_methods.cfg").map(MethodSignature::parse).toSet(),

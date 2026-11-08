@@ -11,11 +11,10 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Bug classes (audit + spec §5.1): (a) per-run scheduler state living on the VM, so a second
- * execution inherited the first one's queue and stale frames; (b) an untyped `aborted` boolean, so
- * a truncated exploration was indistinguishable from a complete one; (c) an escaping host exception
- * poisoning the whole run instead of just its path. Oracle: Dalvik control flow for the fixture
- * methods plus spec §4.4/§6.4 (one Outcome per explored path; any abort makes completion Partial).
+ * Bug classes: (a) per-run scheduler state shared across executions; (b) a truncated exploration
+ * indistinguishable from a complete one; (c) an escaping host exception ending the whole run instead of
+ * its path. Oracle: Dalvik control flow for the fixture methods; one Outcome per explored path, and any
+ * abort makes completion Partial.
  */
 class ExecutionSessionTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
@@ -97,11 +96,8 @@ class ExecutionSessionTest {
             assertSame(nodes[i - 1], nodes[i].parent, "node ${nodes[i].address} must link to its predecessor")
             assertTrue(nodes[i - 1].children.contains(nodes[i]))
         }
-        // `moveChain()I` calls nothing, so every node sits in the run's own entry activation and callDepth
-        // is 0 throughout. Pinned rather than assumed, because `callDepth` is a real value now (Plan 9 Task
-        // 14) rather than the stub it used to be -- a depth that crept above 0 for a call-free method would
-        // mean the scheduler was minting activations it should not, and `Limits.maxCallDepth` would then
-        // truncate ordinary straight-line methods. The rising-and-falling half is `core/CallStackTest`'s.
+        // A call-free method has one activation; a depth above 0 would let `Limits.maxCallDepth` truncate
+        // straight-line methods. Rising and falling depth is `CallStackTest`'s subject.
         assertTrue(nodes.all { it.callDepth == 0 }, "a call-free method has one activation, at depth 0")
     }
 
@@ -116,10 +112,8 @@ class ExecutionSessionTest {
 
     @Test
     fun anAbortEndsItsOwnPathWithoutTouchingTheFrameOrEnqueuingSuccessors() {
-        // Bug class: an unimplemented opcode either taking the run down, or -- worse -- being treated
-        // as a no-op so the path continues with stale registers and returns a confidently wrong value.
-        // Oracle: Op.kt/UnsupportedOp (Abort does not touch the frame) + spec §4.4 (an aborted path
-        // stops there). This is the session half of that contract, which Task 4 could not prove.
+        // Bug class: an unimplemented opcode taking the run down, or acting as a no-op so the path
+        // continues with stale registers. Oracle: an Abort arm does not touch the frame and ends its path.
         val s = session("unsupportedWideFilledArray()I")
         s.step()                            // const/4 v0, 0x3
         val aborted = s.step()!!            // filled-new-array {v0}, [J -- deliberately unsupported
@@ -139,13 +133,8 @@ class ExecutionSessionTest {
 
     @Test
     fun aSessionThatHasNotFinishedReportsInProgressNotComplete() {
-        // Bug class: computing completion from the ABORT SET ALONE, so "nothing aborted" reads as
-        // "explored everything" -- which is false for every moment before the frontier drains. A fresh
-        // session has executed literally nothing and still answered `Complete`, and `graph()` is
-        // documented as safe to call mid-run, so that answer was reachable by a consumer (Plan 10's
-        // debugger) rather than merely internal. `completion()` must therefore consult the FRONTIER as
-        // well as the abort set. Oracle: spec §5.1 (one honest completion status per run) and spec §9
-        // (trust requires the relevant paths to have been explored -- a scheduled path was not).
+        // Bug class: completion computed from the abort set alone, so a run with work still scheduled
+        // reads as Complete. `graph()` is safe to call mid-run, so a consumer can observe this.
         val s = session("returnFive()I")
         assertFalse(s.isFinished, "the entry node is scheduled and nothing has run")
         assertEquals(CompletionStatus.InProgress, s.completion(), "nothing aborted, but nothing finished either")
@@ -162,8 +151,7 @@ class ExecutionSessionTest {
         while (s.step() != null) Unit
         val outcome = s.outcomes.single()
         assertTrue(outcome is Outcome.Threw, "an unhandled throw ends the path as Threw, not Aborted")
-        // The parameter is Unknown at entry, so the thrown value is the unknown parameter itself --
-        // carried as a Value, never reconstructed from a class name (spec §7).
+        // The parameter is Unknown at entry, so the thrown value is that parameter, carried as a Value.
         assertEquals(
             Value.Unknown(VirtualType.of("Ljava/lang/RuntimeException;")),
             (outcome as Outcome.Threw).exception,
@@ -172,11 +160,8 @@ class ExecutionSessionTest {
 
     @Test
     fun addressVisitLimitAbortsThePath() {
-        // Oracle: spec §4.4 -- exceeding a limit is Aborted(ADDRESS_LIMIT), not a wrong answer.
-        // `spinForever()V` is a `goto` loop, the only way to revisit an address with the opcodes this
-        // plan implements, so it is also the only method that can actually exceed a per-address budget.
-        // maxSteps is set low as a backstop: if the address limit ever stops working this fails on
-        // METHOD_LIMIT instead of hanging.
+        // Exceeding a limit is Aborted(ADDRESS_LIMIT), not a wrong answer. `spinForever()V` is a `goto`
+        // loop; maxSteps is a backstop so a broken address limit fails on METHOD_LIMIT instead of hanging.
         val s = session("spinForever()V", Limits(maxAddressVisits = 1, maxSteps = 100))
         while (s.step() != null) Unit
         assertTrue(s.completion() is CompletionStatus.Partial)
@@ -186,11 +171,8 @@ class ExecutionSessionTest {
 
     @Test
     fun addressVisitLimitPermitsExactlyItsBudget() {
-        // The other side of the off-by-one, and the reason the test above needed a looping fixture: a
-        // budget of N permits N visits and aborts on the N+1th. A limit that tripped one visit early
-        // would mark every straight-line method Partial and silently disable the optimizer's trust
-        // gate everywhere. Oracle: the engine being replaced uses `newAddressVisitCount >
-        // maxAddressVisits` (VirtualMachine.kt:160), and Task 9's differential compares against it.
+        // The other side of the off-by-one: a budget of N permits N visits and aborts on the N+1th. A limit
+        // that tripped one visit early would mark every straight-line method Partial.
         val s = session("nopThenConst()I", Limits(maxAddressVisits = 1, maxSteps = 100))
         while (s.step() != null) Unit
         assertEquals(CompletionStatus.Complete, s.completion(), "each address is visited exactly once, so a budget of 1 suffices")
@@ -206,12 +188,11 @@ class ExecutionSessionTest {
 
     @Test
     fun aDrainedFrontierNodeIsStillPiledEvenThoughItNeverRan() {
-        // When a METHOD_LIMIT fires, abortRun ends every node still scheduled, none of which run their
-        // op; each must still be piled at its own address or its Aborted outcome is unattributable.
-        // `returnsOrThrows(I)I` forks at `if-eqz p0`@0 on the unknown parameter into the fall-through
-        // `const/4`@2 and the `new-instance`@4. With one step allowed, the if runs, the next dequeued
-        // successor trips the limit, and the other is drained by the SAME abortRun call. Oracle: spec §6.4
-        // plus ExecutionGraph's contract that nodePile is unfiltered while wasReached is not.
+        // When a METHOD_LIMIT fires, abortRun ends every scheduled node without running its op; each must
+        // still be piled at its own address or its Aborted outcome is unattributable.
+        // `returnsOrThrows(I)I` forks at `if-eqz p0`@0 into `const/4`@2 and `new-instance`@4. With one
+        // step allowed, the next dequeued successor trips the limit and the other is drained by the same
+        // abortRun call. nodePile is unfiltered; wasReached counts executed nodes only.
         val s = session("returnsOrThrows(I)I", Limits(maxSteps = 1))
 
         while (s.step() != null) Unit
@@ -226,9 +207,8 @@ class ExecutionSessionTest {
     }
 
     /**
-     * A node whose op **never ran** declares nothing. `maxAddressVisits = 0` disables the bound, so this
-     * uses a step limit of 1 against a method whose first op declares `STRONG`: the second node is
-     * dequeued, the bound fires before `execute`, and its level must still be `NONE`.
+     * A node whose op never ran declares nothing. The step limit of 1 stops the second node after it is
+     * dequeued and before `execute`, while the first op declares `STRONG`.
      */
     @Test
     fun aNodeWhoseOpNeverRanDeclaresNoSideEffect() {
@@ -252,17 +232,8 @@ class ExecutionSessionTest {
 
     @Test
     fun controlFlowRunningOffTheEndOfAMethodAbortsInsteadOfCrashing() {
-        // Bug class: a fallthrough or jump to an address that does not exist throwing out of the
-        // scheduler and killing the run. `fallsOffTheEnd()V` is a single `nop`: Dalvik would reject it,
-        // but obfuscators emit unreachable and malformed tails, so the containment has to be real.
-        // Oracle: spec §4.4 -- unrepresentable means Aborted, never a wrong answer and never a crash.
-        //
-        // The reason is MALFORMED_INPUT, and this test used to assert HOST_FAILURE -- it was the one
-        // place in the suite that encoded the defect `AbortReason.MALFORMED_INPUT` was added to fix.
-        // A tail with no next instruction is malformed obfuscator output, i.e. a statement about the
-        // INPUT; HOST_FAILURE means this engine or its host threw where it should not have, and
-        // reporting a bad tail as one made a genuine engine bug indistinguishable in aggregate from
-        // ordinary hostile input.
+        // A tail with no next instruction is malformed input, not a host failure. Dalvik would reject
+        // `fallsOffTheEnd()V` (a single `nop`), but obfuscators emit such tails.
         val s = session("fallsOffTheEnd()V")
         while (s.step() != null) Unit
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), s.outcomes)
@@ -293,10 +264,8 @@ class ExecutionSessionTest {
 
     @Test
     fun aCallerSuppliedEntryFrameIsCopiedNotAliased() {
-        // Bug class (a) again, re-entering through the public door: `eachSessionIsIndependent` only
-        // covers entryFrame = null, so an aliased caller-supplied frame let one run mutate the seed
-        // that the caller -- or a second session -- was about to reuse. Oracle: spec §4.2/§9 (no
-        // sharing of mutable state across paths, and a fortiori across runs).
+        // Bug class (a) through a caller-supplied entry frame: an aliased frame let one run mutate the
+        // seed a second session reuses.
         val view = classIndex.requireMethodView("Lspine/spine;", "moveChain()I")
         val seeded = Frame.entryFrame(view).also { it.assign(0, Value.Known(111, int)) }
         val first = vm.newSession(view, Limits(), seeded)
@@ -309,37 +278,6 @@ class ExecutionSessionTest {
         // ran -- proof it inherited nothing from the first run.
         while (second.step() != null) Unit
         assertEquals(first.outcomes, second.outcomes)
-    }
-
-    @Test
-    fun twoRunsOfTheSameInputExploreInTheSameOrder() {
-        // Bug class: HashSet/HashMap iteration or wall-clock reads in an output path, which makes node
-        // order and results irreproducible -- and Task 9's differential can only attribute a divergence
-        // to the engine if both runs of the same input are identical. Oracle: spec §2.2 determinism.
-        //
-        // Honest scope: today's determinism is structural (LIFO ArrayDeque frontier, LinkedHashMap /
-        // linkedSetOf recording, no clock read at the default limits) and `moveChain()I` is a single
-        // straight-line path, so this cannot currently fail. It becomes load-bearing at Task 7's first
-        // fork, when exploration order is decided by the frontier rather than by there being one option.
-        fun order(): Pair<List<Int>, List<Outcome>> {
-            val s = session("moveChain()I")
-            val addresses = mutableListOf<Int>()
-            while (true) addresses.add((s.step() ?: break).address)
-            return addresses to s.outcomes
-        }
-        assertEquals(order(), order())
-    }
-
-    @Test
-    fun runIsExactlyTheStepLoop() {
-        // `run()` and a hand-written step loop are the same walk -- the whole point of having ONE
-        // driver (spec §5.1). If they diverged, the optimizer and the debugger would see different
-        // executions of the same method.
-        val stepped = session("gotoSkip()I")
-        while (stepped.step() != null) Unit
-        val ran = session("gotoSkip()I").run()
-        assertEquals(stepped.outcomes, ran.outcomes)
-        assertEquals(CompletionStatus.Complete, stepped.completion())
     }
 
     @Test

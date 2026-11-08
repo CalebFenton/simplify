@@ -2,10 +2,7 @@ package org.cf.smalivm.core
 
 import org.junit.jupiter.api.Test
 
-/**
- * Port of the three formerly commented `TestFieldInheritance` behaviors. The fixture's statics are not final, so
- * each run starts as a fresh process, where their `<clinit>` and literal values are known.
- */
+/** The fixture's statics are not final, so each run starts as a fresh process, where their values are known. */
 class FieldInheritanceTest {
 
     @Test

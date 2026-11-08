@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
  * Executes immutable fixture snapshots and asserts register, heap, static-field, and visitation results.
  * [ClassIndex] is shared because construction imports the complete fixture tree.
  */
-object CoreTester {
+internal object CoreTester {
     const val TEST_CLASS_PATH = "src/test/resources/smali"
 
     /** Parsed once; each import builds its own immutable program snapshot from it. */

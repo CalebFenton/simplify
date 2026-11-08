@@ -5,16 +5,16 @@ package org.cf.smalivm.core
  * them hold the same one. Each way of failing is its own case, so "the paths disagree" never reads like "nothing
  * ran here".
  */
-sealed interface Agreement<out T> {
+public sealed interface Agreement<out T> {
     /** Every path in scope holds [value]. */
-    data class Agreed<out T>(val value: T) : Agreement<T>
+    public data class Agreed<out T>(val value: T) : Agreement<T>
 
     /** Every path in scope holds a value of the asked kind, and they are not all the same. */
-    data object Disagree : Agreement<Nothing>
+    public data object Disagree : Agreement<Nothing>
 
     /** At least one path in scope holds no value of the asked kind. */
-    data object Absent : Agreement<Nothing>
+    public data object Absent : Agreement<Nothing>
 
     /** There is no path in scope: no op ran at the addresses asked about, or no path returned. */
-    data object NoPath : Agreement<Nothing>
+    public data object NoPath : Agreement<Nothing>
 }

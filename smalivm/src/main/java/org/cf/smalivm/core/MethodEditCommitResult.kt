@@ -1,20 +1,23 @@
 package org.cf.smalivm.core
 
 /** Terminal result of one method edit transaction. */
-sealed interface MethodEditCommitResult {
-    class Committed internal constructor(
-        val editedMethodView: MethodView,
-        val programRevision: ProgramRevision,
+public sealed interface MethodEditCommitResult {
+    /** The edit was applied. */
+    public class Committed internal constructor(
+        internal val editedMethodView: MethodView,
+        internal val programRevision: ProgramRevision,
         createdMethodRevisionsBySignature: Map<MethodSignature, ApplicationMethodRevision>,
         codeAddressesByPendingAnchor: Map<PendingCodeAnchor, Int>,
     ) : MethodEditCommitResult {
-        val createdMethodRevisionsBySignature: Map<MethodSignature, ApplicationMethodRevision> =
+        internal val createdMethodRevisionsBySignature: Map<MethodSignature, ApplicationMethodRevision> =
             java.util.Collections.unmodifiableMap(LinkedHashMap(createdMethodRevisionsBySignature))
-        val codeAddressesByPendingAnchor: Map<PendingCodeAnchor, Int> =
+        internal val codeAddressesByPendingAnchor: Map<PendingCodeAnchor, Int> =
             java.util.Collections.unmodifiableMap(LinkedHashMap(codeAddressesByPendingAnchor))
     }
 
-    data object Unchanged : MethodEditCommitResult
+    /** The edit had no commands. */
+    public data object Unchanged : MethodEditCommitResult
 
-    data class Rejected(val reason: MethodEditRejectionReason) : MethodEditCommitResult
+    /** The edit was refused for [reason]; the program is unchanged. */
+    public data class Rejected(val reason: MethodEditRejectionReason) : MethodEditCommitResult
 }

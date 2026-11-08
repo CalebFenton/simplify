@@ -94,6 +94,10 @@ tasks.named('processResources') {
     }
 }
 
+kotlin {
+    explicitApi()
+}
+
 dependencies {
     api libs.bundles.smali
     compileOnlyApi libs.jetbrains.annotations

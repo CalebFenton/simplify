@@ -13,7 +13,7 @@ import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
  * classes; application classes are defined only when the parent loader lacks the name. Defining a class does
  * not authorize reflection: callers apply the reflection policy before executing anything.
  */
-class SmaliClassLoader internal constructor(private val snapshot: ProgramSnapshot) :
+internal class SmaliClassLoader internal constructor(private val snapshot: ProgramSnapshot) :
     ClassLoader(SmaliClassLoader::class.java.classLoader) {
     private val classBuilder = ClassBuilder { type -> snapshot.hierarchy.declarations[type]?.accessFlags }
 

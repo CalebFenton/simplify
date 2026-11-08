@@ -12,9 +12,9 @@ package org.cf.smalivm.core
  * The walk is deterministic: insertion-ordered maps and sets, a fixed arm order, and no clock read unless
  * [Limits.maxExecutionTimeMillis] is enabled. Two runs of the same input produce identical node orders and results.
  */
-class ExecutionSession internal constructor(
-    val methodView: MethodView,
-    val vmServices: VmServices,
+public class ExecutionSession internal constructor(
+    public val methodView: MethodView,
+    internal val vmServices: VmServices,
     private val limits: Limits,
     entryFrame: Frame,
     private val resolver: ProgramSnapshotResolver,
@@ -48,7 +48,7 @@ class ExecutionSession internal constructor(
      * The node [step] most recently dequeued. After a limit abort it is the node the limit stopped, whose op never
      * ran and whose [ExecutionNode.frame] is therefore still pre-op.
      */
-    var currentNode: ExecutionNode? = null
+    internal var currentNode: ExecutionNode? = null
         private set
 
     /**
@@ -70,16 +70,16 @@ class ExecutionSession internal constructor(
     internal val nextNode: ExecutionNode? get() = frontierNodes.lastOrNull()
 
     /** A stable snapshot with one [Outcome] per path that ended: returned, threw, or aborted. */
-    val outcomes: List<Outcome> get() = runOutcomes.outcomes.toList()
+    public val outcomes: List<Outcome> get() = runOutcomes.outcomes.toList()
 
-    val isFinished: Boolean get() = frontierNodes.isEmpty() && pendingCallRoutings.isEmpty()
+    internal val isFinished: Boolean get() = frontierNodes.isEmpty() && pendingCallRoutings.isEmpty()
 
     /**
      * Whether this run explored everything it set out to, as of the moment it is asked. Any abort at any call
      * depth makes it [CompletionStatus.Partial], which outranks [CompletionStatus.InProgress] because truncation is
      * permanent: a status never improves with further stepping. Only a finished run is [CompletionStatus.Complete].
      */
-    fun completion(): CompletionStatus = when {
+    public fun completion(): CompletionStatus = when {
         runOutcomes.abortReasons.isNotEmpty() -> CompletionStatus.Partial(runOutcomes.abortReasons.toSet())
         !isFinished -> CompletionStatus.InProgress
         else -> CompletionStatus.Complete
@@ -93,7 +93,7 @@ class ExecutionSession internal constructor(
      * scheduler's own bookkeeping is outside that boundary: a bug here must surface, not become one more aborted
      * path. A guest exception is never a Kotlin throw; it arrives as an [OpArm.Throw].
      */
-    fun step(): ExecutionNode? {
+    internal fun step(): ExecutionNode? {
         if (limits.maxExecutionTimeMillis > 0 && deadlineMillis == 0L) {
             deadlineMillis = System.currentTimeMillis() + limits.maxExecutionTimeMillis
         }
@@ -916,8 +916,8 @@ class ExecutionSession internal constructor(
     private inline fun planContained(node: ExecutionNode, body: () -> Committable): Committable =
         hostBoundary({ hostFailureArm(node, it) }, body)
 
-    private fun hostFailureArm(node: ExecutionNode, failure: Throwable, frame: Frame = node.frame): Committable =
-        Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(frame, hostFailureOutcome(failure))))
+    private fun hostFailureArm(node: ExecutionNode, failure: Throwable): Committable =
+        Committable(emptyList(), Ending.ArmFailure(ActivationExit.Aborted(node.frame, hostFailureOutcome(failure))))
 
     /** Raises [node]'s own effect, and its activation chain's declared effect, to at least [level]. */
     private fun raiseEffect(node: ExecutionNode, level: SideEffectLevel) {
@@ -926,7 +926,7 @@ class ExecutionSession internal constructor(
     }
 
     /** Runs to completion and returns the immutable result. */
-    fun run(): ExecutionGraph {
+    public fun run(): ExecutionGraph {
         while (step() != null) Unit
         return graph()
     }
@@ -936,7 +936,7 @@ class ExecutionSession internal constructor(
      * which is [CompletionStatus.InProgress] while any path is still scheduled, so [ExecutionGraph.trusted] is null
      * and no consumer can act on a walk that has not finished.
      */
-    fun graph(): ExecutionGraph = ExecutionGraph(
+    internal fun graph(): ExecutionGraph = ExecutionGraph(
         methodView = methodView,
         // A callee's nodes are in neither map. A recursive activation of this same method is in the first, because
         // reachability and per-address consensus must see every activation that executed an address, and excluded
@@ -1038,7 +1038,6 @@ class ExecutionSession internal constructor(
         val resolution = when (val result = resolveHandlers(throwAddress, path.subject, node.view, hierarchy)) {
             is HandlerResolution.Routed -> result
             HandlerResolution.MalformedMetadata -> return abortedTransition(path.frame, AbortReason.MALFORMED_INPUT)
-            is HandlerResolution.HostFailure -> return hostFailureArm(node, result.failure, path.frame)
         }
         return Committable(
             successors = resolution.routes.map { route ->

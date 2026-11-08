@@ -7,7 +7,7 @@ import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 
 /** What a session assumes about every class its entry path has not triggered. */
-enum class EntryClassState {
+public enum class EntryClassState {
     /**
      * The entry is reached from arbitrary program state, as Simplify analyses every method: a class the path has
      * not triggered may be initialized, with any value in each non-final static, or not yet initialized.
@@ -19,8 +19,8 @@ enum class EntryClassState {
 }
 
 /** Immutable class-initialization status supplied to a selected emulator. */
-class ClassInitStatusSnapshot internal constructor(private val classes: ClassStore) {
-    fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
+internal class ClassInitStatusSnapshot internal constructor(private val classes: ClassStore) {
+    internal fun stateOf(type: VirtualType): ClassInitState = classes.initState(type)
 
     internal fun actionFor(type: VirtualType): ClassInitAction = classes.actionFor(type)
 }

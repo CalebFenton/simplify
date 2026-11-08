@@ -11,11 +11,13 @@ import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
+import com.android.tools.smali.dexlib2.immutable.ImmutableExceptionHandler
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
 import com.android.tools.smali.dexlib2.immutable.ImmutableField
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
+import com.android.tools.smali.dexlib2.immutable.ImmutableTryBlock
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
@@ -151,8 +153,13 @@ class ProgramInputTest {
     @TestFactory
     fun aDexUsingAMalformedTypeDescriptorIsAnInputError(): List<DynamicTest> {
         val plain = "Linput/Plain;"
-        fun definition(type: String = plain, superclass: String = "Ljava/lang/Object;", fields: List<ImmutableField> = emptyList(), methods: List<ImmutableMethod> = emptyList()) =
-            ImmutableClassDef(type, Modifier.PUBLIC, superclass, emptyList(), null, emptySet(), fields, methods)
+        fun definition(
+            type: String = plain,
+            superclass: String = "Ljava/lang/Object;",
+            interfaces: List<String> = emptyList(),
+            fields: List<ImmutableField> = emptyList(),
+            methods: List<ImmutableMethod> = emptyList(),
+        ) = ImmutableClassDef(type, Modifier.PUBLIC, superclass, interfaces, null, emptySet(), fields, methods)
         fun staticMethod(parameters: List<String>, vararg instructions: ImmutableInstruction) = ImmutableMethod(
             plain, "run", parameters.map { ImmutableMethodParameter(it, null, null) }, "V",
             Modifier.PUBLIC or Modifier.STATIC, null, null,
@@ -163,6 +170,20 @@ class ProgramInputTest {
             "superclass descriptor" to definition(superclass = "Linput/Bad<1>;"),
             "field type" to definition(fields = listOf(ImmutableField(plain, "f", "Linput/Bad<1>;", Modifier.PUBLIC, null, null, null))),
             "method parameter type" to definition(methods = listOf(staticMethod(listOf("Linput/Bad<1>;")))),
+            "interface descriptor" to definition(interfaces = listOf("Linput/Bad<1>;")),
+            "catch type" to definition(
+                methods = listOf(
+                    ImmutableMethod(
+                        plain, "run", emptyList(), "V", Modifier.PUBLIC or Modifier.STATIC, null, null,
+                        ImmutableMethodImplementation(
+                            1,
+                            listOf(ImmutableInstruction10x(Opcode.RETURN_VOID)),
+                            listOf(ImmutableTryBlock(0, 1, listOf(ImmutableExceptionHandler("Linput/Bad<1>;", 0)))),
+                            null,
+                        ),
+                    ),
+                ),
+            ),
             "const-class operand" to definition(
                 methods = listOf(staticMethod(emptyList(), ImmutableInstruction21c(Opcode.CONST_CLASS, 0, ImmutableTypeReference("Linput/Bad<1>;")))),
             ),

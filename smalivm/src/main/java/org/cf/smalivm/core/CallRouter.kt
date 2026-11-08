@@ -83,16 +83,13 @@ internal class CallRouter(
         for ((key, partition) in keyed.groupBy(KeyedCallerThrow::key)) {
             val callerFrame = mergeIntoCaller(site, partition.map { it.exit.frame })
             val subject = mergedCallerThrowSubject(key, callerFrame, partition.map { it.exit })
-            // The invoke node is suspended, so a failed lookup aborts each original exit in this completion
-            // instead of ending the node.
+            // The invoke node is suspended, so malformed handler metadata aborts each original exit in this
+            // completion instead of ending the node.
             val resolution = resolveHandlers(invokeNode.address, subject, invokeNode.view, hierarchy)
             routings[key] = when (resolution) {
                 is HandlerResolution.Routed -> CallerSourceRouting.Routed(callerFrame, resolution)
                 HandlerResolution.MalformedMetadata -> CallerSourceRouting.Aborted(
                     ActivationExit.Aborted(callerFrame, Outcome.Aborted(AbortReason.MALFORMED_INPUT)),
-                )
-                is HandlerResolution.HostFailure -> CallerSourceRouting.Aborted(
-                    ActivationExit.Aborted(callerFrame, hostFailureOutcome(resolution.failure)),
                 )
             }
         }

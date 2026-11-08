@@ -7,14 +7,11 @@ import org.junit.jupiter.api.Test
 import java.io.File
 
 /**
- * Bug classes (audit + spec §4.2): (a) one string-keyed map holding registers, parameters and
- * pseudo-slots, so a "register" and a special slot could collide; (b) no wide-pair invariant, so
- * the high half of a long could be read as an independent value; (c) shared mutable state between
- * a normal and a speculative exceptional successor, so a speculative path saw the other path's
- * writes; (d) a consumer-facing read (`ExecutionState.readRegister`) forging liveness that only an
- * op driving the frame directly should record. Oracle: Dalvik register semantics (wide values
- * occupy a register pair), spec §4.2's consume/clear slot lifecycle, and StateContracts.kt's KDoc
- * on `readRegister`/`peekRegister` (neither records liveness).
+ * Bug classes: (a) registers, parameters and pseudo-slots sharing one keyed map, so they could collide;
+ * (b) the high half of a wide pair readable as an independent value; (c) shared mutable state between
+ * a normal and a speculative exceptional successor; (d) a consumer-facing read
+ * (`ExecutionState.readRegister`) recording liveness that only an op should record. Oracle: Dalvik
+ * register semantics (wide values occupy a register pair) and the consume-once slot lifecycle.
  */
 class FrameTest {
     private val classIndex = ClassIndex.open(File("src/test/resources/smali"))
@@ -142,14 +139,9 @@ class FrameTest {
 
     @Test
     fun readRegisterFacadeIsTotalButDoesNotRecordLiveness() {
-        // Bug class (d): the ExecutionState facade forging liveness on a mere consumer read. If
-        // readRegister ever delegates to the liveness-recording Frame.read (as a first-draft
-        // implementation of this file's own production code did), every debugger/analysis read
-        // through ExecutionState would corrupt Plan 14's dead-code liveness signal --
-        // indistinguishable from an op actually consuming the register. Oracle:
-        // StateContracts.kt's KDoc on ExecutionState.readRegister -- "this read does not record
-        // liveness ... not on consumer reads" -- while still being total (Top for an unassigned
-        // register), unlike peekRegister.
+        // Bug class (d): the ExecutionState facade recording liveness on a consumer read. A debugger or
+        // analysis read would then look like an op consuming the register and corrupt dead-code liveness.
+        // readRegister stays total (Top for an unassigned register), unlike peekRegister.
         val f = frame()
         f.assign(0, Value.Known(5, int))
         val state: ExecutionState = f
@@ -188,11 +180,9 @@ class FrameTest {
 
     @Test
     fun assigningOverTheLowHalfInvalidatesTheHighHalf() {
-        // Bug class (b), the other direction: overwriting the LOW register of an existing wide
-        // pair must invalidate the reserved high register too, so it doesn't keep reporting
-        // itself as "the high half of a J that's no longer there." Oracle: Dalvik wide-pair
-        // semantics -- a register pair's meaning is defined by whatever currently occupies the
-        // low register.
+        // Bug class (b), the other direction: overwriting the low register of a wide pair must
+        // invalidate the reserved high register too. Oracle: a register pair's meaning is defined by
+        // whatever occupies its low register.
         val f = frame("returnWide()J")
         f.assign(0, Value.Known(42L, long))
         f.assign(0, Value.Known(3, int))
@@ -219,8 +209,7 @@ class FrameTest {
         // Bug class (c), continued: copy() must isolate the liveness set and the four consume
         // slots, not just register values -- exactly the state a speculative exceptional
         // successor must not share with (or corrupt for) the normal-path frame it forked from.
-        // Oracle: spec §4.2's per-node frame copy, applied to the same shared-mutated-state
-        // defect copyIsIndependentOfItsSource pins for registers.
+        // Oracle: each node owns a copy of its frame.
         val f = frame()
         f.setResult(Value.Known(9, int))
         val child = f.copy()
@@ -253,7 +242,7 @@ class FrameTest {
 
     @Test
     fun slotsAreProducedThenConsumedOnce() {
-        // spec §4.2: a slot is produced, moved once, then dead.
+        // A slot is produced, moved once, then dead.
         val f = frame()
         assertNull(f.takeResult()?.value)
         f.setResult(Value.Known(1, int))
@@ -267,12 +256,8 @@ class FrameTest {
 
     @Test
     fun returnAndThrownSlotsRecordPathResult() {
-        // Bug class: unlike result/caught, these two slots hold a path's FINAL outcome (spec
-        // §4.2) and must not be cleared on read -- copying the take-and-clear lifecycle onto
-        // returnValue/thrown would make a second read silently lose the path's outcome, and
-        // aliasing the two slots onto one field would let a return value bleed into a throw or
-        // vice versa. Oracle: spec §4.2's distinction between the move-once slot pair
-        // (result/caught) and the path-outcome slot pair (returnValue/thrown).
+        // Bug class: unlike result/caught, these two slots hold a path's final outcome and must not be
+        // cleared on read, and the two must not alias: a return value must not bleed into a throw.
         val f = frame()
         assertNull(f.returnValueOrNull())
         assertNull(f.thrownOrNull())
@@ -325,12 +310,8 @@ class FrameTest {
 
     @Test
     fun outOfRangeRegisterIsRejected() {
-        // Bug class: silently clamping, wrapping, or returning Top/null for an out-of-range
-        // register instead of rejecting it -- a decode bug that computes a bad register index
-        // would then corrupt state silently instead of surfacing loudly. Oracle: the design
-        // spec's "unrepresentable -> abort" soundness direction, applied via Kotlin's require()
-        // convention for caller-provided invalid arguments; all three read/write entry points
-        // must agree.
+        // Bug class: clamping, wrapping, or returning Top/null for an out-of-range register instead of
+        // rejecting it, so a decode bug corrupts state silently. All three entry points must agree.
         val f = frame("returnFive()I") // .registers 1
         assertThrows(IllegalArgumentException::class.java) { f.assign(5, Value.Known(1, int)) }
         assertThrows(IllegalArgumentException::class.java) { f.read(5) }
@@ -339,9 +320,8 @@ class FrameTest {
 
     @Test
     fun aFramesCopyIsolatesHeapWritesAsWellAsRegisterWrites() {
-        // Frame.copy() is the one primitive that isolates a forked successor (its own KDoc invariant 3). An
-        // array write must be isolated by the same call, or each successor's copy would leak heap mutation
-        // between siblings.
+        // Frame.copy() isolates a forked successor; an array write must be isolated by the same call, or
+        // siblings would share heap mutations.
         val f = frame("returnFive()I")
         val array = f.allocateArray(VirtualType.of("[I"), 1)
         val ref = array.raw as HeapRef
