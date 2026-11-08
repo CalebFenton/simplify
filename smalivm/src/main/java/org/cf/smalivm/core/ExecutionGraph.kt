@@ -633,9 +633,9 @@ class ExecutionGraph internal constructor(
     override fun trusted(): TrustedGraphView? = if (completion.canTrustConsensus) trustedView else null
 
     /**
-     * Pure delegation to the `...OverExploredPaths` members, and it must stay that way: the gate
-     * decides WHO may act on an answer, never WHAT the answer is (spec §9's queries are pure reads of
-     * recorded nodes). Re-deriving anything here -- even "conservatively", e.g. collapsing to
+     * Pure delegation to the ungated members (`isDead` only combines `wasReached` and `isPayload`), and it
+     * must stay that way: the gate decides WHO may act on an answer, never WHAT the answer is (spec §9's
+     * queries are pure reads of recorded nodes). Re-deriving anything here -- even "conservatively", e.g. collapsing to
      * [Value.Top] -- would make the trusted path useless and push consumers back onto the ungated one,
      * reintroducing exactly the hole this gate closes.
      *
