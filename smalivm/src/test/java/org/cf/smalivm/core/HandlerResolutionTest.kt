@@ -368,7 +368,7 @@ class HandlerResolutionTest {
         val implementation = ImmutableMethodImplementation(0, instructions, dexTryBlocks(tryBlocks), null)
         val declaration = ImmutableMethod("Lresolver;", "test", null, "V", AccessFlags.STATIC.value, null, null, null)
         val method = FrameworkMethodDefinition(
-            FrameworkMethodIdentity(Any(), "Lresolver;->test()V"),
+            FrameworkMethodIdentity("Lresolver;->test()V"),
             declaration,
             MethodBody.import(implementation),
             DynamicLoadingEvidence.EMPTY,
