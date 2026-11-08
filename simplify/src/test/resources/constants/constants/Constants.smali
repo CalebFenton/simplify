@@ -9,7 +9,8 @@
 .field public static final knownLong:J = 0x4L
 .field public static final knownString:Ljava/lang/String; = "static string"
 .field public static initTrigger:I
-.field public static nullable:Ljava/lang/String;
+.field public static final nullable:Ljava/lang/String;
+.field public static mutableText:Ljava/lang/String;
 
 .method public static computedInteger()I
     .locals 2
@@ -116,6 +117,12 @@
 .method private static nullValue()Ljava/lang/String;
     .locals 1
     sget-object v0, Lconstants/Constants;->nullable:Ljava/lang/String;
+    return-object v0
+.end method
+
+.method public static mutableStaticRead()Ljava/lang/String;
+    .locals 1
+    sget-object v0, Lconstants/Constants;->mutableText:Ljava/lang/String;
     return-object v0
 .end method
 

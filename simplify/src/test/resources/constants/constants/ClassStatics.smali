@@ -2,7 +2,7 @@
 .super Ljava/lang/Object;
 
 .field public static initTrigger:I
-.field public static knownClass:Ljava/lang/Class;
+.field public static final knownClass:Ljava/lang/Class;
 
 .method static constructor <clinit>()V
     .locals 1

@@ -272,6 +272,8 @@ class ConstantPropagationStrategyTest {
             "knownArrayLength()I" to Opcode.ARRAY_LENGTH,
             "computedMutableArray()[I" to Opcode.MOVE_RESULT_OBJECT,
             "caughtMoveExceptionRemains()Ljava/lang/Throwable;" to Opcode.MOVE_EXCEPTION,
+            // Code that runs before the method may have written the non-final static.
+            "mutableStaticRead()Ljava/lang/String;" to Opcode.SGET_OBJECT,
         )) {
             val method = OWNER + name
             optimize(services, method)
