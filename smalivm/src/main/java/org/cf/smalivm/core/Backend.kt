@@ -84,6 +84,7 @@ internal class PreparedInvocation private constructor(
 
 /**
  * Probe-only argument facts. This type contains no Java value, scheduler [Value], or [HeapRef].
+ * [trackedType] is the class of the heap object the value refers to, or null when it refers to none.
  * [reflectedTarget] is what a reflected `Method` or `Constructor` value names.
  */
 internal data class ProbeArgument(
@@ -91,7 +92,7 @@ internal data class ProbeArgument(
     val isLatticeKnown: Boolean,
     val isHostMaterializable: Boolean,
     val isNullReference: Boolean,
-    val isTrackedReference: Boolean,
+    val trackedType: VirtualType?,
     val reflectedTarget: ReflectedTarget? = null,
 )
 
@@ -122,16 +123,17 @@ internal fun PreparedInvocation.probeMetadata(frame: Frame): BackendInvocation =
     arguments.map { it.toProbeArgument(frame) },
 )
 
-private fun Value.toProbeArgument(frame: Frame): ProbeArgument = ProbeArgument(
-    type,
-    isLatticeKnown = this is Value.Known,
-    isHostMaterializable = frame.isHostMaterializable(this),
-    isNullReference = readsAsNullReference,
-    isTrackedReference = frame.isTrackedReference(this),
-    reflectedTarget = ((this as? Value.Known)?.raw as? HeapRef)
-        ?.let { frame.heap.hostObjectAt(it) as? Executable }
-        ?.reflectedTargetOrNull(),
-)
+private fun Value.toProbeArgument(frame: Frame): ProbeArgument {
+    val ref = (this as? Value.Known)?.raw as? HeapRef
+    return ProbeArgument(
+        type,
+        isLatticeKnown = this is Value.Known,
+        isHostMaterializable = frame.isHostMaterializable(this),
+        isNullReference = readsAsNullReference,
+        trackedType = ref?.let(frame::heapObject)?.type,
+        reflectedTarget = ref?.let { frame.heap.hostObjectAt(it) as? Executable }?.reflectedTargetOrNull(),
+    )
+}
 
 /** What a reflected method or constructor names, or null when the host cannot describe it. */
 internal fun Executable.reflectedTargetOrNull(): ReflectedTarget? = hostBoundary({ null }) {

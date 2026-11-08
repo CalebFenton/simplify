@@ -296,10 +296,6 @@ public class Frame private constructor(
         values.mapNotNull { (it as? Value.Known)?.raw as? HeapRef },
     )
 
-    /** Whether [value] is a ref to an object this path's heap tracks. */
-    internal fun isTrackedReference(value: Value): Boolean =
-        ((value as? Value.Known)?.raw as? HeapRef)?.let(heap::objectAt) != null
-
     /** Whether [value] has an exact Java object: a host value, or guest arrays built only from such values. */
     internal fun isHostMaterializable(value: Value): Boolean = isHostMaterializable(value, mutableSetOf())
 
