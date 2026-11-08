@@ -7,6 +7,7 @@ import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
 import org.cf.smalivm.core.Outcome
+import org.cf.smalivm.core.heapRefsOf
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
@@ -450,14 +451,12 @@ class InvokeOpTest {
         val host = endingFrame.hostObjectAt(ref) as Throwable
 
         assertEquals(VirtualType.of(expectedType), thrown.type)
-        assertEquals(thrown, endingFrame.thrownValue(), "the outcome and terminal frame must retain one guest identity")
+        assertEquals(thrown, endingFrame.thrownOrNull(), "the outcome and terminal frame must retain one guest identity")
         assertEquals(expectedClass, host.javaClass)
         assertEquals(expectedMessage, host.message)
         // Exactly one guest throwable exists on the throwing path: none was allocated before an arm committed
         // and the committed event materialized it once.
-        val throwables = (0 until endingFrame.nextHeapId()).map(::HeapRef).filter {
-            endingFrame.heapObject(it) is HeapObject.GuestThrowable
-        }
+        val throwables = heapRefsOf(endingFrame).filter { endingFrame.heapObject(it) is HeapObject.GuestThrowable }
         assertEquals(listOf(ref), throwables)
     }
 

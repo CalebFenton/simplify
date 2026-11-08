@@ -666,8 +666,8 @@ class PersistentStateTest {
         assertEquals(original.peek(0), copied.peek(0))
         assertEquals(original.registersRead(), copied.registersRead())
         assertEquals(original.addressVisitCount(0), copied.addressVisitCount(0))
-        for (id in 0 until original.nextHeapId()) {
-            assertSame(original.heapObject(HeapRef(id)), copied.heapObject(HeapRef(id)))
+        for (ref in heapRefsOf(original)) {
+            assertSame(original.heapObject(ref), copied.heapObject(ref))
         }
         assertEquals(ClassInitState.INITIALIZED, copied.initState(objectType))
         assertEquals(original.getStaticField(objectType, STATIC_FIELD), copied.getStaticField(objectType, STATIC_FIELD))

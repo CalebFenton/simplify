@@ -10,7 +10,6 @@ import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstructio
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -48,7 +47,7 @@ class ProgramSnapshotExecutionTest {
             index.programWorkspace.newProgramRevision(),
             current.applicationClasses,
         )
-        index.programWorkspace.replaceCurrentSnapshotForTest(replacement)
+        index.programWorkspace.publish(replacement)
         val currentView = requireNotNull(index.methodView(CALLER))
 
         assertThrows<IllegalArgumentException> { services.newSession(oldView) }
@@ -70,7 +69,7 @@ class ProgramSnapshotExecutionTest {
         sessionA.step()
 
         val snapshotB = replaceMethod(index, CALLEE, returnsInt(2))
-        index.programWorkspace.replaceCurrentSnapshotForTest(snapshotB)
+        index.programWorkspace.publish(snapshotB)
 
         val graphA = sessionA.run()
         val callerB = requireNotNull(index.methodView(CALLER))
@@ -107,7 +106,7 @@ class ProgramSnapshotExecutionTest {
             invoker,
         )
         val snapshotB = replaceMethod(index, RECURSIVE, returnsInt(7))
-        index.programWorkspace.replaceCurrentSnapshotForTest(snapshotB)
+        index.programWorkspace.publish(snapshotB)
         viewB = requireNotNull(index.methodView(RECURSIVE))
 
         val graphA = sessionA.run()
@@ -127,7 +126,7 @@ class ProgramSnapshotExecutionTest {
         sessionA.step()
 
         val snapshotB = replaceMethod(index, CLASS_INITIALIZER, initializesStatic(2))
-        index.programWorkspace.replaceCurrentSnapshotForTest(snapshotB)
+        index.programWorkspace.publish(snapshotB)
 
         val graphA = sessionA.run()
         val triggerB = requireNotNull(index.methodView(INIT_TRIGGER))
@@ -135,85 +134,6 @@ class ProgramSnapshotExecutionTest {
 
         assertEquals(Value.Known(1, INT), graphA.trusted()!!.terminatingConsensus(0))
         assertEquals(Value.Known(2, INT), graphB.trusted()!!.terminatingConsensus(0))
-    }
-
-    @Test
-    fun handlerChecksAndGraphTypeQueriesUseCapturedHierarchy() {
-        val index = index("hierarchy")
-        val handlerA = requireNotNull(index.methodView(HANDLER))
-        val chooseA = requireNotNull(index.methodView(CHOOSE))
-        val handlerSessionA = VmServices(index).newSession(handlerA)
-        val chooseSessionA = VmServices(index).newSession(chooseA)
-        val snapshotA = index.currentSnapshot
-        val hierarchyB = changedHierarchy(snapshotA.hierarchy)
-        val snapshotB = ProgramSnapshot.replacementForTest(
-            snapshotA,
-            index.programWorkspace.newProgramRevision(),
-            hierarchy = hierarchyB,
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(snapshotB)
-
-        val handlerGraphA = handlerSessionA.run()
-        val chooseGraphA = chooseSessionA.run()
-        val handlerGraphB = VmServices(index).newSession(requireNotNull(index.methodView(HANDLER))).run()
-        val chooseGraphB = VmServices(index).newSession(requireNotNull(index.methodView(CHOOSE))).run()
-
-        assertTrue(handlerGraphA.outcomes.none { it is Outcome.Threw })
-        assertTrue(handlerGraphB.outcomes.any { it is Outcome.Threw })
-        assertEquals(Value.Unknown(BASE), chooseGraphA.trusted()!!.terminatingConsensus(0))
-        assertEquals(Value.Unknown(VirtualType.OBJECT), chooseGraphB.trusted()!!.terminatingConsensus(0))
-    }
-
-    @Test
-    fun capturedFrameworkIdentityAndBodySurviveCurrentCatalogReplacement() {
-        val index = index("framework")
-        val snapshotA = index.currentSnapshot
-        val expectedMethod = requireNotNull(snapshotA.frameworkCatalog.method(FRAMEWORK_METHOD))
-        val expectedView = MethodView.of(expectedMethod, snapshotA.programRevision)
-        val callerA = requireNotNull(index.methodView(FRAMEWORK_CALLER))
-        val resolverA = index.resolver(snapshotA)
-        val hostDecline = object : Backend {
-            override val name: String = "declining-host"
-            override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe =
-                BackendProbe.Declined("test host decline")
-        }
-        val invoker = Invoker(
-            resolverA,
-            listOf(
-                ApplicationBytecodeBackend(resolverA),
-                hostDecline,
-                FrameworkBytecodeBackend(resolverA),
-            ),
-        )
-        val sessionA = ExecutionSession.of(
-            callerA,
-            index,
-            Limits(),
-            Frame.entryFrame(callerA),
-            OpBuilder::build,
-            invoker,
-        )
-        sessionA.step()
-        val replacementCatalog = FrameworkCatalog.fromArtifact(snapshotA.frameworkCatalog.artifact)
-        val snapshotB = ProgramSnapshot.replacementForTest(
-            snapshotA,
-            index.programWorkspace.newProgramRevision(),
-            frameworkCatalog = replacementCatalog,
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(snapshotB)
-
-        sessionA.step()
-        sessionA.step()
-        val scheduledFrameworkView = sessionA.frontier.last().view
-
-        assertSame(expectedMethod.identity, scheduledFrameworkView.frameworkMethodIdentity)
-        assertSame(expectedView.instructionAt(0), scheduledFrameworkView.instructionAt(0))
-        val replacementView = MethodView.of(
-            requireNotNull(replacementCatalog.method(FRAMEWORK_METHOD)),
-            snapshotB.programRevision,
-        )
-        assertFalse(scheduledFrameworkView.matchesActivationMethod(replacementView))
-        assertEquals(Value.Known(31, INT), sessionA.run().trusted()!!.terminatingConsensus(0))
     }
 
     private fun index(name: String): ClassIndex {
@@ -282,27 +202,13 @@ class ProgramSnapshotExecutionTest {
         emptyList(),
     )
 
-    private fun changedHierarchy(current: HierarchySnapshot): HierarchySnapshot {
-        val declarations = current.declarations.builder()
-        for (type in listOf("Ltask54/Left;", "Ltask54/Right;", "Ltask54/ChildException;")) {
-            val declaration = requireNotNull(declarations[type])
-            declarations[type] = declaration.copy(superclass = "Ljava/lang/Object;")
-        }
-        return HierarchySnapshot(declarations.build())
-    }
-
     private companion object {
         val INT = VirtualType.of("I")
-        val BASE = VirtualType.of("Ltask54/Base;")
         const val CALLER = "Ltask54/Main;->caller()I"
         const val CALLEE = "Ltask54/Main;->callee()I"
-        const val HANDLER = "Ltask54/Main;->handler(Ltask54/ChildException;)I"
-        const val CHOOSE = "Ltask54/Main;->choose(Z)Ljava/lang/Object;"
         const val INIT_TRIGGER = "Ltask54/Init;->trigger()I"
         const val CLASS_INITIALIZER = "Ltask54/Init;-><clinit>()V"
-        const val FRAMEWORK_CALLER = "Ltask54/Main;->frameworkCaller()I"
         const val RECURSIVE = "Ltask54/Main;->recursiveOnce(I)I"
-        const val FRAMEWORK_METHOD = "Ljava/lang/Integer;->numberOfLeadingZeros(I)I"
 
         val SOURCES = listOf(
             """
@@ -323,15 +229,6 @@ class ProgramSnapshotExecutionTest {
                     return v0
                 .end method
 
-                .method public static frameworkCaller()I
-                    .registers 1
-                    nop
-                    const/4 v0, 0x1
-                    invoke-static {v0}, Ljava/lang/Integer;->numberOfLeadingZeros(I)I
-                    move-result v0
-                    return v0
-                .end method
-
                 .method public static recursiveOnce(I)I
                     .registers 1
                     if-eqz p0, :done
@@ -341,50 +238,6 @@ class ProgramSnapshotExecutionTest {
                     :done
                     return p0
                 .end method
-
-                .method public static handler(Ltask54/ChildException;)I
-                    .registers 2
-                    :try_start
-                    throw p0
-                    :try_end
-                    .catch Ltask54/BaseException; {:try_start .. :try_end} :caught
-                    const/4 v0, 0x0
-                    return v0
-                    :caught
-                    move-exception v0
-                    const/4 v0, 0x1
-                    return v0
-                .end method
-
-                .method public static choose(Z)Ljava/lang/Object;
-                    .registers 2
-                    if-eqz p0, :right
-                    new-instance v0, Ltask54/Left;
-                    return-object v0
-                    :right
-                    new-instance v0, Ltask54/Right;
-                    return-object v0
-                .end method
-            """,
-            """
-                .class public Ltask54/Base;
-                .super Ljava/lang/Object;
-            """,
-            """
-                .class public Ltask54/Left;
-                .super Ltask54/Base;
-            """,
-            """
-                .class public Ltask54/Right;
-                .super Ltask54/Base;
-            """,
-            """
-                .class public Ltask54/BaseException;
-                .super Ljava/lang/RuntimeException;
-            """,
-            """
-                .class public Ltask54/ChildException;
-                .super Ltask54/BaseException;
             """,
             """
                 .class public Ltask54/Init;

@@ -2,16 +2,13 @@ package org.cf.smalivm.core
 
 import java.nio.file.Path
 import kotlinx.collections.immutable.persistentMapOf
-import com.android.tools.smali.dexlib2.AnnotationVisibility
 import com.android.tools.smali.dexlib2.Opcode
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11n
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x
+import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableArrayEncodedValue
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableFieldEncodedValue
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
@@ -94,38 +91,32 @@ class ProgramWorkspaceTest {
         val index = task53ClassIndex(root, SOURCE)
         val current = index.currentSnapshot
         val original = requireNotNull(current.applicationClass("Ltask53/Workspace;"))
-        val overflowingAnnotation = ImmutableAnnotation(
-            AnnotationVisibility.RUNTIME,
-            "Ltask53/Overflow;",
-            listOf(
-                ImmutableAnnotationElement(
-                    "fields",
-                    ImmutableArrayEncodedValue(
-                        List(65_537) { sequence ->
-                            ImmutableFieldEncodedValue(
-                                ImmutableFieldReference("Ltask53/Owner;", "field$sequence", "I"),
-                            )
-                        },
-                    ),
-                ),
+        val method = original.methods.single()
+        val overflowingBody = MethodBody.import(
+            ImmutableMethodImplementation(
+                1,
+                List(65_537) { sequence ->
+                    ImmutableInstruction21c(
+                        Opcode.SGET,
+                        0,
+                        ImmutableFieldReference("Ltask53/Owner;", "field$sequence", "I"),
+                    )
+                } + ImmutableInstruction11x(Opcode.RETURN, 0),
+                emptyList(),
+                emptyList(),
             ),
         )
-        val invalidClass = ApplicationClassDefinition(
-            original.type,
-            original.accessFlags,
-            original.superclass,
-            original.interfaces,
-            original.sourceFile,
-            original.annotations.adding(overflowingAnnotation),
-            original.staticFields,
-            original.instanceFields,
-            original.methods,
+        val overflowingMethod = ApplicationMethodDefinition.withBody(
+            method,
+            overflowingBody,
+            index.programWorkspace.newApplicationMethodRevision(method.methodSignature),
         )
-        val invalidSnapshot = ProgramSnapshot.replacementForTest(
-            current,
-            index.programWorkspace.newProgramRevision(),
-            persistentMapOf(invalidClass.type to invalidClass),
+        val invalidSnapshot = candidate(index, original, overflowingMethod)
+        val limit = DexReferenceLimits.validate(
+            invalidSnapshot.dexReferenceClosure,
+            invalidSnapshot.applicationClasses.values,
         )
+        assertEquals("field_ids", limit?.section)
 
         assertThrows<IllegalArgumentException> {
             index.programWorkspace.publish(invalidSnapshot)

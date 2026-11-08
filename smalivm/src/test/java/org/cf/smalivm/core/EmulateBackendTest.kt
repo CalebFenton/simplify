@@ -94,7 +94,7 @@ class EmulateBackendTest {
 
         val unknown = identityIntSession(vm, Value.Unknown(intType)).run()
         val objectView = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
-        val objectFrame = Frame.entryFrame(objectView, vm.hostObjectCloner)
+        val objectFrame = Frame.entryFrame(objectView)
         val tracked = objectFrame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         objectFrame.assign(0, tracked)
         val unmaterializable = identityObjectSession(vm, objectView, objectFrame).run()
@@ -138,7 +138,7 @@ class EmulateBackendTest {
             },
         )
         val entry = view(INVOKE_REVIEW, "callOpaqueClassResult()Linvoke_review_identity;")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val tracked = frame.allocateObject(VirtualType.of("Lnew_instance_test;"), emptyMap())
         frame.assign(0, tracked)
 
@@ -332,12 +332,13 @@ class EmulateBackendTest {
                 returnedInt(1)
             },
         )
-        val invoker = Invoker(classIndex, listOf(EmulateBackend(registry)))
+        val invoker = invokerOf(classIndex, listOf(EmulateBackend(registry)))
         val preparation = invoker.prepare(
             Invocation(target, InvokeKind.STATIC, listOf(Value.Unknown(intType))),
             VirtualType.of(CALLER),
         ) as InvocationPreparation.Ready
-        val plan = invoker.plan(preparation) as InvocationPlan.Execute
+        val frame = Frame.entryFrame(view(CALLER, "callsNativeCallee()I"))
+        val plan = invoker.planOn(preparation, frame) as InvocationPlan.Execute
 
         registry.register(
             registration(target, handlesUnknownArguments = false, effect = SideEffectLevel.STRONG) {
@@ -345,7 +346,7 @@ class EmulateBackendTest {
                 returnedInt(2)
             },
         )
-        val frame = Frame.entryFrame(view(CALLER, "callsNativeCallee()I"))
+
         val selected = plan.select(frame, classIndex.classLoader)
         val result = selected.execute()
         selected.finalize(frame)
@@ -381,13 +382,14 @@ class EmulateBackendTest {
                     },
                 )
                 session = vm.newSession(view(CALLER, "callsNativeCallee()I"))
-                val nextHeapId = session.frontier.single().frame.nextHeapId()
+                val probedBefore = probeNextHeapId(session.frontier.single().frame)
 
                 val node = session.step()!!
 
                 assertEquals(Outcome.Aborted(AbortReason.HOST_FAILURE), node.outcome)
                 assertTrue(node.hostFailure is HostGraphOwnershipException)
-                assertEquals(nextHeapId, node.frame.nextHeapId(), "scheduler object must not receive a heap id")
+                // The probe before the step consumed one id; a heap id given to the scheduler object would make two.
+                assertEquals(probedBefore + 1, probeNextHeapId(node.frame), "scheduler object must not receive a heap id")
             }
         }
     }
@@ -427,7 +429,7 @@ class EmulateBackendTest {
 
     private fun identityIntSession(vm: VmServices, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner).also { it.assign(0, value) }
+        val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
         val target = method(CALLEE, "identityInt", "(I)I")
         return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
@@ -445,7 +447,7 @@ class EmulateBackendTest {
 
     private fun instanceSession(vm: VmServices, target: MethodDescriptor, receiver: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner).also { it.assign(0, receiver) }
+        val frame = Frame.entryFrame(entry).also { it.assign(0, receiver) }
         return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
             if (address == 0 && method.signature == entry.signature) {
                 invokeOp(address, target, intArrayOf(0), InvokeKind.VIRTUAL)
@@ -457,7 +459,7 @@ class EmulateBackendTest {
 
     private fun textUtilsSession(vm: VmServices, target: MethodDescriptor, value: Value): ExecutionSession {
         val entry = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner).also { it.assign(0, value) }
+        val frame = Frame.entryFrame(entry).also { it.assign(0, value) }
         return ExecutionSession.of(entry, vm, Limits(), frame) { address, method, index ->
             if (address == 0 && method.signature == entry.signature) invokeOp(address, target, intArrayOf(0))
             else OpBuilder.build(address, method, index)
@@ -476,7 +478,7 @@ class EmulateBackendTest {
             },
         )
         val entry = view("Linvoke_reflected_test;", "invokeStringBuilderAppendWithLong()V")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val original = StringBuilder("value")
         val ref = frame.allocateHostObject(builderType, original)
         frame.assign(0, Value.Known(ref, builderType))

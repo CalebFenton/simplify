@@ -29,7 +29,7 @@ class HostExecutionIntegrationTest {
         )
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(length)))
         val view = classIndex.requireMethodView(fixture, descriptor)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val admitted = frame.admitHostSeeds(
             listOf(
                 HostSeed(Value.Known(arrayListOf("affected"), VirtualType.OBJECT)),
@@ -71,7 +71,7 @@ class HostExecutionIntegrationTest {
         // Oracle: the tracked array component is Object, so Unknown may alias the later StringBuilder receiver.
         val result = opaqueThenLength { frame ->
             val type = VirtualType.of("[Ljava/lang/Object;")
-            val ref = frame.allocateArrayObject(type, arrayOf(Value.Unknown(VirtualType.of("I"))))
+            val ref = frame.allocateArray(type, arrayOf(Value.Unknown(VirtualType.of("I")))).raw
             Value.Known(ref, VirtualType.of("I"))
         }
 
@@ -108,7 +108,7 @@ class HostExecutionIntegrationTest {
         )
         val vm = VmServices(classIndex, ReflectionPolicy(exactSafeMethods = setOf(length)))
         val view = classIndex.requireMethodView(fixture, descriptor)
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val builder = frame.admitHostSeeds(
             listOf(HostSeed(Value.Known(StringBuilder("visible"), VirtualType.of("Ljava/lang/StringBuilder;")))),
         ).single() as Value.Known

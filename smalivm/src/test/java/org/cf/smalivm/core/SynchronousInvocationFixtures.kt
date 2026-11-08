@@ -29,7 +29,7 @@ internal object SynchronousInvocationFixtures {
             limits,
             Frame.entryFrame(view),
             opFactory,
-            Invoker(classIndex, backends),
+            invokerOf(classIndex, backends),
         )
     }
 
@@ -38,8 +38,9 @@ internal object SynchronousInvocationFixtures {
         limits: Limits = Limits(),
     ): ExecutionSession = session(CALLER, "callsNativeCallee()I", listOf(backend), limits)
 
-    fun nativePreparation(invoker: Invoker): InvocationPreparation.Ready =
-        invoker.prepare(
+    /** Plans `callsNativeCallee`'s call to the bodyless `nativeCallee` from that caller's entry frame. */
+    fun nativePlan(invoker: Invoker): InvocationPlan {
+        val preparation = invoker.prepare(
             Invocation(
                 MethodDescriptor(VirtualType.of(CALLEE), "nativeCallee", "()I"),
                 InvokeKind.STATIC,
@@ -47,6 +48,8 @@ internal object SynchronousInvocationFixtures {
             ),
             VirtualType.of(CALLER),
         ) as InvocationPreparation.Ready
+        return invoker.planOn(preparation, Frame.entryFrame(view(CALLER, "callsNativeCallee()I")))
+    }
 
     fun allNodes(root: ExecutionNode): List<ExecutionNode> {
         val result = mutableListOf<ExecutionNode>()

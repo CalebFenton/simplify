@@ -47,7 +47,7 @@ class FrameworkCatalogTest {
             index.currentSnapshot.frameworkCatalog.method("Ljava/lang/Integer;->numberOfLeadingZeros(I)I"),
         )
         val view = MethodView.of(method, index.currentSnapshot.programRevision)
-        val frame = Frame.entryFrame(view, HostObjectCloner())
+        val frame = Frame.entryFrame(view)
         frame.assign(view.firstParameterRegister, Value.Known(1, VirtualType.of("I")))
 
         val graph = VmServices(index).newSession(view, entryFrame = frame).run()
@@ -63,7 +63,7 @@ class FrameworkCatalogTest {
             index.currentSnapshot.frameworkCatalog.method("Ljava/lang/Math;->multiplyFull(II)J"),
         )
         val view = MethodView.of(method, index.currentSnapshot.programRevision)
-        val frame = Frame.entryFrame(view, HostObjectCloner())
+        val frame = Frame.entryFrame(view)
         frame.assign(view.firstParameterRegister, Value.Known(Int.MAX_VALUE, VirtualType.of("I")))
         frame.assign(view.firstParameterRegister + 1, Value.Known(2, VirtualType.of("I")))
 

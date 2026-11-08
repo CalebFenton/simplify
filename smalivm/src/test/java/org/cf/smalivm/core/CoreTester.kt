@@ -57,7 +57,7 @@ object CoreTester {
         limits: Limits = Limits(),
     ): ExecutionGraph {
         val view = classIndex.requireMethodView(className, methodDescriptor)
-        val frame = Frame.entryFrame(view, vmServices.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val entries = initialRegisters.entries.toList()
         val admitted = frame.admitHostSeeds(entries.map { HostSeed(it.value) })
         entries.zip(admitted).forEach { (entry, value) -> frame.assign(entry.key, value) }
@@ -464,7 +464,7 @@ object CoreTester {
         limits: Limits = Limits(),
     ): ExecutionGraph {
         val view = classIndex.requireMethodView(className, methodDescriptor)
-        val frame = Frame.entryFrame(view, vmServices.hostObjectCloner)
+        val frame = Frame.entryFrame(view)
         val seeds = buildList {
             initial.registers.forEach { (register, value) -> add(register to HostSeed(value)) }
             initial.arrays.forEach { (register, spec) ->

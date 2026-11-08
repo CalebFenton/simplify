@@ -314,7 +314,7 @@ class FieldGetAccessMatrixTest {
         val policy = ReflectionPolicy(safeClasses = setOf(HOST_FIXTURE))
         val vm = VmServices(classIndex, policy)
         val entry = view(HOST_PACKAGE_CALLER, "readHostMutable(Ljava/lang/Object;)Ljava/lang/Object;")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         val fixtureRef = frame.allocateHostObject(HOST_FIXTURE, HostFieldFixture())
         frame.assign(entry.parameters.single().register, Value.Known(fixtureRef, HOST_FIXTURE))
         val session = vm.newSession(entry, entryFrame = frame)
@@ -350,35 +350,44 @@ class FieldGetAccessMatrixTest {
     }
 
     @Test
-    fun unsafeDefaultMethodSuperinterfaceDeniesHostStaticButOrdinaryInterfaceDoesNot() {
-        val unsafeField = hostMetadata(FieldHostFixture.UnsafeDefaultOwner::class.java.getDeclaredField("value"))
-        val ordinaryField = hostMetadata(FieldHostFixture.OrdinaryOwner::class.java.getDeclaredField("value"))
-        val unsafeInterface = virtualTypeOfHostClass(FieldHostFixture.UnsafeDefaultInterface::class.java)
-        val ordinaryInterface = virtualTypeOfHostClass(FieldHostFixture.OrdinaryInterface::class.java)
-        val unsafePolicy = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(unsafeInterface, "<clinit>", "()V")),
-            safeClasses = setOf(unsafeField.declaringType),
+    fun unsafeInitializerAnywhereInTheModelledChainIncludingInterfacesDeniesTheStaticRead() {
+        // Comparable declares no default method, so a JVM would not initialize it for Integer (JLS 12.4.1);
+        // authorization still checks every superinterface the class model gives Integer.
+        val metadata = hostMetadata(java.lang.Integer::class.java.getDeclaredField("MAX_VALUE"))
+        val comparable = VirtualType.of("Ljava/lang/Comparable;")
+        val unsafeInterface = ReflectionPolicy(
+            exactUnsafeMethods = setOf(MethodDescriptor(comparable, "<clinit>", "()V")),
+            safeClasses = setOf(metadata.declaringType),
         )
-        val ordinaryPolicy = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(ordinaryInterface, "<clinit>", "()V")),
-            safeClasses = setOf(ordinaryField.declaringType),
+        val authorized = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
+
+        val denied = hostStaticGet(metadata, unsafeInterface)
+        val allowed = hostStaticGet(metadata, authorized)
+
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INT)), denied)
+        // Integer.MAX_VALUE is 0x7fffffff (JLS 4.2.1).
+        assertEquals(
+            SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(2147483647, INT))),
+            allowed,
         )
+    }
 
-        val denied = hostStaticGet(unsafeField, unsafePolicy)
-        val allowed = hostStaticGet(ordinaryField, ordinaryPolicy)
+    @Test
+    fun hostStaticOfAClassAbsentFromTheClassModelIsNotAuthorized() {
+        val metadata = hostMetadata(HostFieldFixture::class.java.getDeclaredField("staticMutable"))
 
-        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(BUILDER)), denied)
-        val returned = ((allowed as SynchronousCallResult.Returned).value as HostReturn.Value).value
-        assertSame(FieldHostFixture.OrdinaryOwner.value, (returned as HostValue.Reference).value)
+        val result = hostStaticGet(metadata, ReflectionPolicy(safeClasses = setOf(metadata.declaringType)))
+
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(BUILDER)), result)
     }
 
     @Test
     fun authorizedHostStaticReadIgnoresReceiverAndImportsMutableIdentity() {
-        val metadata = hostMetadata(HostFieldFixture::class.java.getDeclaredField("staticMutable"))
+        val metadata = hostMetadata(java.util.Collections::class.java.getDeclaredField("EMPTY_LIST"))
         val policy = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
         val vm = VmServices(classIndex, policy)
         val entry = view(SPINE, "throwTwoHandlers(Ljava/lang/Object;)Ljava/lang/Object;")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         frame.assign(0, frame.allocateTrackedField(metadata))
         frame.assign(1, Value.Unknown(OBJECT))
         val session = invokeFieldGetOnce(vm, entry, frame)
@@ -386,7 +395,26 @@ class FieldGetAccessMatrixTest {
         val graph = session.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
 
-        assertEquals("host-static", session.currentNode!!.frame.hostObjectAt(returned.raw as HeapRef).toString())
+        assertSame(java.util.Collections.EMPTY_LIST, session.currentNode!!.frame.hostObjectAt(returned.raw as HeapRef))
+    }
+
+    @Test
+    fun overriddenReadOfAHostFieldTheJvmDoesNotOpenReturnsUnknown() {
+        // After setAccessible(true) the guest's read of the private field is legal, so the guest gets a value.
+        // The test JVM opens only java.base/java.lang to this analyser, so it cannot read java.util.ArrayList.size
+        // and the only sound answer is an unknown int.
+        val metadata = hostMetadata(java.util.ArrayList::class.java.getDeclaredField("size"))
+        val policy = ReflectionPolicy(safeClasses = setOf(metadata.declaringType))
+
+        val result = FieldGetEmulator(classIndex, policy).execute(
+            emulatorCall(
+                receiver = TrackedFieldEmulatorValue(metadata, FieldAccessibility.OVERRIDDEN),
+                argument = EmulatorValue.Known(metadata.declaringType, arrayListOf("element")),
+                caller = UNRELATED,
+            ),
+        )
+
+        assertEquals(IntrinsicCallResult(IntrinsicOperation.ReturnUnknown(INT)), result)
     }
 
     @Test
@@ -462,7 +490,7 @@ class FieldGetAccessMatrixTest {
     ): ExecutionGraph {
         val vm = VmServices(classIndex)
         val entry = view(caller, "matrix(Ljava/lang/Object;Ljava/lang/Object;)I")
-        val frame = Frame.entryFrame(entry, vm.hostObjectCloner)
+        val frame = Frame.entryFrame(entry)
         frame.assign(0, frame.allocateTrackedField(metadata))
         if (metadata.storage == FieldStorage.INSTANCE) {
             val receiver = frame.allocateObject(
@@ -575,7 +603,7 @@ class FieldGetAccessMatrixTest {
 
     private fun hostMetadata(field: Field): TrackedFieldValue {
         val declaringType = virtualTypeOfHostClass(field.declaringClass)
-        val fieldType = virtualTypeOfHostFieldClass(field.type)
+        val fieldType = virtualTypeOfHostClass(field.type)
         return TrackedFieldValue(
             declaringType,
             field.name,

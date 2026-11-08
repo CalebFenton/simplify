@@ -12,7 +12,7 @@ class InvocationPreparationTest {
     fun runnableAndBodylessMethodsCarryResolvedMetadata() {
         val caller = type("Lcalls/caller;")
         val runnable = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Lcalls/callee;", "identityInt", "(I)I", InvokeKind.STATIC, known(4, "I")),
             caller,
         )
@@ -23,7 +23,7 @@ class InvocationPreparationTest {
         assertEquals(listOf(type("I")), runnable.invocation.parameterTypes)
 
         val bodyless = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Lcalls/callee;", "nativeCallee", "()I", InvokeKind.STATIC),
             caller,
         )
@@ -39,7 +39,7 @@ class InvocationPreparationTest {
         val array = type("[I")
         val receiver = Value.Unknown(array)
         val prepared = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("[I", "clone", "()Ljava/lang/Object;", InvokeKind.VIRTUAL, receiver),
             type("Linvoke_task20;"),
             receiverType = array,
@@ -55,7 +55,7 @@ class InvocationPreparationTest {
     fun staticInstanceAndConstructorCallsCarryCallerTargetKindAndReceiver() {
         val caller = type("Linvoke_task20;")
         val static = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Lcalls/callee;", "returnsSeven", "()I", InvokeKind.STATIC),
             caller,
         ).invocation
@@ -66,7 +66,7 @@ class InvocationPreparationTest {
 
         val receiver = Value.Unknown(type("Linvoke_dispatch_base;"))
         val instance = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Linvoke_dispatch_base;", "value", "()I", InvokeKind.VIRTUAL, receiver),
             caller,
             receiverType = type("Linvoke_dispatch_child;"),
@@ -78,7 +78,7 @@ class InvocationPreparationTest {
 
         val constructorReceiver = Value.Known(HeapRef(7), type("Linvoke_ctor_target;"))
         val constructor = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Linvoke_ctor_target;", "<init>", "()V", InvokeKind.DIRECT, constructorReceiver),
             caller,
             receiverType = type("Linvoke_ctor_target;"),
@@ -97,7 +97,7 @@ class InvocationPreparationTest {
         val first = known(11L, "J")
         val second = known(22L, "J")
         val constructor = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation(
                 "Ljava/util/UUID;", "<init>", "(JJ)V", InvokeKind.DIRECT,
                 receiver, first, Value.Top, second, Value.Top,
@@ -121,7 +121,7 @@ class InvocationPreparationTest {
             known(0, "I"),
         )
         val prepared = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             Invocation(
                 method("Linvoke_review_callee;", "bindingMatrix", "(ZBCSIJFDLjava/lang/Object;)V"),
                 InvokeKind.STATIC,
@@ -141,7 +141,7 @@ class InvocationPreparationTest {
     @Test
     fun integerZeroBecomesNullOnlyWhenBoundToAReference() {
         val reference = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation(
                 "Linvoke_review_callee;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;",
                 InvokeKind.STATIC, known(0, "I"),
@@ -151,7 +151,7 @@ class InvocationPreparationTest {
         assertEquals(Value.Known(null, type("Ljava/lang/Object;")), reference)
 
         val primitive = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation("Lcalls/callee;", "identityInt", "(I)I", InvokeKind.STATIC, known(0, "I")),
             type("Lcalls/caller;"),
         ).invocation.arguments.single()
@@ -162,7 +162,7 @@ class InvocationPreparationTest {
     fun nonIntPrimitiveZeroDoesNotBecomeNullInAReferenceBinding() {
         val booleanZero = Value.Known(false, type("Z"))
         val prepared = ready(
-            Invoker(classIndex),
+            defaultInvoker(classIndex),
             invocation(
                 "Linvoke_review_callee;", "identityObject", "(Ljava/lang/Object;)Ljava/lang/Object;",
                 InvokeKind.STATIC, booleanZero,
@@ -176,13 +176,13 @@ class InvocationPreparationTest {
     @Test
     fun malformedArityBecomesTypedOpaqueWithoutProbingABackend() {
         val backend = RecordingBackend()
-        val preparation = Invoker(classIndex, listOf(backend)).prepare(
+        val preparation = invokerOf(classIndex, listOf(backend)).prepare(
             invocation("Lcalls/callee;", "returnsSeven", "()I", InvokeKind.STATIC, known(1, "I")),
             type("Lcalls/caller;"),
         )
 
-        assertTrue(preparation is InvocationPreparation.Opaque)
-        preparation as InvocationPreparation.Opaque
+        assertTrue(preparation is OpaqueInvocation)
+        preparation as OpaqueInvocation
         assertEquals(type("I"), preparation.returnType)
         assertTrue(preparation.diagnostic?.contains("argument register") == true)
         assertEquals(0, backend.probes)
@@ -191,7 +191,7 @@ class InvocationPreparationTest {
     @Test
     fun missingNarrowAndWideRegisterWordsBecomeOpaqueWithoutProbingABackend() {
         val backend = RecordingBackend()
-        val invoker = Invoker(classIndex, listOf(backend))
+        val invoker = invokerOf(classIndex, listOf(backend))
         val calls = listOf(
             invocation("Lcalls/callee;", "identityInt", "(I)I", InvokeKind.STATIC),
             invocation("Lcalls/callee;", "identityLong", "(J)J", InvokeKind.STATIC, known(9L, "J")),
@@ -199,10 +199,10 @@ class InvocationPreparationTest {
 
         for (call in calls) {
             val preparation = invoker.prepare(call, type("Lcalls/caller;"))
-            assertTrue(preparation is InvocationPreparation.Opaque)
+            assertTrue(preparation is OpaqueInvocation)
             assertEquals(
                 type(call.target.proto.substringAfter(')')),
-                (preparation as InvocationPreparation.Opaque).returnType,
+                (preparation as OpaqueInvocation).returnType,
             )
         }
         assertEquals(0, backend.probes)
@@ -211,7 +211,7 @@ class InvocationPreparationTest {
     @Test
     fun resolutionFailurePrecedesANullReceiverAndProbesNoBackend() {
         val backend = RecordingBackend()
-        val preparation = Invoker(classIndex, listOf(backend)).prepare(
+        val preparation = invokerOf(classIndex, listOf(backend)).prepare(
             invocation("Linvoke_task20;", "missing", "()V", InvokeKind.VIRTUAL, known(0, "I")),
             type("Linvoke_task20;"),
         )
@@ -227,7 +227,7 @@ class InvocationPreparationTest {
     @Test
     fun nullReceiverStopsBeforeBackendExecution() {
         val backend = RecordingBackend()
-        val invoker = Invoker(classIndex, listOf(backend))
+        val invoker = invokerOf(classIndex, listOf(backend))
         val view = view("Linvoke_task20;", "nullVirtual()I")
         val graph = ExecutionSession.of(
             view, classIndex, Limits(), Frame.entryFrame(view), OpBuilder::build, invoker,
@@ -240,7 +240,7 @@ class InvocationPreparationTest {
     @Test
     fun ambiguousDispatchRetainsCandidatesAndProbesNoBackend() {
         val backend = RecordingBackend()
-        val preparation = Invoker(classIndex, listOf(backend)).prepare(
+        val preparation = invokerOf(classIndex, listOf(backend)).prepare(
             invocation(
                 "Linvoke_dispatch_base;", "value", "()I", InvokeKind.VIRTUAL,
                 Value.Unknown(type("Linvoke_dispatch_base;")),
@@ -248,13 +248,13 @@ class InvocationPreparationTest {
             type("Linvoke_task20;"),
         )
 
-        assertTrue(preparation is InvocationPreparation.Opaque)
+        assertTrue(preparation is OpaqueInvocation)
         assertEquals(
             setOf(
                 "Linvoke_dispatch_base;->value()I",
                 "Linvoke_dispatch_child;->value()I",
             ),
-            (preparation as InvocationPreparation.Opaque).candidates,
+            (preparation as OpaqueInvocation).candidates,
         )
         assertEquals(0, backend.probes)
     }
@@ -270,7 +270,7 @@ class InvocationPreparationTest {
         val session = ExecutionSession.of(view, classIndex, Limits(), frame)
         val frontierBefore = session.frontier
 
-        val preparation = Invoker(classIndex, listOf(backend)).prepare(
+        val preparation = invokerOf(classIndex, listOf(backend)).prepare(
             invocation("Lcalls/callee;", "identityInt", "(I)I", InvokeKind.STATIC, known(8, "I")),
             type("Lcalls/caller;"),
         )
@@ -285,21 +285,40 @@ class InvocationPreparationTest {
         assertEquals(SideEffectLevel.WEAK, frame.takeSideEffectLevel())
     }
 
+    /** Catches a scheduler that null-checks the receiver before resolving the target: it would throw NPE. */
     @Test
-    fun schedulerOrdersResolveBindNullCheckAndProbe() {
-        val events = mutableListOf<String>()
-        val backend = RecordingBackend(events)
-        val invoker = Invoker(classIndex, listOf(backend)) { events.add(it) }
+    fun sessionResolutionFailureWinsOverANullReceiverAndProbesNoBackend() {
+        val backend = RecordingBackend()
+        val view = view("Linvoke_task20;", "missingBeforeNull()V")
+
+        val graph = ExecutionSession.of(
+            view, classIndex, Limits(), Frame.entryFrame(view), OpBuilder::build, invokerOf(classIndex, listOf(backend)),
+        ).run()
+
+        assertEquals(listOf("Ljava/lang/NoSuchMethodError;"), CoreTester.escapingTypes(graph))
+        assertEquals(0, backend.probes)
+    }
+
+    /**
+     * Catches a scheduler that probes before binding: the backend would see the raw int word instead of the
+     * Object parameter the zero binds to as null.
+     */
+    @Test
+    fun backendProbeSeesTheBoundArgument() {
+        val backend = RecordingBackend()
         val view = view("Linvoke_task20;", "zeroBecomesNull()Ljava/lang/Object;")
         val frame = Frame.entryFrame(view).also {
             it.completeClassInit(type("Linvoke_task20;"))
         }
 
         ExecutionSession.of(
-            view, classIndex, Limits(), frame, OpBuilder::build, invoker,
+            view, classIndex, Limits(), frame, OpBuilder::build, invokerOf(classIndex, listOf(backend)),
         ).run()
 
-        assertEquals(listOf("resolve", "bind", "null-check", "class-init-trigger", "probe"), events)
+        assertEquals(1, backend.probes)
+        val argument = backend.lastCall!!.arguments.single()
+        assertEquals(type("Ljava/lang/Object;"), argument.type)
+        assertTrue(argument.isNullReference)
     }
 
     private fun ready(
@@ -329,15 +348,17 @@ class InvocationPreparationTest {
     private fun view(className: String, descriptor: String) =
         classIndex.requireMethodView(className, descriptor)
 
-    private class RecordingBackend(private val events: MutableList<String>? = null) : Backend {
+    private class RecordingBackend : Backend {
         var probes = 0
+            private set
+        var lastCall: BackendInvocation? = null
             private set
 
         override val name: String = "recording"
 
         override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe {
             probes += 1
-            events?.add("probe")
+            lastCall = call
             return when (lookup) {
                 is MethodLookup.Runnable -> BackendProbe.Schedule(lookup.view, 0)
                 else -> BackendProbe.Declined("not runnable")

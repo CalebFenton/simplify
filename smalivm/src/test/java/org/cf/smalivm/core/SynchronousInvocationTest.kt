@@ -10,7 +10,7 @@ import org.cf.smalivm.core.SynchronousInvocationFixtures.classIndex
 import org.cf.smalivm.core.SynchronousInvocationFixtures.intType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.longType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.nativeCallSession
-import org.cf.smalivm.core.SynchronousInvocationFixtures.nativePreparation
+import org.cf.smalivm.core.SynchronousInvocationFixtures.nativePlan
 import org.cf.smalivm.core.SynchronousInvocationFixtures.objectType
 import org.cf.smalivm.core.SynchronousInvocationFixtures.session
 import org.cf.smalivm.core.SynchronousInvocationFixtures.view
@@ -24,22 +24,26 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 
 class SynchronousInvocationTest {
+    /**
+     * Catches selection that does not probe in list order: a later backend's 9, or an opaque Unknown chosen
+     * before every backend is asked, would replace the first accepting backend's 7.
+     */
     @Test
-    fun backendOrderIsEmulatorThenVirtualThenReflectionThenOpaque() {
-        val events = mutableListOf<String>()
-        fun declining(name: String) = ScriptedProbeBackend(name) {
-            events += name
-            BackendProbe.Declined("$name declined")
-        }
-        val invoker = Invoker(
-            classIndex,
-            listOf(declining("emulator"), declining("virtual"), declining("reflection")),
-        ) { if (it == "opaque") events += it }
+    fun firstAcceptingBackendInListOrderSuppliesTheResult() {
+        val declined = ScriptedProbeBackend("emulator") { BackendProbe.Declined("emulator declined") }
+        fun returning(name: String, value: Int) = ScriptedSynchronousBackend(
+            name,
+            { BackendProbe.Execute(SideEffectLevel.NONE) },
+            { SynchronousCallResult.Returned(HostReturn.Value(HostValue.Primitive(value, intType))) },
+        )
+        val seven = returning("virtual", 7)
+        val nine = returning("reflection", 9)
 
-        val plan = invoker.plan(nativePreparation(invoker))
+        val graph = session(CALLER, "callsNativeCallee()I", listOf(declined, seven, nine)).run()
 
-        assertTrue(plan is InvocationPlan.Opaque)
-        assertEquals(listOf("emulator", "virtual", "reflection", "opaque"), events)
+        assertEquals(Value.Known(7, intType), graph.outcomes.single().returnedValue())
+        assertEquals(1, declined.probeCount)
+        assertEquals(0, nine.probeCount)
     }
 
     @Test
@@ -47,12 +51,12 @@ class SynchronousInvocationTest {
         val first = ScriptedProbeBackend("emulator") { BackendProbe.Declined("unsupported shape") }
         val denied = ScriptedProbeBackend("reflection") { BackendProbe.Denied("policy denied") }
         val later = ScriptedProbeBackend("later") { error("must not probe") }
-        val invoker = Invoker(classIndex, listOf(first, denied, later))
+        val invoker = invokerOf(classIndex, listOf(first, denied, later))
 
-        val plan = invoker.plan(nativePreparation(invoker))
+        val plan = nativePlan(invoker)
 
-        assertTrue(plan is InvocationPlan.Opaque)
-        assertEquals("policy denied", (plan as InvocationPlan.Opaque).diagnostic)
+        assertTrue(plan is OpaqueInvocation)
+        assertEquals("policy denied", (plan as OpaqueInvocation).diagnostic)
         assertEquals(1, first.probeCount)
         assertEquals(1, denied.probeCount)
         assertEquals(0, later.probeCount)
@@ -104,9 +108,9 @@ class SynchronousInvocationTest {
                 ScriptedProbeBackend("first") { answer }
             }
             val later = ScriptedProbeBackend("later") { error("must not probe") }
-            val invoker = Invoker(classIndex, listOf(first, later))
+            val invoker = invokerOf(classIndex, listOf(first, later))
 
-            invoker.plan(nativePreparation(invoker))
+            nativePlan(invoker)
 
             val firstProbeCount = when (first) {
                 is ScriptedProbeBackend -> first.probeCount
@@ -173,7 +177,7 @@ class SynchronousInvocationTest {
         val graph = session(
             CALLER,
             "callsSpinningCallee()I",
-            listOf(ApplicationBytecodeBackend(classIndex), host),
+            listOf(ApplicationBytecodeBackend(classIndex.currentResolver()), host),
             Limits(maxAddressVisits = 2, maxSteps = 100),
         ).run()
 
@@ -196,7 +200,7 @@ class SynchronousInvocationTest {
         val session = session(
             CALLER,
             "callsCalleeAndReturnsItsResult()I",
-            listOf(ApplicationBytecodeBackend(classIndex), reflection),
+            listOf(ApplicationBytecodeBackend(classIndex.currentResolver()), reflection),
             opFactory = { address, method, index ->
                 when {
                     method.signature == callerView.signature && address == 0 -> object : Op(address) {
@@ -487,7 +491,7 @@ class SynchronousInvocationTest {
             Limits(),
             frame,
             OpBuilder::build,
-            Invoker(classIndex, listOf(backend)),
+            invokerOf(classIndex, listOf(backend)),
         )
 
         val graph = session.run()

@@ -180,7 +180,7 @@ class HeapStoreTest {
 
     @Test
     fun unprovableFinalizationKeepsTheDetachedHostGraphRoot() {
-        val heap = HeapStore(HeapIds(), HostObjectCloner())
+        val heap = HeapStore(HeapIds())
         val type = VirtualType.of("Ljava/util/Date;")
         val ref = heap.allocateHostObject(type, Date(1_234L))
         val roots = listOf(Value.Known(ref, type))

@@ -182,7 +182,7 @@ class ThrowableCauseBehaviorTest {
         val rootRef = root.raw as HeapRef
         frame.setThrowableCause(causeRef, root)
         frame.assign(view.parameters.single().register, root)
-        val nextId = frame.nextHeapId()
+        val probeBefore = probeNextHeapId(frame)
 
         val session = vm.newSession(view, entryFrame = frame)
         val graph = session.run()
@@ -193,7 +193,11 @@ class ThrowableCauseBehaviorTest {
         assertEquals(rootRef, returned.raw, "the selected throw must reuse its source throwable ref")
         assertEquals(causeValue, terminal.throwableCause(rootRef), "the nested cause must reuse its source ref")
         assertEquals(root, terminal.throwableCause(causeRef), "the imported cause cycle must close on the source ref")
-        assertEquals(nextId, terminal.nextHeapId(), "the cycle import must allocate no duplicate refs")
+        assertEquals(
+            probeBefore + 1,
+            probeNextHeapId(terminal),
+            "the cycle import must allocate no duplicate refs: only the before-probe consumed an id",
+        )
         val importedOuter = terminal.hostObjectAt(rootRef) as LinkedCauseThrowable
         val importedCause = terminal.hostObjectAt(causeRef) as LinkedCauseThrowable
         assertSame(importedCause, importedOuter.cause, "the selected graph must preserve the nested alias")

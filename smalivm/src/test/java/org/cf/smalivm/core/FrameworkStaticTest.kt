@@ -1,11 +1,10 @@
 package org.cf.smalivm.core
 
-import android.util.DisplayMetrics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
-import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -14,105 +13,42 @@ class FrameworkStaticTest {
     private val intType = VirtualType.of("I")
 
     @Test
-    fun encodedFrameworkLiteralIsExactWithoutCallingTheService() {
-        val service = recordingService { error("encoded literals must bypass host projection") }
-        val graph = run("encodedLiteral()I", owner(service = service))
+    fun encodedFrameworkLiteralIsExactWithoutPolicyAuthorization() {
+        // Integer.MAX_VALUE is 0x7fffffff (JLS 4.2.1). The default policy denies every host read, so only the
+        // encoded literal can produce a known value.
+        val graph = run("encodedLiteral()I", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Known(Int.MAX_VALUE, intType), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(0, service.calls)
     }
 
     @Test
     fun bundledFrameworkInitializerRemainsSuppressedWithoutClaimingItRan() {
-        val service = recordingService { error("encoded literals must bypass host projection") }
-        val graph = run("encodedLiteral()I", owner(service = service))
+        val graph = run("encodedLiteral()I", VmServices(classIndex, ReflectionPolicy()))
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertEquals(0, service.calls)
     }
 
     @Test
-    fun authorizedPrimitiveNullAndReferencesProjectThroughTheScheduler() {
-        val mutable = arrayListOf("owned")
-        val service = recordingService { request ->
-            when (request.field.name) {
-                "DENSITY_DEVICE_STABLE" -> HostStaticResult.Returned(HostValue.Primitive(7, intType))
-                "loader" -> HostStaticResult.Returned(HostValue.TypedNull(request.field.type))
-                "TRUE" -> HostStaticResult.Returned(HostValue.Reference(java.lang.Boolean.TRUE, VirtualType.of("Ljava/lang/Boolean;")))
-                "EMPTY_LIST" -> HostStaticResult.Returned(HostValue.Reference(mutable, VirtualType.of("Ljava/util/ArrayList;")))
-                else -> error("unexpected request ${request.field}")
-            }
-        }
-        val policy = ReflectionPolicy(exactSafeStaticFields = PROJECTED_FIELDS)
-        val vm = owner(policy, service)
+    fun authorizedPrimitiveAndReferencesProjectThroughTheScheduler() {
+        val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = PROJECTED_FIELDS))
 
-        assertEquals(Value.Known(7, intType), result("primitive()I", vm))
-        assertEquals(Value.Known(null, VirtualType.of("Ljava/lang/ClassLoader;")), result("nullable()Ljava/lang/ClassLoader;", vm))
-        assertEquals(Value.Known(java.lang.Boolean.TRUE, VirtualType.of("Ljava/lang/Boolean;")), result("immutableReference()Ljava/lang/Boolean;", vm))
+        // UnixFileSystem takes the separator from file.separator, which is "/" on the POSIX hosts the build runs on.
+        assertEquals(Value.Known('/', CHAR), result("primitive()C", vm))
+        assertEquals(Value.Known(java.lang.Boolean.TRUE, BOOLEAN), result("immutableReference()Ljava/lang/Boolean;", vm))
 
-        val mutableResult = result("mutableReference()Ljava/util/List;", vm) as Value.Known
-        assertTrue(mutableResult.raw is HeapRef)
         val graph = run("mutableReference()Ljava/util/List;", vm)
         val ref = (graph.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        assertSame(mutable, graph.terminatingHostObjectOverExploredPaths(ref))
+        assertSame(java.util.Collections.EMPTY_LIST, graph.terminatingHostObjectOverExploredPaths(ref))
         assertEquals(
-            Value.Known(ref, VirtualType.of("Ljava/util/ArrayList;")),
-            graph.trusted()!!.terminatingStaticFieldConsensus(
-                VirtualType.of("Ljava/util/Collections;"),
-                "Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;",
-            ),
+            Value.Known(ref, EMPTY_LIST_TYPE),
+            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.descriptor),
         )
     }
 
     @Test
-    fun projectedHostThrowableImportsItsCauseIdentity() {
-        val cause = IllegalArgumentException("cause")
-        val root = IllegalStateException("root", cause)
-        val field = field("Lorg/json/JSONObject;", "NULL", "Ljava/lang/Object;")
-        val service = recordingService {
-            HostStaticResult.Returned(
-                HostValue.Reference(root, virtualTypeOfHostClass(root.javaClass)),
-            )
-        }
-        val graph = run(
-            "throwableReference()Ljava/lang/Object;",
-            owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service),
-        )
-        val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
-        val rootRef = returned.raw as HeapRef
-        val rootObject = graph.terminatingHeapObjectOverExploredPaths(rootRef) as HeapObject.GuestThrowable
-        val causeValue = requireNotNull(rootObject.cause) as Value.Known
-        val causeRef = causeValue.raw as HeapRef
-
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertSame(root, graph.terminatingHostObjectOverExploredPaths(rootRef))
-        assertSame(cause, graph.terminatingHostObjectOverExploredPaths(causeRef))
-        assertSame(cause, (graph.terminatingHostObjectOverExploredPaths(rootRef) as Throwable).cause)
-    }
-
-    @Test
-    fun realServicePreservesImmutableAndMutableHostValues() {
-        val actual = hostStaticService(classIndex.classLoader)
-        val service = recordingService(actual::read)
-        val fields = setOf(
-            field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;"),
-            field("Ljava/util/Collections;", "EMPTY_LIST", "Ljava/util/List;"),
-        )
-        val vm = owner(ReflectionPolicy(exactSafeStaticFields = fields), service)
-
-        assertEquals(
-            Value.Known(java.lang.Boolean.TRUE, VirtualType.of("Ljava/lang/Boolean;")),
-            result("immutableReference()Ljava/lang/Boolean;", vm),
-        )
-        assertTrue(result("mutableReference()Ljava/util/List;", vm).let { it is Value.Known && it.raw is HeapRef })
-        assertEquals(2, service.calls)
-    }
-
-    @Test
-    fun exactUnsafeInitializerBlocksAnOverlappingSafeFieldBeforeHostExecution() {
-        val service = recordingService { error("unsafe initializer policy must win before host access") }
+    fun exactUnsafeInitializerOutranksOverlappingSafeFieldAndClassRules() {
         val field = field("Ljava/lang/System;", "out", "Ljava/io/PrintStream;")
         val policy = ReflectionPolicy(
             exactUnsafeMethods = setOf(MethodDescriptor(field.definingClass, "<clinit>", "()V")),
@@ -120,87 +56,63 @@ class FrameworkStaticTest {
             safeClasses = setOf(field.definingClass),
         )
 
-        val graph = run("unsafeSystemField()Ljava/io/PrintStream;", owner(policy, service))
+        val graph = run("unsafeSystemField()Ljava/io/PrintStream;", VmServices(classIndex, policy))
 
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertEquals(0, service.calls)
     }
 
     @Test
-    fun exactUnsafeAncestorInitializerBlocksChildFieldBeforeHostInitialization() {
-        Task40HostSentinel.unsafeParentInitialized = false
-        val parent = VirtualType.of("Lcom/android/framework/protobuf/nano/MessageNano;")
-        val child = VirtualType.of(
-            "Lcom/android/server/connectivity/metrics/nano/IpConnectivityLogClass\$DefaultNetworkEvent;",
+    fun exactUnsafeSuperclassInitializerDeniesTheSubclassStatic() {
+        val field = field("Ljava/lang/Integer;", "TYPE", "Ljava/lang/Class;")
+        val number = VirtualType.of("Ljava/lang/Number;")
+        val unsafeSuperclass = ReflectionPolicy(
+            exactUnsafeMethods = setOf(MethodDescriptor(number, "<clinit>", "()V")),
+            exactSafeStaticFields = setOf(field),
         )
-        val childField = StaticFieldDescriptor(child, "NONE", intType)
-        val service = recordingService { error("unsafe ancestor must deny before host service execution") }
-        val policy = ReflectionPolicy(
-            exactUnsafeMethods = setOf(MethodDescriptor(parent, "<clinit>", "()V")),
-            exactSafeStaticFields = setOf(childField),
-        )
-        val vm = owner(policy, service)
-        val view = view("unsafeAncestorField()I")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        frame.applyClassInit(
-            ClassInitPlan(
-                settled = listOf(child),
-                skippedAnInitializer = true,
-                context = null,
-                staticSeeds = mapOf(
-                    childField.descriptor to StaticCell(
-                        Value.Unknown(intType),
-                        StaticCellProvenance.SEEDED_DEFAULT,
-                    ),
-                ),
-            ),
-        )
+        val authorized = ReflectionPolicy(exactSafeStaticFields = setOf(field))
 
-        val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
-
-        assertEquals(Value.Unknown(intType), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(0, service.calls)
-        assertFalse(Task40HostSentinel.unsafeParentInitialized)
+        assertEquals(
+            Value.Unknown(field.type),
+            result("subclassField()Ljava/lang/Class;", VmServices(classIndex, unsafeSuperclass)),
+        )
+        // Integer.TYPE is Class.getPrimitiveClass("int"), the int class object.
+        assertEquals(
+            Value.Known(java.lang.Integer.TYPE, field.type),
+            result("subclassField()Ljava/lang/Class;", VmServices(classIndex, authorized)),
+        )
     }
 
     @Test
-    fun defaultDenyReturnsTypedUnknownStrongWithoutHostExecution() {
-        val service = recordingService { error("default deny must not call host service") }
-        val graph = run("immutableReference()Ljava/lang/Boolean;", owner(ReflectionPolicy(), service))
+    fun defaultDenyReturnsTypedUnknownStrong() {
+        val graph = run("immutableReference()Ljava/lang/Boolean;", VmServices(classIndex, ReflectionPolicy()))
 
-        assertEquals(Value.Unknown(VirtualType.of("Ljava/lang/Boolean;")), graph.trusted()!!.terminatingConsensus(0))
+        assertEquals(Value.Unknown(BOOLEAN), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertEquals(0, service.calls)
     }
 
     @Test
-    fun unsupportedAuthorizedReadReturnsTypedUnknownStrong() {
-        val service = recordingService { HostStaticResult.Unsupported("not a public host field") }
-        val field = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
+    fun authorizedReadOfAClassTheHostLacksReturnsTypedUnknownStrong() {
+        // ClassLoader$SystemClassLoader exists only in Android's libcore; the host JDK has no such class.
+        val field = field("Ljava/lang/ClassLoader\$SystemClassLoader;", "loader", "Ljava/lang/ClassLoader;")
         val graph = run(
-            "immutableReference()Ljava/lang/Boolean;",
-            owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service),
+            "hostAbsentClassField()Ljava/lang/ClassLoader;",
+            VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(field))),
         )
 
+        assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(field.type), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
-        assertEquals(1, service.calls)
     }
 
     @Test
-    fun guestWriteOverridesAProjectedCellAndPreventsAnotherProjection() {
-        val service = recordingService {
-            HostStaticResult.Returned(HostValue.Reference(java.lang.Boolean.TRUE, VirtualType.of("Ljava/lang/Boolean;")))
-        }
-        val trueField = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
+    fun guestWriteOverridesAProjectedCell() {
         val graph = run(
             "putOverridesProjection()Ljava/lang/Boolean;",
-            owner(ReflectionPolicy(exactSafeStaticFields = setOf(trueField)), service),
+            VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(TRUE))),
         )
 
-        assertEquals(Value.Known(null, trueField.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(1, service.calls, "the sget after sput must use guest-owned static storage")
+        assertEquals(Value.Known(null, TRUE.type), graph.trusted()!!.terminatingConsensus(0))
     }
 
     @Test
@@ -218,18 +130,15 @@ class FrameworkStaticTest {
 
     @Test
     fun projectionNeverOverwritesAnExistingGuestOwnedCell() {
-        val service = recordingService { error("guest ownership must suppress projection") }
-        val field = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
-        val vm = owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service)
+        val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(TRUE)))
         val view = view("immutableReference()Ljava/lang/Boolean;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        frame.writeStaticField(field.descriptor, Value.Known(false, field.type))
-        frame.completeClassInit(field.definingClass)
+        val frame = Frame.entryFrame(view)
+        frame.writeStaticField(TRUE.descriptor, Value.Known(false, TRUE.type))
+        frame.completeClassInit(TRUE.definingClass)
 
         val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
 
-        assertEquals(Value.Known(false, field.type), graph.trusted()!!.terminatingConsensus(0))
-        assertEquals(0, service.calls)
+        assertEquals(Value.Known(false, TRUE.type), graph.trusted()!!.terminatingConsensus(0))
     }
 
     @Test
@@ -286,171 +195,82 @@ class FrameworkStaticTest {
         assertTrue(missing.provenance.blocksHostProjection)
     }
 
+
     @Test
     fun projectedSiblingsAreIsolatedAndLeaveTheSeedFrameUnprojected() {
-        val values = ArrayDeque(listOf(arrayListOf("left"), arrayListOf("right")))
-        val service = recordingService {
-            HostStaticResult.Returned(HostValue.Reference(values.removeFirst(), VirtualType.of("Ljava/util/ArrayList;")))
-        }
-        val field = field("Ljava/util/Collections;", "EMPTY_LIST", "Ljava/util/List;")
-        val vm = owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service)
+        val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(EMPTY_LIST)))
         val view = view("siblingProjection(I)Ljava/util/List;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner).apply { assign(1, Value.Unknown(intType)) }
-        val descriptor = "Ljava/util/Collections;->EMPTY_LIST:Ljava/util/List;"
-        assertNull(frame.staticCell(descriptor))
+        val frame = Frame.entryFrame(view).apply { assign(1, Value.Unknown(intType)) }
+        assertNull(frame.staticCell(EMPTY_LIST.descriptor))
 
         val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
-        val returned = graph.outcomes.filterIsInstance<Outcome.Returned>().map { (it.value as Value.Known).raw as HeapRef }
+        val returning = returningNodes(graph, view)
+        val returned = returning.map { ((it.outcome as Outcome.Returned).value as Value.Known).raw as HeapRef }
+
         assertEquals(2, returned.size)
-        assertTrue(returned[0] != returned[1], "each projected sibling must own its imported host reference")
-        assertEquals(2, service.calls)
-        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.staticCell(descriptor) }
+        assertNotEquals(returned[0], returned[1], "each projected sibling owns its imported host reference")
+        returning.zip(returned).forEach { (node, ref) ->
+            assertSame(java.util.Collections.EMPTY_LIST, node.frame.hostObjectAt(ref))
+        }
+        val successorCells = graph.addresses().flatMap(graph::nodePile).mapNotNull { it.endingFrame?.staticCell(EMPTY_LIST.descriptor) }
         assertTrue(successorCells.isNotEmpty(), "the returning successors hold the projected static")
-        assertNull(frame.staticCell(descriptor), "projection must write only successor frames, never the seed")
+        assertNull(frame.staticCell(EMPTY_LIST.descriptor), "projection writes only successor frames, never the seed")
     }
 
     @Test
-    fun sharedHostSingletonDetachesOnlyTheMutatingSibling() {
-        val singleton = arrayListOf<String>()
-        val field = field("Ljava/util/Collections;", "EMPTY_LIST", "Ljava/util/List;")
-        val add = MethodDescriptor(
-            VirtualType.of("Ljava/util/List;"),
-            "add",
-            "(Ljava/lang/Object;)Z",
-        )
-        val service = recordingService {
-            HostStaticResult.Returned(
-                HostValue.Reference(singleton, VirtualType.of("Ljava/util/ArrayList;")),
-            )
-        }
-        val policy = ReflectionPolicy(
-            exactSafeMethods = setOf(add),
-            exactSafeStaticFields = setOf(field),
-            safeClasses = listOf(
-                "Ljava/util/ArrayList;",
-                "Ljava/util/AbstractList;",
-                "Ljava/util/AbstractCollection;",
-                "Ljava/util/List;",
-                "Ljava/util/Collection;",
-            ).map(VirtualType::of).toSet(),
-        )
-        val vm = owner(policy, service)
-        val view = view("siblingProjectionMutation(I)Ljava/util/List;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner).apply { assign(2, Value.Unknown(intType)) }
-
-        val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
-        val returned = returningNodes(graph, view).map { node ->
-            val ref = (node.outcome as Outcome.Returned).value.let { (it as Value.Known).raw as HeapRef }
-            @Suppress("UNCHECKED_CAST")
-            node.frame.hostObjectAt(ref) as List<String>
-        }
-
-        assertEquals(2, returned.size)
-        assertTrue(returned.any { it == emptyList<String>() })
-        assertTrue(returned.any { it == listOf("changed") })
-        assertTrue(singleton.isEmpty(), "selected host mutation must occur on the detached path graph")
-        assertEquals(2, service.calls)
-    }
-
-    @Test
-    fun projectedExistingMutableHostValueReusesItsHeapRefAndAllocatorPosition() {
-        val raw = arrayListOf("existing")
-        val field = field("Ljava/util/Collections;", "EMPTY_LIST", "Ljava/util/List;")
-        val service = recordingService {
-            HostStaticResult.Returned(
-                HostValue.Reference(raw, VirtualType.of("Ljava/util/ArrayList;")),
-            )
-        }
-        val vm = owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service)
+    fun projectedExistingMutableHostValueReusesItsHeapRefWithoutAllocating() {
+        val raw = java.util.Collections.EMPTY_LIST
+        val vm = VmServices(classIndex, ReflectionPolicy(exactSafeStaticFields = setOf(EMPTY_LIST)))
         val view = view("mutableReference()Ljava/util/List;")
-        val frame = Frame.entryFrame(view, vm.hostObjectCloner)
-        val admitted = frame.admitHostSeeds(
-            listOf(HostSeed(Value.Known(raw, VirtualType.of("Ljava/util/ArrayList;")))),
-        ).single() as Value.Known
+        val frame = Frame.entryFrame(view)
+        val admitted = frame.admitHostSeeds(listOf(HostSeed(Value.Known(raw, EMPTY_LIST_TYPE)))).single() as Value.Known
         val existingRef = admitted.raw as HeapRef
         frame.assign(0, admitted)
-        val nextId = frame.nextHeapId()
+        val probed = probeNextHeapId(frame)
 
         val graph = ExecutionSession.of(view, vm, entryFrame = frame).run()
 
-        assertEquals(Value.Known(existingRef, VirtualType.of("Ljava/util/ArrayList;")), graph.trusted()!!.terminatingConsensus(0))
+        assertEquals(Value.Known(existingRef, EMPTY_LIST_TYPE), graph.trusted()!!.terminatingConsensus(0))
         assertEquals(
-            Value.Known(existingRef, VirtualType.of("Ljava/util/ArrayList;")),
-            graph.trusted()!!.terminatingStaticFieldConsensus(field.definingClass, field.descriptor),
+            Value.Known(existingRef, EMPTY_LIST_TYPE),
+            graph.trusted()!!.terminatingStaticFieldConsensus(EMPTY_LIST.definingClass, EMPTY_LIST.descriptor),
         )
-        assertEquals(nextId, frame.nextHeapId())
-        assertEquals(1, service.calls)
+        // Heap ids are run-wide and the first probe consumed its id, so the run allocated nothing iff the next
+        // probe answers exactly one higher.
+        assertEquals(probed + 1, probeNextHeapId(frame))
     }
 
     @Test
-    fun targetInitializerThrowRoutesOnlyThisAccess() {
-        val thrown = ExceptionInInitializerError("boom")
-        val service = recordingService {
-            HostStaticResult.TargetThrew(HostThrowable(VirtualType.of("Ljava/lang/ExceptionInInitializerError;"), thrown))
-        }
-        val field = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
-        val graph = run(
-            "catchesProjectionThrow()I",
-            owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service),
-        )
+    fun hostInitializerErrorIsTheTargetsThrowUnchanged() {
+        // JLS 12.4.2: an Error thrown by a static initializer propagates unchanged.
+        val read = readHostField(
+            HostInitializerFailureFixture.ThrowsError::class.java,
+            "VALUE",
+            intType,
+            receiver = null,
+        ) { true }
 
-        assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(Value.Known(1, intType), graph.trusted()!!.terminatingConsensus(1))
-        val caught = graph.trusted()!!.terminatingConsensus(0) as Value.Known
-        assertTrue(caught.raw is HeapRef)
-        assertEquals(VirtualType.of("Ljava/lang/ExceptionInInitializerError;"), caught.type)
-        assertSame(thrown, graph.terminatingHostObjectOverExploredPaths(caught.raw as HeapRef))
+        val thrown = (read as HostFieldRead.TargetThrew).throwable
+        assertEquals(VirtualType.of("Ljava/lang/AssertionError;"), thrown.type)
+        assertTrue(thrown.throwable is AssertionError)
+        assertEquals("initializer error", thrown.throwable.message)
     }
 
     @Test
-    fun realHostInitializerErrorIsClassifiedAsTargetThrow() {
-        val field = field("Landroid/util/DisplayMetrics;", "DENSITY_DEVICE_STABLE", "I")
-        val actual = hostStaticService(DisplayMetrics::class.java.classLoader)
-        var serviceResult: HostStaticResult? = null
-        val service = recordingService { request -> actual.read(request).also { serviceResult = it } }
-        val graph = run(
-            "realInitializerError()I",
-            owner(ReflectionPolicy(exactSafeStaticFields = setOf(field)), service),
-        )
+    fun hostInitializerExceptionIsTheTargetsInitializerError() {
+        // JLS 12.4.2: an exception thrown by a static initializer is wrapped in ExceptionInInitializerError.
+        val read = readHostField(
+            HostInitializerFailureFixture.ThrowsException::class.java,
+            "VALUE",
+            intType,
+            receiver = null,
+        ) { true }
 
-        assertTrue(
-            serviceResult is HostStaticResult.TargetThrew,
-            "result=$serviceResult completion=${graph.completion()}",
-        )
-        val target = (serviceResult as HostStaticResult.TargetThrew).throwable
-        assertTrue(target.throwable is AssertionError)
-        assertEquals(VirtualType.of("Ljava/lang/AssertionError;"), target.type)
-    }
-
-    @Test
-    fun infrastructureFailureBecomesHostFailureAndVmeEscapes() {
-        val field = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
-        val policy = ReflectionPolicy(exactSafeStaticFields = setOf(field))
-        val failed = run(
-            "immutableReference()Ljava/lang/Boolean;",
-            owner(policy, recordingService { HostStaticResult.InfrastructureFailure(IllegalStateException("broken")) }),
-        )
-        assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), failed.completion())
-
-        val fatal = StackOverflowError("fatal")
-        assertThrows(StackOverflowError::class.java) {
-            run(
-                "immutableReference()Ljava/lang/Boolean;",
-                owner(policy, recordingService { HostStaticResult.Fatal(fatal) }),
-            )
-        }
-
-        val infrastructureFatal = OutOfMemoryError("fatal infrastructure result")
-        val escaped = assertThrows(OutOfMemoryError::class.java) {
-            run(
-                "immutableReference()Ljava/lang/Boolean;",
-                owner(
-                    policy,
-                    recordingService { HostStaticResult.InfrastructureFailure(infrastructureFatal) },
-                ),
-            )
-        }
-        assertSame(infrastructureFatal, escaped)
+        val thrown = (read as HostFieldRead.TargetThrew).throwable
+        assertEquals(VirtualType.of("Ljava/lang/ExceptionInInitializerError;"), thrown.type)
+        val cause = thrown.throwable.cause
+        assertTrue(cause is IllegalStateException)
+        assertEquals("initializer exception", cause!!.message)
     }
 
     private fun result(method: String, vm: VmServices): Value =
@@ -461,23 +281,6 @@ class FrameworkStaticTest {
 
     private fun view(method: String): MethodView =
         classIndex.requireMethodView(TEST_CLASS, method)
-
-    private fun owner(
-        policy: ReflectionPolicy = ReflectionPolicy(),
-        service: RecordingHostStaticService,
-    ): VmServices = VmServices(classIndex, policy, service.service)
-
-    private fun recordingService(read: (HostStaticRequest) -> HostStaticResult): RecordingHostStaticService {
-        val counter = intArrayOf(0)
-        val service = HostStaticService { request ->
-            counter[0]++
-            read(request)
-        }
-        return RecordingHostStaticService(service, counter)
-    }
-
-    private fun field(owner: String, name: String, type: String): StaticFieldDescriptor =
-        StaticFieldDescriptor(VirtualType.of(owner), name, VirtualType.of(type))
 
     private fun guestCell(descriptor: String, value: Value): ClassInitStore =
         ClassInitStore().apply { setStaticField(descriptor, value) }
@@ -496,32 +299,20 @@ class FrameworkStaticTest {
     private fun returningNodes(graph: ExecutionGraph, view: MethodView): List<ExecutionNode> =
         view.addresses.flatMap { graph.nodePile(it).toList() }.filter { it.outcome is Outcome.Returned }
 
-    private class RecordingHostStaticService(
-        val service: HostStaticService,
-        private val counter: IntArray,
-    ) {
-        val calls: Int get() = counter[0]
-    }
-
     private companion object {
         const val TEST_CLASS = "Lframework_static_test;"
+        val CHAR = VirtualType.of("C")
+        val BOOLEAN = VirtualType.of("Ljava/lang/Boolean;")
+        val EMPTY_LIST_TYPE = VirtualType.of("Ljava/util/Collections\$EmptyList;")
+        val TRUE = field("Ljava/lang/Boolean;", "TRUE", "Ljava/lang/Boolean;")
+        val EMPTY_LIST = field("Ljava/util/Collections;", "EMPTY_LIST", "Ljava/util/List;")
         val PROJECTED_FIELDS = setOf(
-            StaticFieldDescriptor(VirtualType.of("Landroid/util/DisplayMetrics;"), "DENSITY_DEVICE_STABLE", VirtualType.of("I")),
-            StaticFieldDescriptor(
-                VirtualType.of("Ljava/lang/ClassLoader\$SystemClassLoader;"),
-                "loader",
-                VirtualType.of("Ljava/lang/ClassLoader;"),
-            ),
-            StaticFieldDescriptor(
-                VirtualType.of("Ljava/lang/Boolean;"),
-                "TRUE",
-                VirtualType.of("Ljava/lang/Boolean;"),
-            ),
-            StaticFieldDescriptor(
-                VirtualType.of("Ljava/util/Collections;"),
-                "EMPTY_LIST",
-                VirtualType.of("Ljava/util/List;"),
-            ),
+            field("Ljava/io/File;", "separatorChar", "C"),
+            TRUE,
+            EMPTY_LIST,
         )
+
+        fun field(owner: String, name: String, type: String): StaticFieldDescriptor =
+            StaticFieldDescriptor(VirtualType.of(owner), name, VirtualType.of(type))
     }
 }

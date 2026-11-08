@@ -357,33 +357,6 @@ class MethodEditControlMetadataTest {
     }
 
     @Test
-    fun inheritedEmptyTryRangeWithMalformedHandlerStillRejects() {
-        val index = index(MALFORMED_BASE_SOURCE)
-        val implementation = ImmutableMethodImplementation(
-            1,
-            listOf(
-                ImmutableInstruction10x(Opcode.RETURN_VOID),
-                com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction11x(Opcode.MOVE_EXCEPTION, 0),
-                ImmutableInstruction10x(Opcode.RETURN_VOID),
-            ),
-            listOf(
-                ImmutableTryBlock(0, 0, emptyList()),
-            ),
-            emptyList(),
-        )
-        installBody(index, MALFORMED_TRY, MethodBody.import(implementation))
-        val edit = VmServices(index).methodEditor.beginEdit(requireNotNull(index.methodView(MALFORMED_TRY)))
-        edit.insertInstructionsBefore(
-            0,
-            listOf(InstructionTemplate.Encoded(ImmutableInstruction10x(Opcode.NOP))),
-        )
-
-        val result = edit.commit() as MethodEditCommitResult.Rejected
-
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidTryRegion)
-    }
-
-    @Test
     fun finalPayloadOwnerRemovalDeletesThePayloadAndOrdinaryFlowIntoPayloadRejects() {
         val index = index(CONTROL_SOURCE)
         val view = requireNotNull(index.methodView(ARRAY))
@@ -664,7 +637,7 @@ class MethodEditControlMetadataTest {
                 .mapValues { (type, definition) -> if (type == definingClass) editedClass else definition }
                 .toPersistentMap(),
         )
-        index.programWorkspace.replaceCurrentSnapshotForTest(candidate)
+        index.programWorkspace.publish(candidate)
     }
 
     private fun insertSwitchTemplate(

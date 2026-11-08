@@ -57,9 +57,11 @@ class InvocationBindingTest {
             "bindingMatrix",
             "(ZBCSIJFDLjava/lang/Object;)V",
         )
-        val invoker = Invoker(CoreTester.classIndex)
-        val preparation = invoker.prepare(Invocation(target, InvokeKind.STATIC, arguments))
-        val plan = invoker.plan(preparation as InvocationPreparation.Ready)
+        val classIndex = CoreTester.classIndex
+        val caller = classIndex.requireMethodView("Linvoke_review;", "callOpaqueClassResult()Linvoke_review_identity;")
+        val invoker = defaultInvoker(classIndex)
+        val preparation = invoker.prepare(Invocation(target, InvokeKind.STATIC, arguments), caller.definingClass)
+        val plan = invoker.planOn(preparation as InvocationPreparation.Ready, Frame.entryFrame(caller))
         return (plan as InvocationPlan.RunGuest).parameterBindings
     }
 

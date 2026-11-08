@@ -13,6 +13,7 @@ import com.android.tools.smali.dexlib2.iface.value.IntEncodedValue
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
+import com.android.tools.smali.dexlib2.immutable.ImmutableMethodParameter
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethodImplementation
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction10x
 import com.android.tools.smali.dexlib2.immutable.instruction.ImmutableInstruction21c
@@ -128,13 +129,11 @@ class InitialProgramImportTest {
         val implementation = ImmutableMethodImplementation(
             1,
             listOf(
-                ImmutableInstruction31t(Opcode.PACKED_SWITCH, 0, 12),
-                ImmutableInstruction31t(Opcode.PACKED_SWITCH, 0, 9),
+                ImmutableInstruction31t(Opcode.PACKED_SWITCH, 0, 10),
+                ImmutableInstruction31t(Opcode.PACKED_SWITCH, 0, 7),
                 ImmutableInstruction10x(Opcode.RETURN_VOID),
                 ImmutableInstruction21c(Opcode.CONST_STRING, 0, ImmutableStringReference("shared")),
                 ImmutableInstruction10x(Opcode.RETURN_VOID),
-                ImmutableInstruction10x(Opcode.NOP),
-                ImmutableInstruction10x(Opcode.NOP),
                 ImmutablePackedSwitchPayload(listOf(ImmutableSwitchElement(0, 6))),
             ),
             emptyList(),
@@ -143,7 +142,7 @@ class InitialProgramImportTest {
         val method = ImmutableMethod(
             "Ltask53/SharedSwitch;",
             "shared",
-            emptyList(),
+            listOf(ImmutableMethodParameter("I", emptySet(), null)),
             "V",
             Modifier.PUBLIC or Modifier.STATIC,
             emptySet(),
@@ -170,7 +169,7 @@ class InitialProgramImportTest {
         )
         val index = ClassIndex(manager)
         val originalClass = requireNotNull(index.currentSnapshot.applicationClass("Ltask53/SharedSwitch;"))
-        val originalMethod = requireNotNull(index.currentSnapshot.applicationMethod("Ltask53/SharedSwitch;->shared()V"))
+        val originalMethod = requireNotNull(index.currentSnapshot.applicationMethod("Ltask53/SharedSwitch;->shared(I)V"))
         val relaidBody = MethodBodyAssembler.assemble(
             MethodLayoutSolver.solve(
                 requireNotNull(originalMethod.body),
@@ -199,8 +198,8 @@ class InitialProgramImportTest {
             persistentMapOf(relaidClass.type to relaidClass),
             StringInstructionEncoding.CONST_STRING_JUMBO,
         )
-        index.programWorkspace.replaceCurrentSnapshotForTest(candidate)
-        val view = requireNotNull(index.methodView("Ltask53/SharedSwitch;->shared()V"))
+        index.programWorkspace.publish(candidate)
+        val view = requireNotNull(index.methodView("Ltask53/SharedSwitch;->shared(I)V"))
 
         assertEquals(listOf(0 to 6), view.switchCasesAt(0))
         assertEquals(listOf(0 to 10), view.switchCasesAt(3))
@@ -214,7 +213,7 @@ class InitialProgramImportTest {
                 DexBuilder(Opcodes.forApi(SmaliParser.DEX_API_LEVEL)),
             ),
         )
-        val outputView = requireNotNull(reloaded.methodView("Ltask53/SharedSwitch;->shared()V"))
+        val outputView = requireNotNull(reloaded.methodView("Ltask53/SharedSwitch;->shared(I)V"))
         assertEquals(listOf(0 to 6), outputView.switchCasesAt(0))
         assertEquals(listOf(0 to 10), outputView.switchCasesAt(3))
         assertEquals(2, outputView.payloadAddresses.size)

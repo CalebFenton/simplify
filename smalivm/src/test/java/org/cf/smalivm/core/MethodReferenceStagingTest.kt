@@ -4,7 +4,6 @@ import java.lang.reflect.Modifier
 import java.nio.file.Files
 import java.nio.file.Path
 import org.cf.smalivm.type.ClassManagerFactory
-import com.android.tools.smali.dexlib2.AnnotationVisibility
 import com.android.tools.smali.dexlib2.DexFileFactory
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.Opcodes
@@ -13,8 +12,6 @@ import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.TypeReference
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotation
-import com.android.tools.smali.dexlib2.immutable.ImmutableAnnotationElement
 import com.android.tools.smali.dexlib2.immutable.ImmutableClassDef
 import com.android.tools.smali.dexlib2.immutable.ImmutableDexFile
 import com.android.tools.smali.dexlib2.immutable.ImmutableMethod
@@ -27,9 +24,6 @@ import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodProtoR
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableMethodReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableStringReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableTypeReference
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableArrayEncodedValue
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableFieldEncodedValue
-import com.android.tools.smali.dexlib2.immutable.value.ImmutableIntEncodedValue
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -210,8 +204,7 @@ class MethodReferenceStagingTest {
 
     @Test
     fun projectedFieldOverflowRejectsWithoutChangingTheSnapshotOrOutput() {
-        val index = index(SOURCE)
-        installFieldBoundarySnapshot(index)
+        val index = fieldBoundaryIndex()
         val snapshot = index.currentSnapshot
         val writer = ProgramDexWriter()
         val output = writer.writeToBytes(snapshot)
@@ -321,8 +314,7 @@ class MethodReferenceStagingTest {
 
     @Test
     fun transitiveFieldStringsTriggerOneAtomicJumboRelayoutAndStayWide() {
-        val index = index(SOURCE)
-        installStringBoundarySnapshot(index)
+        val index = stringBoundaryIndex()
         val services = VmServices(index)
         val snapshotA = index.currentSnapshot
         val targetA = requireNotNull(snapshotA.applicationMethod(TARGET))
@@ -455,79 +447,40 @@ class MethodReferenceStagingTest {
         return ClassIndex(ClassManagerFactory().build(dexFile.toFile(), 30))
     }
 
-    private fun installStringBoundarySnapshot(index: ClassIndex) {
-        val snapshot = index.currentSnapshot
-        val definition = requireNotNull(snapshot.applicationClass(CLASS_TYPE))
+    /** A fresh import of [SOURCE] whose string section holds exactly 65,536 entries. */
+    private fun stringBoundaryIndex(): ClassIndex {
         val annotationType = "Ltask59/StringBoundary;"
-        val existingStrings = snapshot.dexReferenceClosure.strings
+        val existingStrings = index(SOURCE).currentSnapshot.dexReferenceClosure.strings
         var stringCount = existingStrings.size + if (annotationType in existingStrings) 0 else 1
-        val elements = ArrayList<ImmutableAnnotationElement>(65_536 - stringCount)
+        val annotation = StringBuilder("\n.annotation runtime $annotationType\n")
         var sequence = 0
         while (stringCount < 65_536) {
             val name = "boundary_$sequence"
             sequence++
             if (name in existingStrings) continue
-            elements += ImmutableAnnotationElement(name, ImmutableIntEncodedValue(0))
+            annotation.append(name).append(" = 0x0\n")
             stringCount++
         }
-        val annotation = ImmutableAnnotation(AnnotationVisibility.RUNTIME, annotationType, elements)
-        val expanded = ApplicationClassDefinition(
-            definition.type,
-            definition.accessFlags,
-            definition.superclass,
-            definition.interfaces,
-            definition.sourceFile,
-            definition.annotations.adding(annotation),
-            definition.staticFields,
-            definition.instanceFields,
-            definition.methods,
-        )
-        val replacement = ProgramSnapshot.replacementForTest(
-            snapshot,
-            index.programWorkspace.newProgramRevision(),
-            snapshot.applicationClasses.putting(definition.type, expanded),
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(replacement)
+        annotation.append(".end annotation\n")
+        val index = index(SOURCE.trimIndent() + annotation)
         assertEquals(65_536, index.currentSnapshot.dexReferenceClosure.strings.size)
+        return index
     }
 
-    private fun installFieldBoundarySnapshot(index: ClassIndex) {
-        val snapshot = index.currentSnapshot
-        val definition = requireNotNull(snapshot.applicationClass(CLASS_TYPE))
-        val values = List(65_536) { index ->
-            val owner = "Ltask59/overflow/Owner${index % 41};"
-            val name = "field${index / 41 % 41}"
-            val type = "Ltask59/overflow/Type${index / (41 * 41)};"
-            ImmutableFieldEncodedValue(ImmutableFieldReference(owner, name, type))
+    /** A fresh import of [SOURCE] whose field section holds exactly 65,536 entries. */
+    private fun fieldBoundaryIndex(): ClassIndex {
+        val annotation = StringBuilder("\n.annotation runtime Ltask59/FieldBoundary;\nvalues = {\n")
+        for (sequence in 0 until 65_536) {
+            val owner = "Ltask59/overflow/Owner${sequence % 41};"
+            val name = "field${sequence / 41 % 41}"
+            val type = "Ltask59/overflow/Type${sequence / (41 * 41)};"
+            if (sequence > 0) annotation.append(",\n")
+            annotation.append(owner).append("->").append(name).append(':').append(type)
         }
-        val annotation = ImmutableAnnotation(
-            AnnotationVisibility.RUNTIME,
-            "Ltask59/FieldBoundary;",
-            listOf(
-                ImmutableAnnotationElement(
-                    "values",
-                    ImmutableArrayEncodedValue(values),
-                ),
-            ),
-        )
-        val expanded = ApplicationClassDefinition(
-            definition.type,
-            definition.accessFlags,
-            definition.superclass,
-            definition.interfaces,
-            definition.sourceFile,
-            definition.annotations.adding(annotation),
-            definition.staticFields,
-            definition.instanceFields,
-            definition.methods,
-        )
-        val replacement = ProgramSnapshot.replacementForTest(
-            snapshot,
-            index.programWorkspace.newProgramRevision(),
-            snapshot.applicationClasses.putting(definition.type, expanded),
-        )
-        index.programWorkspace.replaceCurrentSnapshotForTest(replacement)
+        annotation.append("\n}\n.end annotation\n")
+        val index = index(SOURCE.trimIndent() + annotation)
         assertEquals(65_536, index.currentSnapshot.dexReferenceClosure.fields.size)
+        return index
     }
 
     private companion object {

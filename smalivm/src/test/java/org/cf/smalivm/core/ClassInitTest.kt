@@ -51,7 +51,7 @@ class ClassInitTest {
 
     @Test
     fun aClassWithNoDeclaredClinitSettlesWithNothingToRun() {
-        val plan = Invoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), NO_CLINIT)
+        val plan = defaultInvoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), NO_CLINIT)
         assertNull(plan.context, "there is no guest <clinit> to run (design decision 1's common case)")
         assertEquals(
             listOf(VirtualType.OBJECT.descriptor, NO_CLINIT.descriptor), plan.settled.map { it.descriptor },
@@ -91,10 +91,10 @@ class ClassInitTest {
         // ancestor's, then settle `heir` itself with nothing to run -- not run grandparent's twice, and not
         // mark `heir` initialized on the strength of an inherited method.
         val frame = Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I"))
-        val first = Invoker(classIndex).planClassInit(frame, HEIR)
+        val first = defaultInvoker(classIndex).planClassInit(frame, HEIR)
         assertEquals(GRANDPARENT.descriptor, first.context?.activeInitializer?.type?.descriptor)
         frame.completeClassInit(GRANDPARENT)
-        val second = Invoker(classIndex).planClassInit(frame, HEIR)
+        val second = defaultInvoker(classIndex).planClassInit(frame, HEIR)
         assertNull(second.context, "heir declares no initializer of its own")
         assertEquals(
             listOf(VirtualType.OBJECT.descriptor, HEIR.descriptor), second.settled.map { it.descriptor },
@@ -109,7 +109,7 @@ class ClassInitTest {
         // the same policy through new-instance rather than directly through the planner.
         assertTrue(classIndex.isFrameworkClass(INTEGER), "Integer is framework, and Integer.smali IS loaded")
         assertFalse(classIndex.isFrameworkClass(WITNESS), "a fixture class is an application class")
-        val plan = Invoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), INTEGER)
+        val plan = defaultInvoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), INTEGER)
         assertNull(plan.context, "a framework <clinit> is NEVER run")
         assertTrue(plan.settled.map { it.descriptor }.contains(INTEGER.descriptor), "but it IS marked initialized")
         assertTrue(
@@ -122,7 +122,7 @@ class ClassInitTest {
     fun theTopmostUninitializedAncestorIsTheOneThatRunsFirst() {
         // Divergence 4 at the planner level: the plan names GRANDPARENT even though CHILD was asked for.
         // One initializer per plan is what makes the order unarrangeable -- see `ClassInitPlan`'s KDoc.
-        val plan = Invoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), CHILD)
+        val plan = defaultInvoker(classIndex).planClassInit(Frame.entryFrame(viewOf(TRIGGER, "triggersOnce()I")), CHILD)
         assertEquals(GRANDPARENT.descriptor, plan.context?.activeInitializer?.type?.descriptor)
         assertEquals(
             "${GRANDPARENT.descriptor}-><clinit>()V", plan.context?.activeInitializer?.view?.signature,

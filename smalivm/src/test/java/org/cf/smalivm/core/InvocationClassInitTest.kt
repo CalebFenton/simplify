@@ -11,34 +11,45 @@ import org.junit.jupiter.api.assertThrows
 class InvocationClassInitTest {
     private val classIndex = CoreTester.classIndex
 
+    /**
+     * Catches probing or executing the callee before the declaring class's initializer runs: the backend or the
+     * callee would then see `runs` unwritten and the class uninitialized.
+     */
     @Test
     fun invokeStaticInitializesTheResolvedDeclaringClassBeforeBackendProbeAndExecution() {
-        val events = mutableListOf<String>()
-        val backend = RecordingBackend(events)
-        val invoker = Invoker(classIndex, listOf(backend))
+        lateinit var session: ExecutionSession
+        val probedRuns = mutableListOf<Value>()
+        val probedStates = mutableListOf<ClassInitState>()
+        val executedRuns = mutableListOf<Value>()
+        val backend = RecordingBackend { _ ->
+            val frame = session.currentNode!!.frame
+            probedRuns += frame.getStaticField(type(TARGET), TARGET_RUNS)
+            probedStates += frame.initState(type(TARGET))
+        }
         val view = view(CALLER, "callStatic()V")
-        val graph = ExecutionSession.of(
+        session = ExecutionSession.of(
             view,
             classIndex,
             Limits(),
             Frame.entryFrame(view),
             { address, method, index ->
-                when {
-                    method.signature == "$TARGET-><clinit>()V" && address == 0 ->
-                        recordingOp(address, "initializer-execute", events, method, index)
-                    method.signature == "$TARGET->staticTouch()V" && address == 0 ->
-                        recordingOp(address, "execute", events, method, index)
-                    else -> OpBuilder.build(address, method, index)
+                if (method.signature == "$TARGET->staticTouch()V" && address == 0) {
+                    observingOp(address, method, index) { executedRuns += it.getStaticField(type(TARGET), TARGET_RUNS) }
+                } else {
+                    OpBuilder.build(address, method, index)
                 }
             },
-            invoker,
-        ).run()
+            invokerOf(classIndex, listOf(backend)),
+        )
+
+        val graph = session.run()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(TARGET), initializersRun(graph))
         assertEquals(ClassInitState.INITIALIZED, returningFrame(graph).initState(type(TARGET)))
-        assertTrue(events.indexOf("initializer-execute") < events.indexOf("probe"), events.toString())
-        assertTrue(events.indexOf("probe") < events.indexOf("execute"), events.toString())
+        assertEquals(listOf(ClassInitState.INITIALIZED), probedStates)
+        assertEquals(listOf<Value>(Value.Known(1, type("I"))), probedRuns)
+        assertEquals(listOf<Value>(Value.Known(1, type("I"))), executedRuns)
     }
 
     @Test
@@ -133,40 +144,45 @@ class InvocationClassInitTest {
         assertFalse(continuation.opExecutionStarted)
     }
 
+    /**
+     * Catches probing or executing the callee before the applicable class-init trigger settles a class without
+     * a `<clinit>`: the backend or the callee would see it uninitialized.
+     */
     @Test
-    fun invocationOrderIsResolveBindNullCheckApplicableClassInitProbeExecute() {
-        val events = mutableListOf<String>()
+    fun classWithoutInitializerIsSettledBeforeProbeAndExecution() {
         lateinit var session: ExecutionSession
         val noClinit = type(NO_CLINIT)
-        val backend = RecordingBackend(events) { call ->
+        val probedStates = mutableListOf<ClassInitState>()
+        val executedStates = mutableListOf<ClassInitState>()
+        val backend = RecordingBackend { call ->
             assertEquals(NO_CLINIT, call.target.definingClass.descriptor)
             assertEquals("touch", call.target.name)
             assertEquals("()V", call.target.proto)
-            assertEquals(ClassInitState.INITIALIZED, session.currentNode!!.frame.initState(noClinit))
+            probedStates += session.currentNode!!.frame.initState(noClinit)
         }
-        val invoker = Invoker(classIndex, listOf(backend)) { events.add(it) }
         val view = view("Lclass_init/trigger;", "callsNoClinitTouch()I")
-        val frame = Frame.entryFrame(view)
 
         session = ExecutionSession.of(
             view,
             classIndex,
             Limits(),
-            frame,
+            Frame.entryFrame(view),
             { address, method, index ->
                 if (method.signature == "$NO_CLINIT->touch()V" && address == 0) {
-                    recordingOp(address, "execute", events, method, index)
+                    observingOp(address, method, index) { executedStates += it.initState(noClinit) }
                 } else {
                     OpBuilder.build(address, method, index)
                 }
             },
-            invoker,
+            invokerOf(classIndex, listOf(backend)),
         )
         assertEquals(ClassInitState.UNINITIALIZED, session.frontier.single().frame.initState(noClinit))
 
-        session.run()
+        val graph = session.run()
 
-        assertEquals(listOf("resolve", "bind", "null-check", "class-init-trigger", "probe", "execute"), events)
+        assertEquals(listOf(Outcome.Returned(Value.Known(7, type("I")))), graph.outcomes)
+        assertEquals(listOf(ClassInitState.INITIALIZED), probedStates)
+        assertEquals(listOf(ClassInitState.INITIALIZED), executedStates)
     }
 
     @Test
@@ -228,19 +244,13 @@ class InvocationClassInitTest {
         assertEquals(Value.Top, frame.getStaticField(type(className), "$className->runs:I"))
     }
 
-    private fun recordingOp(
-        address: Int,
-        event: String,
-        events: MutableList<String>,
-        view: MethodView,
-        classIndex: ClassIndex,
-    ): Op {
+    private fun observingOp(address: Int, view: MethodView, classIndex: ClassIndex, observe: (Frame) -> Unit): Op {
         val delegate = OpBuilder.build(address, view, classIndex)
         return object : Op(address) {
             override val name = delegate.name
 
             override fun execute(frame: Frame): OpExecution {
-                events.add(event)
+                observe(frame)
                 return delegate.execute(frame)
             }
         }
@@ -287,15 +297,11 @@ class InvocationClassInitTest {
 
     private fun type(descriptor: String) = VirtualType.of(descriptor)
 
-    private class RecordingBackend(
-        private val events: MutableList<String>,
-        private val onProbe: (BackendInvocation) -> Unit = {},
-    ) : Backend {
+    private class RecordingBackend(private val onProbe: (BackendInvocation) -> Unit) : Backend {
         override val name = "recording"
 
         override fun probe(call: BackendInvocation, lookup: MethodLookup): BackendProbe {
             onProbe(call)
-            events.add("probe")
             return when (lookup) {
                 is MethodLookup.Runnable -> BackendProbe.Schedule(lookup.view, 0)
                 else -> BackendProbe.Declined("not runnable")
