@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODULES = ("smalivm", "simplify", "sdbg")
+MODULES = ("smalivm", "simplify", "sdbg", "demoapp")
 
 
 @dataclass
@@ -115,7 +115,6 @@ def main():
         cells = counts.cells() if counts.total else ["—"] * 5
         lines.append("| " + " | ".join(map(str, [module, *cells, status])) + " |")
 
-    lines.append("| demoapp | — | — | — | — | — | No tests defined (not a passing suite) |")
     total_cells = total.cells() if total.total else ["—"] * 5
     total_status = "Incomplete; available results only" if incomplete else "Recorded test cases"
     lines.append("| " + " | ".join(map(str, ["Total available", *total_cells, total_status])) + " |")

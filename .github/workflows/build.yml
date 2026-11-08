@@ -60,6 +60,8 @@ jobs:
             simplify/build/reports/tests/
             sdbg/build/test-results/**/TEST-*.xml
             sdbg/build/reports/tests/
+            demoapp/build/test-results/**/TEST-*.xml
+            demoapp/build/reports/tests/
           if-no-files-found: ${{ steps.build.outcome == 'success' && 'error' || 'warn' }}
           retention-days: 14
 
