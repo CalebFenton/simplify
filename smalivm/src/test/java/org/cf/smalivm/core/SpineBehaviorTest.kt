@@ -77,7 +77,7 @@ class SpineBehaviorTest {
         val heapObject = graph.trusted()!!.terminatingHeapObject(ref)
         assertTrue(heapObject is HeapObject.GuestThrowable)
         assertTrue((heapObject as HeapObject.GuestThrowable).contents is HostGraphContents.Known)
-        val host = graph.terminatingHostObjectOverExploredPaths(ref)
+        val host = CoreTester.terminatingHostObject(graph, ref)
         assertTrue(host is IllegalStateException && host.message == "boom")
         assertSame(thrown.raw, host, "seeding and handler routing keep one Java identity behind the heap ref")
     }

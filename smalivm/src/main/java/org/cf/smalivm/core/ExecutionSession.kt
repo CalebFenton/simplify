@@ -161,25 +161,12 @@ class ExecutionSession internal constructor(
     val vmServices: VmServices,
     private val limits: Limits,
     entryFrame: Frame,
-    private val resolver: ProgramSnapshotResolver = vmServices.classIndex.resolver(vmServices.classIndex.currentSnapshot),
-    /**
-     * How an address becomes an [Op]. Defaults to real decode, and is overridable ONLY so a test can
-     * inject an op that returns transitions no real opcode in this build produces yet -- which is the
-     * only way to pin [commit]'s ordering guarantees before Task 8's divide-by-zero fork exists, and
-     * the only way to make an op throw a [VirtualMachineError] at all (see [hostFailureOutcome]).
-     *
-     * **Not a production extension point**, and that is enforced rather than merely documented:
-     * reaching this parameter requires the `internal` five-argument [Companion.of], while the public
-     * four-argument one always passes the real decoder. Backends arrive in Plan 11 and do not route
-     * through here.
-     */
-    private val opFactory: (Int, MethodView, ProgramSnapshotResolver) -> Op = OpBuilder::build,
-    private val invoker: Invoker = Invoker(resolver, vmServices.invocationServices),
-    private val clockMillis: () -> Long = System::currentTimeMillis,
-    /** The session's throwable model. Overridden only to exercise model-failure containment. */
-    private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy,
-    private val routingInvariant: () -> Unit = {},
+    private val resolver: ProgramSnapshotResolver,
+    /** How an address in a method becomes an [Op]; [VmServices.newSession] passes the real decoder. */
+    private val decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
+    private val invoker: Invoker,
 ) {
+    private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy
     private val frontierNodes = ArrayDeque<ExecutionNode>()
     private val pendingCallRoutings = ArrayDeque<PendingCallRouting>()
 
@@ -210,7 +197,6 @@ class ExecutionSession internal constructor(
     // See `Activation.addressToNodes`, Frame's path-local address visits, and InvokerTest's collision tests.
 
     private val recordedOutcomes = mutableListOf<Outcome>()
-    private val unattributedEndingFrames = mutableListOf<Frame>()
     private val abortReasons = linkedSetOf<AbortReason>()
 
     // TASK 6 PILING DECISION: a node whose op never ran (a bound stopped it right after dequeue,
@@ -232,8 +218,6 @@ class ExecutionSession internal constructor(
     private var steps = 0
     private var deadlineMillis = 0L
 
-    internal fun unattributedEndingFramesSnapshot(): List<Frame> = unattributedEndingFrames.toList()
-
     /**
      * The node [step] most recently *dequeued*. Usually the node it just executed -- but after a limit
      * abort it is the node the limit stopped, whose op never ran and whose [ExecutionNode.frame] is
@@ -251,16 +235,11 @@ class ExecutionSession internal constructor(
      * depths at once and a single stack could only describe one of them. Plan 10's step-over identifies
      * descendants by walking [Activation.caller] ancestry from the frontier node, not by comparing depth.
      */
-    val callStack: CallStack get() = CallStack.of(currentNode?.activation ?: entryActivation)
+    internal val callStack: CallStack get() = CallStack.of(currentNode?.activation ?: entryActivation)
 
     init {
-        require(invoker.resolver.snapshot === resolver.snapshot) {
-            "The session Invoker must use the session's captured program snapshot"
-        }
         // entryFrame.copy(), never the caller's instance: a caller that seeds registers and then
         // starts two sessions (or reads its frame afterwards) must not have it mutated underneath.
-        // Copying here rather than in `of` covers every construction path, including this internal
-        // constructor.
         //
         // A failure to decode the entry point escapes construction rather than becoming an abort:
         // there is no explored path to abort yet, and a session that cannot decode its own first
@@ -269,7 +248,7 @@ class ExecutionSession internal constructor(
     }
 
     /** Nodes scheduled but not yet executed, next one last (LIFO). */
-    val frontier: List<ExecutionNode> get() = frontierNodes.toList()
+    internal val frontier: List<ExecutionNode> get() = frontierNodes.toList()
 
     /** The next LIFO node without allocating the public frontier snapshot. */
     internal val nextNode: ExecutionNode? get() = frontierNodes.lastOrNull()
@@ -317,11 +296,11 @@ class ExecutionSession internal constructor(
      * becomes `Aborted(HOST_FAILURE)` for that path only (spec §7) and never leaves `step()`. The
      * scheduler's own bookkeeping is deliberately *outside* that boundary: a bug in this file must
      * surface, not disguise itself as one more aborted path. A *guest* exception is not a host
-     * failure either -- it is a [Value] arriving as [Transition.Throw], never a Kotlin throw.
+     * failure either -- it is a [Value] arriving as an [OpArm.Throw], never a Kotlin throw.
      */
     fun step(): ExecutionNode? {
         if (limits.maxExecutionTimeMillis > 0 && deadlineMillis == 0L) {
-            deadlineMillis = currentTimeMillis() + limits.maxExecutionTimeMillis
+            deadlineMillis = System.currentTimeMillis() + limits.maxExecutionTimeMillis
         }
         drainPendingCallRoutings()
         if (frontierNodes.isEmpty()) return null
@@ -342,21 +321,13 @@ class ExecutionSession internal constructor(
 
         node.opExecutionStarted = true
         val execution = contained(node) { node.op.execute(node.frame) }
-        // Move the op's declared effect from the frame onto the node after `execute` and before any successor
-        // frame is built: an effect describes one address (spec §4.5), so children must not inherit it.
-        // Unconditional and before the null check, because `contained` turns a host failure out of `execute`
-        // into null after the op may already have declared an effect; a node whose op never ran reads NONE.
-        node.sideEffectLevel = node.frame.takeSideEffectLevel()
+        // A synchronized method's entry acquires a monitor. The activation records it as well, because
+        // `ExecutionGraph` describes one activation and `planReturn` moves a callee's declared effect onto
+        // the caller's invoke node (spec §4.5: an effect is a statement about ONE address).
         if (node.isCallEntry && node.view.isSynchronized) {
             node.sideEffectLevel = maxOf(node.sideEffectLevel, SideEffectLevel.WEAK)
+            node.activation.raiseDeclaredEffect(SideEffectLevel.WEAK)
         }
-        // ...and the same declaration recorded on the ACTIVATION, and on every activation that called it.
-        // `ExecutionGraph` describes one activation, so without this a caller whose CALLEE declared STRONG
-        // would report NONE for every one of its own addresses -- "safe to delete" for a method whose call
-        // perturbed state the engine does not model, which is the answer-where-you-should-refuse direction.
-        // `planReturn` is what moves it onto the invoke node, so the effect lands on the address that caused
-        // it rather than on the whole method (spec §4.5: an effect is a statement about ONE address).
-        node.activation.raiseDeclaredEffect(node.sideEffectLevel)
         if (execution == null) {
             drainPendingCallRoutings()
             return node
@@ -568,12 +539,9 @@ class ExecutionSession internal constructor(
             ),
             null,
         ).also { node.normalContinuationObserved = true }
-        // The same fall-through, plus a register write that belongs to THIS arm alone. It goes through
-        // [SuccessorSpec.seed] -- the seam `commit`'s phase-2 comment already names as the way a successor
-        // carries state its siblings must not -- so it lands on this child's own frame copy and never on the
-        // forking node's. [Transition.ContinueAssigning]'s KDoc carries the argument and the defect it
-        // removes; `OnUnbuildable.SKIP_ONE` is unchanged, because a malformed fall-through target is still no
-        // reason to discard a feasible exceptional sibling.
+        // `OnUnbuildable.SKIP_ONE`: a malformed fall-through target is no reason to discard a feasible
+        // exceptional sibling. An arm-local register write already landed on this arm's own frame in
+        // [prepareArm], so siblings never see it.
         is OpArm.MoveFromSlot -> Committable(
             listOf(
                 SuccessorSpec(
@@ -802,11 +770,10 @@ class ExecutionSession internal constructor(
      * Raises the triggering address to [SideEffectLevel.STRONG] when [plan] settled a class whose `<clinit>`
      * this build declined to run -- resolved decision 7's framework rule.
      *
-     * Written on the NODE rather than through `Frame.recordSideEffect`, and that is forced rather than chosen:
-     * [step] moves the frame's declaration onto the node as soon as `execute` has run, which is strictly
-     * before `planFor` is reached, so a declaration made here would never be collected. The activation chain
-     * is raised too, exactly as [step] does for an op's own declaration, so a CALLER whose callee triggered an
-     * unmodelled initializer does not report `NONE` for its own addresses.
+     * Written on the node directly because no op arm carries it: the plan is made here, after every arm's
+     * update was applied. The activation chain is raised too, exactly as [prepareArm] does for an arm's
+     * declared effect, so a CALLER whose callee triggered an unmodelled initializer does not report `NONE`
+     * for its own addresses.
      */
     private fun declareSkippedInitializerEffect(node: ExecutionNode, plan: ClassInitPlan) {
         if (!plan.skippedAnInitializer) return
@@ -1767,7 +1734,6 @@ class ExecutionSession internal constructor(
             val pending = pendingCallRoutings.removeLast()
             val exits = pending.batch.exitsSnapshot()
             try {
-                routingInvariant()
                 routeCallCompletion(pending.anchor, pending.activation, exits)
             } finally {
                 pending.batch.release()
@@ -2241,14 +2207,13 @@ class ExecutionSession internal constructor(
      * The `when` below keeps that distinction explicit.
      *
      * [Outcome.Returned] cannot reach here: [applyAll]'s `require` allows a second ending only when every
-     * path-ending transition is a `Transition.Throw`, and a throw never plans a `Returned`. Loud rather than
+     * path-ending arm is an [OpArm.Throw], and a throw never plans a `Returned`. Loud rather than
      * silently tolerated, for the same reason that `require` is.
      */
     private fun recordUnattributedEnding(node: ExecutionNode, ending: Ending) {
         val outcome = ending.outcome
         if (ending is Ending.ActivationOnly) return
         if (node.activation.callCompletion != null && outcome is Outcome.Aborted) return
-        unattributedEndingFrames += ending.frame
         recordedOutcomes.add(outcome)
         accountForIncompleteCall(node, outcome)
         when (outcome) {
@@ -2301,10 +2266,6 @@ class ExecutionSession internal constructor(
      * would otherwise keep stepping and re-failing up to `maxSteps`, turning a fast crash into a long
      * hang emitting a million identical aborts.
      *
-     * `internal` rather than private because the direct policy test also distinguishes ordinary failures.
-     * InvocationClassInitTest separately pins [contained]'s real call site with a scripted
-     * [StackOverflowError].
-     *
      * [node] is where the failure HAPPENED, not necessarily a node that ends: under
      * [OnUnbuildable.SKIP_ONE] this records on a forking node that keeps its live siblings. When
      * several successors of one fork fail to decode, each call overwrites
@@ -2315,7 +2276,7 @@ class ExecutionSession internal constructor(
      * field can also be null on a node that ended by aborting, or hold a throwable belonging to a
      * *sibling* lost path -- read [ExecutionNode.outcome] for a path's own reason.
      */
-    internal fun hostFailureOutcome(node: ExecutionNode, t: Throwable): Outcome.Aborted {
+    private fun hostFailureOutcome(node: ExecutionNode, t: Throwable): Outcome.Aborted {
         if (t is VirtualMachineError) throw t
         node.hostFailure = t
         return Outcome.Aborted(AbortReason.HOST_FAILURE)
@@ -2413,11 +2374,9 @@ class ExecutionSession internal constructor(
     private fun schedulerLimitReason(): AbortReason? {
         steps++
         if (limits.maxSteps > 0 && steps > limits.maxSteps) return AbortReason.METHOD_LIMIT
-        if (deadlineMillis > 0 && currentTimeMillis() > deadlineMillis) return AbortReason.TIMEOUT
+        if (deadlineMillis > 0 && System.currentTimeMillis() > deadlineMillis) return AbortReason.TIMEOUT
         return null
     }
-
-    private fun currentTimeMillis(): Long = clockMillis()
 
     /**
      * Ends the whole run on [reason]: the dequeued node plus **every** node still scheduled. Dropping
@@ -2462,7 +2421,7 @@ class ExecutionSession internal constructor(
     }
 
     /** Materializes or imports one committed throw event exactly once on its arm-owned frame. */
-    internal fun normalizeThrow(evidence: ThrowEvidence, armFrame: Frame): ThrowPath {
+    private fun normalizeThrow(evidence: ThrowEvidence, armFrame: Frame): ThrowPath {
         val subject = when (evidence) {
             is ThrowEvidence.Fresh -> evidence.recipe.materialize(armFrame, throwableHierarchy)
             is ThrowEvidence.Existing -> when (val value = evidence.frameValue) {
@@ -2583,39 +2542,12 @@ class ExecutionSession internal constructor(
     }
 
     /**
-     * Schedules the single successor at [address] *within [parent]'s own method*, which is what makes
-     * cross-method execution possible without a second loop (see [ExecutionNode.view]).
-     *
-     * `internal` rather than private so a test can schedule a node carrying a foreign [MethodView] and
-     * observe that decode follows the node, not the session: no public API can build such a node, and
-     * without that test all three node-scoped decode sites revert to `methodView` with a green suite.
-     */
-    internal fun enqueue(address: Int, parent: ExecutionNode) =
-        commit(
-            parent,
-            // ALL_OR_NOTHING vs SKIP_ONE is unobservable for a lone successor in a lone group with no
-            // ending -- both end up recording one `Aborted` on the parent, under the same reason, since
-            // the reason comes from the failure's cause and not from the policy -- so this states the
-            // stricter one rather than relying on that coincidence holding.
-            listOf(
-                Committable(
-                    listOf(
-                        SuccessorSpec(
-                            address, parent.activation, OnUnbuildable.ALL_OR_NOTHING, FrameOrigin.Continuation,
-                        ),
-                    ),
-                    null,
-                ),
-            ),
-        )
-
-    /**
      * Decodes [address] in [activation]'s method into a node. The method comes from the ACTIVATION -- i.e.
      * from the parent node or from the call that created it -- never from the session, which is what makes
      * cross-method execution possible without a second loop (see [ExecutionNode.view]).
      */
     private fun nodeAt(address: Int, activation: Activation, frame: Frame, parent: ExecutionNode?): ExecutionNode =
-        ExecutionNode(address, opFactory(address, activation.view, resolver), frame, parent, activation)
+        ExecutionNode(address, decode(address, activation.view, resolver), frame, parent, activation)
 
     /**
      * Records a path ending: exactly one call per ended path, so [outcomes] has one entry per path.
@@ -2643,7 +2575,7 @@ class ExecutionSession internal constructor(
      *
      * **Every incomplete ending, not only one that declared something.** The endings that reach here from a
      * non-entry activation are an address-visit or call-depth truncation, a step/time limit drain, a host
-     * failure, and a `Transition.Abort`. A modeled guest escape uses activation completion and does not raise
+     * failure, and an [OpArm.Abort]. A modeled guest escape uses activation completion and does not raise
      * effects by itself. A callee's own `return` does NOT reach here -- it is an
      * [Ending.ActivationOnly] that goes through `ExecutionNode.endWith` directly -- so this needs no
      * "did it return" test beyond the guard below, which exists only so a future caller cannot break that.
@@ -2667,123 +2599,5 @@ class ExecutionSession internal constructor(
      */
     private fun addToPile(node: ExecutionNode) {
         node.activation.addressToNodes.getOrPut(node.address) { mutableListOf() }.add(node)
-    }
-
-    companion object {
-        /**
-         * Starts a run of [view]. [entryFrame] defaults to unknown parameters, except a constructor's
-         * receiver is a fresh uninitialized object when its field layout is known. Explicit seeds are retained.
-         * It is **copied**, so the caller keeps its own instance and may start several sessions from
-         * one seeded frame.
-         *
-         * Internal construction for [VmServices.newSession], the only public session factory. It always
-         * passes the real decoder. The op-injection seam is the overload below.
-         */
-        internal fun of(
-            view: MethodView,
-            vmServices: VmServices,
-            limits: Limits = Limits(),
-            entryFrame: Frame? = null,
-        ): ExecutionSession {
-            val resolver = capture(view, vmServices, entryFrame)
-            return of(view, vmServices, resolver, limits, entryFrame)
-        }
-
-        internal fun of(
-            view: MethodView,
-            vmServices: VmServices,
-            resolver: ProgramSnapshotResolver,
-            limits: Limits = Limits(),
-            entryFrame: Frame? = null,
-        ): ExecutionSession = ExecutionSession(
-            view,
-            vmServices,
-            limits,
-            entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
-            resolver,
-        )
-
-        /** Convenience construction for internal callers that do not share per-VM registrations. */
-        internal fun of(
-            view: MethodView,
-            classIndex: ClassIndex,
-            limits: Limits = Limits(),
-            entryFrame: Frame? = null,
-        ): ExecutionSession = of(view, VmServices(classIndex), limits, entryFrame)
-
-        /**
-         * The op-injection seam: [of] plus the [opFactory] described on the constructor parameter of
-         * the same name. `internal` so the seam is closed by the language rather than by a KDoc, and
-         * [opFactory] deliberately has **no default** -- that is what makes an existing four-argument
-         * call resolve unambiguously to the public overload above, and what stops this one from being a
-         * seam-less second door into the scheduler.
-         */
-        internal fun of(
-            view: MethodView,
-            vmServices: VmServices,
-            limits: Limits,
-            entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
-        ): ExecutionSession {
-            val resolver = capture(view, vmServices, entryFrame)
-            return ExecutionSession(
-                view,
-                vmServices,
-                limits,
-                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
-                resolver,
-                { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
-            )
-        }
-
-        internal fun of(
-            view: MethodView,
-            classIndex: ClassIndex,
-            limits: Limits,
-            entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
-        ): ExecutionSession = of(view, VmServices(classIndex), limits, entryFrame, opFactory)
-
-        internal fun of(
-            view: MethodView,
-            vmServices: VmServices,
-            limits: Limits,
-            entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
-            invoker: Invoker,
-        ): ExecutionSession {
-            val resolver = capture(view, vmServices, entryFrame)
-            return ExecutionSession(
-                view,
-                vmServices,
-                limits,
-                entryFrame ?: Frame.entryFrame(view, resolver.classIndex),
-                resolver,
-                { address, currentView, _ -> opFactory(address, currentView, resolver.classIndex) },
-                invoker,
-            )
-        }
-
-        internal fun of(
-            view: MethodView,
-            classIndex: ClassIndex,
-            limits: Limits,
-            entryFrame: Frame?,
-            opFactory: (Int, MethodView, ClassIndex) -> Op,
-            invoker: Invoker,
-        ): ExecutionSession = of(view, VmServices(classIndex), limits, entryFrame, opFactory, invoker)
-
-        private fun capture(
-            view: MethodView,
-            vmServices: VmServices,
-            entryFrame: Frame?,
-        ): ProgramSnapshotResolver {
-            val snapshot = vmServices.classIndex.currentSnapshot
-            require(snapshot.owns(view)) { "Method view is not current in this program workspace: ${view.signature}" }
-            require(entryFrame == null || entryFrame.belongsTo(view)) {
-                "Entry frame belongs to another program or method revision: ${view.signature}"
-            }
-            return vmServices.classIndex.resolver(snapshot)
-        }
     }
 }

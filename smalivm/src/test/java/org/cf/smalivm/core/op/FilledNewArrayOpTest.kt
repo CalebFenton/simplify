@@ -490,8 +490,8 @@ class FilledNewArrayOpTest {
      * `NONE` is not a default here, it is a claim: this op allocates a **fresh** array, so nothing pre-existing
      * is mutated and the heap models the allocation exactly. Unlike [APutOp] and [FillArrayDataOp] there is no
      * unprovable-receiver row that could legitimately be `STRONG` -- the array is not an operand -- so
-     * [FilledNewArrayOp] calls `Frame.recordSideEffect` nowhere, and the mutation that proves this test is one
-     * that ADDS a declaration rather than one that removes it.
+     * [FilledNewArrayOp] declares no effect on any arm, and the mutation that proves this test is one that
+     * ADDS a declaration rather than one that removes it.
      *
      * All four rows: fully known, fully unknown, and both definite throws (which allocate nothing at all).
      */

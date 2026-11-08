@@ -149,9 +149,6 @@ private class Decoding(
  * `Aborted(HOST_FAILURE)`, indistinguishable from an engine bug.
  */
 internal object OpBuilder {
-    fun build(address: Int, view: MethodView, classIndex: ClassIndex): Op =
-        build(address, view, classIndex.resolver(classIndex.currentSnapshot))
-
     fun build(address: Int, view: MethodView, resolver: ProgramSnapshotResolver): Op {
         // A payload is data: something that jumps to one aborts rather than executing a table as code.
         if (view.isPayload(address)) return UnsupportedOp(address, view.payloadAt(address).opcode.name)

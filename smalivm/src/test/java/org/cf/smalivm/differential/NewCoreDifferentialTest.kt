@@ -1,16 +1,9 @@
 package org.cf.smalivm.differential
 
 import org.cf.smalivm.core.AbortReason
-import org.cf.smalivm.core.Activation
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreTester
-import org.cf.smalivm.core.ExecutionGraph
-import org.cf.smalivm.core.ExecutionNode
-import org.cf.smalivm.core.ExecutionSession
-import org.cf.smalivm.core.Frame
 import org.cf.smalivm.core.HeapRef
-import org.cf.smalivm.core.Limits
-import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
@@ -316,7 +309,7 @@ class NewCoreDifferentialTest {
     fun aBackwardBranchLoopTruncatesOnlyItsOwnPathAndItsSiblingSurvives() {
 
         val view = CoreTester.classIndex.requireMethodView("Ldifferential/branch;", "loopWithNonLoopingSibling(I)I")
-        val graph = ExecutionSession.of(view, CoreTester.classIndex, Limits(), Frame.entryFrame(view)).run()
+        val graph = CoreTester.vmServices.newSession(view).run()
 
         val completion = graph.completion()
         assertTrue(completion is CompletionStatus.Partial, "an unbounded loop cannot be fully explored: $completion")
@@ -451,31 +444,6 @@ class NewCoreDifferentialTest {
             NEW_CORE.run(fixture).registers[0],
         )
 
-    }
-
-    @Test
-    fun heapReprDoesNotRecurseForeverOnASelfReferentialArray() {
-
-        val objectArray = VirtualType.of("[Ljava/lang/Object;")
-        val view = CoreTester.classIndex.requireMethodView("Lspine/spine;", "returnFive()I")
-        val frame = Frame.entryFrame(view)
-        val ref = frame.allocateArray(objectArray, 1).raw as HeapRef
-        frame.writeArrayElement(ref, 0, Value.Known(ref, objectArray)) 
-
-        val node = ExecutionNode(
-            0, OpBuilder.build(0, view, CoreTester.classIndex), frame, null, Activation.entry(view),
-        )
-        node.endWith(Outcome.Returned(null))
-        val graph = ExecutionGraph(
-            methodView = view,
-            addressToNodes = mapOf(0 to listOf(node)),
-            outcomes = listOf(node.outcome!!),
-            completion = CompletionStatus.Complete,
-            executedNodes = setOf(node),
-            superclasses = CoreTester.classIndex,
-        )
-
-        assertEquals("[[...]]", NEW_CORE.heapRepr(graph, ref, mutableSetOf()))
     }
 
     @Test

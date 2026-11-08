@@ -3,16 +3,10 @@ package org.cf.smalivm.core.op
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
-import org.cf.smalivm.core.ExecutionGraph
-import org.cf.smalivm.core.ExecutionSession
-import org.cf.smalivm.core.Frame
-import org.cf.smalivm.core.FrameValue
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
-import org.cf.smalivm.core.MethodView
 import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
-import org.cf.smalivm.core.ThrowableDomain
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -69,70 +63,34 @@ class CheckCastOpTest {
         private const val CCE_MESSAGE = "java.lang.Integer cannot be cast to java.lang.String"
     }
 
+    /** A caught throwable carries a throwable refinement; a cast to Serializable, which every Throwable is, never throws. */
     @Test
     fun refinedThrowableSucceedsWhenCastToSerializableInterface() {
-        val classIndex = CoreTester.classIndex
-        val view = classIndex.requireMethodView(CLASS_NAME, "castThrowableToSerializable()V")
-        val frame = Frame.entryFrame(view)
-        val throwable = VirtualType.of("Ljava/lang/Throwable;")
-        val value = Value.Unknown(throwable)
-        frame.assignFrameValue(
-            0,
-            FrameValue.refined(
-                value,
-                ThrowableDomain.constrainedTo(throwable, classIndex.throwableHierarchy),
-            ),
-        )
-
-        val graph = ExecutionSession.of(view, classIndex, entryFrame = frame).run()
+        val graph = CoreTester.execute(CLASS_NAME, "castCaughtThrowableToSerializable(Ljava/lang/Throwable;)V")
 
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
+        assertTrue(graph.outcomes.isNotEmpty())
+        assertTrue(graph.outcomes.all { it == Outcome.Returned(null) }, "every caught path returns: ${graph.outcomes}")
     }
 
+    /**
+     * A symbolic caught Exception may be a Cloneable subclass, so the cast forks; a caught exact
+     * NullPointerException is not Cloneable and a caught exact `cloneable_exception` is.
+     */
     @Test
     fun symbolicExceptionKeepsCloneableSuccessButConcreteTypesRemainExact() {
-        val classIndex = CoreTester.classIndex
-        val view = classIndex.requireMethodView(CLASS_NAME, "castExceptionToCloneable()V")
-        val exception = VirtualType.of("Ljava/lang/Exception;")
-        val npe = VirtualType.of("Ljava/lang/NullPointerException;")
-        val cloneableException = VirtualType.of("Lcloneable_exception;")
-
-        fun execute(value: FrameValue.RefinedThrowable): ExecutionGraph {
-            val frame = Frame.entryFrame(view)
-            frame.assignFrameValue(0, value)
-            return ExecutionSession.of(view, classIndex, entryFrame = frame).run()
-        }
-
-        val symbolic = execute(
-            FrameValue.refined(
-                Value.Unknown(exception),
-                ThrowableDomain.constrainedTo(exception, classIndex.throwableHierarchy),
-            ),
-        )
-        val nonCloneableFrame = Frame.entryFrame(view)
-        val nonCloneable = nonCloneableFrame.allocateThrowable(npe, NullPointerException("not cloneable"))
-        nonCloneableFrame.assignFrameValue(
-            0,
-            FrameValue.refined(nonCloneable, ThrowableDomain.exact(npe, classIndex.throwableHierarchy)),
-        )
-        val nonCloneableGraph = ExecutionSession.of(view, classIndex, entryFrame = nonCloneableFrame).run()
-        val cloneableFrame = Frame.entryFrame(view)
-        val cloneable = cloneableFrame.allocateThrowable(cloneableException, Exception("cloneable"))
-        cloneableFrame.assignFrameValue(
-            0,
-            FrameValue.refined(
-                cloneable,
-                ThrowableDomain.exact(cloneableException, classIndex.throwableHierarchy),
-            ),
-        )
-        val cloneableGraph = ExecutionSession.of(view, classIndex, entryFrame = cloneableFrame).run()
+        val symbolic = CoreTester.execute(CLASS_NAME, "castCaughtExceptionToCloneable(Ljava/lang/Exception;)V")
+        val nonCloneable = CoreTester.execute(CLASS_NAME, "castCaughtNullPointerExceptionToCloneable()V")
+        val cloneable = CoreTester.execute(CLASS_NAME, "castCaughtCloneableExceptionToCloneable()V")
 
         assertEquals(CompletionStatus.Complete, symbolic.completion())
-        assertEquals(1, symbolic.outcomes.filterIsInstance<Outcome.Returned>().size)
-        assertEquals(listOf(CLASS_CAST_EXCEPTION), CoreTester.escapingTypes(symbolic))
-        assertEquals(listOf(CLASS_CAST_EXCEPTION), CoreTester.escapingTypes(nonCloneableGraph))
-        assertEquals(listOf(Outcome.Returned(null)), cloneableGraph.outcomes)
+        assertEquals(
+            1, symbolic.outcomes.filterIsInstance<Outcome.Returned>().size,
+            "only the symbolic Exception keeps a success arm; a null p0's NullPointerException does not",
+        )
+        assertEquals(setOf(CLASS_CAST_EXCEPTION), CoreTester.escapingTypes(symbolic).toSet())
+        assertEquals(listOf(CLASS_CAST_EXCEPTION), CoreTester.escapingTypes(nonCloneable))
+        assertEquals(listOf(Outcome.Returned(null)), cloneable.outcomes)
     }
 
     /**
@@ -596,22 +554,13 @@ class CheckCastOpTest {
 
     /**
      * **Side effects: NONE, on every row.** A cast writes at most one register and touches nothing this
-     * engine does not own; the re-tag is a **register write**, covered by [registersAssigned], and effects
-     * are about state outside this frame. `docs/DALVIK-SEMANTICS.md`'s own answer to the question is the
-     * same, and it is stated rather than left implicit because silence invites the other answer.
+     * engine does not own; the re-tag is a register write, covered by [registersAssigned]. [ART]'s whole
+     * `CHECK_CAST` handler resolves, bails on `nullptr`, reads one register and conditionally throws
+     * `ClassCastException`; nothing allocates and no `<clinit>` runs.
      *
-     * It is not even a class initialisation, and the grounds are [ART]'s WHOLE `CHECK_CAST` handler body
-     * (`interpreter_switch_impl-inl.h:819-835`: resolve, `nullptr` bail, one `GetVRegReference(A())`, a
-     * conditional `ThrowClassCastException`, `return true` -- nothing allocates and nothing else is called),
-     * so `check-cast` genuinely does not run `<clinit>`. ⚠️ **NOT the `can_run_clinit = false` at `:824`, which
-     * is what this KDoc used to argue:** `NEW_INSTANCE` (`:862-894`) passes the same `false` and initialises
-     * downstream in `AllocObjectFromCode`, so the flag proves nothing about an opcode
-     * (`docs/DALVIK-SEMANTICS.md#check-cast-21c`).
-     *
-     * A spurious `STRONG` would silently stop **every** constant fold in any method containing a cast,
-     * because `methodSideEffectLevel` maxes over addresses -- Plan 7 Task 10 measured that exact defect and
-     * its documented `NONE` row killed 0 of 858 tests, which is why the absence is *declared* and pinned.
-     * Every row is driven, because `recordSideEffect` is a per-call thing and one row could carry it.
+     * A spurious `STRONG` would stop every constant fold in a method containing a cast, because
+     * `methodSideEffectLevel` maxes over addresses. Every row is driven, because an effect is declared per
+     * returned arm and one row could carry it.
      */
     @Test
     fun aCastDeclaresNoSideEffectOnEveryRow() {

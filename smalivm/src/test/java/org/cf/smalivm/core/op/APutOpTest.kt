@@ -513,13 +513,9 @@ class APutOpTest {
             caughtInRegister = 0,
             unreachedAddress = 2,
         )
-        // THE EFFECT-LEVEL HALF, and it needs its own execute because `CoreTester.testCaught` asserts
-        // completion, non-escape, `move-exception`'s binding, the message and `wasReached` -- and NEVER a
-        // side-effect level. Without this line, declaring STRONG on this op's definite-NPE row killed **0 of
-        // 873** tests (re-review mutation MX), while the same mutation on `FillArrayDataOp` killed 2. A
-        // definite throw stores nothing, which is exactly what `Frame.recordSideEffect`'s KDoc says stays
-        // NONE, and the failure direction is the one this plan has already shipped once: a spurious STRONG
-        // silently stops every constant-array fold downstream, with no assertion anywhere to say so.
+        // The effect level needs its own execute because `CoreTester.testCaught` never asserts a side-effect
+        // level. A definite throw stores nothing, so it stays NONE; a spurious STRONG would silently stop
+        // every constant-array fold downstream.
         assertEquals(
             SideEffectLevel.NONE, CoreTester.execute(CLASS_NAME, "putWithCatch()V", initial).sideEffectLevel(0),
             "a definite NPE stores nothing, so there is no unmodelled write to account for",

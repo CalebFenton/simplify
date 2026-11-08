@@ -128,59 +128,6 @@ class Frame private constructor(
 
     internal fun addressVisitCount(address: Int): Int = addressVisits[address] ?: 0
 
-    // --- the op -> scheduler side-effect channel (spec §4.5) ---
-
-    /**
-     * NOT path state, and that is why it is not copied by [copy] and why it is cleared by
-     * [takeSideEffectLevel]: it is a one-op **transport** from an op to the scheduler, which stamps it on
-     * the [ExecutionNode] the op just ran on. Spec §4.5 says effects are recorded on the node/graph and
-     * never on the op, and an op's only channel to the outside is the [Frame] it is handed -- so the
-     * value passes through here and does not live here.
-     */
-    private var sideEffect: SideEffectLevel = SideEffectLevel.NONE
-
-    /**
-     * Declares that the op currently executing may have perturbed observable state this engine does not
-     * model. **Errs upward**: repeated calls keep the highest level, so a single row of an op cannot
-     * downgrade another's claim.
-     *
-     * **When to call this, stated for the ops that do not exist yet, because getting it wrong is silent.**
-     * Call it whenever a write's TARGET cannot be identified -- not merely when the written value is
-     * unknown. `APutOp`'s two rows are the worked example: an array register that is `Unknown`/`Top`, or a
-     * `Known` non-array, means the store landed on an object the engine cannot name, so some *other*
-     * tracked object's contents may have changed and no heap state records it. A store into a tracked
-     * array is fully modelled and stays `NONE`; a definite throw stores nothing and stays `NONE`.
-     *
-     * **Plan 9 inherits this question unchanged for `iput`/`sput`** (and Plan 10/11 for
-     * `fill-array-data`/`filled-new-array`): an `iput` through an unprovable receiver is the identical
-     * shape, and Plan 9's `invoke` of an unresolvable target is the strongest case of all. The mechanism
-     * exists so those tasks record an answer rather than re-discover the gap.
-     *
-     * The alternative this deliberately is NOT is invalidating every tracked object's every element on
-     * any unprovable store: that would destroy all heap precision for a claim the effect level already
-     * makes, and it is what a consumer reading `STRONG` is being told to assume for itself.
-     */
-    internal fun recordSideEffect(level: SideEffectLevel) {
-        if (level > sideEffect) sideEffect = level
-    }
-
-    /**
-     * The level declared since the last call, resetting to [SideEffectLevel.NONE].
-     *
-     * `ExecutionSession.step` calls this **unconditionally** as soon as `execute` has run, and **before** any
-     * successor frame is copied. Both halves of that are load-bearing:
-     *
-     *  - *before the copy* is what keeps the level attributable to ONE address instead of leaking to every
-     *    descendant node (`APutOpTest.anUnprovableArrayMakesTheStoreStrongEvenThoughTheRunCompletes` asserts
-     *    the store's address is `STRONG` while its successor is `NONE`);
-     *  - *unconditionally* is what stops the host-failure boundary from losing a declaration. `contained`
-     *    turns a `Throwable` out of `execute` into `Aborted(HOST_FAILURE)` and returns null, and `step`
-     *    returns straight after -- so a call sequenced after that check never runs for an op that declared
-     *    and then threw. An earlier revision was sequenced that way and dropped the level silently
-     *    (`ExecutionSessionTest.aDeclaredSideEffectSurvivesAnOpThatThrowsAHostThrowable` pins it).
-     */
-    internal fun takeSideEffectLevel(): SideEffectLevel = sideEffect.also { sideEffect = SideEffectLevel.NONE }
-
     /** Invalidates the wide pair [register] participates in, so no half survives as a whole value. */
     private fun clearWidePartner(root: PersistentList<RegisterSlot?>, register: Int): PersistentList<RegisterSlot?> =
         when (val slot = root[register]) {
@@ -468,15 +415,7 @@ class Frame private constructor(
 
     override fun heapObject(ref: HeapRef): HeapObject? = heap.objectAt(ref)
 
-    /**
-     * A constant-time snapshot over the same immutable roots. Later writes replace only one frame's roots.
-     *
-     * [sideEffect] is deliberately **not** carried over. It is a per-op transport rather than path state
-     * (see [recordSideEffect]), and leaving it out makes leakage structurally impossible rather than
-     * merely ordered-correctly: even if a future edit moved `ExecutionSession`'s
-     * [takeSideEffectLevel] call after successor construction, a child could not inherit its parent's
-     * declaration and report `STRONG` for an address whose op declared nothing.
-     */
+    /** A constant-time snapshot over the same immutable roots. Later writes replace only one frame's roots. */
     fun copy(): Frame = Frame(
         view = view,
         slots = slots,

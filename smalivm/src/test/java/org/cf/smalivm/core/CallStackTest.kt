@@ -1,6 +1,5 @@
 package org.cf.smalivm.core
 
-import com.android.tools.smali.dexlib2.Opcode
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -12,21 +11,14 @@ import org.junit.jupiter.api.Test
  * The [CallStack] and the bound on it.
  *
  * Bug classes:
- *  (a) **No call stack at all.** Before invocation there was nothing to have one, so `ExecutionNode.callDepth`
- *      was a documented stub that was always 0 and activation ancestry did not exist. Plan 10 step-over walks
- *      `Activation.caller` by identity. The rising and falling depth here verifies the same ancestry lifecycle.
- *  (b) **Unbounded recursion.** Task 14 introduces the first nested call and therefore the first infinite
- *      recursion: a self-recursive guest method either hangs the suite or overflows the host stack unless
- *      `Limits.maxCallDepth` reports it as a truncation instead. Plan resolved decision 10; the reserved
- *      `AbortReason.CALL_DEPTH` existed with no production reference at all until this task.
+ *  (a) **No call stack at all**, or ancestry that does not follow `Activation.caller` by identity. The rising
+ *      and falling depth here verifies the ancestry lifecycle.
+ *  (b) **Unbounded recursion.** A self-recursive guest method either hangs the suite or overflows the host
+ *      stack unless `Limits.maxCallDepth` reports it as `AbortReason.CALL_DEPTH`.
  *
  * Oracle: the old engine's `DEFAULT_MAX_CALL_DEPTH = 20`, checked at a callee's entrypoint as
- * `current.callDepth > maxCallDepth` (`VirtualMachine.kt`), corroborated by `execution-engine.md:171-180`
- * whose row reads *"Checked only at entry. Exceeding the limit clears the current frame"*. It has no
- * recursion detection beyond depth, and neither does this.
- *
- * These scheduler-isolation tests still use `opFactory`. HISTORICAL: this was required before Task 20;
- * invoke decoding is now supported and its capability fixtures are in `newCoreSupported`.
+ * `current.callDepth > maxCallDepth`, whose documentation reads *"Checked only at entry. Exceeding the limit
+ * clears the current frame"*. It has no recursion detection beyond depth, and neither does this.
  */
 class CallStackTest {
     private val classIndex = CoreTester.classIndex
@@ -35,54 +27,15 @@ class CallStackTest {
     private fun viewOf(className: String, descriptor: String) =
         classIndex.requireMethodView(className, descriptor)
 
-    private fun invokeAddressIn(view: MethodView): Int =
-        view.addresses.single { view.opcodeAt(it) == Opcode.INVOKE_STATIC }
-
-    /**
-     * A session on `Lcalls/caller;->`[entryDescriptor] in which every method named as a key of [replaceIn]
-     * has its own `invoke-static` replaced by a stub emitting a [Transition.Invoke] at the mapped target.
-     *
-     * A MAP rather than one address, because recursion needs two entries: `recursesForever()I` must have its
-     * own invoke replaced as well, or the recursion stops after a single frame and the bound is never tested.
-     */
-    private fun sessionFor(
-        entryDescriptor: String,
-        limits: Limits,
-        replaceIn: Map<String, MethodDescriptor>,
-    ): ExecutionSession {
-        val view = viewOf(CALLER, entryDescriptor)
-        return ExecutionSession.of(view, classIndex, limits, Frame.entryFrame(view)) { address, v, index ->
-            val target = replaceIn[v.signature]
-            if (target != null && address == invokeAddressIn(v)) {
-                object : Op(address) {
-                    override val name = "invoke-static-stub"
-                    override fun execute(frame: Frame): OpExecution =
-                        listOf(Transition.Invoke(target, IntArray(0), InvokeKind.STATIC)).asOpExecution()
-                }
-            } else {
-                OpBuilder.build(address, v, index)
-            }
-        }
-    }
-
-    private fun callerCallsCallee(
-        entryDescriptor: String,
-        calleeName: String,
-        calleeProto: String,
-        limits: Limits = Limits(),
-    ): ExecutionSession = sessionFor(
-        entryDescriptor, limits,
-        replaceIn = mapOf(
-            "$CALLER->$entryDescriptor" to MethodDescriptor(VirtualType.of(CALLEE), calleeName, calleeProto),
-        ),
-    )
+    private fun callerSession(entryDescriptor: String, limits: Limits = Limits()): ExecutionSession =
+        CoreTester.vmServices.newSession(viewOf(CALLER, entryDescriptor), limits)
 
     @Test
     fun theCallStackDepthRisesInsideTheCalleeAndFallsWhenItReturns() {
         // Bug class (a). `callsCalleeAndReturnsItsResult()I` is invoke @0, move-result @3, return @4;
         // `returnsSeven()I` is const @0, return @1. So the walk is
         // caller@0 (depth 0) -> callee@0, callee@1 (depth 1) -> caller@3, caller@4 (depth 0 again).
-        val session = callerCallsCallee("callsCalleeAndReturnsItsResult()I", "returnsSeven", "()I")
+        val session = callerSession("callsCalleeAndReturnsItsResult()I")
         assertEquals(0, session.callStack.depth, "before anything runs, the stack is the entry activation alone")
         assertEquals(CALLER_RETURNS_RESULT, session.callStack.top.view.signature)
 
@@ -113,7 +66,7 @@ class CallStackTest {
         // single parent edge encoded control flow AND call ancestry at once, which is how a caller's catch
         // handler ended up inheriting a callee's locals. And one activation per CALL, not per node: the pile
         // and the visit budget hang off it, so two nodes of one call must share the object.
-        val session = callerCallsCallee("callsCalleeAndReturnsItsResult()I", "returnsSeven", "()I")
+        val session = callerSession("callsCalleeAndReturnsItsResult()I")
         val nodes = mutableListOf<ExecutionNode>()
         while (true) nodes.add(session.step() ?: break)
 
@@ -151,13 +104,10 @@ class CallStackTest {
 
     @Test
     fun theCallDepthBoundPermitsExactlyTheOraclesNumberOfFrames() {
-        // The off-by-one, pinned the way `addressVisitLimitPermitsExactlyItsBudget` pins the other bound --
-        // and it is a FRAME COUNT, not a depth. The old engine's `callDepth` is 1-based (its top-level node is
-        // its own `isEntrypoint`, `ExecutionNode.kt:67-78`; `execution-engine.md:180`: "top-level depth is
-        // one") and it compares `> maxCallDepth`, so `maxCallDepth = 3` permits THREE frames there.
-        // `Activation.depth` is 0-based, so comparing that against the same bound would have permitted four --
-        // one frame more than the oracle, which Task 22's differential compares. `Activation.frameCount` is
-        // the value with the oracle's origin.
+        // The off-by-one: the bound is a FRAME COUNT, not a depth. The old engine's `callDepth` is 1-based
+        // (its top-level node is depth one) and it compares `> maxCallDepth`, so `maxCallDepth = 3` permits
+        // THREE frames. `Activation.depth` is 0-based, so comparing that against the same bound would permit
+        // four. `Activation.frameCount` is the value with the oracle's origin.
         val session = recursiveSession(Limits(maxCallDepth = 3, maxSteps = 500))
         while (session.step()?.outcome != Outcome.Aborted(AbortReason.CALL_DEPTH)) Unit
         assertEquals(
@@ -179,12 +129,9 @@ class CallStackTest {
 
     @Test
     fun aResumedCallerNodeIsNotACallEntry() {
-        // `isCallEntry` used to read "my activation differs from my parent's", which is also true of a
-        // caller-RESUME node -- its parent is the callee's returning node -- so the predicate called a return
-        // a call entry while the name asserted otherwise. Harmless for the depth bound (a resume node's frame
-        // count is lower than the one already checked on the way in), but the test above asserts this property
-        // as though it meant "call entry", so it had better mean that.
-        val session = callerCallsCallee("callsCalleeAndReturnsItsResult()I", "returnsSeven", "()I")
+        // "My activation differs from my parent's" is also true of a caller-RESUME node, whose parent is the
+        // callee's returning node; `isCallEntry` must not call a return a call entry.
+        val session = callerSession("callsCalleeAndReturnsItsResult()I")
         val nodes = mutableListOf<ExecutionNode>()
         while (true) nodes.add(session.step() ?: break)
         assertEquals(
@@ -217,9 +164,8 @@ class CallStackTest {
         // The half `planReturn` decides by looking at `Activation.returnSite`, and the reason it cannot
         // decide by comparing methods: a self-recursive method's innermost `return` and the entry
         // activation's `return` are the same instruction in the same method. This is the no-call control --
-        // one activation, so the return ends the run's path exactly as it always did.
-        val view = viewOf("Lspine/spine;", "returnFive()I")
-        val session = ExecutionSession.of(view, classIndex, Limits(), Frame.entryFrame(view))
+        // one activation, so the return ends the run's path.
+        val session = CoreTester.vmServices.newSession(viewOf("Lspine/spine;", "returnFive()I"))
         session.run()
         assertEquals(listOf(Outcome.Returned(Value.Known(5, int))), session.outcomes)
         assertEquals(0, session.callStack.depth)
@@ -234,20 +180,10 @@ class CallStackTest {
      * frame down rather than in the entry method, because the bound is about the CALL STACK and not about
      * the method the run started in.
      */
-    private fun recursiveSession(limits: Limits): ExecutionSession {
-        val recurses = MethodDescriptor(VirtualType.of(CALLEE), "recursesForever", "()I")
-        return sessionFor(
-            "callsRecursiveCallee()I", limits,
-            replaceIn = mapOf(
-                "$CALLER->callsRecursiveCallee()I" to recurses,
-                "$CALLEE->recursesForever()I" to recurses,
-            ),
-        )
-    }
+    private fun recursiveSession(limits: Limits): ExecutionSession = callerSession("callsRecursiveCallee()I", limits)
 
     private companion object {
         const val CALLER = "Lcalls/caller;"
-        const val CALLEE = "Lcalls/callee;"
         const val CALLER_RETURNS_RESULT = "Lcalls/caller;->callsCalleeAndReturnsItsResult()I"
         const val CALLEE_RETURNS_SEVEN = "Lcalls/callee;->returnsSeven()I"
     }

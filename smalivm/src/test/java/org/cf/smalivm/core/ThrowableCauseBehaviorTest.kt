@@ -152,8 +152,8 @@ class ThrowableCauseBehaviorTest {
         val cause = outer.cause as Value.Known
         val causeRef = cause.raw as HeapRef
         val causeObject = graph.terminatingHeapObjectOverExploredPaths(causeRef) as HeapObject.GuestThrowable
-        val outerHost = graph.terminatingHostObjectOverExploredPaths(outerRef) as Throwable
-        val causeHost = graph.terminatingHostObjectOverExploredPaths(causeRef) as Throwable
+        val outerHost = CoreTester.terminatingHostObject(graph, outerRef) as Throwable
+        val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
 
         assertNotEquals(outerRef, causeRef)
         assertEquals(Value.Known(outerRef, outer.type), causeObject.cause)
@@ -224,8 +224,8 @@ class ThrowableCauseBehaviorTest {
         val cause = requireNotNull(root.cause) as Value.Known
         val causeRef = cause.raw as HeapRef
         val causeObject = graph.terminatingHeapObjectOverExploredPaths(causeRef) as HeapObject.GuestThrowable
-        val rootHost = graph.terminatingHostObjectOverExploredPaths(rootRef) as Throwable
-        val causeHost = graph.terminatingHostObjectOverExploredPaths(causeRef) as Throwable
+        val rootHost = CoreTester.terminatingHostObject(graph, rootRef) as Throwable
+        val causeHost = CoreTester.terminatingHostObject(graph, causeRef) as Throwable
         val terminalNode = requireNotNull(session.currentNode)
         val terminal = terminalNode.endingFrame ?: terminalNode.frame
 

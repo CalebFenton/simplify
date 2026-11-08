@@ -14,13 +14,10 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /**
- * `move*` behavior on the clean core. Migrated from the oracle-driven original; the fixture
- * (`ops/move_test.smali`) and every expected value are unchanged, so a divergence here is the new
- * core's, not a re-specification.
+ * `move*` behavior on the clean core, over `ops/move_test.smali`.
  *
- * Every method in that fixture is two instructions of one code unit each -- derived from the fixture
- * rather than assumed: `@0` the move (`move`/`move-object`/`move-result`/`move-exception`, all
- * one-unit forms), `@1` `return-void`.
+ * The register-move methods are two one-unit instructions: `@0` the move, `@1` `return-void`.
+ * `moveResult` takes its slot from a real static call and `moveException` from a real caught `throw`.
  */
 class MoveOpTest {
     private lateinit var initial: CoreState
@@ -40,20 +37,24 @@ class MoveOpTest {
     }
 
     /**
-     * The caught value is a typed frame slot now, not the old engine's negative pseudo-register.
-     * `move-exception` consumes it once, which is the slot lifecycle `Frame` enforces.
+     * `move-exception` binds the very object the `throw` raised: Dalvik hands the handler the thrown
+     * reference, so the caught register and the thrown register hold the same tracked object.
      */
     @Test
     fun canMoveException() {
-        val exception = "any object would do"
-        initial.setCaught(exception, "Ljava/lang/Exception;")
-        expected.setRegisters(0, exception, "Ljava/lang/Exception;")
-        CoreTester.test(CLASS_NAME, "moveException()V", initial, expected)
+        val graph = CoreTester.execute(CLASS_NAME, "moveException()V")
+        assertEquals(CompletionStatus.Complete, graph.completion())
+        assertEquals(listOf(Outcome.Returned(null)), graph.outcomes, "the throw is caught, so nothing escapes")
+        val trusted = graph.trusted()
+        assertNotNull(trusted, "a Complete exploration must yield a trusted view")
+        val caught = trusted!!.terminatingConsensus(0)
+        assertTrue(caught is Value.Known && caught.raw is HeapRef, "v0 must hold the caught throwable, was $caught")
+        assertEquals(VirtualType.of("Ljava/lang/Exception;"), (caught as Value.Known).type)
+        assertEquals(trusted.terminatingConsensus(1), caught, "the caught value is the thrown object itself")
     }
 
     @Test
     fun canMoveResult() {
-        initial.setResult(42, "I")
         expected.setRegisters(0, 42, "I")
         CoreTester.test(CLASS_NAME, "moveResult()V", initial, expected)
     }

@@ -1,5 +1,7 @@
 package org.cf.smalivm.core
 
+import java.nio.file.Files
+import java.nio.file.Path
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -7,26 +9,29 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class InvokeReviewTest {
     private val int = VirtualType.of("I")
 
     @Test
     fun mixedReturnAndLimitedAbortHasTheSameOutcomesInEitherArmOrder() {
-        for (abortFirst in listOf(true, false)) {
-            val graph = mixedAbortSession(abortFirst).run()
+        // The two callers reach callees whose `if` declares the looping arm and the returning arm in opposite
+        // orders.
+        for (caller in listOf("abortArmDeclaredFirst(I)I", "returnArmDeclaredFirst(I)I")) {
+            val graph = CoreTester.execute(REVIEW, caller, limits = Limits(maxAddressVisits = 3, maxSteps = 200))
             assertEquals(
                 CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)),
                 graph.completion(),
-                "abortFirst=$abortFirst",
+                caller,
             )
-            assertNull(graph.trusted(), "abortFirst=$abortFirst")
+            assertNull(graph.trusted(), caller)
             assertEquals(
                 setOf(Outcome.Returned(Value.Known(7, int)), Outcome.Returned(Value.Unknown(int))),
                 graph.outcomes.toSet(),
-                "abortFirst=$abortFirst",
+                caller,
             )
-            assertEquals(2, graph.outcomes.size, "abortFirst=$abortFirst")
+            assertEquals(2, graph.outcomes.size, caller)
             assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
         }
     }
@@ -97,9 +102,9 @@ class InvokeReviewTest {
         val innerSignature = "$REVIEW->innerWithHandler()V"
         val innerView = view(REVIEW, "innerWithHandler()V")
         val badHandler = innerView.tryBlocks.single().catches.single().handlerAddress
-        val graph = ExecutionSession.of(outer, CoreTester.classIndex, Limits(), Frame.entryFrame(outer)) { address, v, index ->
+        val graph = CoreTester.vmServices.newSession(outer, Limits(), null) { address, v, resolver ->
             if (v.signature == innerSignature && address == badHandler) error("synthetic handler decode failure")
-            OpBuilder.build(address, v, index)
+            OpBuilder.build(address, v, resolver)
         }.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
         assertNull(graph.trusted())
@@ -125,7 +130,7 @@ class InvokeReviewTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
         assertNull(graph.trusted())
         assertEquals(VirtualType.of("Ljava/lang/NullPointerException;"), returned.type)
-        assertNotNull(graph.terminatingHostObjectOverExploredPaths(returned.raw as HeapRef))
+        assertNotNull(CoreTester.terminatingHostObject(graph, returned.raw as HeapRef))
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
     }
 
@@ -156,15 +161,16 @@ class InvokeReviewTest {
     }
 
     @Test
-    fun incompleteDispatchWorldDegradesOneCandidateWithoutSampleSpecificPolicy() {
-        val index = ClassIndex(CoreTester.importFixtures(), hierarchyComplete = false)
-        val view = index.requireMethodView(REVIEW, "incompleteWorld(Linvoke_unique_base;)I")
-        val graph = ExecutionSession.of(view, index, Limits(), Frame.entryFrame(view)).run()
+    fun incompleteDispatchWorldDegradesOneCandidateWithoutSampleSpecificPolicy(@TempDir root: Path) {
+        Files.writeString(root.resolve("orphan.smali"), ORPHAN_SOURCE.trimIndent())
+        val index = task53ClassIndex(root, INCOMPLETE_WORLD_SOURCE)
+        val view = index.requireMethodView(INCOMPLETE_WORLD, "incompleteWorld(Lincomplete/base;)I")
+        val graph = VmServices(index).newSession(view).run()
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Unknown(int))), graph.outcomes)
         assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
         val invoke = graph.addresses().flatMap { graph.nodePile(it) }.single { it.dispatchCandidates.isNotEmpty() }
-        assertEquals(setOf("Linvoke_unique_base;->value()I"), invoke.dispatchCandidates)
+        assertEquals(setOf("Lincomplete/base;->value()I"), invoke.dispatchCandidates)
     }
 
     @Test
@@ -215,38 +221,35 @@ class InvokeReviewTest {
         assertThrows(UnsupportedOperationException::class.java) { mutable.add("Lleak;->value()I") }
     }
 
-    private fun mixedAbortSession(abortFirst: Boolean): ExecutionSession {
-        val caller = view(REVIEW, "abortArmDeclaredFirst(I)I")
-        val calleeSignature = "Linvoke_review_callee;->loopOrReturnDeclaredFirst(I)I"
-        val callee = view("Linvoke_review_callee;", "loopOrReturnDeclaredFirst(I)I")
-        val returnAddress = callee.addresses.first { callee.opcodeAt(it).name.startsWith("const") }
-        val loopAddress = callee.addresses.first { callee.opcodeAt(it).name.startsWith("goto") }
-        return ExecutionSession.of(
-            caller,
-            CoreTester.classIndex,
-            Limits(maxAddressVisits = 3, maxSteps = 200),
-            Frame.entryFrame(caller),
-        ) { address, v, index ->
-            if (v.signature == calleeSignature && address == 0) {
-                val transitions = if (abortFirst) {
-                    listOf(Transition.Jump(loopAddress), Transition.Jump(returnAddress))
-                } else {
-                    listOf(Transition.Jump(returnAddress), Transition.Jump(loopAddress))
-                }
-                object : Op(address) {
-                    override val name = "review-branch"
-                    override fun execute(frame: Frame) = transitions.asOpExecution()
-                }
-            } else {
-                OpBuilder.build(address, v, index)
-            }
-        }
-    }
-
     private fun view(owner: String, descriptor: String): MethodView =
         CoreTester.classIndex.requireMethodView(owner, descriptor)
 
     private companion object {
         const val REVIEW = "Linvoke_review;"
+        const val INCOMPLETE_WORLD = "Lincomplete/base;"
+
+        const val INCOMPLETE_WORLD_SOURCE = """
+            .class public Lincomplete/base;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .locals 1
+                const/4 v0, 0x7
+                return v0
+            .end method
+
+            .method public static incompleteWorld(Lincomplete/base;)I
+                .locals 0
+                invoke-virtual {p0}, Lincomplete/base;->value()I
+                move-result p0
+                return p0
+            .end method
+        """
+
+        /** Its superclass is absent, so the program's hierarchy is incomplete. */
+        const val ORPHAN_SOURCE = """
+            .class public Lincomplete/orphan;
+            .super Lincomplete/absent;
+        """
     }
 }

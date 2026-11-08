@@ -120,7 +120,7 @@ class Activation internal constructor(
      * **This is the half [declaredEffect] cannot reach, and leaving it out was a live regression.**
      * `declaredEffect` is transferred onto an invoke node when the callee **returns** -- so a callee path
      * that ends any OTHER way (an escaping throw, an address-visit or call-depth truncation, a host failure,
-     * a `Transition.Abort`) transfers nothing, and because the abort is recorded on a **callee** node that
+     * an `OpArm.Abort`) transfers nothing, and because the abort is recorded on a **callee** node that
      * `ExecutionGraph` never sees, `sideEffectLevel`'s `UNSUPPORTED_OP -> STRONG` rule cannot fire either.
      * The caller's invoke address then read `NONE` -- *"no side effects, safe to delete"* -- through
      * `methodSideEffectLevelOverExploredPaths`, which is **ungated**, for a call this engine could not run

@@ -228,28 +228,18 @@ internal data class FieldDeclaration(
  * [InstanceOfTest] serves [castOutcome]. Each capability states one question and its failure policy.
  */
 class ClassIndex private constructor(
-    private val dynamicLoadingEvidenceOverride: Boolean?,
     hierarchyComplete: Boolean?,
     internal val programWorkspace: ProgramWorkspace,
     private val capturedSnapshot: ProgramSnapshot?,
     private val capturedClassLoader: SmaliClassLoader?,
 ) : TypeHierarchy, Superclasses, InstanceOfTest {
 
-    internal constructor(
-        programWorkspace: ProgramWorkspace,
-        dynamicLoadingEvidence: Boolean? = null,
-        hierarchyComplete: Boolean? = null,
-    ) : this(
-        dynamicLoadingEvidence,
-        hierarchyComplete,
-        programWorkspace,
-        null,
-        null,
-    )
+    internal constructor(programWorkspace: ProgramWorkspace) : this(null, programWorkspace, null, null)
 
     internal val currentSnapshot: ProgramSnapshot get() = capturedSnapshot ?: programWorkspace.currentSnapshot
-    private val hasDynamicLoadingEvidence: Boolean
-        get() = dynamicLoadingEvidenceOverride ?: currentSnapshot.dynamicLoadingEvidence.isPresent
+    private val hasDynamicLoadingEvidence: Boolean get() = currentSnapshot.dynamicLoadingEvidence.isPresent
+
+    /** Edits change method bodies only, so a snapshot index reuses the workspace index's scan. */
     private val hasCompleteHierarchy: Boolean = hierarchyComplete ?: scanHierarchyCompleteness()
     internal val throwableHierarchy: ThrowableHierarchy get() = currentSnapshot.hierarchy.throwableHierarchy
 
@@ -481,7 +471,6 @@ class ClassIndex private constructor(
             "Cannot resolve a snapshot from another program workspace"
         }
         val capturedIndex = ClassIndex(
-            dynamicLoadingEvidenceOverride,
             hasCompleteHierarchy,
             programWorkspace,
             snapshot,

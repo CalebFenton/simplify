@@ -237,7 +237,7 @@ class BinaryMathOpTest {
          *
          * Bug class, and it was real: asking the routing question at 64-bit width while `computed` asked
          * it at 32-bit produced "no result because the path throws" AND "continue normally" at once --
-         * `Unknown(I)` assigned, one transition, no `Transition.Throw`, run reporting `Complete`. An
+         * `Unknown(I)` assigned, one arm, no `OpArm.Throw`, run reporting `Complete`. An
          * unexplored feasible path on a fully-trusted run. Needs no seeded frame: `const-wide` puts the
          * ambiguous raw there, which is the shape Dalvik's overloaded const opcodes actually produce.
          *

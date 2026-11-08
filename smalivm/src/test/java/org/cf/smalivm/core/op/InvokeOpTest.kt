@@ -1,21 +1,28 @@
 package org.cf.smalivm.core.op
 
+import java.nio.file.Files
+import java.nio.file.Path
+import org.cf.smalivm.core.ClassIndex
 import org.cf.smalivm.core.CompletionStatus
 import org.cf.smalivm.core.CoreState
 import org.cf.smalivm.core.CoreTester
 import org.cf.smalivm.core.ExecutionGraph
 import org.cf.smalivm.core.HeapObject
 import org.cf.smalivm.core.HeapRef
+import org.cf.smalivm.core.OpBuilder
 import org.cf.smalivm.core.Outcome
+import org.cf.smalivm.core.currentResolver
 import org.cf.smalivm.core.heapRefsOf
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.VmServices
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
 
 class InvokeOpTest {
     @Test
@@ -42,10 +49,24 @@ class InvokeOpTest {
         CoreTester.assertReturns(CLASS_NAME, "knownVirtual()I", known(2))
     }
 
+    /**
+     * One loaded implementation decides the call only when the program cannot load more classes. The shared
+     * fixture tree calls `Class.forName`, so the same call there stays unknown.
+     */
     @Test
-    fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant() {
-        CoreTester.assertReturns(CLASS_NAME, "uniqueUnknown(Linvoke_unique_base;)I", known(7))
-        CoreTester.assertReturns(CLASS_NAME, "interfaceUnknown(Linvoke_single_interface;)I", known(9))
+    fun unknownReceiverWithOneLoadedImplementationRecoversItsConstant(@TempDir root: Path) {
+        for (name in listOf("invoke_task20", "invoke_unique_base", "invoke_single_interface", "invoke_single_impl")) {
+            Files.copy(Path.of(CoreTester.TEST_CLASS_PATH, "ops", "$name.smali"), root.resolve("$name.smali"))
+        }
+        val closed = VmServices(ClassIndex.open(root.toFile()))
+        fun closedReturn(descriptor: String): Value {
+            val graph = closed.newSession(closed.classIndex.requireMethodView(CLASS_NAME, descriptor)).run()
+            return graph.trusted()!!.terminatingConsensus(0)
+        }
+
+        assertEquals(known(7), closedReturn("uniqueUnknown(Linvoke_unique_base;)I"))
+        assertEquals(known(9), closedReturn("interfaceUnknown(Linvoke_single_interface;)I"))
+        CoreTester.assertReturns(CLASS_NAME, "uniqueUnknown(Linvoke_unique_base;)I", Value.Unknown(type("I")))
     }
 
     @Test
@@ -418,13 +439,14 @@ class InvokeOpTest {
     fun invokeNonExistentMethodThrowsException() {
         val graph = CoreTester.execute(STATIC, "invokeNonExistentMethod()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph)) // adjudication 7
+        assertEquals(listOf("Ljava/lang/NoClassDefFoundError;"), CoreTester.escapingTypes(graph))
     }
 
     @Test
     fun hasExpectedToString() {
         val view = CoreTester.classIndex.requireMethodView(STATIC, "invokeReturnVoid()V")
-        assertEquals("invoke-static {}, Linvoke_static_test;->returnVoid()V", org.cf.smalivm.core.OpBuilder.build(0, view, CoreTester.classIndex).toString())
+        val op = OpBuilder.build(0, view, CoreTester.classIndex.currentResolver())
+        assertEquals("invoke-static {}, Linvoke_static_test;->returnVoid()V", op.toString())
     }
 
     private fun assertTrackedObject(value: Value, graph: org.cf.smalivm.core.ExecutionGraph, uninitialized: Boolean) {

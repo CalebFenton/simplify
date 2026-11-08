@@ -14,22 +14,44 @@ class VmServices(
     val methodEditor = MethodEditor(classIndex.programWorkspace)
     val currentSnapshot: ProgramSnapshot get() = classIndex.currentSnapshot
 
+    /**
+     * Starts a run of [view] over the current program snapshot. [entryFrame] defaults to unknown parameters,
+     * except a constructor's receiver is a fresh uninitialized object when its field layout is known. A
+     * supplied frame is copied, so the caller may start several sessions from one seeded frame.
+     */
     fun newSession(
         view: MethodView,
         limits: Limits = Limits(),
         entryFrame: Frame? = null,
+    ): ExecutionSession = newSession(view, limits, entryFrame, decode = OpBuilder::build)
+
+    /**
+     * [newSession] with a replacement decoder and, when [backends] is non-null, replacement invocation
+     * backends: the one way to run an op or a backend that fails in ways no real opcode or shipping backend
+     * can (a host `Throwable` or [VirtualMachineError] mid-call, an arm combination no opcode produces), which
+     * scheduler failure-containment tests need.
+     */
+    internal fun newSession(
+        view: MethodView,
+        limits: Limits,
+        entryFrame: Frame?,
+        backends: List<Backend>? = null,
+        decode: (Int, MethodView, ProgramSnapshotResolver) -> Op,
     ): ExecutionSession {
         val snapshot = classIndex.currentSnapshot
         require(snapshot.owns(view)) { "Method view is not current in this program workspace: ${view.signature}" }
         require(entryFrame == null || entryFrame.belongsTo(view)) {
             "Entry frame belongs to another program or method revision: ${view.signature}"
         }
-        return ExecutionSession.of(
+        val resolver = classIndex.resolver(snapshot)
+        return ExecutionSession(
             view,
             this,
-            classIndex.resolver(snapshot),
             limits,
-            entryFrame?.sanitizedCopyForPublicEntry(),
+            entryFrame?.sanitizedCopyForPublicEntry() ?: Frame.entryFrame(view, resolver.classIndex),
+            resolver,
+            decode,
+            if (backends == null) Invoker(resolver, invocationServices) else Invoker(resolver, backends),
         )
     }
 }

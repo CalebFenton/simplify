@@ -85,7 +85,7 @@ class ExceptionPropagationTest {
         val throwAddress = callee.addresses.single { callee.opcodeAt(it).name == "throw" }
         val calleeSignature = callee.signature
 
-        val session = ExecutionSession.of(view, CoreTester.classIndex, Limits(), frame) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(view, Limits(), frame) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == throwAddress) {
                 val throwableRegister = currentView.parameters[2].register
                 object : Op(address) {
@@ -97,7 +97,7 @@ class ExceptionPropagationTest {
                     }
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 
@@ -136,7 +136,7 @@ class ExceptionPropagationTest {
         val exact = ThrowableDomain.exact(npe, CoreTester.classIndex.throwableHierarchy)
         val narrowed = requireNotNull(exact.narrowUpperBound(runtime))
         val calleeSignature = "Linvoke_review_callee;->throwsNpe()V"
-        val session = ExecutionSession.of(caller, CoreTester.classIndex, Limits(), frame) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(caller, Limits(), frame) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "same-ref-different-constraints"
@@ -147,7 +147,7 @@ class ExceptionPropagationTest {
                     )
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 
@@ -202,12 +202,7 @@ class ExceptionPropagationTest {
         val runtime = VirtualType.of("Ljava/lang/RuntimeException;")
         val first = requireNotNull(ThrowableDomain.any().exclude(exception))
         val second = requireNotNull(ThrowableDomain.any().exclude(runtime))
-        val session = ExecutionSession.of(
-            caller,
-            CoreTester.classIndex,
-            Limits(),
-            Frame.entryFrame(caller),
-        ) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "distinct-symbolic-residuals"
@@ -226,7 +221,7 @@ class ExceptionPropagationTest {
                     )
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 
@@ -240,12 +235,7 @@ class ExceptionPropagationTest {
         val caller = view("callerReturnsSymbolicCaught()Ljava/lang/Throwable;")
         val calleeSignature = "$OWNER->throwNpe()V"
         val domain = ThrowableDomain.any()
-        val session = ExecutionSession.of(
-            caller,
-            CoreTester.classIndex,
-            Limits(),
-            Frame.entryFrame(caller),
-        ) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "same-domain-different-symbolic-values"
@@ -262,7 +252,7 @@ class ExceptionPropagationTest {
                     )
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 
@@ -323,12 +313,7 @@ class ExceptionPropagationTest {
         val exitCount = 8
         val caller = view("manySymbolicHandlers()I")
         val calleeSignature = "$OWNER->throwNpe()V"
-        val session = ExecutionSession.of(
-            caller,
-            CoreTester.classIndex,
-            Limits(),
-            Frame.entryFrame(caller),
-        ) { address, currentView, index ->
+        val session = CoreTester.vmServices.newSession(caller, Limits(), null) { address, currentView, resolver ->
             if (currentView.signature == calleeSignature && address == 0) {
                 object : Op(address) {
                     override val name = "equivalent-symbolic-throws"
@@ -340,7 +325,7 @@ class ExceptionPropagationTest {
                     )
                 }
             } else {
-                OpBuilder.build(address, currentView, index)
+                OpBuilder.build(address, currentView, resolver)
             }
         }
 

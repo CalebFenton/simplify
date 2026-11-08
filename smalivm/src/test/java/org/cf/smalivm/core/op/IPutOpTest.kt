@@ -158,8 +158,8 @@ class IPutOpTest {
 
     @Test
     fun aKnownNonHeapRefReceiverContinuesWithStrongUnmodelledEffect() {
-        // VERIFIER-tier malformed input, not a runtime claim. Spec 2.2 and Frame.recordSideEffect require
-        // STRONG because the known non-null receiver identifies no modelled heap cell.
+        // VERIFIER-tier malformed input, not a runtime claim. Spec 2.2 requires STRONG because the known
+        // non-null receiver identifies no modelled heap cell.
         val graph = CoreTester.execute(CLASS_NAME, "putThroughKnownNonHeapRefReceiver()I")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph), "no guest exception is invented")

@@ -12,60 +12,54 @@ class CommitTest {
     private val spine = "Lspine/spine;"
     private val INT = VirtualType.of("I")
 
-    /** An op that returns whatever transitions the test wants, at whatever address it is built for. */
-    private class Scripted(address: Int, private val transitions: List<Transition>) : Op(address) {
+    /** An op that returns whatever arms the test wants, at whatever address it is built for. */
+    private class Scripted(address: Int, private val arms: List<OpArm>) : Op(address) {
         override val name = "scripted"
-        override fun execute(frame: Frame): OpExecution = transitions.asOpExecution()
+        override fun execute(frame: Frame): OpExecution = OpExecution.of(arms)
     }
 
     private fun sessionWith(
         methodDescriptor: String,
         at: Int,
-        transitions: List<Transition>,
+        arms: List<OpArm>,
     ): ExecutionSession =
         sessionOver(
             CoreTester.classIndex.requireMethodView(spine, methodDescriptor),
             at,
-            transitions,
+            arms,
         )
 
-    private fun sessionOver(view: MethodView, at: Int, transitions: List<Transition>): ExecutionSession =
-        ExecutionSession.of(
-            view, CoreTester.classIndex, Limits(), Frame.entryFrame(view),
-        ) { address, v, index ->
-            if (address == at) Scripted(address, transitions) else OpBuilder.build(address, v, index)
+    private fun sessionOver(view: MethodView, at: Int, arms: List<OpArm>): ExecutionSession =
+        CoreTester.vmServices.newSession(view, Limits(), null) { address, current, resolver ->
+            if (address == at) Scripted(address, arms) else OpBuilder.build(address, current, resolver)
         }
 
     /**
-     * A session whose op factory THROWS at [decodeFailsAt], and the only way to reach
-     * `buildSuccessor`'s *other* unbuildable cause on purpose. A malformed target address is a
-     * statement about the input and is detected before decode; a decode that throws is this engine's
-     * own code failing, and no fixture can provoke that -- `OpBuilder.build` succeeds for every
-     * instruction the corpus contains, which is why the two causes were indistinguishable long enough
-     * to become a defect. Injecting it through the same `opFactory` seam the [Scripted] op uses keeps
-     * both causes reachable from one fork shape, which is what makes the distinction testable in the
-     * direction that matters.
+     * A session whose decoder throws at [decodeFailsAt]: the only way to reach a successor that cannot be
+     * built because this engine's own code failed, as opposed to a malformed target, which is detected
+     * before decode. No fixture provokes it, because `OpBuilder.build` succeeds for every instruction in the
+     * corpus.
      *
-     * [decodeFailsAt] must not be the entry address: `ExecutionSession.of` decodes the root node
-     * eagerly, outside any successor-building boundary.
+     * [decodeFailsAt] must not be the entry address: the session decodes the root node during
+     * construction, outside any successor-building boundary.
      */
     private fun sessionWithUndecodableAddress(
         methodDescriptor: String,
         at: Int,
-        transitions: List<Transition>,
+        arms: List<OpArm>,
         decodeFailsAt: Int,
     ): ExecutionSession {
         val view = CoreTester.classIndex.requireMethodView(spine, methodDescriptor)
-        return ExecutionSession.of(
-            view, CoreTester.classIndex, Limits(), Frame.entryFrame(view),
-        ) { address, v, index ->
+        return CoreTester.vmServices.newSession(view, Limits(), null) { address, current, resolver ->
             when (address) {
-                at -> Scripted(address, transitions)
+                at -> Scripted(address, arms)
                 decodeFailsAt -> throw IllegalStateException("decode bug")
-                else -> OpBuilder.build(address, v, index)
+                else -> OpBuilder.build(address, current, resolver)
             }
         }
     }
+
+    private fun throwing(value: Value): OpArm = OpArm.Throw(evidence = ThrowEvidence.Existing(value))
 
     /** A fixture method with try blocks built from its view; a handler at [MethodView.endAddress] names no instruction. */
     private fun withTryBlocks(methodDescriptor: String, tryBlocks: (MethodView) -> List<TryBlock>): MethodView {
@@ -74,16 +68,15 @@ class CommitTest {
     }
 
     /**
-     * DEFECT 1 (half-applied fork), plus the SKIP_ONE policy. A malformed target in one branch of a
-     * genuine cross-transition fork must not discard the other, feasible branch -- but the lost path
-     * must still make the run Partial, or a truncated exploration reports as complete.
+     * A malformed target in one branch of a fork must not discard the other, feasible branch -- but the
+     * lost path must still make the run Partial, or a truncated exploration reports as complete.
      */
     @Test
     fun anUnbuildableSiblingIsLostAsPartialWhileTheFeasibleBranchStillRuns() {
         val offTheEnd = 9999
         val session = sessionWith(
             "nopThenConst()I", at = 0,
-            listOf(Transition.Jump(offTheEnd), Transition.Continue),
+            listOf(OpArm.Jump(offTheEnd), OpArm.Continue()),
         )
         val graph = session.run()
         assertTrue(graph.wasReached(1), "the feasible branch must still be explored")
@@ -96,22 +89,13 @@ class CommitTest {
     }
 
     /**
-     * ALL_OR_NOTHING is scoped to the transition that declared it. A malformed try-block table makes
-     * every clause in **that table** suspect -- and nothing else. The fall-through target of a sibling
-     * `Continue` is not a clause in that table, so it is a fully resolved normal-execution path that
-     * never consults the table at all, and discarding it is a precision loss against spec §2.2's "more
-     * forks never fewer", as for a `div-int` inside a try block.
+     * ALL_OR_NOTHING is scoped to the arm that declared it. A malformed try-block table makes every clause
+     * in **that table** suspect -- and nothing else. The fall-through target of a sibling `Continue` never
+     * consults the table, so discarding it would lose a fully resolved normal-execution path, which is the
+     * shape a `div-int` inside a try block has.
      *
-     * Bug class: building every transition's successors into ONE flat list, so ALL_OR_NOTHING has to
-     * abort out of `commit` and takes already-built successors of other transitions with it. Oracle:
-     * `OnUnbuildable.ALL_OR_NOTHING`'s own stated rationale ("every clause in that table"), which is
-     * narrower than "everything this op wanted".
-     *
-     * The reason is [AbortReason.MALFORMED_INPUT], and that ruling is deliberate: `OnUnbuildable`
-     * decides HOW MUCH is abandoned, never WHY. A handler address the method does not contain is the
-     * bytecode naming something impossible, exactly as an off-the-end jump is, and the table-wide
-     * distrust argument for abandoning the whole group is untouched by what the loss is labelled.
-     * Conflating the policy with the cause would rebuild the ambiguity the reason exists to remove.
+     * The reason is [AbortReason.MALFORMED_INPUT]: `OnUnbuildable` decides HOW MUCH is abandoned, never WHY,
+     * and a handler address the method does not contain is the bytecode naming something impossible.
      */
     @Test
     fun aMalformedHandlerTableDoesNotDiscardAFeasibleNormalBranch() {
@@ -122,7 +106,7 @@ class CommitTest {
         val view = withTryBlocks("nopThenConst()I") {
             listOf(TryBlock(0, 1, listOf(CatchClause(runtimeException, it.endAddress)), null))
         }
-        val graph = sessionOver(view, at = 0, listOf(Transition.Continue, Transition.Throw(exception))).run()
+        val graph = sessionOver(view, at = 0, listOf(OpArm.Continue(), throwing(exception))).run()
 
         assertTrue(
             graph.wasReached(1),
@@ -138,21 +122,13 @@ class CommitTest {
     }
 
     /**
-     * The other side of the same scoping, and the property the `transitions.size` proxy destroyed: the
-     * throw's handler fork is still ALL_OR_NOTHING **within itself**, no matter what sibling transitions
-     * exist. One malformed clause means NONE of that table's handlers are routed and its escape
-     * conclusion is dropped too -- `escapesUnhandled` reads the same table, so "escapes unhandled" is
-     * exactly as suspect as "caught at the method end".
+     * The throw's handler fork is ALL_OR_NOTHING **within itself**, whatever sibling arms exist. One
+     * malformed clause means NONE of that table's handlers are routed and its escape conclusion is dropped
+     * too -- the escape reads the same table, so "escapes unhandled" is exactly as suspect as "caught at the
+     * method end".
      *
-     * The good handler's address must be one the NORMAL path cannot reach, or "the good handler was
-     * committed" and "the normal branch was committed" are the same observation. `gotoSkip()I` is the
-     * only fixture that provides one: `const/4`@0, `goto`@1 (target 3), the SKIPPED `const/4`@2,
-     * `return v0`@3 -- so address 2 is genuinely unreachable by execution and reaching it can only mean
-     * the handler was routed. (`nopThenConst()I` is straight-line, so its address 2 is reached by
-     * ordinary fall-through and an earlier draft of this test failed for that reason, not for the bug.)
-     *
-     * Oracle: `ThrowRoutingTest.oneMalformedHandlerAbortsTheWholeForkRatherThanCommittingHalfOfIt`'s
-     * policy, which that test can only pin for a bare throw (`transitions.size == 1`).
+     * The good handler's address must be one the NORMAL path cannot reach. In `gotoSkip()I` (`const/4`@0,
+     * `goto`@1 -> 3, the skipped `const/4`@2, `return v0`@3) address 2 is reachable only by routing.
      */
     @Test
     fun aPartlyMalformedHandlerTableRoutesNoneOfItsHandlersEvenWhenANormalSiblingSurvives() {
@@ -173,7 +149,7 @@ class CommitTest {
         }
         val graph = sessionOver(
             view, at = 0,
-            listOf(Transition.Continue, Transition.Throw(Value.Unknown(objectType))),
+            listOf(OpArm.Continue(), throwing(Value.Unknown(objectType))),
         ).run()
 
         assertFalse(
@@ -200,7 +176,7 @@ class CommitTest {
     fun everyBranchOfAFullyUnbuildableForkGetsItsOwnOutcome() {
         val graph = sessionWith(
             "nopThenConst()I", at = 0,
-            listOf(Transition.Jump(9999), Transition.Jump(8888)),
+            listOf(OpArm.Jump(9999), OpArm.Jump(8888)),
         ).run()
         assertEquals(
             2,
@@ -211,16 +187,13 @@ class CommitTest {
     }
 
     /**
-     * `Op.execute`'s contract says the transition list is never empty. Before `commit`, an op that
-     * broke it left its node with no outcome and no children -- invisible to every [ExecutionGraph]
-     * query, i.e. a silently dropped path on a run that still reports Complete, which is the worst
-     * outcome this engine can have. Oracle: spec §4.4 (one Outcome per explored path) plus `Op.execute`'s
-     * own "Never empty".
+     * An op execution with no arms would leave its node with no outcome and no children: a silently
+     * dropped path on a run that still reports Complete. Spec §4.4 requires one Outcome per explored path.
      */
     @Test
-    fun anOpThatReturnsNoTransitionsFailsLoudlyInsteadOfDroppingItsPathSilently() {
+    fun anOpThatReturnsNoArmsFailsLoudlyInsteadOfDroppingItsPathSilently() {
         val error = assertThrows(IllegalArgumentException::class.java) {
-            emptyList<Transition>().asOpExecution()
+            OpExecution.of(emptyList())
         }
         assertTrue(
             error.message!!.contains("must contain at least one arm"),
@@ -234,7 +207,7 @@ class CommitTest {
         val session = sessionWith(
             "returnFive()I",
             at = 0,
-            listOf(Transition.Return(null), Transition.Throw(thrown)),
+            listOf(OpArm.Return.fromValue(null), throwing(thrown)),
         )
 
         val failure = assertThrows(IllegalArgumentException::class.java) { session.step() }
@@ -242,24 +215,19 @@ class CommitTest {
         assertTrue(failure.message!!.contains("Mixed path-ending transitions"))
     }
 
-    // --- MALFORMED_INPUT: which of `buildSuccessor`'s two failures is a bug in THIS codebase ---
+    // --- MALFORMED_INPUT: which of the two unbuildable-successor causes is a bug in THIS codebase ---
 
     /**
-     * A jump to an address the method does not contain is bad INPUT, and this is the whole point of
-     * [AbortReason.MALFORMED_INPUT] existing. An obfuscated APK -- the expected input for this tool --
-     * emits off-the-end targets routinely, and while every one of them reported
-     * [AbortReason.HOST_FAILURE] a genuine engine bug was indistinguishable in aggregate from
-     * hostile-but-valid input: the difference between "our VM is broken" and "this APK is doing
-     * something deliberate".
+     * A jump to an address the method does not contain is bad INPUT: obfuscated APKs emit off-the-end
+     * targets routinely, and reporting them as [AbortReason.HOST_FAILURE] would make a genuine engine bug
+     * indistinguishable from hostile-but-valid input.
      *
-     * `gotoSkip()I` rather than `nopThenConst()I` because its address 2 is reachable ONLY by a jump
-     * (`const/4`@0, `goto`@1 -> 3, the skipped `const/4`@2, `return v0`@3), which the sibling test
-     * below needs and which keeps both tests on one fork shape. `Returned(Value.Top)` because the
-     * scripted op replaced the `const/4` that would have assigned v0.
+     * `gotoSkip()I` because its address 2 is reachable ONLY by a jump, which the sibling test below needs.
+     * `Returned(Value.Top)` because the scripted op replaced the `const/4` that would have assigned v0.
      */
     @Test
     fun aTargetAddressTheMethodDoesNotContainIsMalformedInputAndNotAHostFailure() {
-        val graph = sessionWith("gotoSkip()I", at = 0, listOf(Transition.Jump(9999), Transition.Continue)).run()
+        val graph = sessionWith("gotoSkip()I", at = 0, listOf(OpArm.Jump(9999), OpArm.Continue())).run()
         assertEquals(
             setOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT), Outcome.Returned(Value.Top)),
             graph.outcomes.toSet(),
@@ -275,17 +243,14 @@ class CommitTest {
     }
 
     /**
-     * The direction that matters, and the reason a blanket relabel of "the null path" would have been
-     * worse than the defect: decode is THIS engine's code, so a decode that throws is a genuine
-     * [AbortReason.HOST_FAILURE] and must stay one. Relabelling it would destroy the one signal that
-     * means "bug in this codebase", which is the entire point of splitting the reason.
-     *
-     * Same fixture, same fork shape, same surviving sibling as the test above; only the cause differs.
+     * Decode is THIS engine's code, so a decode that throws is a genuine [AbortReason.HOST_FAILURE] and must
+     * stay one. Same fixture, same fork shape, same surviving sibling as the test above; only the cause
+     * differs.
      */
     @Test
     fun aSuccessorWhoseDecodeThrowsIsStillAHostFailure() {
         val graph = sessionWithUndecodableAddress(
-            "gotoSkip()I", at = 0, listOf(Transition.Jump(2), Transition.Continue), decodeFailsAt = 2,
+            "gotoSkip()I", at = 0, listOf(OpArm.Jump(2), OpArm.Continue()), decodeFailsAt = 2,
         ).run()
         assertEquals(
             setOf(Outcome.Aborted(AbortReason.HOST_FAILURE), Outcome.Returned(Value.Top)),
@@ -298,19 +263,14 @@ class CommitTest {
     }
 
     /**
-     * Both causes in ONE fork, which is the shape no pair of separate tests can pin and the shape that
-     * an `Int` loss counter provably cannot express: `commit` used to fold both causes into one
-     * `lost: Int` and then choose a single reason for every loss it recorded. Each lost path must keep
-     * its reason; the public outcome list does not promise an order.
-     *
-     * This is the test that dies if the two causes are ever collapsed again -- in either direction --
-     * and the reason `commit` carries a `List<AbortReason>` rather than a count.
+     * Both causes in ONE fork: each lost path keeps its own reason, which a single loss counter with one
+     * chosen reason cannot express. The public outcome list does not promise an order.
      */
     @Test
     fun oneForkThatLosesAPathToEachCauseRecordsTheRightReasonForEachOne() {
         val graph = sessionWithUndecodableAddress(
             "gotoSkip()I", at = 0,
-            listOf(Transition.Jump(9999), Transition.Jump(2), Transition.Continue),
+            listOf(OpArm.Jump(9999), OpArm.Jump(2), OpArm.Continue()),
             decodeFailsAt = 2,
         ).run()
         assertEquals(1, graph.outcomes.count { it == Outcome.Aborted(AbortReason.MALFORMED_INPUT) })
@@ -326,28 +286,16 @@ class CommitTest {
     }
 
     /**
-     * THE SIDE-EFFECT RULING, pinned rather than left to a comment. `ExecutionGraph.sideEffectLevel`
-     * derives `STRONG` from `Aborted(UNSUPPORTED_OP)` and from nothing else, and
-     * [AbortReason.MALFORMED_INPUT] deliberately does **not** join that rule:
-     *
-     *  - the op at the recording address ran to completion and declared its own level, so rule 1 is
-     *    already accurate there -- unlike `UNSUPPORTED_OP`, where no real op ran and what it would
-     *    have done is unknown;
-     *  - the failure is detected by `MethodView.hasAddress` BEFORE any successor frame is built, so no
-     *    half-mutation is possible -- which is the exact property Plan 7 used to keep `ADDRESS_LIMIT`,
-     *    `METHOD_LIMIT` and `TIMEOUT` out of the rule, and the property `HOST_FAILURE` lacks;
-     *  - there is no unknown op to over-approximate, because the named address is not in the method at
-     *    all and so can never be an address any query reports on;
-     *  - the truncation itself is already fully accounted for by `Partial` and a null `trusted()`,
-     *    asserted below.
-     *
-     * A spurious `STRONG` is not a harmless over-approximation: Plan 7 Task 10 measured that it
-     * silently stops every constant fold. The outcome assertion proves that the malformed target was
-     * detected, so `NONE` is not a vacuous result.
+     * `ExecutionGraph.sideEffectLevel` derives `STRONG` from `Aborted(UNSUPPORTED_OP)` and from nothing
+     * else; [AbortReason.MALFORMED_INPUT] deliberately does **not** join that rule. The op at the recording
+     * address ran to completion and declared its own level; the failure is detected before any successor
+     * frame is built, so no half-mutation is possible; and the truncation is carried by `Partial` and a
+     * null `trusted()`. A spurious `STRONG` stops every constant fold. The outcome assertion proves the
+     * malformed target was detected, so `NONE` is not a vacuous result.
      */
     @Test
     fun aMalformedTargetDeclaresNoSideEffectAtTheAddressThatNamedIt() {
-        val graph = sessionWith("nopThenConst()I", at = 0, listOf(Transition.Jump(9999))).run()
+        val graph = sessionWith("nopThenConst()I", at = 0, listOf(OpArm.Jump(9999))).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)
         assertEquals(
             SideEffectLevel.NONE, graph.sideEffectLevel(0),

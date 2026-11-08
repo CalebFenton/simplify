@@ -20,8 +20,7 @@ class InvocationIntrinsicsTest {
     @Test
     fun knownArrayCloneAllocatesFreshCopyAndAdvancesTheSessionAllocator() {
         val vm = VmServices(classIndex)
-        val entry = callerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(CLONE_INT_ARRAY)
         val source = frame.allocateArray(
             intArrayType,
             arrayOf(Value.Known(1, intType), Value.Unknown(intType), Value.Known(3, intType)),
@@ -30,7 +29,7 @@ class InvocationIntrinsicsTest {
         val sentinel = frame.allocateArray(intArrayType, arrayOf(Value.Known(77, intType)))
         val sentinelRef = sentinel.raw as HeapRef
         frame.assign(0, Value.Known(sourceRef, objectType))
-        val session = invokeOnce(vm, ARRAY_CLONE, InvokeKind.VIRTUAL, frame = frame)
+        val session = vm.newSession(view(CLONE_INT_ARRAY), Limits(), frame)
         val graph = session.run()
 
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -59,10 +58,10 @@ class InvocationIntrinsicsTest {
         assertEquals(1, registrations.size)
         assertSame(registrations.single(), vm.invocationServices.emulators.find(ARRAY_CLONE))
 
-        for (target in listOf(ARRAY_CLONE, OBJECT_CLONE)) {
+        for ((target, descriptor) in listOf(ARRAY_CLONE to CLONE_INT_ARRAY, OBJECT_CLONE to CLONE_OBJECT)) {
             val (session, sourceRef) = cloneSession(
                 vm,
-                target,
+                descriptor,
                 arrayOf(Value.Known(4, intType), Value.Known(5, intType)),
             )
             val graph = session.run()
@@ -84,7 +83,7 @@ class InvocationIntrinsicsTest {
         val vm = VmServices(classIndex)
         val (session, sourceRef) = cloneSession(
             vm,
-            ARRAY_CLONE,
+            CLONE_INT_ARRAY,
             arrayOf(Value.Known(7, intType), Value.Known(8, intType)),
         )
         val graph = session.run()
@@ -101,7 +100,8 @@ class InvocationIntrinsicsTest {
     @Test
     fun unknownArrayCloneReturnsTypedUnknownWithoutAllocating() {
         val vm = VmServices(classIndex)
-        val session = invokeOnce(vm, ARRAY_CLONE, InvokeKind.VIRTUAL, listOf(Value.Unknown(intArrayType)))
+        val frame = seeded(CLONE_INT_ARRAY, Value.Unknown(intArrayType))
+        val session = vm.newSession(view(CLONE_INT_ARRAY), Limits(), frame)
         val graph = session.run()
 
         assertEquals(listOf(Outcome.Returned(Value.Unknown(intArrayType))), graph.outcomes)
@@ -112,12 +112,11 @@ class InvocationIntrinsicsTest {
     @Test
     fun getClassUsesTheTrackedRuntimeTypeInsteadOfTheLooseRegisterTag() {
         val vm = VmServices(classIndex)
-        val entry = callerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(GET_CLASS_OF)
         val runtimeType = VirtualType.of("Lhash_code;")
         val receiver = frame.allocateObject(runtimeType, classIndex.instanceFieldDefaults(runtimeType)!!)
         frame.assign(0, Value.Known(receiver.raw, objectType))
-        val session = invokeOnce(vm, OBJECT_GET_CLASS, InvokeKind.VIRTUAL, frame = frame)
+        val session = vm.newSession(view(GET_CLASS_OF), Limits(), frame)
 
         val graph = session.run()
         val classToken = requireNotNull(classIndex.loadClassConstant(runtimeType.descriptor))
@@ -131,21 +130,10 @@ class InvocationIntrinsicsTest {
     @Test
     fun looseTaggedArrayGetClassThenComponentTypeUsesTheTrackedArrayIntrinsic() {
         val vm = VmServices(classIndex)
-        val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(COMPONENT_TYPE_OF_CLASS_OF)
         val array = frame.allocateArray(intArrayType, 0)
         frame.assign(0, Value.Known(array.raw, objectType))
-        val firstResume = entry.nextAddress(0)
-        val secondResume = entry.nextAddress(firstResume)
-        val session = ExecutionSession.of(entry, vm, Limits(), frame) { address, view, index ->
-            when {
-                view.signature != entry.signature -> OpBuilder.build(address, view, index)
-                address == 0 -> invokeOp(address, OBJECT_GET_CLASS, intArrayOf(0), InvokeKind.VIRTUAL)
-                address == firstResume -> invokeComponentTypeFromResult(address)
-                address == secondResume -> returnResultOp(address)
-                else -> OpBuilder.build(address, view, index)
-            }
-        }
+        val session = vm.newSession(view(COMPONENT_TYPE_OF_CLASS_OF), Limits(), frame)
 
         val graph = session.run()
 
@@ -166,12 +154,7 @@ class InvocationIntrinsicsTest {
     @Test
     fun unknownGetClassReturnsUnknownClassInsteadOfDeclaredObjectClass() {
         val vm = VmServices(classIndex)
-        val graph = invokeOnce(
-            vm,
-            OBJECT_GET_CLASS,
-            InvokeKind.VIRTUAL,
-            listOf(Value.Unknown(objectType)),
-        ).run()
+        val graph = runSeeded(vm, GET_CLASS_OF, Value.Unknown(objectType))
 
         assertEquals(listOf(Outcome.Returned(Value.Unknown(classType))), graph.outcomes)
     }
@@ -180,18 +163,8 @@ class InvocationIntrinsicsTest {
     fun classGetComponentTypeReturnsPrimitiveAndReferenceClassTokens() {
         val vm = VmServices(classIndex)
 
-        val primitive = invokeOnce(
-            vm,
-            CLASS_GET_COMPONENT_TYPE,
-            InvokeKind.VIRTUAL,
-            listOf(Value.Known(IntArray::class.java, classType)),
-        ).run()
-        val reference = invokeOnce(
-            vm,
-            CLASS_GET_COMPONENT_TYPE,
-            InvokeKind.VIRTUAL,
-            listOf(Value.Known(Array<String>::class.java, classType)),
-        ).run()
+        val primitive = runSeeded(vm, COMPONENT_TYPE_OF, Value.Known(IntArray::class.java, classType))
+        val reference = runSeeded(vm, COMPONENT_TYPE_OF, Value.Known(Array<String>::class.java, classType))
 
         assertEquals(
             Value.Known(Int::class.javaPrimitiveType, classType),
@@ -206,12 +179,7 @@ class InvocationIntrinsicsTest {
     @Test
     fun classGetComponentTypeReturnsTypedNullForANonArrayClass() {
         val vm = VmServices(classIndex)
-        val graph = invokeOnce(
-            vm,
-            CLASS_GET_COMPONENT_TYPE,
-            InvokeKind.VIRTUAL,
-            listOf(Value.Known(String::class.java, classType)),
-        ).run()
+        val graph = runSeeded(vm, COMPONENT_TYPE_OF, Value.Known(String::class.java, classType))
 
         assertEquals(
             Value.Known(null, classType),
@@ -222,12 +190,7 @@ class InvocationIntrinsicsTest {
     @Test
     fun unknownClassGetComponentTypeReturnsUnknownClassInsteadOfNull() {
         val vm = VmServices(classIndex)
-        val graph = invokeOnce(
-            vm,
-            CLASS_GET_COMPONENT_TYPE,
-            InvokeKind.VIRTUAL,
-            listOf(Value.Unknown(classType)),
-        ).run()
+        val graph = runSeeded(vm, COMPONENT_TYPE_OF, Value.Unknown(classType))
 
         assertEquals(listOf(Outcome.Returned(Value.Unknown(classType))), graph.outcomes)
     }
@@ -235,15 +198,14 @@ class InvocationIntrinsicsTest {
     @Test
     fun objectInitializationCompletesASubtypeWithoutReplacingItsAliasesOrAllocating() {
         val vm = VmServices(classIndex)
-        val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(INIT_OBJECT)
         val subtype = VirtualType.of("Lhash_code;")
         val receiver = frame.allocateObject(subtype, classIndex.instanceFieldDefaults(subtype)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Known(receiverRef, objectType))
         val probedBefore = probeNextHeapId(frame)
-        val session = invokeOnce(vm, OBJECT_INIT, InvokeKind.DIRECT, frame = frame)
+        val session = vm.newSession(view(INIT_OBJECT), Limits(), frame)
 
         val graph = session.run()
         val terminal = session.currentNode!!.frame
@@ -262,8 +224,7 @@ class InvocationIntrinsicsTest {
     @Test
     fun enumConstructionPreservesTrackedReceiverIdentity() {
         val vm = VmServices(classIndex)
-        val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(INIT_EXTENDS_ENUM)
         val enumType = VirtualType.of("Lextends_enum;")
         val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
@@ -271,14 +232,7 @@ class InvocationIntrinsicsTest {
         frame.assign(1, Value.Known("not-a-canonical-enum-name", VirtualType.of("Ljava/lang/String;")))
         frame.assign(2, Value.Known(0, intType))
         frame.assign(3, Value.Known(9, intType))
-        val target = method(enumType.descriptor, "<init>", "(Ljava/lang/String;II)V")
-        val session = invokeOnce(
-            vm,
-            target,
-            InvokeKind.DIRECT,
-            frame = frame,
-            registers = intArrayOf(0, 1, 2, 3),
-        )
+        val session = vm.newSession(view(INIT_EXTENDS_ENUM), Limits(), frame)
 
         val graph = session.run()
         val terminal = session.currentNode!!.frame
@@ -300,21 +254,14 @@ class InvocationIntrinsicsTest {
     @Test
     fun enumInitializationWritesUnknownInheritedFieldsConservatively() {
         val vm = VmServices(classIndex)
-        val entry = wideCallerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(INIT_ENUM)
         val enumType = VirtualType.of("Lextends_enum;")
         val receiver = frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!)
         val receiverRef = receiver.raw as HeapRef
         frame.assign(0, receiver)
         frame.assign(1, Value.Unknown(stringType))
         frame.assign(2, Value.Unknown(intType))
-        val session = invokeOnce(
-            vm,
-            ENUM_INIT,
-            InvokeKind.DIRECT,
-            frame = frame,
-            registers = intArrayOf(0, 1, 2),
-        )
+        val session = vm.newSession(view(INIT_ENUM), Limits(), frame)
 
         val graph = session.run()
         val initialized = session.currentNode!!.frame.heapObject(receiverRef) as HeapObject.TrackedObject
@@ -329,8 +276,7 @@ class InvocationIntrinsicsTest {
     fun distinctEnumReceiversRemainIsolatedInBothConstructionOrders() {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) {
             val vm = VmServices(classIndex)
-            val entry = wideCallerView()
-            var frame = Frame.entryFrame(entry)
+            var frame = entryFrame(INIT_ENUM)
             val enumType = VirtualType.of("Lextends_enum;")
             val refs = List(2) {
                 frame.allocateObject(enumType, classIndex.instanceFieldDefaults(enumType)!!).raw as HeapRef
@@ -342,13 +288,7 @@ class InvocationIntrinsicsTest {
                 frame.assign(0, Value.Known(refs[index], enumType))
                 frame.assign(1, Value.Known(names[index], stringType))
                 frame.assign(2, Value.Known(ordinals[index], intType))
-                val session = invokeOnce(
-                    vm,
-                    ENUM_INIT,
-                    InvokeKind.DIRECT,
-                    frame = frame,
-                    registers = intArrayOf(0, 1, 2),
-                )
+                val session = vm.newSession(view(INIT_ENUM), Limits(), frame)
                 val graph = session.run()
                 assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
                 frame = session.currentNode!!.frame
@@ -369,8 +309,7 @@ class InvocationIntrinsicsTest {
     fun sameNameEnumsOfDistinctRuntimeTypesRemainIsolatedInBothConstructionOrders() {
         for (order in listOf(listOf(0, 1), listOf(1, 0))) {
             val vm = VmServices(classIndex)
-            val entry = wideCallerView()
-            var frame = Frame.entryFrame(entry)
+            var frame = entryFrame(INIT_ENUM)
             val enumTypes = listOf(
                 VirtualType.of("Lextends_enum;"),
                 VirtualType.of("Lextends_enum_obfuscated;"),
@@ -388,13 +327,7 @@ class InvocationIntrinsicsTest {
                 frame.assign(0, Value.Known(refs[index], enumTypes[index]))
                 frame.assign(1, Value.Known(name, stringType))
                 frame.assign(2, Value.Known(ordinals[index], intType))
-                val session = invokeOnce(
-                    vm,
-                    ENUM_INIT,
-                    InvokeKind.DIRECT,
-                    frame = frame,
-                    registers = intArrayOf(0, 1, 2),
-                )
+                val session = vm.newSession(view(INIT_ENUM), Limits(), frame)
                 val graph = session.run()
                 assertEquals(listOf(Outcome.Returned(null)), graph.outcomes)
                 frame = session.currentNode!!.frame
@@ -435,82 +368,41 @@ class InvocationIntrinsicsTest {
 
     private fun cloneSession(
         vm: VmServices,
-        target: MethodDescriptor,
+        descriptor: String,
         elements: Array<Value>,
     ): Pair<ExecutionSession, HeapRef> {
-        val entry = callerView()
-        val frame = Frame.entryFrame(entry)
+        val frame = entryFrame(descriptor)
         val source = frame.allocateArray(intArrayType, elements)
         val sourceRef = source.raw as HeapRef
         frame.assign(0, Value.Known(sourceRef, objectType))
-        return invokeOnce(vm, target, InvokeKind.VIRTUAL, frame = frame) to sourceRef
+        return vm.newSession(view(descriptor), Limits(), frame) to sourceRef
     }
 
-    private fun invokeOnce(
-        vm: VmServices,
-        target: MethodDescriptor,
-        kind: InvokeKind,
-        values: List<Value> = emptyList(),
-        frame: Frame? = null,
-        registers: IntArray = intArrayOf(0),
-    ): ExecutionSession {
-        val entry = frame?.let { if (it.registerCount > 1) wideCallerView() else callerView() } ?: callerView()
-        val entryFrame = frame ?: Frame.entryFrame(entry).also { seeded ->
-            values.forEachIndexed(seeded::assign)
-        }
-        val resumeAddress = entry.nextAddress(0)
-        return ExecutionSession.of(entry, vm, Limits(), entryFrame) { address, view, index ->
-            when {
-                view.signature != entry.signature -> OpBuilder.build(address, view, index)
-                address == 0 -> invokeOp(address, target, registers, kind)
-                address == resumeAddress -> returnResultOp(address)
-                else -> OpBuilder.build(address, view, index)
-            }
-        }
-    }
+    /** Runs [descriptor] with its invoke's receiver register v0 holding [receiver]. */
+    private fun runSeeded(vm: VmServices, descriptor: String, receiver: Value): ExecutionGraph =
+        vm.newSession(view(descriptor), Limits(), seeded(descriptor, receiver)).run()
 
-    private fun invokeOp(
-        address: Int,
-        target: MethodDescriptor,
-        registers: IntArray,
-        kind: InvokeKind,
-    ) = object : Op(address) {
-        override val name = "invoke-intrinsic-test"
-        override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Invoke(target, registers, kind)).asOpExecution()
-    }
+    private fun seeded(descriptor: String, receiver: Value): Frame =
+        entryFrame(descriptor).also { it.assign(0, receiver) }
 
-    private fun returnResultOp(address: Int) = object : Op(address) {
-        override val name = "return-intrinsic-test-result"
-        override fun execute(frame: Frame): OpExecution =
-            listOf(Transition.Return(frame.takeResult())).asOpExecution()
-    }
+    private fun entryFrame(descriptor: String): Frame = Frame.entryFrame(view(descriptor))
 
-    private fun invokeComponentTypeFromResult(address: Int) = object : Op(address) {
-        override val name = "invoke-component-type-from-result"
-        override fun execute(frame: Frame): OpExecution {
-            frame.assign(1, requireNotNull(frame.takeResult()))
-            return listOf(Transition.Invoke(CLASS_GET_COMPONENT_TYPE, intArrayOf(1), InvokeKind.VIRTUAL))
-                .asOpExecution()
-        }
-    }
-
-    private fun callerView(): MethodView = view(CALLER, "callsCalleeAndReturnsItsResult()I")
-
-    private fun wideCallerView(): MethodView = view("Linvoke_virtual_test;", "invokeRangeManyParameters()V")
-
-    private fun view(className: String, descriptor: String): MethodView =
-        classIndex.requireMethodView(className, descriptor)
-
-    private fun method(definingClass: String, name: String, proto: String) =
-        MethodDescriptor(VirtualType.of(definingClass), name, proto)
+    private fun view(descriptor: String): MethodView = classIndex.requireMethodView(INTRINSICS, descriptor)
 
     private fun invocationDiagnostics(graph: ExecutionGraph): String = graph.addresses()
         .flatMap(graph::nodePile)
         .joinToString { "${it.address}:${it.invocationDiagnostic}:${it.sideEffectLevel}:${it.hostFailure}" }
 
     private companion object {
-        const val CALLER = "Lcalls/caller;"
+        const val INTRINSICS = "Lintrinsic_call_sites;"
+        const val CLONE_INT_ARRAY = "cloneIntArray()Ljava/lang/Object;"
+        const val CLONE_OBJECT = "cloneObject()Ljava/lang/Object;"
+        const val GET_CLASS_OF = "getClassOf()Ljava/lang/Class;"
+        const val COMPONENT_TYPE_OF = "componentTypeOf()Ljava/lang/Class;"
+        const val COMPONENT_TYPE_OF_CLASS_OF = "componentTypeOfClassOf()Ljava/lang/Class;"
+        const val INIT_OBJECT = "initObject()V"
+        const val INIT_EXTENDS_ENUM = "initExtendsEnum()V"
+        const val INIT_ENUM = "initEnum()V"
 
         val ARRAY_CLONE = MethodDescriptor(VirtualType.of("[I"), "clone", "()Ljava/lang/Object;")
         val OBJECT_CLONE = MethodDescriptor(VirtualType.OBJECT, "clone", "()Ljava/lang/Object;")
