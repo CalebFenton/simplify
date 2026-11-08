@@ -7,6 +7,8 @@ import kotlinx.collections.immutable.toPersistentList
 import com.android.tools.smali.dexlib2.iface.Annotation
 import com.android.tools.smali.dexlib2.iface.AnnotationElement
 import com.android.tools.smali.dexlib2.iface.Method
+import com.android.tools.smali.dexlib2.iface.MethodImplementation
+import com.android.tools.smali.dexlib2.iface.debug.DebugItem
 import com.android.tools.smali.dexlib2.iface.debug.SetSourceFile
 import com.android.tools.smali.dexlib2.iface.debug.StartLocal
 import com.android.tools.smali.dexlib2.iface.debug.EndLocal
@@ -105,6 +107,13 @@ internal class DexReferenceClosure private constructor(
             val collector = Collector()
             collector.method(method)
             body?.let(collector::body)
+            return collector.build()
+        }
+
+        fun fromRejectedMethod(method: Method, code: MethodImplementation): DexReferenceClosure {
+            val collector = Collector()
+            collector.method(method)
+            collector.rejectedCode(code)
             return collector.build()
         }
 
@@ -215,25 +224,35 @@ internal class DexReferenceClosure private constructor(
             body.tryRegions.forEach { region ->
                 region.handlers.forEach { handler -> handler.exceptionType?.let(::type) }
             }
-            body.debugItems.forEach { imported ->
-                when (val item = imported.item) {
-                    is StartLocal -> {
-                        item.name?.let(::string)
-                        item.type?.let(::type)
-                        item.signature?.let(::string)
-                    }
-                    is EndLocal -> {
-                        item.name?.let(::string)
-                        item.type?.let(::type)
-                        item.signature?.let(::string)
-                    }
-                    is RestartLocal -> {
-                        item.name?.let(::string)
-                        item.type?.let(::type)
-                        item.signature?.let(::string)
-                    }
-                    is SetSourceFile -> item.sourceFile?.let(::string)
+            body.debugItems.forEach { debugItem(it.item) }
+        }
+
+        fun rejectedCode(code: MethodImplementation) {
+            code.instructions.forEach { instruction -> instruction.referenceOperands().forEach(::reference) }
+            code.tryBlocks.forEach { block ->
+                block.exceptionHandlers.forEach { handler -> handler.exceptionType?.let(::type) }
+            }
+            code.debugItems.forEach(::debugItem)
+        }
+
+        private fun debugItem(item: DebugItem) {
+            when (item) {
+                is StartLocal -> {
+                    item.name?.let(::string)
+                    item.type?.let(::type)
+                    item.signature?.let(::string)
                 }
+                is EndLocal -> {
+                    item.name?.let(::string)
+                    item.type?.let(::type)
+                    item.signature?.let(::string)
+                }
+                is RestartLocal -> {
+                    item.name?.let(::string)
+                    item.type?.let(::type)
+                    item.signature?.let(::string)
+                }
+                is SetSourceFile -> item.sourceFile?.let(::string)
             }
         }
 
