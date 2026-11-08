@@ -4,7 +4,7 @@ import com.android.tools.smali.dexlib2.iface.reference.FieldReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import com.android.tools.smali.dexlib2.immutable.reference.ImmutableFieldReference
 
-/** Which Dalvik invoke instruction family a call site uses; resolution rules differ per kind (spec §5.3). */
+/** Which Dalvik invoke instruction family a call site uses; resolution rules differ per kind. */
 internal enum class InvokeKind { STATIC, DIRECT, SUPER, VIRTUAL, INTERFACE }
 
 /**

@@ -83,15 +83,6 @@ internal object CoreTester {
      * consumer's own path and the completion check becomes unskippable.
      */
     fun test(className: String, methodDescriptor: String, initial: CoreState, expected: CoreState) {
-        // A negative register is the old engine's result/exception pseudo-register. No graph query exposes
-        // the result or caught slot, and an out-of-range register reads `Top`, so the expectation would pass
-        // or fail for the wrong reason; assert the register `move-result`/`move-exception` wrote instead.
-        require((expected.registers.keys + expected.arrays.keys).none { it < 0 }) {
-            "CoreTester.test cannot check the result/caught slots -- no graph query exposes them, and a " +
-                "NEGATIVE expected register is the old engine's ExecutionState.RESULT_REGISTER / " +
-                "EXCEPTION_REGISTER idiom. Assert the register a `move-result`/`move-exception` moved " +
-                "the slot INTO instead: $expected"
-        }
         // An expectation with no register, array, or static field asserts only that the run completed.
         require(expected.registers.isNotEmpty() || expected.arrays.isNotEmpty() || expected.staticFields.isNotEmpty()) {
             "CoreTester.test needs at least one expected register, array or static field, or it asserts " +
@@ -108,9 +99,9 @@ internal object CoreTester {
         // wrong register number.
         val view = classIndex.requireMethodView(className, methodDescriptor)
         val expectedRegistersAndArrays = expected.registers.keys + expected.arrays.keys
-        require(expectedRegistersAndArrays.all { it < view.registerCount }) {
+        require(expectedRegistersAndArrays.all { it in 0 until view.registerCount }) {
             "CoreTester.test was given expected register(s) " +
-                "${expectedRegistersAndArrays.filter { it >= view.registerCount }} outside " +
+                "${expectedRegistersAndArrays.filter { it !in 0 until view.registerCount }} outside " +
                 "$className->$methodDescriptor's [0, ${view.registerCount}) -- which would compare " +
                 "Value.Top against Value.Top and pass while asserting nothing"
         }

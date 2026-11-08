@@ -37,8 +37,7 @@ class CommitTest {
     /**
      * A session whose decoder throws at [decodeFailsAt]: the only way to reach a successor that cannot be
      * built because this engine's own code failed, as opposed to a malformed target, which is detected
-     * before decode. No fixture provokes it, because `OpBuilder.build` succeeds for every instruction in the
-     * corpus.
+     * before decode. No fixture provokes it, because `OpBuilder.build` succeeds for every fixture instruction.
      *
      * [decodeFailsAt] must not be the entry address: the session decodes the root node during
      * construction, outside any successor-building boundary.
@@ -89,18 +88,17 @@ class CommitTest {
     }
 
     /**
-     * ALL_OR_NOTHING is scoped to the arm that declared it. A malformed try-block table makes every clause
-     * in **that table** suspect -- and nothing else. The fall-through target of a sibling `Continue` never
-     * consults the table, so discarding it would lose a fully resolved normal-execution path, which is the
-     * shape a `div-int` inside a try block has.
+     * ALL_OR_NOTHING is scoped to the arm that declared it. A malformed try-block table makes every clause in
+     * that table suspect and nothing else: a sibling `Continue` never consults the table, so discarding it
+     * would lose a resolved normal path, the shape of a `div-int` inside a try block.
      *
-     * The reason is [AbortReason.MALFORMED_INPUT]: `OnUnbuildable` decides HOW MUCH is abandoned, never WHY,
-     * and a handler address the method does not contain is the bytecode naming something impossible.
+     * The reason is [AbortReason.MALFORMED_INPUT]: `OnUnbuildable` decides how much is abandoned, not why, and
+     * a handler address the method does not contain is the bytecode naming something impossible.
      */
     @Test
     fun aMalformedHandlerTableDoesNotDiscardAFeasibleNormalBranch() {
         val runtimeException = VirtualType.of("Ljava/lang/RuntimeException;")
-        // A KNOWN thrown type, so handler search is definite: the one clause matches and its handler
+        // A known thrown type, so handler search is definite: the one clause matches and its handler
         // address is the only successor the throw contributes -- and it is not an instruction.
         val exception = Value.Known(RuntimeException("boom"), runtimeException)
         val view = withTryBlocks("nopThenConst()I") {
@@ -122,18 +120,17 @@ class CommitTest {
     }
 
     /**
-     * The throw's handler fork is ALL_OR_NOTHING **within itself**, whatever sibling arms exist. One
-     * malformed clause means NONE of that table's handlers are routed and its escape conclusion is dropped
-     * too -- the escape reads the same table, so "escapes unhandled" is exactly as suspect as "caught at the
-     * method end".
+     * The throw's handler fork is ALL_OR_NOTHING within itself, whatever sibling arms exist. One malformed
+     * clause means none of that table's handlers are routed, and the escape is dropped too because it reads the
+     * same table.
      *
-     * The good handler's address must be one the NORMAL path cannot reach. In `gotoSkip()I` (`const/4`@0,
+     * The good handler's address must be one the normal path cannot reach. In `gotoSkip()I` (`const/4`@0,
      * `goto`@1 -> 3, the skipped `const/4`@2, `return v0`@3) address 2 is reachable only by routing.
      */
     @Test
     fun aPartlyMalformedHandlerTableRoutesNoneOfItsHandlersEvenWhenANormalSiblingSurvives() {
         val objectType = VirtualType.of("Ljava/lang/Object;")
-        // Unknown thrown type -> ambiguous, so EVERY covering handler plus the escape is feasible and
+        // Unknown thrown type -> ambiguous, so every covering handler plus the escape is feasible and
         // the table's good clause at address 2 would be routed if the policy were per-clause.
         val view = withTryBlocks("gotoSkip()I") {
             listOf(
@@ -161,7 +158,7 @@ class CommitTest {
             "and the escape, which reads the same table, is dropped with it",
         )
         assertTrue(graph.wasReached(1), "while the normal branch, which reads no table, survives")
-        // Returned(Top): the scripted op REPLACED `const/4 v0, 0x1` at address 0, so v0 is never
+        // Returned(Top): the scripted op replaced `const/4 v0, 0x1` at address 0, so v0 is never
         // assigned and the `return v0` at address 3 reads an unassigned register.
         assertEquals(
             setOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT), Outcome.Returned(Value.Top)),
@@ -171,7 +168,7 @@ class CommitTest {
         assertEquals(2, graph.outcomes.size)
     }
 
-    /** Spec §4.4 requires one public outcome for each path lost to a malformed target. */
+    /** Each path lost to a malformed target yields one public outcome. */
     @Test
     fun everyBranchOfAFullyUnbuildableForkGetsItsOwnOutcome() {
         val graph = sessionWith(
@@ -188,7 +185,7 @@ class CommitTest {
 
     /**
      * An op execution with no arms would leave its node with no outcome and no children: a silently
-     * dropped path on a run that still reports Complete. Spec §4.4 requires one Outcome per explored path.
+     * dropped path on a run that still reports Complete. Every explored path yields one Outcome.
      */
     @Test
     fun anOpThatReturnsNoArmsFailsLoudlyInsteadOfDroppingItsPathSilently() {
@@ -215,14 +212,12 @@ class CommitTest {
         assertTrue(failure.message!!.contains("Mixed path-ending transitions"))
     }
 
-    // --- MALFORMED_INPUT: which of the two unbuildable-successor causes is a bug in THIS codebase ---
-
     /**
-     * A jump to an address the method does not contain is bad INPUT: obfuscated APKs emit off-the-end
+     * A jump to an address the method does not contain is bad input: obfuscated APKs emit off-the-end
      * targets routinely, and reporting them as [AbortReason.HOST_FAILURE] would make a genuine engine bug
      * indistinguishable from hostile-but-valid input.
      *
-     * `gotoSkip()I` because its address 2 is reachable ONLY by a jump, which the sibling test below needs.
+     * `gotoSkip()I` because its address 2 is reachable only by a jump, which the sibling test below needs.
      * `Returned(Value.Top)` because the scripted op replaced the `const/4` that would have assigned v0.
      */
     @Test
@@ -243,7 +238,7 @@ class CommitTest {
     }
 
     /**
-     * Decode is THIS engine's code, so a decode that throws is a genuine [AbortReason.HOST_FAILURE] and must
+     * Decode is this engine's code, so a decode that throws is a genuine [AbortReason.HOST_FAILURE] and must
      * stay one. Same fixture, same fork shape, same surviving sibling as the test above; only the cause
      * differs.
      */
@@ -265,7 +260,7 @@ class CommitTest {
     }
 
     /**
-     * Both causes in ONE fork: each lost path keeps its own reason, which a single loss counter with one
+     * Both causes in one fork: each lost path keeps its own reason, which a single loss counter with one
      * chosen reason cannot express. The public outcome list does not promise an order.
      */
     @Test

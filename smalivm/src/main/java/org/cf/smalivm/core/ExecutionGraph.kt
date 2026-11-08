@@ -4,7 +4,7 @@ import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.toPersistentList
 
 /**
- * An immutable, single-revision execution result for one method (spec §5.4): the nodes every explored path
+ * An immutable, single-revision execution result for one method: the nodes every explored path
  * produced, piled by address. Every read is pure, so an observer cannot perturb what it measures.
  *
  * The value queries live on [ExploredPaths]: [explored] answers them over whatever this run walked, and
@@ -17,7 +17,7 @@ public class ExecutionGraph internal constructor(
     internal val methodView: MethodView,
     /** Union over every activation of [methodView], including recursive ones. */
     private val addressToNodes: Map<Int, List<ExecutionNode>>,
-    /** The run's OWN activation only. Feeds [returningNodes] and therefore the whole terminating family. */
+    /** The run's own activation only. Feeds [returningNodes]. */
     private val addressToNodesInThisRunsActivation: Map<Int, List<ExecutionNode>>,
     outcomes: Iterable<Outcome>,
     private val completion: CompletionStatus,
@@ -41,8 +41,6 @@ public class ExecutionGraph internal constructor(
     internal val explored: ExploredPaths = ExploredPaths(this)
 
     private val trustedView: TrustedGraphView by lazy { TrustedGraphView(this) }
-
-    // --- structure ---
 
     /** Every code address in the method, ascending; a fresh array on every call. */
     internal fun addresses(): IntArray = methodView.addresses
@@ -82,8 +80,6 @@ public class ExecutionGraph internal constructor(
         .flatMap { addressToNodesInThisRunsActivation[it].orEmpty() }
         .filter { it.outcome is Outcome.Returned }
 
-    // --- liveness ---
-
     internal fun registersAssigned(address: Int): Set<Int> =
         opOrNull(address)?.registersAssigned?.toSortedSet() ?: emptySet()
 
@@ -107,14 +103,12 @@ public class ExecutionGraph internal constructor(
 
     /**
      * Registers free for scratch use anywhere in the method: those no op touches and no parameter holds. Both
-     * halves of a wide value count as used, because [Op.destinationRegisters] names both halves of a wide
+     * halves of a wide value count as used, because an op's `registersAssigned` names both halves of a wide
      * result. [address] is unused: this is whole-method, coarser than per-point liveness, and never fails on an
      * unreached address.
      */
     internal fun availableRegisters(address: Int): IntArray =
         (0 until methodView.registerCount).filterNot { it in usedRegisters }.toIntArray()
-
-    // --- completion and the trust gate ---
 
     /** Whether exploration completed, aborted, or has not finished yet. */
     public fun completion(): CompletionStatus = completion

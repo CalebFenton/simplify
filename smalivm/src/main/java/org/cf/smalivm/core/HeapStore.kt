@@ -141,7 +141,7 @@ internal class HeapObjects private constructor(
 }
 
 /**
- * One path's heap (spec §4.2): instance state and object identity, resolved per path rather than per frame, so a
+ * One path's heap: instance state and object identity, resolved per path rather than per frame, so a
  * callee's mutation is visible to its caller on the same path while registers stay method-local.
  *
  * [copy] creates a wrapper over the same persistent roots. Objects are immutable versions, so writes replace only
@@ -160,9 +160,8 @@ internal class HeapStore private constructor(
         require(length <= MAX_TRACKED_ARRAY_LENGTH) {
             "Cannot track an array of length $length; over $MAX_TRACKED_ARRAY_LENGTH the caller models it as unknown"
         }
-        // A tracked array's own type is always a real array descriptor -- object over tag. A caller holding
-        // only a loosely-tagged register must resolve the truth BEFORE allocating (from the type operand, or
-        // from a seeded host array's class); it may not launder a non-array tag through here.
+        // A tracked array's own type is always a real array descriptor. A caller holding only a loosely-tagged
+        // register resolves the type before allocating (from the type operand or a seeded host array's class).
         val component = requireNotNull(type.componentType) {
             "A tracked array's type must be an array descriptor, not $type; resolve the component before allocating"
         }
@@ -1058,13 +1057,11 @@ private fun PersistentList<Value>.mapValues(transform: (Value) -> Value): Persis
 internal const val MAX_TRACKED_ARRAY_LENGTH: Int = 1 shl 20
 
 /**
- * Java's default for a fresh array element. A reference component gets `Known(null, T)` -- DEFINITELY
- * null (spec §4.1), not `Unknown`, because "every element of a fresh reference array is null" is a
- * provable fact and answering `Unknown` would throw it away.
+ * Java's default for a fresh array element. A reference component gets `Known(null, T)`, not `Unknown`:
+ * every element of a fresh reference array is provably null.
  *
  * [componentType] is always a real component, because a tracked array's own type is always a real array
- * descriptor (object over tag) and `allocateArray` rejects anything else. There is deliberately no
- * non-array case here to be lenient about.
+ * descriptor and `allocateArray` rejects anything else.
  */
 internal fun defaultElementValue(componentType: VirtualType): Value = Value.Known(
     when (componentType.descriptor) {

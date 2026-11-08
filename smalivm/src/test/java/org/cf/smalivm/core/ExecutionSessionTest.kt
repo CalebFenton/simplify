@@ -292,4 +292,54 @@ class ExecutionSessionTest {
         assertEquals(emptyList<Outcome>(), midRun.outcomes, "the snapshot must not have changed")
         assertEquals(listOf(Outcome.Returned(Value.Known(5, int))), s.graph().outcomes)
     }
+
+    @Test
+    fun publicFrontierContainsOnlyExecutablePreOpNodesDuringThreeFrameUnwind() {
+        val s = vm.newSession(classIndex.requireMethodView("Lexception_propagation_test;", "outerThreeFrames()I"))
+
+        while (!s.isFinished) {
+            val next = s.frontier.last()
+            assertEquals(OpProgress.Pending, next.progress)
+            assertSame(next, s.step())
+            assertTrue(s.frontier.all { it.progress == OpProgress.Pending })
+        }
+    }
+
+    @Test
+    fun opProgressAndWasReachedKeepTheirExactPhaseTruthTable() {
+        val preOpLimit = session("returnFive()I", Limits(maxSteps = 1))
+        preOpLimit.step()
+        val stopped = preOpLimit.step()!!
+        assertEquals(OpProgress.Pending, stopped.progress, "a pre-op limit abort did not enter execute")
+        assertFalse(preOpLimit.graph().wasReached(stopped.address))
+
+        val normal = session("returnFive()I")
+        val executed = normal.step()!!
+        assertTrue(executed.progress is OpProgress.Executed)
+        assertTrue(normal.graph().wasReached(executed.address))
+
+        val unsupported = session("unsupportedWideFilledArray()I")
+        unsupported.step()
+        val aborted = unsupported.step()!!
+        assertEquals(Outcome.Aborted(AbortReason.UNSUPPORTED_OP), aborted.outcome)
+        assertTrue(aborted.progress is OpProgress.Executed, "UnsupportedOp returns Abort from execute")
+        assertTrue(unsupported.graph().wasReached(aborted.address))
+
+        val hostFailure = vm.newSession(viewOf("returnFive()I"), Limits(), null) { address, view, resolver ->
+            if (address == 0) {
+                object : Op(address) {
+                    override val name = "throws-host-failure"
+
+                    override fun execute(frame: Frame): OpExecution =
+                        throw IllegalStateException("host failure before execute returned")
+                }
+            } else {
+                OpBuilder.build(address, view, resolver)
+            }
+        }
+        val failed = hostFailure.step()!!
+        assertEquals(AbortReason.HOST_FAILURE, failed.outcome.abortReason)
+        assertEquals(OpProgress.Failed, failed.progress, "execute was entered before the host throwable escaped it")
+        assertFalse(hostFailure.graph().wasReached(failed.address), "wasReached still means execute returned")
+    }
 }

@@ -3,7 +3,7 @@ package org.cf.smalivm.core
 import java.util.Collections
 
 /**
- * Whether a run explored everything it set out to (spec §6.4, §9): the gate for optimizer trust. Trust is all
+ * Whether a run explored everything it set out to: the gate for optimizer trust. Trust is all
  * or nothing, so [Partial] has no "mostly done" accessor.
  */
 public sealed interface CompletionStatus {
@@ -37,10 +37,7 @@ public sealed interface CompletionStatus {
     public data object InProgress : CompletionStatus
 }
 
-/**
- * Completion-gated trust (spec §9): a strategy may act on consensus only from a run whose exploration
- * completed. The single predicate the trust gate routes through.
- */
+/** A strategy may act on consensus only from a run whose exploration completed; every trust check routes here. */
 public val CompletionStatus.canTrustConsensus: Boolean
     get() = when (this) {
         is CompletionStatus.Complete -> true

@@ -24,7 +24,7 @@ class BackendSideEffectsTest {
     @Test
     fun exactMutationUnderDeclaredNoneImportsAliasesAndRemainsNone() {
         // Bug class: exact VM-owned mutation is imported but spuriously raised from declared NONE to WEAK.
-        // Oracle: Plan 11 Task 42 keeps declared NONE when exact reconciliation imports all modeled mutation.
+        // Oracle: a mutation that exact reconciliation fully imports leaves the declared NONE effect standing.
         val target = method(HOST, "mutate", "(Ljava/lang/StringBuilder;)V")
         val run = execute(
             "observedMutation(Ljava/lang/StringBuilder;)Ljava/lang/StringBuilder;",
@@ -74,7 +74,7 @@ class BackendSideEffectsTest {
     @Test
     fun mutationBeforeTargetThrowRetainsGraphChangeAndDeclaredNone() {
         // Bug class: target-throw routing restores changed graph state or raises reconciled NONE mutation to WEAK.
-        // Oracle: Plan 11 Task 42 finalizes mutation before guest routing and preserves declared NONE.
+        // Oracle: mutation is imported before the throw is routed to the guest, and declared NONE stands.
         val target = method(HOST, "mutateThenThrow", "(Ljava/lang/StringBuilder;)V")
         val run = execute(
             "mutationBeforeTargetThrow(Ljava/lang/StringBuilder;)Ljava/lang/String;",
@@ -127,6 +127,6 @@ class BackendSideEffectsTest {
         const val FIXTURE = "Lbackend_side_effect_test;"
         val INT = VirtualType.of("I")
         val BUILDER = VirtualType.of("Ljava/lang/StringBuilder;")
-        val HOST = VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;")
+        val HOST = VirtualType.of("Lorg/cf/smalivm/core/BackendHostFixture;")
     }
 }

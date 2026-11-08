@@ -8,17 +8,11 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 /**
- * The [CallStack] and the bound on it.
+ * The [CallStack] and the bound on it. Ancestry follows `Activation.caller` by identity, and a self-recursive
+ * guest method must end in `AbortReason.CALL_DEPTH` rather than hang or overflow the host stack.
  *
- * Bug classes:
- *  (a) **No call stack at all**, or ancestry that does not follow `Activation.caller` by identity. The rising
- *      and falling depth here verifies the ancestry lifecycle.
- *  (b) **Unbounded recursion.** A self-recursive guest method either hangs the suite or overflows the host
- *      stack unless `Limits.maxCallDepth` reports it as `AbortReason.CALL_DEPTH`.
- *
- * Oracle: the old engine's `DEFAULT_MAX_CALL_DEPTH = 20`, checked at a callee's entrypoint as
- * `current.callDepth > maxCallDepth`, whose documentation reads *"Checked only at entry. Exceeding the limit
- * clears the current frame"*. It has no recursion detection beyond depth, and neither does this.
+ * `Limits.maxCallDepth` counts frames and is checked only at a callee's entry; there is no recursion detection
+ * beyond depth.
  */
 class CallStackTest {
     private val classIndex = CoreTester.classIndex
@@ -32,7 +26,7 @@ class CallStackTest {
 
     @Test
     fun theCallStackDepthRisesInsideTheCalleeAndFallsWhenItReturns() {
-        // Bug class (a). `callsCalleeAndReturnsItsResult()I` is invoke @0, move-result @3, return @4;
+        // `callsCalleeAndReturnsItsResult()I` is invoke @0, move-result @3, return @4;
         // `returnsSeven()I` is const @0, return @1. So the walk is
         // caller@0 (depth 0) -> callee@0, callee@1 (depth 1) -> caller@3, caller@4 (depth 0 again).
         val session = callerSession("callsCalleeAndReturnsItsResult()I")
@@ -62,10 +56,9 @@ class CallStackTest {
 
     @Test
     fun aCalleesActivationNamesItsCallerAndTheCallerIsSharedByEveryNodeOfTheCall() {
-        // The call edge is `Activation.caller`, deliberately NOT `ExecutionNode.parent`: the old engine's
-        // single parent edge encoded control flow AND call ancestry at once, which is how a caller's catch
-        // handler ended up inheriting a callee's locals. And one activation per CALL, not per node: the pile
-        // and the visit budget hang off it, so two nodes of one call must share the object.
+        // The call edge is `Activation.caller`, not `ExecutionNode.parent`: one edge for both control flow and
+        // call ancestry would let a caller's handler inherit a callee's locals. There is one activation per call,
+        // not per node, because the pile and the visit budget hang off it.
         val session = callerSession("callsCalleeAndReturnsItsResult()I")
         val nodes = mutableListOf<ExecutionNode>()
         while (true) nodes.add(session.step() ?: break)
@@ -93,8 +86,8 @@ class CallStackTest {
 
     @Test
     fun aSelfRecursiveCalleeReportsCallDepthInsteadOfHangingOrOverflowingTheHostStack() {
-        // Bug class (b), at the DEFAULT limit -- which is the assertion that matters, because a fixture that
-        // only terminates under a hand-tightened bound would still take a real run down.
+        // At the default limit: a fixture that only terminates under a hand-tightened bound would still take a
+        // real run down.
         val session = recursiveSession(Limits())
         val graph = session.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.CALL_DEPTH)), graph.completion())
@@ -103,16 +96,14 @@ class CallStackTest {
     }
 
     @Test
-    fun theCallDepthBoundPermitsExactlyTheOraclesNumberOfFrames() {
-        // The off-by-one: the bound is a FRAME COUNT, not a depth. The old engine's `callDepth` is 1-based
-        // (its top-level node is depth one) and it compares `> maxCallDepth`, so `maxCallDepth = 3` permits
-        // THREE frames. `Activation.depth` is 0-based, so comparing that against the same bound would permit
-        // four. `Activation.frameCount` is the value with the oracle's origin.
+    fun theCallDepthBoundCountsFramesNotDepth() {
+        // `maxCallDepth = 3` permits three frames. `Activation.depth` is 0-based, so comparing it against the
+        // bound would permit four; `Activation.frameCount` is what the bound compares.
         val session = recursiveSession(Limits(maxCallDepth = 3, maxSteps = 500))
         while (session.step()?.outcome != Outcome.Aborted(AbortReason.CALL_DEPTH)) Unit
         assertEquals(
             4, session.callStack.frames.size,
-            "the bound stopped the FOURTH frame; three frames -- the oracle's three -- were allowed to run",
+            "the bound stopped the fourth frame; three frames were allowed to run",
         )
         assertEquals(4, session.callStack.top.frameCount, "and frameCount is what the bound compared")
         assertEquals(3, session.callStack.depth, "the 0-based depth of that fourth frame is 3")
@@ -129,7 +120,7 @@ class CallStackTest {
 
     @Test
     fun aResumedCallerNodeIsNotACallEntry() {
-        // "My activation differs from my parent's" is also true of a caller-RESUME node, whose parent is the
+        // "My activation differs from my parent's" is also true of a resumed caller node, whose parent is the
         // callee's returning node; `isCallEntry` must not call a return a call entry.
         val session = callerSession("callsCalleeAndReturnsItsResult()I")
         val nodes = mutableListOf<ExecutionNode>()
@@ -146,10 +137,8 @@ class CallStackTest {
 
     @Test
     fun aZeroCallDepthBoundIsOptedOutOfLikeEveryOtherLimit() {
-        // `Limits`'s own contract is "all are opt-out with 0", and a bound that silently kept applying at 0
-        // would be the one limit that broke it. Kept terminating by maxSteps, which is what actually stops
-        // the recursion here -- so this also demonstrates that maxSteps is a backstop and not the mechanism
-        // the test above measures.
+        // `Limits` contract: every limit is opted out with 0. maxSteps is what stops the recursion here, which
+        // also shows it is a backstop and not the mechanism the test above measures.
         val session = recursiveSession(Limits(maxCallDepth = 0, maxSteps = 40))
         val graph = session.run()
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.METHOD_LIMIT)), graph.completion())
@@ -161,10 +150,9 @@ class CallStackTest {
 
     @Test
     fun theEntryActivationsReturnStillEndsAPathOfTheRun() {
-        // The half `planReturn` decides by looking at `Activation.returnSite`, and the reason it cannot
-        // decide by comparing methods: a self-recursive method's innermost `return` and the entry
-        // activation's `return` are the same instruction in the same method. This is the no-call control --
-        // one activation, so the return ends the run's path.
+        // `planReturn` decides by `Activation.returnSite`, not by comparing methods: a self-recursive method's
+        // innermost `return` and the entry activation's `return` are the same instruction. This is the no-call
+        // control: one activation, so the return ends the run's path.
         val session = CoreTester.vmServices.newSession(viewOf("Lspine/spine;", "returnFive()I"))
         session.run()
         assertEquals(listOf(Outcome.Returned(Value.Known(5, int))), session.outcomes)
@@ -176,9 +164,8 @@ class CallStackTest {
     }
 
     /**
-     * A session on `callsRecursiveCallee()I`, whose callee calls ITSELF. The recursion is deliberately one
-     * frame down rather than in the entry method, because the bound is about the CALL STACK and not about
-     * the method the run started in.
+     * A session on `callsRecursiveCallee()I`, whose callee calls itself. The recursion is one frame down, not in
+     * the entry method, because the bound is about the call stack rather than the method the run started in.
      */
     private fun recursiveSession(limits: Limits): ExecutionSession = callerSession("callsRecursiveCallee()I", limits)
 
