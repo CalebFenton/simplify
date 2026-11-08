@@ -36,9 +36,9 @@ SmaliVM separates method structure, execution evidence, and editing:
   method's `MethodControlFlow`, and a fresh transaction the optimizer opened. After a commit, the optimizer
   re-executes the published method and restarts at the first strategy.
   Only committed changes contribute to optimization counts. Partial analysis authorizes no rewrite.
-- Effect and identity proofs remain conservative: volatile accesses, array writes, synchronization,
-  and observable exceptions are retained. Reflective calls require proven normal continuation and no
-  side effects before lowering.
+- Effect and identity proofs remain conservative: volatile accesses, writes to kept arrays, synchronization,
+  and observable exceptions are retained. Reflective calls require proven normal continuation and no side
+  effects before lowering.
 - Constant propagation folds a known `String` into a `const-string`, whose interned object is not the
   computed one, only where the method does not observe the object's identity. The object is followed
   from the folded register through `move-object*` copies and `check-cast` over every edge of the
@@ -48,6 +48,33 @@ SmaliVM separates method structure, execution evidence, and editing:
   treated as unobserved. A copy whose source provably holds the same `const-string` on every path
   folds regardless. A `String` constructor is kept and followed by the literal, and only when a later
   instruction still reads the object it built.
+- Dead removal deletes a dead assignment, an unused call result, or a void call other than a constructor only
+  when every structurally reachable instruction ran, the op continued normally on every execution and its
+  effect is `NONE`. A constructor call goes only with its allocation.
+- **Dead allocations.** An object the method allocates (`new-instance`, `new-array`, `filled-new-array*`)
+  whose identity and state no kept instruction observes is removed with every instruction whose only purpose
+  is that object. A forward pass over the static control flow records which allocations each register may
+  hold and whether it may hold anything else; exceptional edges carry the pre-instruction state. A reader of
+  an allocation goes with it only when every allocation it reads is dead, it continued normally on every
+  execution, and it is one of:
+  - the allocation itself, with effect `NONE` (an allocation that triggers an effectful class
+    initialization stays);
+  - a `move-object` or `check-cast` whose register holds only allocations, with effect `NONE`;
+  - a `fill-array-data` or `aput*` into an array register that holds only allocations, with effect at most
+    `WEAK`; an `aput-object` value must be dead or an immutable host value;
+  - a confined call: effect `NONE` and not a constructor; or effect `NONE`, or `WEAK` where every execution
+    ran a policy-authorized host method (`didEveryExecutionRunHostMethod`), with every reference operand
+    dead or an immutable host value. A constructor's receiver must hold only allocations. A host method
+    changes nothing outside the objects reachable from its receiver and arguments, so such a call changes
+    only dead objects. `Class.forName` is never confined.
+
+  Every other reader keeps each allocation it reads: a field or static store, a store into a kept array,
+  `return`, `throw`, a reference comparison, `monitor-*`, `instance-of`, `array-length`, a field or element
+  read, a `check-cast` that can throw, and a call that is not confined. A call result carries every
+  allocation its operands hold, so a kept reader of the result keeps the call. A `move-result-object` that
+  holds, on every execution, the one tracked object an operand holds (a builder returning `this`) may hold
+  another value only where that operand may. A reader the liveness pass removes in the same pass, such as an
+  unused `instance-of`, still keeps its allocations; the optimizer's next pass removes them.
 
 ## Analysis query contract
 
@@ -87,6 +114,13 @@ completion gate, for the debugger and tests; every rule below holds for both.
 - **Effects.** `sideEffectLevel(address)` is the most any op there declared, or `STRONG` where a path
   aborted on an unsupported opcode. It is `NONE` for an address no op ran at. `methodSideEffectLevel` is
   the maximum over the method.
+  `didEveryExecutionRunHostMethod(address)` is true only when every node there ran its call in the
+  reflection backend: a host method the reflection policy authorized, which changes nothing outside the
+  objects reachable from its receiver and arguments. Guest bytecode, emulators and opaque calls answer false.
+- **Normal continuation.** `didEveryExecutionContinueNormally(address)` is true only when every node there
+  ran and continued at a following instruction with no exceptional partition. A node that triggered class
+  initialization continues normally when the initialization settles and its op runs again, and
+  exceptionally when the initializer throws or aborts or a failed dependency throws.
 
 ## Demo and debugger consumers
 

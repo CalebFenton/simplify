@@ -145,7 +145,9 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
 
     /**
      * True only when every node attempted at [address] ran and continued normally, with no handled, escaping or
-     * aborted exceptional partition. False for an unattempted address.
+     * aborted exceptional partition. A node that triggered class initialization continued normally when the
+     * initialization settled and its op ran again, and exceptionally when the initializer threw or aborted. False for
+     * an unattempted address.
      */
     public fun didEveryExecutionContinueNormally(address: Int): Boolean {
         val pile = graph.nodePile(address)
@@ -157,6 +159,17 @@ public open class ExploredPaths internal constructor(protected val graph: Execut
                 node.outcome !is Outcome.Aborted &&
                 node.outcome !is Outcome.Threw
         }
+    }
+
+    /**
+     * True only when every node attempted at [address] ran its call as a host method the reflection policy
+     * authorized. Such a method changes nothing outside the objects reachable from its receiver and arguments, so
+     * the effect [sideEffectLevel] reports there is confined to those objects. False for an unattempted address and
+     * wherever some node ran guest bytecode, an emulator, or an opaque call.
+     */
+    public fun didEveryExecutionRunHostMethod(address: Int): Boolean {
+        val pile = graph.nodePile(address)
+        return pile.isNotEmpty() && pile.all(ExecutionNode::ranHostMethod)
     }
 
     /**

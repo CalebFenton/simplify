@@ -98,7 +98,12 @@ internal class Invoker internal constructor(
                         }
                         BoundSynchronousExecutor(backend)
                     }
-                    return InvocationPlan.Execute(preparation.invocation, executor, probe.effect)
+                    return InvocationPlan.Execute(
+                        preparation.invocation,
+                        executor,
+                        probe.effect,
+                        runsHostMethod = backend is ReflectBackend,
+                    )
                 }
             }
         }
@@ -222,11 +227,15 @@ internal sealed interface InvocationPlan {
         val parameterBindings: List<ParameterBinding>,
     ) : InvocationPlan
 
-    /** Execute one accepted synchronous backend. The scheduler applies the returned data. */
+    /**
+     * Execute one accepted synchronous backend. The scheduler applies the returned data. [runsHostMethod] is true
+     * when the backend is the reflection backend, which runs a host method the reflection policy authorized.
+     */
     class Execute internal constructor(
         val invocation: PreparedInvocation,
         private val executor: BoundSynchronousExecutor,
         val effect: SideEffectLevel,
+        val runsHostMethod: Boolean,
     ) : InvocationPlan {
         internal fun select(
             frame: Frame,
