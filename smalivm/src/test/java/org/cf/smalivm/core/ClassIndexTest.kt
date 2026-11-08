@@ -610,6 +610,38 @@ class ClassIndexTest {
         assertEquals(t("Ldm/Right;"), selected.method.target.definingClass)
     }
 
+    /**
+     * JVMS 5.4.3.3: a superinterface method is not maximally specific when a subinterface that also
+     * declares it is among the class's superinterfaces, so `Sub.value` is selected without a conflict, in
+     * either `.implements` order and whether the call site names the class or the superinterface.
+     */
+    @Test
+    fun aSubinterfaceDefaultIsMoreSpecificThanTheDefaultItOverrides(@TempDir temp: Path) {
+        val index = indexOf(temp, SPECIFIC_BASE, SPECIFIC_SUB, SPECIFIC_BASE_FIRST, SPECIFIC_SUB_FIRST)
+
+        for (implementor in listOf("Lms/BaseFirst;", "Lms/SubFirst;")) {
+            val lookup = index.lookupMethod(t(implementor), "value()I")
+            assertTrue(lookup is MethodLookup.Runnable, "$implementor: $lookup")
+            assertEquals(t("Lms/Sub;"), (lookup as MethodLookup.Runnable).method.target.definingClass, implementor)
+            val returned = run(index, implementor, "call()I").outcomes.single() as Outcome.Returned
+            assertEquals(Value.Known(2, t("I")), returned.value, implementor)
+        }
+    }
+
+    /**
+     * Dalvik bytecode reference, `invoke-super`: when the method_id names an interface method, the call runs
+     * the most specific non-overridden version defined on that interface. The receiver's own override is
+     * therefore not the target, which a virtual dispatch on the receiver would pick.
+     */
+    @Test
+    fun invokeSuperIntoADefaultRunsTheInterfaceBodyNotTheReceiversOverride(@TempDir temp: Path) {
+        val index = indexOf(temp, SUPER_DEFAULT_IFACE, SUPER_DEFAULT_IMPL)
+
+        val returned = run(index, "Lsd/Impl;", "call()I").outcomes.single() as Outcome.Returned
+
+        assertEquals(Value.Known(1, t("I")), returned.value)
+    }
+
     /** Framework subclasses of a framework type receive the call too, so one app override is not the target. */
     @Test
     fun oneApplicationOverrideOfAFrameworkMethodLeavesDispatchAmbiguous(@TempDir temp: Path) {
@@ -1112,6 +1144,118 @@ class ClassIndexTest {
             .super Ljava/lang/Object;
             .implements Ldm/StaticSide;
             .implements Ldm/Right;
+        """
+
+        const val SPECIFIC_BASE = """
+            .class public interface abstract Lms/Base;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """
+
+        const val SPECIFIC_SUB = """
+            .class public interface abstract Lms/Sub;
+            .super Ljava/lang/Object;
+            .implements Lms/Base;
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x2
+                return v0
+            .end method
+        """
+
+        const val SPECIFIC_BASE_FIRST = """
+            .class public Lms/BaseFirst;
+            .super Ljava/lang/Object;
+            .implements Lms/Base;
+            .implements Lms/Sub;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Lms/BaseFirst;
+                invoke-direct {v0}, Lms/BaseFirst;-><init>()V
+                invoke-interface {v0}, Lms/Base;->value()I
+                move-result v0
+                return v0
+            .end method
+        """
+
+        const val SPECIFIC_SUB_FIRST = """
+            .class public Lms/SubFirst;
+            .super Ljava/lang/Object;
+            .implements Lms/Sub;
+            .implements Lms/Base;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Lms/SubFirst;
+                invoke-direct {v0}, Lms/SubFirst;-><init>()V
+                invoke-virtual {v0}, Lms/SubFirst;->value()I
+                move-result v0
+                return v0
+            .end method
+        """
+
+        const val SUPER_DEFAULT_IFACE = """
+            .class public interface abstract Lsd/Iface;
+            .super Ljava/lang/Object;
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x1
+                return v0
+            .end method
+        """
+
+        const val SUPER_DEFAULT_IMPL = """
+            .class public Lsd/Impl;
+            .super Ljava/lang/Object;
+            .implements Lsd/Iface;
+
+            .method public constructor <init>()V
+                .registers 1
+                invoke-direct {p0}, Ljava/lang/Object;-><init>()V
+                return-void
+            .end method
+
+            .method public value()I
+                .registers 2
+                const/4 v0, 0x2
+                return v0
+            .end method
+
+            .method public callSuper()I
+                .registers 2
+                invoke-super {p0}, Lsd/Iface;->value()I
+                move-result v0
+                return v0
+            .end method
+
+            .method public static call()I
+                .registers 1
+                new-instance v0, Lsd/Impl;
+                invoke-direct {v0}, Lsd/Impl;-><init>()V
+                invoke-virtual {v0}, Lsd/Impl;->callSuper()I
+                move-result v0
+                return v0
+            .end method
         """
 
         const val TO_STRING_OVERRIDE = """
