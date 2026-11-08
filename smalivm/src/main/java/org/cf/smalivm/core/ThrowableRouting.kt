@@ -3,8 +3,6 @@ package org.cf.smalivm.core
 import kotlinx.collections.immutable.PersistentSet
 import kotlinx.collections.immutable.persistentSetOf
 
-internal val THROWABLE_TYPE: VirtualType = VirtualType.of("Ljava/lang/Throwable;")
-
 /** Evidence supplied before one throw commits to its arm-owned frame. */
 internal sealed interface ThrowEvidence {
     data class Existing(val frameValue: FrameValue) : ThrowEvidence {
@@ -152,7 +150,7 @@ internal class ThrowableDomain private constructor(
         private val anyThrowable = ThrowableDomain(
             exactRuntimeType = null,
             exactRuntimeFacts = null,
-            trustedUpperBound = THROWABLE_TYPE,
+            trustedUpperBound = GuestThrowables.THROWABLE,
             unresolvedRequiredRoots = persistentSetOf(),
             excludedRoots = persistentSetOf(),
             requiredRootsHash = 0,
@@ -170,14 +168,14 @@ internal class ThrowableDomain private constructor(
             require(runtimeFacts == null || runtimeFacts.type == type) {
                 "Exact runtime facts for ${runtimeFacts?.type} cannot describe $type"
             }
-            val relation = runtimeFacts?.throwableRelation ?: hierarchy.relation(type, THROWABLE_TYPE)
+            val relation = runtimeFacts?.throwableRelation ?: hierarchy.relation(type, GuestThrowables.THROWABLE)
             require(relation != TypeRelation.NO) {
                 "An exact throwable runtime type must be Throwable-compatible: $type"
             }
             return ThrowableDomain(
                 type,
                 runtimeFacts,
-                THROWABLE_TYPE,
+                GuestThrowables.THROWABLE,
                 persistentSetOf(),
                 persistentSetOf(),
                 0,
@@ -187,23 +185,23 @@ internal class ThrowableDomain private constructor(
 
         internal fun constrainedTo(type: VirtualType, hierarchy: ThrowableHierarchy): ThrowableDomain {
             require(type.isReference) { "A throwable constraint must be a reference type" }
-            require(hierarchy.relation(type, THROWABLE_TYPE) == TypeRelation.YES) {
+            require(hierarchy.relation(type, GuestThrowables.THROWABLE) == TypeRelation.YES) {
                 "A trusted throwable upper bound must be a known Throwable subtype: $type"
             }
-            return if (type == THROWABLE_TYPE) any() else {
+            return if (type == GuestThrowables.THROWABLE) any() else {
                 ThrowableDomain(null, null, type, persistentSetOf(), persistentSetOf(), 0, 0)
             }
         }
 
         internal fun unresolved(type: VirtualType, hierarchy: ThrowableHierarchy): ThrowableDomain {
             require(type.isReference) { "A throwable constraint must be a reference type" }
-            require(hierarchy.relation(type, THROWABLE_TYPE) == TypeRelation.UNKNOWN) {
+            require(hierarchy.relation(type, GuestThrowables.THROWABLE) == TypeRelation.UNKNOWN) {
                 "An unresolved throwable root must have an unknown Throwable relation: $type"
             }
             return ThrowableDomain(
                 null,
                 null,
-                THROWABLE_TYPE,
+                GuestThrowables.THROWABLE,
                 persistentSetOf(type),
                 persistentSetOf(),
                 type.hashCode(),
@@ -240,7 +238,7 @@ internal class ThrownSubject private constructor(val frameValue: FrameValue.Refi
         require(domain.exactRuntimeType == runtimeType) {
             "Refined throwable domain ${domain.exactRuntimeType} disagrees with heap runtime type $runtimeType"
         }
-        require(hierarchy.relation(runtimeType, THROWABLE_TYPE) != TypeRelation.NO) {
+        require(hierarchy.relation(runtimeType, GuestThrowables.THROWABLE) != TypeRelation.NO) {
             "Concrete thrown ref $ref denotes non-throwable $runtimeType"
         }
         require(hierarchy.relation(runtimeType, domain.trustedUpperBound) != TypeRelation.NO) {
@@ -337,32 +335,18 @@ private fun trustedHostThrowableFacts(hostClass: Class<*>): ThrowableTypeFacts {
     )
 }
 
-/** A supported fresh throwable construction. It allocates nothing. */
-internal class ThrowableRecipe private constructor(
-    val type: VirtualType,
-    val message: String?,
-    val cause: ThrownSubject?,
+/** One fresh throwable construction. [kind] can name only a throwable the engine knows how to construct. */
+internal class ThrowableRecipe(
+    val kind: SynthesizedThrowable,
+    val message: String? = null,
+    val cause: ThrownSubject? = null,
 ) {
-    companion object {
-        private val supported = setOf(
-            "Ljava/lang/ArithmeticException;",
-            "Ljava/lang/ArrayIndexOutOfBoundsException;",
-            "Ljava/lang/ArrayStoreException;",
-            "Ljava/lang/ClassCastException;",
-            "Ljava/lang/ExceptionInInitializerError;",
-            "Ljava/lang/IncompatibleClassChangeError;",
-            "Ljava/lang/InternalError;",
-            "Ljava/lang/NegativeArraySizeException;",
-            "Ljava/lang/NoClassDefFoundError;",
-            "Ljava/lang/NoSuchFieldError;",
-            "Ljava/lang/NoSuchMethodError;",
-            "Ljava/lang/NullPointerException;",
-        )
-
-        fun of(type: VirtualType, message: String? = null, cause: ThrownSubject? = null): ThrowableRecipe {
-            require(type.descriptor in supported) { "No throwable construction rule exists for $type" }
-            return ThrowableRecipe(type, message, cause)
-        }
+    /** Allocates the throwable on [frame]'s heap. A recipe without a cause stores a null guest cause. */
+    fun materialize(frame: Frame, hierarchy: ThrowableHierarchy): ThrownSubject {
+        val causeValue = cause?.value ?: Value.Known(null, GuestThrowables.THROWABLE)
+        val hostCause = ((causeValue as? Value.Known)?.raw as? HeapRef)?.let(frame::hostObjectAt) as? Throwable
+        val value = frame.allocateThrowable(kind.type, kind.host(message, hostCause), causeValue)
+        return ThrownSubject.fromHeap(value, frame, hierarchy)
     }
 }
 

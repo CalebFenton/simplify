@@ -32,14 +32,12 @@ internal class FieldGetEmulator(
         ) {
             return targetThrew(IllegalArgumentException())
         }
-        if (metadata.domain == TrackedFieldDomain.Virtual && metadata.storage == FieldStorage.STATIC) {
-            when (call.classInitStatus.actionFor(metadata.declaringType)) {
-                ClassInitAction.Proceed -> Unit
-                ClassInitAction.StartInitialization ->
-                    return SynchronousCallResult.NeedsClassInit(metadata.declaringType)
-                is ClassInitAction.ThrowFailed ->
-                    return IntrinsicCallResult(IntrinsicOperation.RouteFailedClassInit(metadata.declaringType))
-            }
+        if (
+            metadata.domain == TrackedFieldDomain.Virtual &&
+            metadata.storage == FieldStorage.STATIC &&
+            call.classInitStatus.actionFor(metadata.declaringType) != ClassInitAction.Proceed
+        ) {
+            return SynchronousCallResult.NeedsClassInit(metadata.declaringType)
         }
 
         return when (metadata.domain) {

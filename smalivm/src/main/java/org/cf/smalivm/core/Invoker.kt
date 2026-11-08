@@ -38,10 +38,10 @@ class Invoker internal constructor(
         resolved as InvocationLookup.Resolved
         val method = when (val lookup = resolved.lookup) {
             MethodLookup.NoSuchClass -> return InvocationPreparation.ThrowResolution(
-                VirtualType.of("Ljava/lang/NoClassDefFoundError;"),
+                GuestThrowables.noClassDefFound(call.target.definingClass),
             )
             MethodLookup.NoSuchMethod -> return InvocationPreparation.ThrowResolution(
-                VirtualType.of("Ljava/lang/NoSuchMethodError;"),
+                GuestThrowables.noSuchMethod(call.target),
             )
             is MethodLookup.Runnable -> lookup.method
             is MethodLookup.NoBody -> lookup.method
@@ -174,7 +174,8 @@ sealed interface InvocationPreparation {
         }
     }
 
-    class ThrowResolution(val exceptionType: VirtualType) : InvocationPreparation
+    /** Resolution failed before binding; the call throws [recipe]. */
+    class ThrowResolution internal constructor(internal val recipe: ThrowableRecipe) : InvocationPreparation
 }
 
 /** One argument's landing place in the callee's frame. Public inspection unwraps [value]. */

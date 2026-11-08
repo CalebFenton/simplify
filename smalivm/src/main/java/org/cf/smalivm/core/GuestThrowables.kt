@@ -1,53 +1,108 @@
 package org.cf.smalivm.core
 
 /**
- * The guest throwables ops synthesize, so every op that raises one failure names the same type with the same
- * message. A message that would name a value the engine does not know (an unprovable index) is omitted rather
+ * Every throwable type the engine constructs itself, with the host object that stands for one on the heap. The
+ * guest cause lives in the heap object; only `ExceptionInInitializerError` also carries it on the host object,
+ * because its host constructor takes the cause.
+ */
+internal enum class SynthesizedThrowable(
+    descriptor: String,
+    val host: (message: String?, cause: Throwable?) -> Throwable,
+) {
+    ARITHMETIC("Ljava/lang/ArithmeticException;", { message, _ -> ArithmeticException(message) }),
+    ARRAY_INDEX_OUT_OF_BOUNDS(
+        "Ljava/lang/ArrayIndexOutOfBoundsException;",
+        { message, _ -> ArrayIndexOutOfBoundsException(message) },
+    ),
+    ARRAY_STORE("Ljava/lang/ArrayStoreException;", { message, _ -> ArrayStoreException(message) }),
+    CLASS_CAST("Ljava/lang/ClassCastException;", { message, _ -> ClassCastException(message) }),
+    EXCEPTION_IN_INITIALIZER(
+        "Ljava/lang/ExceptionInInitializerError;",
+        { _, cause -> if (cause == null) ExceptionInInitializerError() else ExceptionInInitializerError(cause) },
+    ),
+    INCOMPATIBLE_CLASS_CHANGE(
+        "Ljava/lang/IncompatibleClassChangeError;",
+        { message, _ -> IncompatibleClassChangeError(message) },
+    ),
+    INTERNAL_ERROR("Ljava/lang/InternalError;", { message, _ -> InternalError(message) }),
+    NEGATIVE_ARRAY_SIZE("Ljava/lang/NegativeArraySizeException;", { message, _ -> NegativeArraySizeException(message) }),
+    NO_CLASS_DEF_FOUND("Ljava/lang/NoClassDefFoundError;", { message, _ -> NoClassDefFoundError(message) }),
+    NO_SUCH_FIELD("Ljava/lang/NoSuchFieldError;", { message, _ -> NoSuchFieldError(message) }),
+    NO_SUCH_METHOD("Ljava/lang/NoSuchMethodError;", { message, _ -> NoSuchMethodError(message) }),
+    NULL_POINTER("Ljava/lang/NullPointerException;", { message, _ -> NullPointerException(message) }),
+    ;
+
+    val type: VirtualType = VirtualType.of(descriptor)
+}
+
+/**
+ * The guest throwables the engine synthesizes, so every site that raises one failure names the same type with the
+ * same message. A message that would name a value the engine does not know (an unprovable index) is omitted rather
  * than invented.
  */
 internal object GuestThrowables {
-    val ARITHMETIC: VirtualType = VirtualType.of("Ljava/lang/ArithmeticException;")
-    val ARRAY_INDEX_OUT_OF_BOUNDS: VirtualType = VirtualType.of("Ljava/lang/ArrayIndexOutOfBoundsException;")
-    val ARRAY_STORE: VirtualType = VirtualType.of("Ljava/lang/ArrayStoreException;")
-    val CLASS_CAST: VirtualType = VirtualType.of("Ljava/lang/ClassCastException;")
-    val INTERNAL_ERROR: VirtualType = VirtualType.of("Ljava/lang/InternalError;")
-    val NEGATIVE_ARRAY_SIZE: VirtualType = VirtualType.of("Ljava/lang/NegativeArraySizeException;")
-    val NO_CLASS_DEF_FOUND: VirtualType = VirtualType.of("Ljava/lang/NoClassDefFoundError;")
-    val NO_SUCH_FIELD: VirtualType = VirtualType.of("Ljava/lang/NoSuchFieldError;")
-    val NULL_POINTER: VirtualType = VirtualType.of("Ljava/lang/NullPointerException;")
+    val THROWABLE: VirtualType = VirtualType.of("Ljava/lang/Throwable;")
+    val ERROR: VirtualType = VirtualType.of("Ljava/lang/Error;")
 
     fun throwing(recipe: ThrowableRecipe, update: OpUpdate = OpUpdate.NONE): OpArm.Throw =
         OpArm.Throw(update, ThrowEvidence.Fresh(recipe))
 
-    fun divideByZero(): ThrowableRecipe = ThrowableRecipe.of(ARITHMETIC, "/ by zero")
+    fun divideByZero(): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.ARITHMETIC, "/ by zero")
 
-    fun nullPointer(message: String? = null): ThrowableRecipe = ThrowableRecipe.of(NULL_POINTER, message)
+    fun nullPointer(message: String? = null): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.NULL_POINTER, message)
 
     /** [index] is null for a fork on an unprovable index, where no offending index exists. */
     fun arrayIndexOutOfBounds(index: Int?): ThrowableRecipe =
-        ThrowableRecipe.of(ARRAY_INDEX_OUT_OF_BOUNDS, index?.toString())
+        ThrowableRecipe(SynthesizedThrowable.ARRAY_INDEX_OUT_OF_BOUNDS, index?.toString())
 
     /** [valueType] is null when the stored value carries no type at all. */
     fun arrayStore(valueType: VirtualType?): ThrowableRecipe =
-        ThrowableRecipe.of(ARRAY_STORE, valueType?.let(::binaryNameOf))
+        ThrowableRecipe(SynthesizedThrowable.ARRAY_STORE, valueType?.let(::binaryNameOf))
 
     /** [valueType] is null when the cast value carries no type at all. */
-    fun classCast(valueType: VirtualType?, target: VirtualType): ThrowableRecipe =
-        ThrowableRecipe.of(CLASS_CAST, valueType?.let { "${binaryNameOf(it)} cannot be cast to ${binaryNameOf(target)}" })
+    fun classCast(valueType: VirtualType?, target: VirtualType): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.CLASS_CAST,
+        valueType?.let { "${binaryNameOf(it)} cannot be cast to ${binaryNameOf(target)}" },
+    )
 
     /** [size] is null for a fork on an unprovable length. */
-    fun negativeArraySize(size: Int?): ThrowableRecipe = ThrowableRecipe.of(NEGATIVE_ARRAY_SIZE, size?.toString())
+    fun negativeArraySize(size: Int?): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.NEGATIVE_ARRAY_SIZE, size?.toString())
 
     /** The message is the absent class's binary name, with array dimensions peeled: `[[Lfoo/Bar;` -> `foo.Bar`. */
     fun noClassDefFound(absentType: VirtualType): ThrowableRecipe {
         var base = absentType
         while (base.isArray) base = requireNotNull(base.componentType)
-        return ThrowableRecipe.of(NO_CLASS_DEF_FOUND, base.descriptor.removePrefix("L").removeSuffix(";").replace('/', '.'))
+        return ThrowableRecipe(SynthesizedThrowable.NO_CLASS_DEF_FOUND, binaryNameOf(base))
     }
 
-    fun noSuchField(fieldDescriptor: String): ThrowableRecipe = ThrowableRecipe.of(NO_SUCH_FIELD, fieldDescriptor)
+    /**
+     * A trigger of [failedClass], whose initialization failed earlier with [storedFailure]. ART
+     * `ClassLinker::ThrowEarlierClassFailure` throws `NoClassDefFoundError(PrettyDescriptor)` with the stored
+     * error as its cause, and the pretty descriptor of a class is its binary name.
+     */
+    fun earlierClassFailure(failedClass: VirtualType, storedFailure: ThrownSubject): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.NO_CLASS_DEF_FOUND, binaryNameOf(failedClass), storedFailure)
 
-    fun internalError(message: String): ThrowableRecipe = ThrowableRecipe.of(INTERNAL_ERROR, message)
+    /** JLS 12.4.2: an initializer that completes abruptly with a non-`Error` leaves through this wrapper. */
+    fun exceptionInInitializer(cause: ThrownSubject): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.EXCEPTION_IN_INITIALIZER, cause = cause)
+
+    fun noSuchField(fieldDescriptor: String): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.NO_SUCH_FIELD, fieldDescriptor)
+
+    /** [method] is the call site's `name(proto)` descriptor. */
+    fun noSuchMethod(method: MethodDescriptor): ThrowableRecipe =
+        ThrowableRecipe(SynthesizedThrowable.NO_SUCH_METHOD, method.descriptor)
+
+    /** A call that resolves to more than one maximally specific default method. */
+    fun conflictingDefaultMethods(method: MethodDescriptor): ThrowableRecipe = ThrowableRecipe(
+        SynthesizedThrowable.INCOMPATIBLE_CLASS_CHANGE,
+        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.descriptor}",
+    )
+
+    fun internalError(message: String): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.INTERNAL_ERROR, message)
 
     /** `java.lang.Class.getName` of a descriptor: `I` -> `int`, `Lfoo/Bar;` -> `foo.Bar`, `[Lfoo/Bar;` -> `[Lfoo.Bar;`. */
     private fun binaryNameOf(type: VirtualType): String = when (val descriptor = type.descriptor) {

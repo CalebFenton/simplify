@@ -17,13 +17,10 @@ internal class ClassForNameEmulator(private val classIndex: ClassIndex) : Emulat
             return classNotFound(binaryName)
         }
         val indexed = classIndex.isLoadable(type)
-        if (indexed && type.isReference && !type.isArray && !classIndex.isFrameworkClass(type)) {
-            when (call.classInitStatus.actionFor(type)) {
-                ClassInitAction.Proceed -> Unit
-                ClassInitAction.StartInitialization -> return SynchronousCallResult.NeedsClassInit(type)
-                is ClassInitAction.ThrowFailed ->
-                    return IntrinsicCallResult(IntrinsicOperation.RouteFailedClassInit(type))
-            }
+        if (indexed && type.isReference && !type.isArray && !classIndex.isFrameworkClass(type) &&
+            call.classInitStatus.actionFor(type) != ClassInitAction.Proceed
+        ) {
+            return SynchronousCallResult.NeedsClassInit(type)
         }
         val classToken = classIndex.loadClassConstant(type.descriptor)
         if (!indexed && classToken == null) return classNotFound(binaryName)

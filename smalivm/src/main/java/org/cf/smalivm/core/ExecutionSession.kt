@@ -180,7 +180,6 @@ class ExecutionSession internal constructor(
     private val throwableHierarchy: ThrowableHierarchy = resolver.throwableHierarchy,
     private val routingInvariant: () -> Unit = {},
 ) {
-    private val throwableType = VirtualType.of("Ljava/lang/Throwable;")
     private val frontierNodes = ArrayDeque<ExecutionNode>()
     private val pendingCallRoutings = ArrayDeque<PendingCallRouting>()
 
@@ -688,28 +687,11 @@ class ExecutionSession internal constructor(
     )
 
     /**
-     * Plans the class-init an op asked for: *"initialize this class, then run me again"*.
-     *
-     * **The op re-executes at its OWN address**, which is the old engine's `execute`/`resume` split without
-     * the split (`opcode/SGetOp.kt:23-35` returns `staticInitClass(...)` and the VM later calls
-     * `op.resume(node)` on the same node). Re-running instead of resuming costs one extra node in that
-     * address's pile and buys an op that is one function rather than two -- and the extra node exists in the
-     * nested-`<clinit>` case regardless, because the trigger cannot be the same node as the one the callee
-     * returns to.
-     *
-     * ⚠️ **TASKS 17-19, READ THIS.** That extra node is in `executedNodes`, so it VOTES in
-     * `ExecutionGraph.consensusOverExploredPaths(address, register)` for the trigger's own address -- and on
-     * the first pass the op assigned nothing, so it contributes `Value.Top` and collapses the per-address
-     * consensus for a register the second pass assigns perfectly. Harmless for `terminatingConsensus` (which
-     * reads returning nodes, and is what `CoreTester.test` asserts through) and for the class-init tests here;
-     * it is `sget`'s per-address assertions that will meet it. The fix, if one is wanted, is a DECODE-time
-     * one: `OpBuilder` knows the class set, so an op whose whole superclass chain has no guest `<clinit>` and
-     * no framework member need never emit this transition at all.
+     * Plans the class-init an op asked for: initialize this class, then run the op again at its own address.
      *
      * Inside [planContained] because [ClassInitPlanner] walks the superclass chain, and
-     * [ClassIndex.superclassOf] raises [ClassLoadFailure] for a class whose ancestors are not in the loaded
-     * set -- routine obfuscated input, which must abort the path and not the run. `planFor` itself runs
-     * OUTSIDE the boundary (plan design decision 5), so the wrapper has to be here.
+     * [ClassIndex.superclassOf] raises [ClassLoadFailure] for an ancestor absent from the loaded set, which must
+     * end the path and not the run.
      */
     private fun planInitClass(node: ExecutionNode, type: VirtualType): Committable =
         planContained(node) {
@@ -717,20 +699,20 @@ class ExecutionSession internal constructor(
                 "InitClass requires StartInitialization for ${type.descriptor}"
             }
             val plan = invoker.planClassInit(node.frame, type)
-            // Loud rather than tolerated, and NOT defensive: the lenient handling of a no-op plan is an
-            // infinite loop -- the trigger re-executes at its own address, asks again, and gets the same
-            // answer. An op asks for a ClassInitAction before emitting this transition, and
-            // that predicate is false for exactly the three states a plan can find nothing to do in, so this
-            // is unreachable through a correct op. It is inside the host-failure boundary, so an incorrect
-            // one aborts one path with the throwable on the node instead of hanging the suite.
+            // An op emits InitClass only for StartInitialization, so a no-op plan is a defect; tolerating it would
+            // re-execute the trigger forever.
             require(!plan.isNoOp) {
                 "The op at ${node.address} in ${node.view.signature} asked to initialize ${type.descriptor}, " +
-                    "which needs nothing done (${node.frame.initState(type)}). An op must consult " +
-                    "StartInitialization before returning Transition.InitClass, or it will re-execute forever."
+                    "which needs nothing done (${node.frame.initState(type)})."
             }
             plan.classInitPreludeOrRetry(node)
         }
 
+    /**
+     * Applies the path's [ClassInitAction] for an invoke or emulator trigger of [type]: null to proceed, the failed
+     * class's error, or the initialization work. A plan that settles everything is applied in place unless
+     * [retryWhenSettled] asks for the trigger to run again on a successor.
+     */
     private fun planClassInitTrigger(
         node: ExecutionNode,
         type: VirtualType,
@@ -739,22 +721,14 @@ class ExecutionSession internal constructor(
         ClassInitAction.Proceed -> null
         is ClassInitAction.ThrowFailed -> planThrow(
             node,
-            normalizeThrow(
-                ThrowEvidence.Fresh(
-                    ThrowableRecipe.of(
-                        VirtualType.of("Ljava/lang/NoClassDefFoundError;"),
-                        type.descriptor,
-                        action.failure,
-                    ),
-                ),
-                node.frame,
-            ),
+            normalizeThrow(ThrowEvidence.Fresh(action.recipe), node.frame),
         )
         ClassInitAction.StartInitialization -> {
             val plan = invoker.planClassInit(node.frame, type)
             require(!plan.isNoOp) { "Class-init request for ${type.descriptor} produced no work" }
             when {
-                plan.dependencyFailure != null -> plan.classInitPreludeOrRetry(node)
+                plan.malformedInitializer != null || plan.dependencyFailure != null ->
+                    plan.classInitPreludeOrRetry(node)
                 plan.context != null -> plan.initializerPrelude(node)
                 retryWhenSettled -> plan.classInitPreludeOrRetry(node)
                 else -> {
@@ -766,8 +740,11 @@ class ExecutionSession internal constructor(
         }
     }
 
-    /** Schedules visible initializer work, or applies settled marks before retrying the trigger. */
+    /** Ends a malformed path, fails on a failed ancestor, schedules an initializer, or applies settled marks. */
     private fun ClassInitPlan.classInitPreludeOrRetry(node: ExecutionNode): Committable {
+        if (malformedInitializer != null) {
+            return Committable(emptyList(), Ending.RunPath(Outcome.Aborted(AbortReason.MALFORMED_INPUT), node.frame))
+        }
         dependencyFailure?.let { return dependencyFailure(node, this, it) }
         return initializerPrelude(node)
             ?: run {
@@ -784,20 +761,10 @@ class ExecutionSession internal constructor(
     }
 
     /**
-     * The nested `<clinit>` activation [plan] calls for, or null when it calls for none.
-     *
-     * **A real nested call through the same seam** (design decision 1, spec §11.3): the same [Activation], the
-     * same [CallStack], the same [FrameOrigin.CalleeEntry] frame (so the same heap id space), the same
-     * [Limits.maxCallDepth] bound, and the same single [step] loop -- so Plan 10's debugger single-steps into a
-     * `<clinit>` exactly as it does into any other callee, and a `<clinit>`'s own throw consults the
-     * `<clinit>`'s own try blocks.
-     *
-     * **[ReturnSite]'s resume address is the trigger's OWN address, not the one after it**, which is the whole
-     * mechanism: initialization is a *prelude* to the triggering instruction rather than a step past it. So a
-     * hierarchy is initialized top-down by the trigger simply asking again (see [ClassInitPlan]), and an
-     * `invoke` whose callee's class needed initializing runs its callee on the second pass. Computed from the
-     * caller's own node in the caller's own method, which design decision 5 requires -- and unlike
-     * `nextAddress` it cannot fail, because this address is the one currently executing.
+     * The nested `<clinit>` activation the plan calls for, or null when it calls for none. It is an ordinary
+     * nested call on this session's frontier, so a `<clinit>`'s own throw consults its own try blocks. Its
+     * [ReturnSite] resumes at the trigger's own address: initialization is a prelude to the triggering
+     * instruction, so the trigger asks again and the next class down the chain starts.
      */
     private fun ClassInitPlan.initializerPrelude(node: ExecutionNode): Committable? {
         val context = context ?: return null
@@ -826,16 +793,7 @@ class ExecutionSession internal constructor(
         failure: ClassInitDependencyFailure,
     ): Committable {
         node.frame.applyClassInit(plan)
-        val path = normalizeThrow(
-            ThrowEvidence.Fresh(
-                ThrowableRecipe.of(
-                    VirtualType.of("Ljava/lang/NoClassDefFoundError;"),
-                    failure.failedAncestor.descriptor,
-                    failure.storedFailure,
-                ),
-            ),
-            node.frame,
-        )
+        val path = normalizeThrow(ThrowEvidence.Fresh(failure.recipe), node.frame)
         node.frame.failClassInitDependency(failure, path.subject, throwableHierarchy)
         return planThrow(node, path)
     }
@@ -880,22 +838,10 @@ class ExecutionSession internal constructor(
                 ref?.let { node.frame.heapObject(it)?.type }
             }
             val preparation = when (val prepared = invoker.prepare(call, node.view.definingClass, receiverType)) {
-                is InvocationPreparation.ThrowResolution -> {
-                    val message = when (prepared.exceptionType.descriptor) {
-                        "Ljava/lang/NoClassDefFoundError;" -> transition.target.definingClass.descriptor
-                        "Ljava/lang/NoSuchMethodError;" -> transition.target.descriptor
-                        else -> error("Unsupported invoke resolution throwable: ${prepared.exceptionType}")
-                    }
-                    return@planContained planThrow(
-                        node,
-                        normalizeThrow(
-                            ThrowEvidence.Fresh(
-                                ThrowableRecipe.of(prepared.exceptionType, message),
-                            ),
-                            node.frame,
-                        ),
-                    )
-                }
+                is InvocationPreparation.ThrowResolution -> return@planContained planThrow(
+                    node,
+                    normalizeThrow(ThrowEvidence.Fresh(prepared.recipe), node.frame),
+                )
                 is OpaqueInvocation -> return@planContained planOpaque(
                     node,
                     transition,
@@ -910,17 +856,10 @@ class ExecutionSession internal constructor(
                 return@planContained planInvokeNullReceiver(node)
             }
             if (preparation.lookup is MethodLookup.DefaultConflict) {
-                val target = preparation.invocation.target
                 return@planContained planThrow(
                     node,
                     normalizeThrow(
-                        ThrowEvidence.Fresh(
-                            ThrowableRecipe.of(
-                                VirtualType.of("Ljava/lang/IncompatibleClassChangeError;"),
-                                "Conflicting default method implementations ${target.definingClass.descriptor}->" +
-                                    target.descriptor,
-                            ),
-                        ),
+                        ThrowEvidence.Fresh(GuestThrowables.conflictingDefaultMethods(preparation.invocation.target)),
                         node.frame,
                     ),
                 )
@@ -1037,7 +976,11 @@ class ExecutionSession internal constructor(
             }
             is SynchronousCallResult.NeedsClassInit -> {
                 val comparison = finalizeSelectedCall(node, selected)
-                if (comparison != HostGraphComparison.Equal) {
+                // Only initialization re-executes the call, so only that answer needs host state left unchanged.
+                if (
+                    comparison != HostGraphComparison.Equal &&
+                    node.frame.classInitAction(result.type) == ClassInitAction.StartInitialization
+                ) {
                     val failure = IllegalStateException(
                         "Synchronous backend requested class initialization after changing host state",
                     )
@@ -1205,7 +1148,7 @@ class ExecutionSession internal constructor(
         }
         IntrinsicOperation.ReadThrowableCause -> {
             val receiver = plan.invocation.receiver
-            val causeType = VirtualType.of("Ljava/lang/Throwable;")
+            val causeType = GuestThrowables.THROWABLE
             val value = when (receiver) {
                 is Value.Known -> {
                     val ref = receiver.raw as? HeapRef
@@ -1216,9 +1159,6 @@ class ExecutionSession internal constructor(
             }
             synchronousContinuation(node, value, constructorReceiver = null)
         }
-        is IntrinsicOperation.RouteFailedClassInit -> requireNotNull(
-            planClassInitTrigger(node, operation.type, retryWhenSettled = false),
-        ) { "Failed class ${operation.type.descriptor} produced no guest failure" }
         is IntrinsicOperation.SetTrackedFieldAccessible -> {
             val ref = (plan.invocation.receiver as? Value.Known)?.raw as? HeapRef
                 ?: error("Field.setAccessible has no known tracked receiver ref")
@@ -1360,7 +1300,7 @@ class ExecutionSession internal constructor(
             imported[raw] = ref
             val cause = raw.cause?.let { nested ->
                 importOne(nested, virtualTypeOfHostClass(nested.javaClass))
-            } ?: Value.Known(null, throwableType)
+            } ?: Value.Known(null, GuestThrowables.THROWABLE)
             frame.setThrowableCause(ref, cause)
             return Value.Known(ref, type)
         }
@@ -1521,15 +1461,7 @@ class ExecutionSession internal constructor(
     private fun planInvokeNullReceiver(node: ExecutionNode): Committable =
         planThrow(
             node,
-            normalizeThrow(
-                ThrowEvidence.Fresh(
-                    ThrowableRecipe.of(
-                        VirtualType.of("Ljava/lang/NullPointerException;"),
-                        "invoke receiver is null",
-                    ),
-                ),
-                node.frame,
-            ),
+            normalizeThrow(ThrowEvidence.Fresh(GuestThrowables.nullPointer("invoke receiver is null")), node.frame),
         )
 
     /**
@@ -1844,11 +1776,9 @@ class ExecutionSession internal constructor(
     }
 
     /**
-     * Applies JLS 12.4.2 steps 11-12 before the trigger's caller performs handler lookup.
-     *
-     * Each source exit is failure-atomic. Transformation uses copied frames, and the failed lifecycle is
-     * written only after every outward throw for that exit is valid. An ordinary model failure therefore
-     * aborts only that exit and cannot discard an independent return or throw from the same initializer.
+     * Applies the class-init owner's initializer-exit rule ([failInitializer]) before the trigger's caller performs
+     * handler lookup. A model failure while transforming one exit aborts only that exit, so an independent return
+     * or throw from the same initializer survives.
      */
     private fun transformInitializerThrows(
         node: ExecutionNode,
@@ -1857,7 +1787,7 @@ class ExecutionSession internal constructor(
     ): List<ActivationExit> = buildList {
         for (exit in exits) {
             val transformed = try {
-                transformInitializerThrow(context, exit)
+                context.failInitializer(exit, throwableHierarchy)
             } catch (failure: Throwable) {
                 val abort = hostFailureOutcome(node, failure)
                 add(ActivationExit.Aborted(exit.frame, abort.reason))
@@ -1865,37 +1795,6 @@ class ExecutionSession internal constructor(
             }
             addAll(transformed)
         }
-    }
-
-    private fun transformInitializerThrow(
-        context: ClassInitContext,
-        exit: ActivationExit.Threw,
-    ): List<ActivationExit.Threw> {
-        val partition = partitionThrowableDomain(
-            exit.subject.domain,
-            VirtualType.of("Ljava/lang/Error;"),
-            throwableHierarchy,
-        )
-        val transformed = buildList {
-            for (domain in listOfNotNull(partition.matching, partition.residual)) {
-                val frame = exit.frame.copy()
-                val source = exit.subject.refinedTo(domain, throwableHierarchy)
-                val outward = if (domain === partition.matching) {
-                    source
-                } else {
-                    materializeRecipe(
-                        ThrowableRecipe.of(
-                            VirtualType.of("Ljava/lang/ExceptionInInitializerError;"),
-                            cause = source,
-                        ),
-                        frame,
-                    )
-                }
-                add(ActivationExit.Threw(ThrowPath.create(frame, outward, throwableHierarchy)))
-            }
-        }
-        transformed.forEach { it.frame.failClassInit(context, it.subject, throwableHierarchy) }
-        return transformed
     }
 
     /** Synthetic outcome fork: one normal child and one child per caller handler partition. */
@@ -1994,27 +1893,27 @@ class ExecutionSession internal constructor(
         for ((key, keyedPartition) in sourcePartitions) {
             val callerFrame = mergeCallPartition(site, keyedPartition.map { it.exit.frame })
             val mergedSubject = mergedCallerThrowSubject(key, callerFrame, keyedPartition.map { it.exit })
-            // Same containment policy as local lookup. The invoke node is suspended, so `contained` cannot
-            // record it as ended here; carry one abort token per original exit into this completion instead.
-            val resolution = try {
-                resolveHandlers(
+            // The invoke node is suspended, so a contained failure carries one abort token per original exit into
+            // this completion instead of ending the node.
+            sourceRoutings[key] = when (
+                val resolution = resolveHandlers(
                     site.invokeNode.address,
                     mergedSubject,
                     site.invokeNode.view,
                     throwableHierarchy,
                 )
-            } catch (failure: Throwable) {
-                val abort = hostFailureOutcome(site.invokeNode, failure)
-                activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-                sourceRoutings[key] = CallerSourceRouting.Aborted(callerFrame, abort.reason)
-                continue
+            ) {
+                is HandlerResolution.Routed -> CallerSourceRouting.Routed(callerFrame, resolution)
+                HandlerResolution.MalformedMetadata -> {
+                    activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
+                    CallerSourceRouting.Aborted(callerFrame, AbortReason.MALFORMED_INPUT)
+                }
+                is HandlerResolution.HostFailure -> {
+                    val abort = hostFailureOutcome(site.invokeNode, resolution.failure)
+                    activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
+                    CallerSourceRouting.Aborted(callerFrame, abort.reason)
+                }
             }
-            if (resolution is HandlerResolution.MalformedMetadata) {
-                activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
-                sourceRoutings[key] = CallerSourceRouting.Aborted(callerFrame, AbortReason.MALFORMED_INPUT)
-                continue
-            }
-            sourceRoutings[key] = CallerSourceRouting.Routed(callerFrame, resolution as HandlerResolution.Routed)
         }
         for ((_, key) in keyedExits) {
             when (val routing = requireNotNull(sourceRoutings[key])) {
@@ -2565,7 +2464,7 @@ class ExecutionSession internal constructor(
     /** Materializes or imports one committed throw event exactly once on its arm-owned frame. */
     internal fun normalizeThrow(evidence: ThrowEvidence, armFrame: Frame): ThrowPath {
         val subject = when (evidence) {
-            is ThrowEvidence.Fresh -> materializeRecipe(evidence.recipe, armFrame)
+            is ThrowEvidence.Fresh -> evidence.recipe.materialize(armFrame, throwableHierarchy)
             is ThrowEvidence.Existing -> when (val value = evidence.frameValue) {
                 is FrameValue.Plain -> normalizeExistingThrow(value.value, armFrame)
                 is FrameValue.RefinedThrowable ->
@@ -2591,10 +2490,7 @@ class ExecutionSession internal constructor(
     private fun normalizeExistingThrow(value: Value, frame: Frame): ThrownSubject {
         if (value !is Value.Known) return ThrownSubject.symbolic(value, symbolicThrowableDomain(value))
         if (value.readsAsNullReference) {
-            return materializeRecipe(
-                ThrowableRecipe.of(VirtualType.of("Ljava/lang/NullPointerException;")),
-                frame,
-            )
+            return GuestThrowables.nullPointer().materialize(frame, throwableHierarchy)
         }
         val raw = value.raw
         if (raw is Throwable) {
@@ -2623,36 +2519,8 @@ class ExecutionSession internal constructor(
     }
 
     private fun materializeNonThrowable(value: Value.Known, frame: Frame): ThrownSubject =
-        materializeRecipe(
-            ThrowableRecipe.of(
-                VirtualType.of("Ljava/lang/InternalError;"),
-                "Throwing '${value.type}' that is not an instance of Throwable",
-            ),
-            frame,
-        )
-
-    private fun materializeRecipe(recipe: ThrowableRecipe, frame: Frame): ThrownSubject {
-        val cause = recipe.cause?.value ?: Value.Known(null, throwableType)
-        val hostCause = ((cause as? Value.Known)?.raw as? HeapRef)?.let(frame::hostObjectAt) as? Throwable
-        val host = when (recipe.type.descriptor) {
-            "Ljava/lang/ArithmeticException;" -> ArithmeticException(recipe.message)
-            "Ljava/lang/ArrayIndexOutOfBoundsException;" -> ArrayIndexOutOfBoundsException(recipe.message)
-            "Ljava/lang/ArrayStoreException;" -> ArrayStoreException(recipe.message)
-            "Ljava/lang/ClassCastException;" -> ClassCastException(recipe.message)
-            "Ljava/lang/ExceptionInInitializerError;" ->
-                if (hostCause == null) ExceptionInInitializerError() else ExceptionInInitializerError(hostCause)
-            "Ljava/lang/IncompatibleClassChangeError;" -> IncompatibleClassChangeError(recipe.message)
-            "Ljava/lang/InternalError;" -> InternalError(recipe.message)
-            "Ljava/lang/NegativeArraySizeException;" -> NegativeArraySizeException(recipe.message)
-            "Ljava/lang/NoClassDefFoundError;" -> NoClassDefFoundError(recipe.message)
-            "Ljava/lang/NoSuchFieldError;" -> NoSuchFieldError(recipe.message)
-            "Ljava/lang/NoSuchMethodError;" -> NoSuchMethodError(recipe.message)
-            "Ljava/lang/NullPointerException;" -> NullPointerException(recipe.message)
-            else -> error("No throwable materializer exists for ${recipe.type}")
-        }
-        val value = frame.allocateThrowable(recipe.type, host, cause)
-        return ThrownSubject.fromHeap(value, frame, throwableHierarchy)
-    }
+        GuestThrowables.internalError("Throwing '${value.type}' that is not an instance of Throwable")
+            .materialize(frame, throwableHierarchy)
 
     /** Plans local routes from the node's method and the event's normalized domain. */
     private fun planThrow(
@@ -2660,25 +2528,16 @@ class ExecutionSession internal constructor(
         path: ThrowPath,
         throwAddress: Int = node.address,
     ): Committable {
-        val resolution = try {
-            resolveHandlers(throwAddress, path.subject, node.view, throwableHierarchy)
-        } catch (fatal: VirtualMachineError) {
-            throw fatal
-        } catch (failure: Throwable) {
-            return hostFailureArm(node, failure, path.frame)
-        }
-        if (resolution is HandlerResolution.MalformedMetadata) {
-            return Committable(
+        val resolution = when (val result = resolveHandlers(throwAddress, path.subject, node.view, throwableHierarchy)) {
+            is HandlerResolution.Routed -> result
+            HandlerResolution.MalformedMetadata -> return Committable(
                 emptyList(),
                 Ending.RunPath(Outcome.Aborted(AbortReason.MALFORMED_INPUT), path.frame),
             )
+            is HandlerResolution.HostFailure -> return hostFailureArm(node, result.failure, path.frame)
         }
-        resolution as HandlerResolution.Routed
-        // ALL_OR_NOTHING, stated HERE rather than inferred by the caller: a malformed try-block table
-        // makes every clause in that table suspect, so routing part of it would leave a
-        // Complete-looking run holding paths no consumer can account for. Because the policy travels
-        // with the successor, this holds whatever else the op returned alongside the throw -- which is
-        // exactly what a `transitions.size` proxy could not promise (see [OnUnbuildable]).
+        // Every route of one throw commits or none does: a malformed handler address makes the whole table
+        // suspect, and a half-routed throw would leave paths no consumer can account for.
         return Committable(
             successors = resolution.routes.map { route ->
                 SuccessorSpec(

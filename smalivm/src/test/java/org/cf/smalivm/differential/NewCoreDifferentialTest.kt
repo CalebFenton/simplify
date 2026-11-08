@@ -172,7 +172,7 @@ class NewCoreDifferentialTest {
                 "invoke-missing-class",
                 "missingClass()V",
                 "Ljava/lang/NoClassDefFoundError;",
-                "java.lang.NoClassDefFoundError:Ldifferential/absent;",
+                "java.lang.NoClassDefFoundError:differential.absent",
             ),
 
             Row(

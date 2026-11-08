@@ -217,51 +217,6 @@ class ThrowRoutingTest {
     }
 
     // --- a Known value that cannot name a throwable's runtime class ---
-    //
-    // The boundary these six tests draw, because it is the whole of Task 12 and it is easy to read one
-    // of them as covering another's case:
-    //
-    //   PROVABLE  -> a definite, synthesized, message-less NullPointerException, NO fork:
-    //                  * `Known(0, "I")`, Dalvik's null idiom, from real smali
-    //                    (throwingTheNullIdiomResolvesToTheNullPointerExceptionHandlerAlone,
-    //                     theNullIdiomEntersOnlyTheHandlerThatCatchesNullPointerException)
-    //                  * `Known(5, "I")` and EVERY other primitive-typed Known, from real smali
-    //                    (aNonZeroPrimitiveThrowResolvesToTheNullPointerExceptionHandlerJustLikeZeroDoes)
-    //                  * `Known(null, T)`, a definite null reference
-    //                    (aDefinitelyNullThrowSynthesizesTheNpeInsteadOfBindingNullIntoTheHandler)
-    //                  * `Known(0, "Ljava/lang/String;")`, an integral zero under a reference type
-    //                    (anIntegralZeroUnderAReferenceTypeReadsAsNullToo)
-    //   NOT PROVABLE -> still every covering handler plus the escape:
-    //                  * `Unknown`/`Top` (ambiguousExceptionTypeForksEveryFeasibleHandlerPlusTheEscape
-    //                    above, unchanged by Task 12 and the majority case in a real APK)
-    //
-    // Narrowing exploration is the dangerous direction (spec §2.2), so the split is only legitimate
-    // because the first group is PROVABLE, and it is provable on ART's own mechanism rather than by
-    // analogy: `THROW()` fetches its operand with `GetVRegReference`, `ShadowFrame` keeps a PARALLEL
-    // reference array, and every primitive write clears the matching slot -- so a primitive-typed register
-    // reads as null whatever its value (shadow_frame.h:190-228, ART's prose at :401-408). [JVMS] §6.5
-    // `athrow` then supplies the NPE ("If objectref is null, athrow throws a NullPointerException instead
-    // of objectref"), and [BC]'s "(Object) null == (int) 0" covers the reference-typed zero.
-    // `Value.readsAsNullReference`'s KDoc has the verified chain; `ThrowOp`'s has the tiers.
-    //
-    // TIER, corrected 2026-08-04: the chain above is ART's SWITCH interpreter (what `-Xint` selects). The
-    // DEFAULT interpreter, `nterp`, reads `throw`'s operand out of the RAW dex-register array
-    // (mterp/x86_64ng/control_flow.S:171-176). For a ZERO raw the two tiers agree -- so `Known(0, "I")` and
-    // `Known(null, T)` are now corroborated TWICE, which is a strengthening -- but for a NON-ZERO primitive
-    // they contradict each other, so `Known(5, "I")` is VERIFIER tier (spec §2.2 on input
-    // method_verifier.cc:3253-3255 refuses to link) rather than [ART]. The split below does not move: the
-    // provable side stays provable, because null is the sound direction and matches the switch tier exactly.
-    //
-    // WHAT THIS SECTION USED TO SAY, so it is not restored: Task 12's first round put `Known(5, "I")` on
-    // the NOT-PROVABLE side, arguing ART "reinterprets the 5 as an object pointer and dereferences it".
-    // Its CONCLUSION was wrong -- it produced a fork for a case this engine answers definitely, i.e. an
-    // invented reachable `catch (IOException)`, a spurious `I` escape, and the int 5 bound where the switch
-    // interpreter binds an NPE. Its description of the MECHANISM, though, is what nterp does; that is why the
-    // row's tier is VERIFIER now rather than [ART], and it is still not a reason to restore the fork.
-    //
-    // The remaining `Known` imprecision is a NON-THROWABLE REFERENCE (`Known(hostString, String)`), which
-    // resolves to `Ljava/lang/String;` and escapes as itself where ART throws `InternalError`. It is not
-    // corpus-reachable until `new-instance` exists and is filed against Plan 9; no test here covers it.
 
     @Test
     fun throwingTheNullIdiomResolvesToTheNullPointerExceptionHandlerAlone() {
@@ -409,7 +364,9 @@ class ThrowRoutingTest {
     }
 
     @Test
-    fun boxedZeroUnderAReferenceTypeRemainsALiveReference() {
+    fun aZeroTaggedWithAReferenceTypeEscapesAsInternalError() {
+        // A host Integer under a String tag is neither a null reference nor a heap object, so the throw names a
+        // non-throwable and synthesizes InternalError, as for any thrown non-throwable.
         val thrown = Value.Known(0, string)
         val s = session(caughtDescriptor) { frame, view -> frame.assign(view.parameters.single().register, thrown) }
         val graph = s.run()
@@ -550,12 +507,9 @@ class ThrowRoutingTest {
     }
 
     @Test
-    fun anUnloadableThrownTypeIsAmbiguityToo() {
-        // The other side of the same unanswerable subtype query: the CATCH type loads but the THROWN
-        // type does not, which is what a `new-instance` of an absent class produces. Kept as its own
-        // test because the two operands reach the class model through different arguments of
-        // `isSubtypeOf`, and a fix that guarded only one of them would leave the other crashing the
-        // run. Oracle: same as above.
+    fun aNonHeapValueOfAnUnloadableTypeEscapesAsInternalError() {
+        // A host String under an unloadable class tag is not a heap object, so its tag never reaches the subtype
+        // query: the throw names a non-throwable and synthesizes InternalError rather than ending the run.
         val thrown = Value.Known("stand-in", VirtualType.of("Lspine/absent;"))
         val s = session(caughtDescriptor) { frame, view ->
             frame.assign(view.parameters.single().register, thrown)

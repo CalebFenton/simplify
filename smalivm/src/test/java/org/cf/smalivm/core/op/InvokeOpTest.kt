@@ -94,13 +94,15 @@ class InvokeOpTest {
 
     @Test
     fun absentDefiningClassThrowsGuestNoClassDefFoundError() {
+        // ART raises one message for an absent class whichever opcode resolves it (`ClassLinker::DoResolveType`), so
+        // an invoke names it as `new-instance` and the other resolving ops do.
         val graph = invokeRun("absentClass()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertFreshInvokeThrowable(
             graph,
             expectedType = "Ljava/lang/NoClassDefFoundError;",
             expectedClass = NoClassDefFoundError::class.java,
-            expectedMessage = "Linvoke_task20_absent;",
+            expectedMessage = "invoke_task20_absent",
         )
     }
 

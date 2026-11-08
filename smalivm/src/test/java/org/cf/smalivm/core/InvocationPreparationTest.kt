@@ -218,8 +218,8 @@ class InvocationPreparationTest {
 
         assertTrue(preparation is InvocationPreparation.ThrowResolution)
         assertEquals(
-            type("Ljava/lang/NoSuchMethodError;"),
-            (preparation as InvocationPreparation.ThrowResolution).exceptionType,
+            SynthesizedThrowable.NO_SUCH_METHOD,
+            (preparation as InvocationPreparation.ThrowResolution).recipe.kind,
         )
         assertEquals(0, backend.probes)
     }
