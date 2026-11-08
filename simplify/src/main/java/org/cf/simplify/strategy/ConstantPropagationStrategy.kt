@@ -1,6 +1,8 @@
 package org.cf.simplify.strategy
 
 import org.cf.simplify.ConstantBuilder
+import org.cf.smalivm.core.Agreement
+import org.cf.smalivm.core.InstructionTemplate
 import org.cf.smalivm.core.MethodControlFlow
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
@@ -11,7 +13,11 @@ import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 
-/** Replaces only normally completed, effect-free assignments with proven literals. */
+/**
+ * Replaces only normally completed, effect-free assignments with proven literals. A computed `String` becomes a
+ * `const-string`, whose interned object differs from the computed one, so it is folded only where this method never
+ * observes the object's identity ([referenceUseAfter]) or the register provably already holds that literal.
+ */
 class ConstantPropagationStrategy : OptimizationStrategy {
     override val optimizationCategories: Set<String> = setOf(CONSTANTIZED_OPS)
 
@@ -23,26 +29,60 @@ class ConstantPropagationStrategy : OptimizationStrategy {
             val classForNameResult = instruction.opcode == Opcode.MOVE_RESULT_OBJECT &&
                 previous?.let(::isClassForName) == true
             previous = instruction
-            if (input.graph.isDead(address) || instruction.opcode !in ELIGIBLE_OPCODES ||
-                instruction !is OneRegisterInstruction || classForNameResult ||
-                !input.graph.didEveryExecutionContinueNormally(address) ||
-                input.graph.sideEffectLevel(address) != SideEffectLevel.NONE) continue
+            val constructedString = constructedStringRegister(instruction)
+            if (constructedString != null) {
+                if (completedWithoutEffect(input, address)) {
+                    foldConstructedString(input, address, instruction, constructedString)
+                }
+                continue
+            }
+            if (instruction.opcode !in ELIGIBLE_OPCODES || instruction !is OneRegisterInstruction ||
+                classForNameResult || !completedWithoutEffect(input, address)) continue
             val destination = instruction.registerA
-            val value = input.graph.consensus(address, destination) as? Value.Known ?: continue
-            val raw = value.raw
-            val replacement = if (raw is String && value.type.isReference) {
-                // String consensus joins equal contents, not canonical identity. Prove the
-                // register's definition instead of inspecting the representative raw object.
-                if (instruction.opcode !in OBJECT_MOVES || instruction !is TwoRegisterInstruction) continue
+            val string = (input.graph.knownString(address, destination) as? Agreement.Agreed)?.value
+            val replacement = if (string != null) {
                 val flow = input.controlFlow ?: continue
                 val index = flow.indexOf(address) ?: continue
-                if (!hasLiteralOrigin(flow, index, instruction.registerB, raw)) continue
-                ConstantBuilder.buildStringLiteral(raw, destination, input.transaction)
-            } else ConstantBuilder.build(value, destination, input.transaction)
+                if (referenceUseAfter(flow, index, destination) == ReferenceUse.IDENTITY_OBSERVED &&
+                    !(instruction is TwoRegisterInstruction && instruction.opcode in OBJECT_MOVES &&
+                        hasLiteralOrigin(flow, index, instruction.registerB, string))) continue
+                ConstantBuilder.buildStringLiteral(string, destination, input.transaction)
+            } else {
+                val value = input.graph.consensus(address, destination) as? Value.Known ?: continue
+                ConstantBuilder.build(value, destination, input.transaction)
+            }
             if (replacement == null) continue
             input.transaction.replaceInstruction(address, listOf(replacement))
             input.recordOptimization(CONSTANTIZED_OPS)
         }
+    }
+
+    /** Whether some execution ran the op at [address] and every one continued normally with no declared effect. */
+    private fun completedWithoutEffect(input: StrategyInput, address: Int): Boolean =
+        !input.graph.isDead(address) && input.graph.didEveryExecutionContinueNormally(address) &&
+            input.graph.sideEffectLevel(address) == SideEffectLevel.NONE
+
+    /**
+     * Follows the `String` constructor at [address] with a `const-string` of the content it built into [receiver].
+     * The constructor stays; it is folded only when some path still reads the built object, so the literal is not
+     * inserted again once it stands after the constructor.
+     */
+    private fun foldConstructedString(input: StrategyInput, address: Int, constructor: Instruction, receiver: Int) {
+        val string = (input.graph.knownString(address, receiver) as? Agreement.Agreed)?.value ?: return
+        val flow = input.controlFlow ?: return
+        val index = flow.indexOf(address) ?: return
+        if (referenceUseAfter(flow, index, receiver) != ReferenceUse.READ) return
+        val literal = ConstantBuilder.buildStringLiteral(string, receiver, input.transaction) ?: return
+        input.transaction.replaceInstruction(address, listOf(InstructionTemplate.Encoded(constructor), literal))
+        input.recordOptimization(CONSTANTIZED_OPS)
+    }
+
+    /** The receiver register of an `invoke-direct` of a `String` constructor, or null for any other instruction. */
+    private fun constructedStringRegister(instruction: Instruction): Int? {
+        if (instruction.opcode != Opcode.INVOKE_DIRECT && instruction.opcode != Opcode.INVOKE_DIRECT_RANGE) return null
+        val method = invokedMethod(instruction) ?: return null
+        if (method.definingClass != STRING || method.name != "<init>") return null
+        return invokeRegisters(instruction).first()
     }
 
     /**
@@ -66,7 +106,7 @@ class ConstantPropagationStrategy : OptimizationStrategy {
 
     companion object {
         const val CONSTANTIZED_OPS = "constantized ops"
-        private val OBJECT_MOVES = setOf(Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16)
+        private const val STRING = "Ljava/lang/String;"
         private val ELIGIBLE_OPCODES: Set<Opcode> = java.util.EnumSet.of(
             Opcode.MOVE, Opcode.MOVE_FROM16, Opcode.MOVE_16,
             Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16,

@@ -7,7 +7,9 @@ import org.cf.smalivm.core.*
 import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.WideLiteralInstruction
+import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -17,26 +19,21 @@ import org.cf.simplify.optimize
 class ConstantPropagationStrategyTest {
     @TempDir lateinit var temporaryDirectory: Path
 
-    @Test fun equalStringContentsFromLiteralAndFreshPathsDoNotProveCanonicalIdentity() {
+    @Test fun stringJoinedFromLiteralAndComputedPathsFoldsWhenItsIdentityIsUnobserved() {
         val services = services()
         for (name in listOf("mergedLiteralFirst", "mergedFreshFirst")) {
-            val method = "Lconstants/ConstantIdentity;->$name(I)Ljava/lang/String;"
-            val original = view(services, method)
-            val move = original.instructionAddresses.single { original.opcodeAt(it) == Opcode.MOVE_OBJECT }
-            val graph = services.newSession(original, LIMITS).run()
-            val consensus = requireNotNull(graph.trusted()).consensus(move, 2) as Value.Known
-            assertEquals(123456789, (consensus.raw as String).toInt())
+            val method = IDENTITY + "$name(I)Ljava/lang/String;"
             optimize(services, method)
-            assertTrue(has(view(services, method), Opcode.MOVE_OBJECT), name)
-            assertTrue(has(view(services, method), Opcode.MOVE_RESULT_OBJECT), name)
-            assertEquals(123456789, (returned(services, method, 2).raw as String).toInt())
-            assertTrue(has(view(reload(services), method), Opcode.MOVE_OBJECT), name)
+            assertFalse(has(view(services, method), Opcode.MOVE_OBJECT), name)
+            assertFalse(has(view(services, method), Opcode.MOVE_RESULT_OBJECT), name)
+            assertEquals("123456789", returned(services, method, 2).raw, name)
+            assertEquals("123456789", returned(reload(services), method, 2).raw, name)
         }
     }
 
     @Test fun linearStringOriginProofFollowsCopiesAndIgnoresUnrelatedWrites() {
         val services = services()
-        val method = "Lconstants/ConstantIdentity;->linearCopies()Ljava/lang/String;"
+        val method = IDENTITY + "linearCopies()Ljava/lang/String;"
         val before = returned(services, method, 2).raw
         optimize(services, method)
         assertFalse(has(view(services, method), Opcode.MOVE_OBJECT))
@@ -44,23 +41,22 @@ class ConstantPropagationStrategyTest {
         assertEquals(before, returned(reload(services), method, 2).raw)
     }
 
-    @Test fun stringOriginProofCrossesTheFallThroughArmOfABranchButNotAJoin() {
+    @Test fun literalOriginProofFoldsAnIdentityComparedCopyOnTheFallThroughArmButNotAtAJoin() {
         val services = services()
         // The fall-through arm of if-eqz is entered only from the if, so the const-string reaches it unchanged.
-        val fallthrough = "Lconstants/ConstantIdentity;->copyOnIfFallthrough(I)Ljava/lang/String;"
+        val fallthrough = IDENTITY + "copyOnIfFallthrough(I)Ljava/lang/String;"
         optimize(services, fallthrough)
-        val edited = view(services, fallthrough)
-        assertEquals(1, edited.instructionAddresses.count { edited.opcodeAt(it) == Opcode.MOVE_OBJECT })
-        assertEquals("branch literal", returned(services, fallthrough, 1).raw)
+        assertFalse(has(view(services, fallthrough), Opcode.MOVE_OBJECT))
+        assertEquals("branch literal", returned(services, fallthrough, 0).raw)
         // Two definitions meet at the join; neither alone proves the register's identity there.
-        val join = "Lconstants/ConstantIdentity;->copyAtBranchJoin(I)Ljava/lang/String;"
+        val join = IDENTITY + "copyAtBranchJoin(I)Ljava/lang/String;"
         optimize(services, join)
         assertTrue(has(view(services, join), Opcode.MOVE_OBJECT))
     }
 
     @Test fun constructedStringIdentityIsNotReplacedByAnInternedLiteral() {
         val services = services()
-        val method = "Lconstants/ConstantIdentity;->run()I"
+        val method = IDENTITY + "run()I"
         assertEquals(1, returned(services, method, 0).raw)
         optimize(services, method)
         assertTrue(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
@@ -68,15 +64,62 @@ class ConstantPropagationStrategyTest {
         assertEquals(1, returned(reload(services), method, 0).raw)
     }
 
-    @Test fun freshHostReturnedStringIsNotAssumedCanonical() {
+    @Test fun computedStringPassedToACallAndReturnedFolds() {
         val services = services()
-        val method = "Lconstants/ConstantIdentity;->hostString()Ljava/lang/String;"
-        val before = returned(services, method, 0).raw
-        assertTrue(before is String)
-        assertEquals(123456789, (before as String).toInt())
+        val method = IDENTITY + "passedAndReturned()Ljava/lang/String;"
+        assertEquals("123456789", returned(services, method, 0).raw)
         optimize(services, method)
-        assertTrue(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
-        assertEquals(before, returned(services, method, 0).raw)
+        val edited = view(services, method)
+        assertFalse(has(edited, Opcode.MOVE_RESULT_OBJECT))
+        assertEquals(listOf("123456789"), stringLiterals(edited))
+        assertEquals("123456789", returned(services, method, 0).raw)
+        assertEquals("123456789", returned(reload(services), method, 0).raw)
+    }
+
+    @Test fun computedStringComparedByReferenceIsKeptWhileAnUncomparedOneFolds() {
+        val services = services()
+        val method = IDENTITY + "comparedOrPassed()I"
+        assertEquals(9, returned(services, method, 3).raw)
+        optimize(services, method)
+        val edited = view(services, method)
+        assertEquals(listOf(1), moveResultObjectDestinations(edited))
+        assertEquals(9, returned(services, method, 3).raw)
+        assertEquals(9, returned(reload(services), method, 3).raw)
+    }
+
+    @Test fun computedStringLockedThroughACopyIsKeptWhileAnUnlockedOneFolds() {
+        val services = services()
+        val method = IDENTITY + "lockedThroughCopyOrReturned()Ljava/lang/String;"
+        optimize(services, method)
+        val edited = view(services, method)
+        assertEquals(listOf(1), moveResultObjectDestinations(edited))
+        assertTrue(has(edited, Opcode.MOVE_OBJECT))
+        assertEquals("123456789", returned(services, method, 0).raw)
+    }
+
+    @Test fun computedStringTestedAgainstNullFolds() {
+        val services = services()
+        val method = IDENTITY + "nullTested()Ljava/lang/String;"
+        optimize(services, method)
+        assertFalse(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
+        assertEquals("123456789", returned(services, method, 0).raw)
+    }
+
+    @Test fun constructedStringIsFollowedByItsLiteralOnceUnlessItsIdentityIsCompared() {
+        val services = services()
+        val method = IDENTITY + "constructedFromBytes()Ljava/lang/String;"
+        assertEquals(1, optimize(services, method).committedEditCount)
+        val edited = view(services, method)
+        assertTrue(has(edited, Opcode.INVOKE_DIRECT))
+        assertEquals(listOf("ok"), stringLiterals(edited))
+        assertEquals("ok", returned(services, method, 0).raw)
+        assertEquals("ok", returned(reload(services), method, 0).raw)
+        assertEquals(0, optimize(services, method).committedEditCount)
+
+        val compared = IDENTITY + "constructedAndCompared()I"
+        optimize(services, compared)
+        assertEquals(listOf("ok"), stringLiterals(view(services, compared)))
+        assertEquals(1, returned(services, compared, 0).raw)
     }
 
     @Test fun moveFamiliesKeepUnencodableDestinationsAndFoldLocalCanonicalStrings() {
@@ -100,8 +143,7 @@ class ConstantPropagationStrategyTest {
         optimize(services, method)
         assertFalse(has(view(services, method), Opcode.MOVE_RESULT))
         assertFalse(has(view(services, method), Opcode.MOVE_RESULT_WIDE))
-        // The object's callee-local literal has no identity proof in this method.
-        assertTrue(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
+        assertFalse(has(view(services, method), Opcode.MOVE_RESULT_OBJECT))
         assertEquals(6L, returned(services, method, 2).raw)
     }
 
@@ -152,18 +194,16 @@ class ConstantPropagationStrategyTest {
         assertEquals(5, returned(services, method, 1).raw)
     }
 
-    @Test fun returnedStringWithoutLocalLiteralIdentityProofRemainsUnchangedAcrossReload() {
+    @Test fun decryptedStringFoldsAndKeepsItsValueAcrossReload() {
         val services = services()
         val method = OWNER + "readmeDecryptorShape()Ljava/lang/String;"
         val before = returned(services, method, 0).raw
         optimize(services, method)
         val edited = view(services, method)
         assertTrue(has(edited, Opcode.INVOKE_STATIC))
-        assertTrue(has(edited, Opcode.MOVE_RESULT_OBJECT))
+        assertFalse(has(edited, Opcode.MOVE_RESULT_OBJECT))
         assertEquals(before, returned(services, method, 0).raw)
-        val reloaded = reload(services)
-        assertEquals(before, returned(reloaded, method, 0).raw)
-        assertTrue(has(view(reloaded, method), Opcode.MOVE_RESULT_OBJECT))
+        assertEquals(before, returned(reload(services), method, 0).raw)
     }
 
     @Test fun floatingArithmeticPreservesExactBitsIncludingNegativeZeroAndNanPayloads() {
@@ -237,7 +277,7 @@ class ConstantPropagationStrategyTest {
         assertTrue(has(view(services, OWNER + "knownAget()I"), Opcode.APUT))
     }
 
-    @Test fun classNullAndObjectArrayStringResultsKeepTheirValues() {
+    @Test fun classNullAndArrayStringResultsFoldAndKeepTheirValues() {
         val services = services()
         for ((name, register, opcode) in listOf(
             Triple("computedClass()Ljava/lang/Class;", 0, Opcode.MOVE_RESULT_OBJECT),
@@ -249,9 +289,7 @@ class ConstantPropagationStrategyTest {
             val method = OWNER + name
             val before = returned(services, method, register).raw
             optimize(services, method)
-            // Array reads do not establish canonical string provenance, even with known contents.
-            if (before is String) assertTrue(has(view(services, method), opcode), name)
-            else assertFalse(has(view(services, method), opcode), name)
+            assertFalse(has(view(services, method), opcode), name)
             val after = returned(services, method, register).raw
             if (before == null) assertTrue(after == null || after == 0) else assertEquals(before, after, name)
         }
@@ -338,6 +376,13 @@ class ConstantPropagationStrategyTest {
         return trusted.terminatingConsensus(register) as Value.Known
     }
     private fun has(view: MethodView, opcode: Opcode) = view.instructionAddresses.any { view.opcodeAt(it) == opcode }
+    private fun stringLiterals(view: MethodView) = view.instructionAddresses.map { view.instructionAt(it) }
+        .filter { it.opcode == Opcode.CONST_STRING }
+        .map { ((it as ReferenceInstruction).reference as StringReference).string }
+    private fun moveResultObjectDestinations(view: MethodView) =
+        view.instructionAddresses.map { view.instructionAt(it) }
+            .filter { it.opcode == Opcode.MOVE_RESULT_OBJECT }
+            .map { (it as OneRegisterInstruction).registerA }
     private fun floatBits(raw: Any?) = if (raw is Float) raw.toRawBits() else (raw as Number).toInt()
     private fun doubleBits(raw: Any?) = if (raw is Double) raw.toRawBits() else (raw as Number).toLong()
     private fun services() = VmServices(ClassIndex.open(File("src/test/resources/constants"), 20))
@@ -348,6 +393,7 @@ class ConstantPropagationStrategyTest {
     }
     companion object {
         private const val OWNER = "Lconstants/Constants;->"
+        private const val IDENTITY = "Lconstants/ConstantIdentity;->"
         private const val GUARDS = "LConstantPropagationGuards;->"
         private val LIMITS = Limits(500, 1_000_000, 0, 20)
     }

@@ -14,6 +14,7 @@ private val CLASS_FOR_NAME = ImmutableMethodReference(
     "Ljava/lang/Class;", "forName", listOf("Ljava/lang/String;"), "Ljava/lang/Class;",
 )
 internal val MOVE_RESULTS: Set<Opcode> = setOf(Opcode.MOVE_RESULT, Opcode.MOVE_RESULT_WIDE, Opcode.MOVE_RESULT_OBJECT)
+internal val OBJECT_MOVES: Set<Opcode> = setOf(Opcode.MOVE_OBJECT, Opcode.MOVE_OBJECT_FROM16, Opcode.MOVE_OBJECT_16)
 
 /** The method an invoke names, or null for any other instruction. */
 internal fun invokedMethod(instruction: Instruction): MethodReference? =
