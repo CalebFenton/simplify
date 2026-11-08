@@ -281,7 +281,7 @@ class BackendCorpusMigrationTest {
         val run = execute(view, vm, frame)
 
         assertEquals(Value.Known("seed-value", STRING), run.graph.returnedValue())
-        assertEquals(SideEffectLevel.NONE, run.graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.NONE, run.graph.explored.methodSideEffectLevel())
     }
 
     @Test

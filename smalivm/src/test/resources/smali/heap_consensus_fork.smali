@@ -25,3 +25,15 @@
     const/4 v0, 0x0
     return-object v0
 .end method
+
+# p1 is a reflected Field; only the nonzero arm makes it accessible, so the returning paths disagree on accessibility.
+.method public static setAccessibleOnOnePath(ILjava/lang/reflect/Field;)V
+    .registers 3
+
+    if-eqz p0, :unchanged
+    const/4 v0, 0x1
+    invoke-virtual {p1, v0}, Ljava/lang/reflect/Field;->setAccessible(Z)V
+
+    :unchanged
+    return-void
+.end method

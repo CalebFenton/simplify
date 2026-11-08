@@ -307,7 +307,7 @@ class DirectHostObjectTest {
         assertEquals("value1", returned.hostObjectAt(ref).toString(), "StringBuilder.append(J) appends the decimal long")
         assertEquals(
             SideEffectLevel.NONE,
-            graph.sideEffectLevel(0),
+            graph.explored.sideEffectLevel(0),
             "the policy declares append NONE and exact changed state is fully reconciled",
         )
     }
@@ -565,7 +565,7 @@ class DirectHostObjectTest {
         val graph = vm.newSession(view, entryFrame = frame).run()
 
         assertEquals(Value.Known(7, intType), (graph.outcomes.single() as Outcome.Returned).value)
-        assertEquals(HostGraphContents.Unknown, (requireNotNull(graph.trusted()).terminatingHeapObject(deadRef) as HeapObject.HostObject).contents)
+        assertEquals(HostGraphContents.Unknown, (requireNotNull(graph.trusted()).terminatingHeapObject(deadRef).agreed() as HeapObject.HostObject).contents)
     }
 
     @Test
@@ -767,7 +767,7 @@ class DirectHostObjectTest {
         val graph = run.run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val returnedRef = returned.raw as HeapRef
-        val terminal = requireNotNull(graph.trusted()).terminatingHeapObject(parentRef) as HeapObject.HostObject
+        val terminal = requireNotNull(graph.trusted()).terminatingHeapObject(parentRef).agreed() as HeapObject.HostObject
 
         assertNotEquals(parentRef, returnedRef)
         assertTrue(terminal.contents is HostGraphContents.Known)
@@ -801,7 +801,7 @@ class DirectHostObjectTest {
 
         assertEquals(expectedNewId, newRef.id)
         assertNotEquals(oldChildRef, newRef)
-        assertEquals(HostGraphContents.Unknown, (terminal.terminatingHeapObject(oldChildRef) as HeapObject.HostObject).contents)
+        assertEquals(HostGraphContents.Unknown, (terminal.terminatingHeapObject(oldChildRef).agreed() as HeapObject.HostObject).contents)
         assertEquals("returned", CoreTester.terminatingHostObject(graph, newRef).toString())
         assertEquals(newRef.id + 1, probeNextHeapId(requireNotNull(run.currentNode).frame))
 
@@ -1040,7 +1040,7 @@ class DirectHostObjectTest {
         }
 
         val graph = session.run()
-        val stored = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.HostObject
+        val stored = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.HostObject
 
         assertTrue(selected)
         assertTrue(stored.contents is HostGraphContents.Known)
@@ -1170,7 +1170,7 @@ class DirectHostObjectTest {
 
         val graph = hostVm.newSession(view, entryFrame = frame).run()
         val returning = graph.nodePile(view.terminalInstructionAddresses.single()).single().frame
-        val stored = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.HostObject
+        val stored = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.HostObject
 
         assertEquals(Value.Known(ref, builderType), returning.peek(0))
         assertEquals(Value.Known(ref, objectType), returning.peek(1))
@@ -1191,7 +1191,7 @@ class DirectHostObjectTest {
 
         val graph = hostVm.newSession(view, entryFrame = frame).run()
         val returning = graph.nodePile(graph.methodView.terminalInstructionAddresses.single()).single().frame
-        val stored = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.HostObject
+        val stored = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.HostObject
         val storedList = CoreTester.terminatingHostObject(graph, ref) as List<*>
 
         assertEquals(CompletionStatus.Complete, graph.completion())
@@ -1240,7 +1240,7 @@ class DirectHostObjectTest {
         val graph = hostVm.newSession(view, entryFrame = frame).run()
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
         val returnedRef = returned.raw as HeapRef
-        val stored = graph.trusted()!!.terminatingHeapObject(returnedRef) as HeapObject.HostObject
+        val stored = graph.trusted()!!.terminatingHeapObject(returnedRef).agreed() as HeapObject.HostObject
 
         assertEquals(0, existing.id)
         assertEquals(1, returnedRef.id)
@@ -1266,7 +1266,7 @@ class DirectHostObjectTest {
         val ref = returned.raw as HeapRef
 
         assertEquals(objectType, returned.type)
-        assertEquals(builderType, graph.trusted()!!.terminatingHeapObject(ref)!!.type)
+        assertEquals(builderType, graph.trusted()!!.terminatingHeapObject(ref).agreed().type)
     }
 
     @Test
@@ -1810,7 +1810,7 @@ class DirectHostObjectTest {
     fun newReturnedArrayAndNestedReturnedArrayUseTrackedArrayVariants() {
         val directGraph = hostVm.newSession(hostView("newIntArray()Ljava/lang/Object;")).run()
         val directRef = ((directGraph.outcomes.single() as Outcome.Returned).value as Value.Known).raw as HeapRef
-        assertTrue(directGraph.trusted()!!.terminatingHeapObject(directRef) is HeapObject.TrackedArray)
+        assertTrue(directGraph.trusted()!!.terminatingHeapObject(directRef).agreed() is HeapObject.TrackedArray)
 
         val view = hostView("storeNewIntArray(Ljava/lang/Object;)V")
         val frame = Frame.entryFrame(view)

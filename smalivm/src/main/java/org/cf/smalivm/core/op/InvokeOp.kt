@@ -22,5 +22,5 @@ internal class InvokeOp(
 
     override fun toString(): String =
         "$name {${argumentRegisters.joinToString(", ") { "v$it" }}}, " +
-            "${target.definingClass.descriptor}->${target.descriptor}"
+            "${target.definingClass.descriptor}->${target.nameAndProto}"
 }

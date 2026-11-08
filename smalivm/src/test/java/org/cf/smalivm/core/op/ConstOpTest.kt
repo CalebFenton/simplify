@@ -316,7 +316,7 @@ class ConstOpTest {
     fun aConstClassLoadReportsNoSideEffect() {
         val graph = CoreTester.execute(CLASS_NAME, "constClassLocal()V")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(ADDRESS_CONST_CLASS),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(ADDRESS_CONST_CLASS),
             "a class-constant load mutates nothing outside its own frame",
         )
         val trusted = graph.trusted()

@@ -298,11 +298,11 @@ class CommitTest {
         val graph = sessionWith("nopThenConst()I", at = 0, listOf(OpArm.Jump(9999))).run()
         assertEquals(listOf(Outcome.Aborted(AbortReason.MALFORMED_INPUT)), graph.outcomes)
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "the op at 0 ran and declared NONE; a target that does not exist mutated nothing",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+            SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "and the method-wide fold says the same -- MALFORMED_INPUT is not an UNSUPPORTED_OP",
         )
         assertNull(graph.trusted(), "the truncation is carried by the trust gate, not by a fake effect")

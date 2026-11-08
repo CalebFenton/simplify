@@ -14,11 +14,11 @@ import org.junit.jupiter.api.Test
  *
  *  1. **a path genuinely holds a `Value.Top`** -- `MoveOp`'s `Source.Register` arm reads through
  *     [Frame.read], which is `peek(r) ?: Value.Top`, so `move v0, v2` from an untouched v2 assigns a
- *     real `Top`. [ExecutionGraph.registerOccupancyOverExploredPaths] answers
+ *     real `Top`. [ExploredPaths.registerOccupancy] answers
  *     [RegisterOccupancy.HELD].
  *  2. **the paths disagreed incompatibly**, so the join is `Top`. Also [RegisterOccupancy.HELD] --
  *     deliberately, because both mean "live and unknowable", and the number of disagreeing values is
- *     what [ExecutionGraph.registerValuesOverExploredPaths] is for.
+ *     what [ExploredPaths.registerValues] is for.
  *  3. **nothing ever assigned the register** -- [ExecutionGraph.valueIn] turns `peek`'s null into
  *     `Top`. [RegisterOccupancy.NEVER_ASSIGNED].
  *
@@ -83,8 +83,8 @@ class AssignmentDistinctionTest {
         assertEquals(2, graph.nodePile(JOIN).size, "both arms must reach the join, or the join is idempotent")
 
         // The SAME `Top` from both queries, for both registers: this is the conflation itself.
-        assertEquals(Value.Top, graph.consensusOverExploredPaths(JOIN, 0))
-        assertEquals(Value.Top, graph.consensusOverExploredPaths(JOIN, 1))
+        assertEquals(Value.Top, graph.explored.consensus(JOIN, 0))
+        assertEquals(Value.Top, graph.explored.consensus(JOIN, 1))
         assertEquals(Value.Top, trusted.terminatingConsensus(0))
         assertEquals(Value.Top, trusted.terminatingConsensus(1))
 
@@ -104,9 +104,9 @@ class AssignmentDistinctionTest {
         // is identical for a held `Top` and an unassigned register.
         assertEquals(
             setOf(Value.Known(1, VirtualType.of("I")), Value.Known("x", VirtualType.of("Ljava/lang/String;"))),
-            graph.registerValuesOverExploredPaths(JOIN, 0),
+            graph.explored.registerValues(JOIN, 0),
         )
-        assertEquals(setOf<Value>(Value.Top), graph.registerValuesOverExploredPaths(JOIN, 1))
+        assertEquals(setOf<Value>(Value.Top), graph.explored.registerValues(JOIN, 1))
     }
 
     @Test
@@ -120,7 +120,7 @@ class AssignmentDistinctionTest {
         val frame = graph.nodePile(JOIN).first().frame
         assertEquals(Value.Unknown(VirtualType.of("I")), frame.peek(2), "v2 is the (I) parameter")
         assertFalse(2 in frame.registersAssigned(), "entryFrame clears `assigned` after seeding parameters")
-        assertEquals(RegisterOccupancy.HELD, graph.registerOccupancyOverExploredPaths(JOIN, 2))
+        assertEquals(RegisterOccupancy.HELD, graph.explored.registerOccupancy(JOIN, 2))
 
         // The static liveness query is a third answer again, and is not a substitute either: it reads the
         // decoded op's DECLARED destination set and no frame at all, so at a `return-void` it is empty for
@@ -151,8 +151,8 @@ class AssignmentDistinctionTest {
         assertFalse(graph.wasReached(DEAD))
         assertTrue(graph.wasReached(AFTER_BRANCH))
 
-        assertEquals(Value.Top, graph.consensusOverExploredPaths(DEAD, 1))
-        assertEquals(Value.Top, graph.consensusOverExploredPaths(AFTER_BRANCH, 1))
+        assertEquals(Value.Top, graph.explored.consensus(DEAD, 1))
+        assertEquals(Value.Top, graph.explored.consensus(AFTER_BRANCH, 1))
         assertEquals(RegisterOccupancy.NO_PATH, trusted.registerOccupancy(DEAD, 1), "no node ran an op here")
         assertEquals(
             RegisterOccupancy.NEVER_ASSIGNED, trusted.registerOccupancy(AFTER_BRANCH, 1),
@@ -163,8 +163,8 @@ class AssignmentDistinctionTest {
         // with it: the empty set is exactly NO_PATH. It is still not a substitute -- see the singleton
         // `{Top}` case in the next test -- and it forces a consumer to reason about set emptiness rather
         // than reading an answer.
-        assertEquals(emptySet<Value>(), graph.registerValuesOverExploredPaths(DEAD, 1))
-        assertEquals(setOf<Value>(Value.Top), graph.registerValuesOverExploredPaths(AFTER_BRANCH, 1))
+        assertEquals(emptySet<Value>(), graph.explored.registerValues(DEAD, 1))
+        assertEquals(setOf<Value>(Value.Top), graph.explored.registerValues(AFTER_BRANCH, 1))
     }
 
     @Test
@@ -187,9 +187,9 @@ class AssignmentDistinctionTest {
 
         // Every existing observable is IDENTICAL for all three registers.
         for (register in 0..2) {
-            assertEquals(Value.Top, graph.consensusOverExploredPaths(1, register), "consensus r$register")
+            assertEquals(Value.Top, graph.explored.consensus(1, register), "consensus r$register")
             assertEquals(
-                setOf<Value>(Value.Top), graph.registerValuesOverExploredPaths(1, register),
+                setOf<Value>(Value.Top), graph.explored.registerValues(1, register),
                 "registerValues r$register",
             )
             assertEquals(Value.Top, trusted.terminatingConsensus(register), "terminatingConsensus r$register")
@@ -223,7 +223,7 @@ class AssignmentDistinctionTest {
         // one boolean about assignment could never have carried it.
         assertEquals(
             Value.Unknown(VirtualType.of("Ljava/lang/RuntimeException;")),
-            throwing.consensusOverExploredPaths(0, 1),
+            throwing.explored.consensus(0, 1),
         )
         assertEquals(RegisterOccupancy.HELD, throwingTrusted.registerOccupancy(0, 1))
 
@@ -248,9 +248,9 @@ class AssignmentDistinctionTest {
         // and that one accounts for wide pairs on both sides.
         val graph = completed("instanceWideParams(JLjava/lang/String;I)I", className = "Lspine/spine;")
         val at = 0
-        assertEquals(RegisterOccupancy.HELD, graph.registerOccupancyOverExploredPaths(at, 4), "v4 is the J low half")
+        assertEquals(RegisterOccupancy.HELD, graph.explored.registerOccupancy(at, 4), "v4 is the J low half")
         assertEquals(
-            RegisterOccupancy.NEVER_ASSIGNED, graph.registerOccupancyOverExploredPaths(at, 5),
+            RegisterOccupancy.NEVER_ASSIGNED, graph.explored.registerOccupancy(at, 5),
             "v5 is the J high half; `peek` answers null for it",
         )
         assertFalse(
@@ -259,7 +259,7 @@ class AssignmentDistinctionTest {
         )
         assertTrue(1 in graph.availableRegisters(at).toList(), "a genuinely untouched local IS free")
         assertEquals(
-            RegisterOccupancy.NEVER_ASSIGNED, graph.registerOccupancyOverExploredPaths(at, 1),
+            RegisterOccupancy.NEVER_ASSIGNED, graph.explored.registerOccupancy(at, 1),
             "so NEVER_ASSIGNED alone cannot mean 'free' -- v1 and v5 answer the same and differ",
         )
     }
@@ -274,7 +274,7 @@ class AssignmentDistinctionTest {
         val trusted = trustedOf(graph)
         val absent = 99
         assertTrue(absent >= graph.methodView.registerCount, "register $absent must not exist in this method")
-        assertEquals(Value.Top, graph.consensusOverExploredPaths(JOIN, absent))
+        assertEquals(Value.Top, graph.explored.consensus(JOIN, absent))
         assertEquals(RegisterOccupancy.NEVER_ASSIGNED, trusted.registerOccupancy(JOIN, absent))
         assertEquals(RegisterOccupancy.NEVER_ASSIGNED, trusted.terminatingRegisterOccupancy(absent))
     }
@@ -288,17 +288,17 @@ class AssignmentDistinctionTest {
         val trusted = trustedOf(graph)
         for (register in 0..2) {
             assertEquals(
-                graph.registerOccupancyOverExploredPaths(JOIN, register),
+                graph.explored.registerOccupancy(JOIN, register),
                 trusted.registerOccupancy(JOIN, register),
                 "gated and ungated must agree for r$register",
             )
             assertEquals(
-                graph.terminatingRegisterOccupancyOverExploredPaths(register),
+                graph.explored.terminatingRegisterOccupancy(register),
                 trusted.terminatingRegisterOccupancy(register),
                 "gated and ungated terminating must agree for r$register",
             )
         }
-        assertEquals(graph.didAnyPathReturnOverExploredPaths(), trusted.didAnyPathReturn())
+        assertEquals(graph.explored.didAnyPathReturn(), trusted.didAnyPathReturn())
 
         // And the gate itself, on the truncation that actually matters. A run stopped before ANY path got
         // to a `return` answers `false` here for a method that plainly does return -- so on a run that is
@@ -308,9 +308,9 @@ class AssignmentDistinctionTest {
         val truncated = CoreTester.execute(CLASS, DISAGREEING, limits = Limits(maxSteps = 1))
         assertTrue(truncated.completion() is CompletionStatus.Partial, "the run must have been cut short")
         assertNull(truncated.trusted(), "a Partial run may not hand out the gated twins")
-        assertFalse(truncated.didAnyPathReturnOverExploredPaths(), "...while the ungated twin still answers")
+        assertFalse(truncated.explored.didAnyPathReturn(), "...while the ungated twin still answers")
         assertEquals(
-            RegisterOccupancy.NO_PATH, truncated.terminatingRegisterOccupancyOverExploredPaths(0),
+            RegisterOccupancy.NO_PATH, truncated.explored.terminatingRegisterOccupancy(0),
             "and so does the register-indexed twin, with the same caveat",
         )
         // The control that makes the two `false`s above a truncation artifact rather than a property of
@@ -322,9 +322,9 @@ class AssignmentDistinctionTest {
      * The consumer-reachability claim, written so the COMPILER checks it: this function can see nothing but
      * a [TrustedGraphView], and it still reaches all three verdicts a Plan 14 strategy needs to keep apart.
      *
-     * That is not incidental. [ExecutionGraph.outcomes] is on neither [ExecutionGraphView] nor
-     * [TrustedGraphView], and [ExecutionGraphView.wasReached]/[ExecutionGraphView.wasAttempted] are on the
-     * ungated interface only -- so a consumer handed only the trusted view had no route to "no path
+     * That is not incidental. [ExecutionGraph.outcomes] is not on [TrustedGraphView], and
+     * [ExecutionGraph.wasReached]/[ExecutionGraph.wasAttempted] are on the graph only -- so a consumer
+     * handed only the trusted view had no route to "no path
      * returned" at all before [RegisterOccupancy] existed, however many booleans it was given.
      *
      * The `error` branch is a checked invariant rather than defensive padding: if any path returned, the

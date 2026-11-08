@@ -10,6 +10,7 @@ import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -108,7 +109,7 @@ class FillArrayDataOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "the fill completes on every path")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         val boolean = VirtualType.of("Z")
         assertEquals(listOf(Value.Unknown(boolean), Value.Known(true, boolean)), listOf(array.element(0), array.element(1)))
     }
@@ -248,12 +249,12 @@ class FillArrayDataOpTest {
         // Row 4's effect level, pinned here because this test already has the graph. A definite throw stores
         // nothing, so there is no effect to account for -- the same reasoning as row 1's.
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "a definite bounds exception stores nothing, so it declares no effect",
         )
         val trusted = graph.trusted()!!
         val ref = (trusted.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         val zero = Value.Known(0, VirtualType.of("I"))
         assertEquals(zero, array.element(0), "nothing stored: still the seed's 0")
         assertEquals(zero, array.element(1), "and the payload's second element did not land either")
@@ -302,7 +303,7 @@ class FillArrayDataOpTest {
             "zero elements fit a zero-length array exactly, so nothing throws -- not even bounds",
         )
         assertEquals(
-            SideEffectLevel.NONE, emptyArray.sideEffectLevel(0),
+            SideEffectLevel.NONE, emptyArray.explored.sideEffectLevel(0),
             "and a tracked fill of nothing is still modelled exactly",
         )
     }
@@ -321,7 +322,7 @@ class FillArrayDataOpTest {
     fun aFillIntoATrackedArrayDeclaresAnObservableWeakEffect() {
         val graph = graph("fillArrayDataInt()V")
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0), "an alias can observe the tracked fill")
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0), "an alias can observe the tracked fill")
         val trusted = graph.trusted()
         assertNotNull(trusted, "nothing threw, so every path returns")
         assertEquals(
@@ -368,7 +369,7 @@ class FillArrayDataOpTest {
         assertEquals(3, graph.methodView.nextAddress(0), "fill-array-data is 31t = THREE code units")
         assertFalse(graph.wasReached(3), "and no fall-through")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "nothing was stored, so there is no effect to account for",
         )
     }
@@ -422,7 +423,7 @@ class FillArrayDataOpTest {
         assertEquals(listOf("Ljava/lang/NullPointerException;"), CoreTester.escapingTypes(graph))
         assertEquals(0, graph.nodePile(0).first().children.size, "no fall-through: the throw is definite")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "nothing was stored, so there is no effect to account for",
         )
     }
@@ -475,7 +476,7 @@ class FillArrayDataOpTest {
         )
         assertTrue(graph.wasReached(3), "the fall-through is feasible too and must be explored")
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "the fill landed in an object the engine cannot name, so no heap state records it",
         )
     }
@@ -506,7 +507,7 @@ class FillArrayDataOpTest {
             "a Known REFERENCE with a non-null raw is provably non-null and has no length, so both throws are infeasible",
         )
         assertEquals(1, graph.nodePile(0).first().children.size, "exactly one successor: the fall-through")
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0))
         val trusted = graph.trusted()
         assertNotNull(trusted, "nothing threw, so the single path returns")
         assertEquals(

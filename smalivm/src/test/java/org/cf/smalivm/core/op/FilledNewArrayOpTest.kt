@@ -10,6 +10,7 @@ import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.cf.smalivm.core.agreesWith
 import org.cf.smalivm.core.join
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -346,9 +347,7 @@ class FilledNewArrayOpTest {
         putState.setRegisters(0, arrayOf<String?>(null), "[Ljava/lang/String;", 1, 0, "I", 2, 0, "I")
         val putGraph = CoreTester.execute("Laput_test;", "putObject()V", putState)
         assertEquals(CompletionStatus.Complete, putGraph.completion())
-        val stored = putGraph.trusted()!!.terminatingHeapObject(
-            (putGraph.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef,
-        )
+        val stored = putGraph.trusted()!!.terminatingHeapObject((putGraph.trusted()!!.terminatingConsensus(0) as Value.Known).raw as HeapRef,).agreed()
         assertTrue(stored is HeapObject.TrackedArray, "aput-object's array should be tracked; got $stored")
         val aput = (stored as HeapObject.TrackedArray).elements()[0]
 
@@ -500,7 +499,7 @@ class FilledNewArrayOpTest {
         val known = CoreTester.execute(CLASS_NAME, "filledNewArrayThenMoveResult()V", CoreState().apply {
             setRegisters(0, 2, "I", 1, 3, "I", 2, 5, "I")
         })
-        assertEquals(SideEffectLevel.NONE, known.sideEffectLevel(0), "a fresh array mutates nothing")
+        assertEquals(SideEffectLevel.NONE, known.explored.sideEffectLevel(0), "a fresh array mutates nothing")
         val trusted = known.trusted()
         assertNotNull(trusted, "nothing threw, so every path returns")
         assertEquals(
@@ -510,14 +509,14 @@ class FilledNewArrayOpTest {
 
         val unknown = CoreTester.execute(CLASS_NAME, "filledNewArrayThenMoveResult()V")
         assertEquals(
-            SideEffectLevel.NONE, unknown.sideEffectLevel(0),
+            SideEffectLevel.NONE, unknown.explored.sideEffectLevel(0),
             "an unprovable ELEMENT is a lattice point in a tracked slot, not an unmodellable write",
         )
 
         val internalError = CoreTester.execute(CLASS_NAME, "filledNewArrayOfBytes()V")
-        assertEquals(SideEffectLevel.NONE, internalError.sideEffectLevel(0), "a definite throw allocates nothing")
+        assertEquals(SideEffectLevel.NONE, internalError.explored.sideEffectLevel(0), "a definite throw allocates nothing")
         val missingClass = CoreTester.execute(CLASS_NAME, "filledNewArrayOfMissingClass()V")
-        assertEquals(SideEffectLevel.NONE, missingClass.sideEffectLevel(0), "and neither does the other one")
+        assertEquals(SideEffectLevel.NONE, missingClass.explored.sideEffectLevel(0), "and neither does the other one")
     }
 
     /**
@@ -535,7 +534,7 @@ class FilledNewArrayOpTest {
         assertEquals(
             listOf(Value.Known(2, INT), Value.Known(1086115021, INT), Value.Known(7, INT)), array.elements(),
         )
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(0))
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(0))
     }
 
     /**
@@ -607,7 +606,7 @@ class FilledNewArrayOpTest {
             consensus is Value.Known && consensus.raw is HeapRef,
             "register $register should hold a tracked array, but was $consensus",
         )
-        val actual = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef)
+        val actual = trusted.terminatingHeapObject((consensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(actual is HeapObject.TrackedArray, "no array behind the ref; got $actual")
         return actual as HeapObject.TrackedArray
     }

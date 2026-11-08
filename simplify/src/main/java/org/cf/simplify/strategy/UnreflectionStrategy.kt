@@ -32,7 +32,7 @@ class UnreflectionStrategy : OptimizationStrategy {
         // direct invoke does not. Opaque/denied backend calls carry STRONG effects.
         if (!input.graph.didEveryExecutionContinueNormally(address) ||
             input.graph.sideEffectLevel(address) != SideEffectLevel.NONE) return
-        val metadata = input.graph.reflectedMethod(parents, registers[0]) ?: return
+        val metadata = (input.graph.reflectedMethod(parents, registers[0]) as? Agreement.Agreed)?.value ?: return
         val method = metadata.method
         val parameters = method.parameterTypes.map(CharSequence::toString)
         val caller = input.method.definingClass.descriptor
@@ -117,7 +117,7 @@ class UnreflectionStrategy : OptimizationStrategy {
         if (registers.size != 2) return
         val parents = input.graph.parentAddresses(address)
         if (parents.isEmpty()) return
-        val metadata = input.graph.reflectedField(parents, registers[0]) ?: return
+        val metadata = (input.graph.reflectedField(parents, registers[0]) as? Agreement.Agreed)?.value ?: return
         val field = metadata.field
         // Other owners can initialize or fail access checks; instance reads require a receiver proof.
         if (!Modifier.isStatic(metadata.modifiers) || field.definingClass != input.method.definingClass.descriptor) return

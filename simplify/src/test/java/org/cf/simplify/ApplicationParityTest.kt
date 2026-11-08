@@ -67,7 +67,7 @@ class ApplicationParityTest {
         val register = (method.instructionAt(address) as OneRegisterInstruction).registerA
         val value = trusted.terminatingConsensus(register)
         if (value !is Value.Known) return value.toString()
-        trusted.knownString(address, register)?.let { return it }
+        (trusted.knownString(address, register) as? Agreement.Agreed)?.let { return it.value }
         return (value.raw as? Class<*>)?.name ?: value.raw
     }
 

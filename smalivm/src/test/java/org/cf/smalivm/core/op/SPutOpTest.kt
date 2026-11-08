@@ -188,7 +188,7 @@ class SPutOpTest {
             CLASS_NAME, "putStaticInt()V", CoreState().apply { setRegisters(0, 0x42, "I") },
         )
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.WEAK, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.WEAK, graph.explored.methodSideEffectLevel())
         // The liveness declarations, pinned beside the effect because both are what
         // ExecutionGraph.availableRegisters consumers read: the value register is READ, and NOTHING is
         // assigned -- the deliberate divergence from the oracle's `registersAssignedCount = 1`

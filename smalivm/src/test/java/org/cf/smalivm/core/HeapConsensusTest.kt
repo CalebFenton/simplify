@@ -23,7 +23,7 @@ class HeapConsensusTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "an unforked run must complete")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(2, array.length)
         assertEquals(Value.Known(0, INT), array.element(0))
     }
@@ -41,7 +41,7 @@ class HeapConsensusTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "a throw fork whose arms both return still completes")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(2, array.length)
         assertEquals(Value.Unknown(INT), array.element(0))
         assertEquals(Value.Known(0, INT), array.element(1))
@@ -50,22 +50,18 @@ class HeapConsensusTest {
     @Test
     fun aRefNoReturningPathKnowsAboutIsAbsentRatherThanEmpty() {
         // Absent, not a zero-length array: fabricating a shape for an object no path allocated is
-        // exactly the "invent an answer" failure the lattice exists to prevent.
-        //
-        // `returnFive()I` completes and allocates nothing.
+        // exactly the "invent an answer" failure the lattice exists to prevent. `returnFive()I` allocates nothing.
         val graph = CoreTester.execute("Lspine/spine;", "returnFive()I")
         assertNotNull(graph.trusted(), "an unforked, opcode-supported run must complete")
-        assertNull(graph.trusted()!!.terminatingHeapObject(HeapRef(9999)))
+        assertEquals(Agreement.Absent, graph.trusted()!!.terminatingHeapObject(HeapRef(9999)))
     }
 
     @Test
-    fun aPartialRunHandsOutNoTrustedViewAndSoNoHeapConsensus() {
-        // The gate is the same one the five existing trust-bearing queries sit behind: contents read from
-        // a truncated exploration are as untrustworthy as a value read from one.
+    fun aRunWithNoReturningPathAnswersNoPathRatherThanAbsent() {
+        // The only path aborts on an unsupported opcode, so there is no returning path to ask about any ref.
         val graph = CoreTester.execute("Lspine/spine;", "unsupportedWideFilledArray()I")
         assertNull(graph.trusted(), "an UNSUPPORTED_OP abort must refuse trust")
-        // ...and the ungated twin still answers, because a debugger legitimately wants the partial picture.
-        assertNull(graph.terminatingHeapObjectOverExploredPaths(HeapRef(0)))
+        assertEquals(Agreement.NoPath, graph.explored.terminatingHeapObject(HeapRef(0)))
     }
 
     @Test
@@ -80,7 +76,7 @@ class HeapConsensusTest {
         val graph = CoreTester.vmServices.newSession(view, entryFrame = seed).run()
 
         assertEquals(2, graph.outcomes.size)
-        val agreed = graph.trusted()!!.terminatingHeapObject(ref) as HeapObject.GuestThrowable
+        val agreed = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.GuestThrowable
         assertTrue(agreed.contents is HostGraphContents.Known)
         assertTrue(
             CoreTester.terminatingHostObject(graph, ref) === sharedThrowable,
@@ -104,7 +100,7 @@ class HeapConsensusTest {
         val graph = CoreTester.vmServices.newSession(view, entryFrame = frame).run()
 
         assertEquals(2, graph.outcomes.size)
-        val consensus = graph.trusted()!!.terminatingHeapObject(wrapper.raw as HeapRef)
+        val consensus = graph.trusted()!!.terminatingHeapObject(wrapper.raw as HeapRef).agreed()
             as HeapObject.GuestThrowable
         assertEquals(cause, consensus.cause)
     }
@@ -119,12 +115,37 @@ class HeapConsensusTest {
         val allocatingPath = graph.addresses().asSequence()
             .flatMap { graph.nodePile(it).asSequence() }
             .single { node -> ((node.outcome as? Outcome.Returned)?.value as? Value.Known)?.raw == allocated }
-        assertNotNull((allocatingPath.endingFrame ?: allocatingPath.frame).heapObject(allocated))
+        assertNotNull(allocatingPath.terminalFrame.heapObject(allocated))
 
-        assertNull(
+        assertEquals(
+            Agreement.Absent,
             graph.trusted()!!.terminatingHeapObject(allocated),
             "one returning path lacks the object, so no object-content consensus is available",
         )
+    }
+
+    @Test
+    fun aReflectedFieldWhoseAccessibilityDiffersAcrossReturningPathsJoinsToUnknownAccessibility() {
+        // One Field object, made accessible on one returning path only. The executable heap merge never sees
+        // this pair (callers partition by accessibility first); the terminating query joins it, and the join of
+        // two definite accessibilities is UNKNOWN, never either path's own.
+        val view = CoreTester.classIndex.requireMethodView(FORK_CLASS, "setAccessibleOnOnePath(ILjava/lang/reflect/Field;)V")
+        val owner = VirtualType.of("Lheap_consensus/owner;")
+        val metadata = TrackedFieldValue(
+            owner, "secret", "${owner.descriptor}->secret:I", INT, java.lang.reflect.Modifier.PRIVATE,
+            FieldVisibility.PRIVATE, FieldStorage.INSTANCE, TrackedFieldDomain.Virtual,
+        )
+        val seed = Frame.entryFrame(view)
+        val field = seed.allocateTrackedField(metadata)
+        seed.assign(view.registerCount - 1, field)
+        val ref = field.raw as HeapRef
+
+        val graph = CoreTester.vmServices.newSession(view, entryFrame = seed).run()
+
+        assertEquals(2, graph.outcomes.size)
+        val joined = graph.trusted()!!.terminatingHeapObject(ref).agreed() as HeapObject.TrackedField
+        assertEquals(metadata, joined.metadata)
+        assertEquals(FieldAccessibility.UNKNOWN, joined.accessibility)
     }
 
     private fun forkView(): MethodView = CoreTester.classIndex.requireMethodView(FORK_CLASS, "forkThenReturn(I)V")

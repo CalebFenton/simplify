@@ -268,7 +268,7 @@ class DeadRemovalStrategyTest {
     private fun returnedArray(services: VmServices, method: String, register: Int): List<Any?> {
         val trusted = requireNotNull(execute(services, method).trusted())
         val value = trusted.terminatingConsensus(register) as Value.Known
-        val array = trusted.terminatingHeapObject(value.raw as HeapRef) as HeapObject.TrackedArray
+        val array = (trusted.terminatingHeapObject(value.raw as HeapRef) as Agreement.Agreed).value as HeapObject.TrackedArray
         return array.elements().map { (it as Value.Known).raw }
     }
     private fun has(view: MethodView, opcode: Opcode) = count(view, opcode) != 0

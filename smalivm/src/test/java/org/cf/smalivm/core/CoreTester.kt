@@ -144,7 +144,7 @@ object CoreTester {
                 "register $register after $className->$methodDescriptor should hold a tracked array, but was $consensus",
             )
             val ref = (consensus as Value.Known).raw as HeapRef
-            val actual = trusted.terminatingHeapObject(ref)
+            val actual = trusted.terminatingHeapObject(ref).agreed()
             assertTrue(actual is HeapObject.TrackedArray, "no array at $ref for register $register; got $actual")
             val array = actual as HeapObject.TrackedArray
             val expectedElements = CoreState.elementsOf(spec)
@@ -172,7 +172,7 @@ object CoreTester {
      * Checks completion FIRST, for the same reason [assertReturns] does, even though `wasReached` is
      * ungated and needs no [TrustedGraphView]: an *absent* address here is a dead-code claim, and on a
      * `Partial` run `wasReached` returns `false` for a genuinely unreachable address and for one the
-     * run simply never got to, indistinguishably (see [ExecutionGraphView.wasReached]). Without this
+     * run simply never got to, indistinguishably (see [ExecutionGraph.wasReached]). Without this
      * check the harness would quietly teach every later plan's tests to read a truncated exploration
      * as a coverage proof -- and a fixture that stopped early would show up as a *passing* narrower
      * expectation rather than as a failure.

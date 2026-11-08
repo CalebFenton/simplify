@@ -166,7 +166,7 @@ class CheckCastOpTest {
          * fact rather than a behavioural change.** `Tester.testSimpleException` ends with
          * `assertEquals(0, node.state.registersAssigned.size)` -- the **runtime** set on a *throwing* path,
          * where the oracle's `assignRegister` (`opcode/CheckCastOp.kt:28`) never ran.
-         * `ExecutionGraphView.registersAssigned(address)` is **static**, `opOrNull(address)?.registersAssigned`
+         * `ExecutionGraph.registersAssigned(address)` is **static**, `opOrNull(address)?.registersAssigned`
          * (`core/ExecutionGraph.kt:259-260`), so it answers `{0}` for this op on every path and
          * `assertEquals(emptySet<Int>(), …)` could not pass. The liveness claim is made in the non-vacuous
          * three-line shape instead, by [aSuccessfulCastAssignsItsTargetRegisterAndReadsIt].
@@ -575,7 +575,7 @@ class CheckCastOpTest {
         for ((label, seed) in seeds) {
             val graph = CoreTester.execute(CLASS_NAME, "castToStringWithCatch()V", seed)
             assertEquals(
-                SideEffectLevel.NONE, graph.sideEffectLevel(ADDRESS_CHECK_CAST),
+                SideEffectLevel.NONE, graph.explored.sideEffectLevel(ADDRESS_CHECK_CAST),
                 "$label: a cast mutates nothing outside its own frame",
             )
             val trusted = graph.trusted()

@@ -205,8 +205,8 @@ class ExecutionSession internal constructor(
     // sibling's unqueried `children` entry. This set is what keeps that safe: it is the ONLY
     // authority for "did this node's op actually run", because `outcome`/`children` alone cannot
     // distinguish a terminal-after-running node from a limit-aborted-before-running one (both can
-    // be non-null-outcome, childless). `ExecutionGraph` filters every FRAME-VALUE-bearing query
-    // (`wasReached`, `consensusOverExploredPaths`, `registerValuesOverExploredPaths`) through this
+    // be non-null-outcome, childless). `ExecutionGraph`/`ExploredPaths` filter every FRAME-VALUE-bearing query
+    // (`wasReached`, `explored.consensus`, `explored.registerValues`) through this
     // set; `nodePile` does not, by
     // design, so the raw pile stays visible, and liveness (`getOp`, `registersRead`,
     // `registersAssigned`) does not either -- decode is static and never touches a `Frame`, so no
@@ -2581,7 +2581,7 @@ class ExecutionSession internal constructor(
      * "did it return" test beyond the guard below, which exists only so a future caller cannot break that.
      *
      * Without this the caller's invoke address read `NONE`, i.e. *"no side effects, safe to delete"*, through
-     * `ExecutionGraph.methodSideEffectLevelOverExploredPaths` -- an **ungated** query -- for a call this
+     * `ExploredPaths.methodSideEffectLevel` -- an **ungated** query -- for a call this
      * engine could not run to completion. It was also a regression against the pre-invocation baseline, where
      * `planFor`'s no-op `Invoke` branch put the abort on the invoke node itself and `sideEffectLevel`'s
      * `UNSUPPORTED_OP -> STRONG` rule answered `STRONG`. That rule cannot fire now, because the abort is on a

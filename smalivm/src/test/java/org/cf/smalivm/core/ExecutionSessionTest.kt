@@ -243,9 +243,9 @@ class ExecutionSessionTest {
         }
         while (s.step() != null) Unit
         val graph = s.graph()
-        assertEquals(SideEffectLevel.STRONG, graph.sideEffectLevel(0), "address 0's op ran and declared")
+        assertEquals(SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0), "address 0's op ran and declared")
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(1),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(1),
             "address 1 was dequeued but the step limit stopped it before execute, so it declared nothing",
         )
     }

@@ -15,7 +15,7 @@ internal class InfoCommand : DebuggerCommand() {
             out.println("no current frame; execution finished")
             return
         }
-        for (register in 0 until state.registers.registerCount) {
+        for (register in 0 until state.registerCount) {
             val parameter = register - currentView.firstParameterRegister
             val name = if (parameter >= 0) "v$register(p$parameter)" else "v$register"
             out.println("$name: ${state.readRegister(register)}")

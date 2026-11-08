@@ -32,7 +32,7 @@ class InvokeReviewTest {
                 caller,
             )
             assertEquals(2, graph.outcomes.size, caller)
-            assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+            assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         }
     }
 
@@ -80,9 +80,9 @@ class InvokeReviewTest {
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(Value.Unknown(int), graph.trusted()!!.terminatingConsensus(2))
         val arrayValue = graph.trusted()!!.terminatingConsensus(1) as Value.Known
-        val array = graph.trusted()!!.terminatingHeapObject(arrayValue.raw as HeapRef) as HeapObject.TrackedArray
+        val array = graph.trusted()!!.terminatingHeapObject(arrayValue.raw as HeapRef).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Unknown(int), array.element(0))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         val diagnostic = graph.addresses().flatMap { graph.nodePile(it) }.mapNotNull { it.invocationDiagnostic }.single()
         assertTrue(diagnostic.contains("argument register"), diagnostic)
     }
@@ -93,7 +93,7 @@ class InvokeReviewTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
         assertNull(graph.trusted())
         assertEquals(listOf(Outcome.Returned(Value.Known(1, int))), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -109,7 +109,7 @@ class InvokeReviewTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), graph.completion())
         assertNull(graph.trusted())
         assertEquals(listOf(Outcome.Returned(Value.Known(2, int))), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -119,7 +119,7 @@ class InvokeReviewTest {
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
         assertNull(graph.trusted())
         assertEquals(listOf(Outcome.Returned(Value.Known(7, int))), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -131,19 +131,19 @@ class InvokeReviewTest {
         assertNull(graph.trusted())
         assertEquals(VirtualType.of("Ljava/lang/NullPointerException;"), returned.type)
         assertNotNull(CoreTester.terminatingHostObject(graph, returned.raw as HeapRef))
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
     fun constructorCompletionCommittedBeforeMalformedResumeRemainsVisible() {
         val graph = CoreTester.execute(REVIEW, "readCommittedConstructorAfterMalformedResume()Ljava/lang/Object;")
         val returned = (graph.outcomes.single() as Outcome.Returned).value as Value.Known
-        val obj = graph.terminatingHeapObjectOverExploredPaths(returned.raw as HeapRef) as HeapObject.TrackedObject
+        val obj = graph.explored.terminatingHeapObject(returned.raw as HeapRef).agreed() as HeapObject.TrackedObject
 
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.MALFORMED_INPUT)), graph.completion())
         assertNull(graph.trusted())
         assertFalse(obj.uninitialized)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test
@@ -168,7 +168,7 @@ class InvokeReviewTest {
         val graph = VmServices(index).newSession(view).run()
         assertEquals(CompletionStatus.Complete, graph.completion())
         assertEquals(listOf(Outcome.Returned(Value.Unknown(int))), graph.outcomes)
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
         val invoke = graph.addresses().flatMap { graph.nodePile(it) }.single { it.dispatchCandidates.isNotEmpty() }
         assertEquals(setOf("Lincomplete/base;->value()I"), invoke.dispatchCandidates)
     }
@@ -187,20 +187,20 @@ class InvokeReviewTest {
         )
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.ADDRESS_LIMIT)), graph.completion())
         assertNull(graph.trusted())
-        val receiver = graph.terminatingConsensusOverExploredPaths(0) as Value.Known
+        val receiver = graph.explored.terminatingConsensus(0) as Value.Known
         assertEquals(
             receiver,
-            graph.terminatingConsensusOverExploredPaths(1),
+            graph.explored.terminatingConsensus(1),
             "the receiver alias keeps the exact HeapRef",
         )
-        val initialized = graph.terminatingHeapObjectOverExploredPaths(receiver.raw as HeapRef) as HeapObject.TrackedObject
+        val initialized = graph.explored.terminatingHeapObject(receiver.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertFalse(initialized.uninitialized, "normal opaque fallback completes this constructor call")
 
-        val unrelated = graph.terminatingConsensusOverExploredPaths(2) as Value.Known
+        val unrelated = graph.explored.terminatingConsensus(2) as Value.Known
         val unrelatedObject =
-            graph.terminatingHeapObjectOverExploredPaths(unrelated.raw as HeapRef) as HeapObject.TrackedObject
+            graph.explored.terminatingHeapObject(unrelated.raw as HeapRef).agreed() as HeapObject.TrackedObject
         assertTrue(unrelatedObject.uninitialized, "an unrelated same-type object is not the constructor receiver")
-        assertEquals(SideEffectLevel.STRONG, graph.methodSideEffectLevelOverExploredPaths())
+        assertEquals(SideEffectLevel.STRONG, graph.explored.methodSideEffectLevel())
     }
 
     @Test

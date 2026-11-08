@@ -94,12 +94,12 @@ internal object GuestThrowables {
 
     /** [method] is the call site's `name(proto)` descriptor. */
     fun noSuchMethod(method: MethodDescriptor): ThrowableRecipe =
-        ThrowableRecipe(SynthesizedThrowable.NO_SUCH_METHOD, method.descriptor)
+        ThrowableRecipe(SynthesizedThrowable.NO_SUCH_METHOD, method.nameAndProto)
 
     /** A call that resolves to more than one maximally specific default method. */
     fun conflictingDefaultMethods(method: MethodDescriptor): ThrowableRecipe = ThrowableRecipe(
         SynthesizedThrowable.INCOMPATIBLE_CLASS_CHANGE,
-        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.descriptor}",
+        "Conflicting default method implementations ${method.definingClass.descriptor}->${method.nameAndProto}",
     )
 
     fun internalError(message: String): ThrowableRecipe = ThrowableRecipe(SynthesizedThrowable.INTERNAL_ERROR, message)

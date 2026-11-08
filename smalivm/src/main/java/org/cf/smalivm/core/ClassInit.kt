@@ -69,8 +69,8 @@ internal class ClassInitCompatibilityKey(private val value: Any) {
 }
 
 /**
- * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside [RegisterFile]
- * and [Heap], implementing the [ClassState] contract.
+ * One path's class-initialization lifecycle: the third of spec §4.2's three stores, alongside the frame's
+ * registers and [HeapStore], implementing the [ClassState] contract.
  *
  * Per path, never session-global: a class initialized on only some callee paths must stay uninitialized on
  * the others, or later accesses skip initialization on paths where it never ran. [copy] shares immutable
@@ -124,7 +124,7 @@ internal class ClassInitStore private constructor(
      * type for a cell that does not exist.
      *
      * [type] is redundant with [fieldDescriptor], which already names the declaring class -- kept because
-     * [ClassState.getStaticField]'s contract is the class-keyed mirror of [Heap.getField]'s ref-keyed one, and
+     * [ClassState.getStaticField]'s contract is the class-keyed mirror of [ExecutionState.getField]'s ref-keyed one, and
      * because a caller passing a type that disagrees with the descriptor has a resolution bug worth being able
      * to see in a signature.
      */

@@ -422,15 +422,15 @@ class ThrowRoutingTest {
         // Allocating the NPE is a fully modelled write to the run's OWN heap: fresh object, fresh HeapRef,
         // no other tracked object's contents change, so it declares no effect. A spurious STRONG would stop
         // every constant fold in any method that contains a `throw` of a null, because
-        // `methodSideEffectLevelOverExploredPaths` maxes over addresses; a missing declaration would be the
+        // `ExploredPaths.methodSideEffectLevel` maxes over addresses; a missing declaration would be the
         // opposite error, so the level is asserted either way.
         val graph = session("throwNullConst()Ljava/lang/Object;").run()
         val throwAddress = graph.methodView.addresses.first {
             graph.methodView.opcodeAt(it) == com.android.tools.smali.dexlib2.Opcode.THROW
         }
-        assertEquals(SideEffectLevel.NONE, graph.sideEffectLevel(throwAddress),
+        assertEquals(SideEffectLevel.NONE, graph.explored.sideEffectLevel(throwAddress),
             "heap-allocating a guest throwable is modelled state, not an unmodelled effect")
-        assertEquals(SideEffectLevel.NONE, graph.methodSideEffectLevelOverExploredPaths(),
+        assertEquals(SideEffectLevel.NONE, graph.explored.methodSideEffectLevel(),
             "and nothing else in this method declares one either, so a consumer may still fold")
     }
 

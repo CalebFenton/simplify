@@ -258,21 +258,21 @@ class PersistentStateTest {
         val graphVersions = graphFrames.map { frame -> graphRefs.map { frame.heapObject(it) } }
         val trusted = graph.trusted()!!
         repeat(10) {
-            graph.consensusOverExploredPaths(0, 0)
-            graph.registerValuesOverExploredPaths(0, 0)
-            graph.terminatingConsensusOverExploredPaths(0)
-            val exploredObject = graph.terminatingHeapObjectOverExploredPaths(graphRef) as HeapObject.TrackedObject
+            graph.explored.consensus(0, 0)
+            graph.explored.registerValues(0, 0)
+            graph.explored.terminatingConsensus(0)
+            val exploredObject = graph.explored.terminatingHeapObject(graphRef).agreed() as HeapObject.TrackedObject
             assertEquals(Value.Known(3, int), exploredObject.field(field))
             val exploredArray =
-                graph.terminatingHeapObjectOverExploredPaths(graphArrayRef) as HeapObject.TrackedArray
+                graph.explored.terminatingHeapObject(graphArrayRef).agreed() as HeapObject.TrackedArray
             assertEquals(Value.Known(8, int), exploredArray.element(0))
             assertEquals(
                 Value.Known(4, int),
-                graph.terminatingStaticFieldConsensusOverExploredPaths(objectType, STATIC_FIELD),
+                graph.explored.terminatingStaticFieldConsensus(objectType, STATIC_FIELD),
             )
-            val trustedObject = trusted.terminatingHeapObject(graphRef) as HeapObject.TrackedObject
+            val trustedObject = trusted.terminatingHeapObject(graphRef).agreed() as HeapObject.TrackedObject
             assertEquals(Value.Known(3, int), trustedObject.field(field))
-            val trustedArray = trusted.terminatingHeapObject(graphArrayRef) as HeapObject.TrackedArray
+            val trustedArray = trusted.terminatingHeapObject(graphArrayRef).agreed() as HeapObject.TrackedArray
             assertEquals(Value.Known(8, int), trustedArray.element(0))
             assertEquals(
                 Value.Known(4, int),

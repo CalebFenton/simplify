@@ -10,6 +10,7 @@ import org.cf.smalivm.core.Outcome
 import org.cf.smalivm.core.SideEffectLevel
 import org.cf.smalivm.core.Value
 import org.cf.smalivm.core.VirtualType
+import org.cf.smalivm.core.agreed
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -427,7 +428,7 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "a store with nothing to throw about must complete")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Unknown(INT), array.element(0), "the written slot")
         assertEquals(Value.Known(2, INT), array.element(1), "and only the written slot")
     }
@@ -448,7 +449,7 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "the forked bounds exception is an outcome, not a truncation")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Unknown(INT), array.element(0), "1 and 7 disagree")
         assertEquals(Value.Known(7, INT), array.element(1), "7 and 7 agree, so this stays known")
     }
@@ -517,7 +518,7 @@ class APutOpTest {
         // level. A definite throw stores nothing, so it stays NONE; a spurious STRONG would silently stop
         // every constant-array fold downstream.
         assertEquals(
-            SideEffectLevel.NONE, CoreTester.execute(CLASS_NAME, "putWithCatch()V", initial).sideEffectLevel(0),
+            SideEffectLevel.NONE, CoreTester.execute(CLASS_NAME, "putWithCatch()V", initial).explored.sideEffectLevel(0),
             "a definite NPE stores nothing, so there is no unmodelled write to account for",
         )
     }
@@ -562,7 +563,7 @@ class APutOpTest {
         // the fix round caused: before it, a primitive-typed array register fell through to ROW 3, which
         // declares STRONG for a write it cannot name. It now throws before storing anything.
         assertEquals(
-            SideEffectLevel.NONE, CoreTester.execute(CLASS_NAME, "putWithCatch()V", initial).sideEffectLevel(0),
+            SideEffectLevel.NONE, CoreTester.execute(CLASS_NAME, "putWithCatch()V", initial).explored.sideEffectLevel(0),
             "a definite NPE stores nothing, so there is no unmodelled write to account for",
         )
     }
@@ -592,7 +593,7 @@ class APutOpTest {
             "a throwing store must leave every element exactly as it found it",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(0),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(0),
             "nothing was stored, so there is no unmodelled effect to declare either",
         )
     }
@@ -719,7 +720,7 @@ class APutOpTest {
             "a Known REFERENCE with a non-null raw is provably non-null and has no length",
         )
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "the store landed at a mis-scaled address in something the engine cannot name",
         )
     }
@@ -816,7 +817,7 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "and it really does hand out a trusted view")
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "a store through an unprovable array reference is an unmodellable write",
         )
         assertEquals(
@@ -824,7 +825,7 @@ class APutOpTest {
             "so the method is NOT safe to delete, which is the query a strategy actually asks",
         )
         assertEquals(
-            SideEffectLevel.NONE, graph.sideEffectLevel(2),
+            SideEffectLevel.NONE, graph.explored.sideEffectLevel(2),
             "and the effect belongs to the store's own address, never leaking to its successors",
         )
     }
@@ -839,7 +840,7 @@ class APutOpTest {
             setRegisters(0, intArrayOf(1), "[I", 1, 0, "I", 2, 7, "I")
         })
         assertEquals(CompletionStatus.Complete, graph.completion())
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0), "an alias can observe the tracked write")
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0), "an alias can observe the tracked write")
         assertEquals(SideEffectLevel.WEAK, graph.trusted()!!.methodSideEffectLevel())
     }
 
@@ -893,9 +894,9 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "nothing threw, so every path returns")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Known((-51).toByte(), BYTE), array.element(0))
-        assertEquals(SideEffectLevel.WEAK, graph.sideEffectLevel(0), "the heap models the store, but an alias can observe it")
+        assertEquals(SideEffectLevel.WEAK, graph.explored.sideEffectLevel(0), "the heap models the store, but an alias can observe it")
     }
 
     // ------------------------------------------------------------------------------------------
@@ -1072,7 +1073,7 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "nothing threw, so every path returns")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(Value.Unknown(INT), array.element(0), "the written slot")
         assertEquals(
             List(4) { Value.Known(0, INT) }, (1 until 5).map { array.element(it) },
@@ -1261,7 +1262,7 @@ class APutOpTest {
         val trusted = graph.trusted()
         assertNotNull(trusted, "the forked ASE is an outcome, not a truncation")
         val ref = (trusted!!.terminatingConsensus(0) as Value.Known).raw as HeapRef
-        val array = trusted.terminatingHeapObject(ref) as HeapObject.TrackedArray
+        val array = trusted.terminatingHeapObject(ref).agreed() as HeapObject.TrackedArray
         assertEquals(
             Value.Known("a string", STRING), array.element(0),
             "the runtime String class proves that this store succeeds",
@@ -1293,7 +1294,7 @@ class APutOpTest {
         assertTrue(graph.wasReached(2), "nothing about this input is provable enough to refuse outright")
         assertEquals(emptyList<String>(), CoreTester.escapingTypes(graph))
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "the write still landed somewhere the engine cannot name",
         )
     }
@@ -1330,7 +1331,7 @@ class APutOpTest {
         )
         assertFalse(graph.wasReached(2), "the store cannot complete, so there is no fall-through to explore")
         assertEquals(
-            SideEffectLevel.STRONG, graph.sideEffectLevel(0),
+            SideEffectLevel.STRONG, graph.explored.sideEffectLevel(0),
             "STRONG even though every transition throws -- the deliberate over-approximation `APutOp`'s row 1 " +
                 "explains, hedging the value-side residual that makes this refusal only as definite as a tag",
         )
@@ -1546,7 +1547,7 @@ class APutOpTest {
             outerConsensus is Value.Known && outerConsensus.raw is HeapRef,
             "register $outerRegister should hold a tracked array, but was $outerConsensus",
         )
-        val outer = trusted.terminatingHeapObject((outerConsensus as Value.Known).raw as HeapRef)
+        val outer = trusted.terminatingHeapObject((outerConsensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(outer is HeapObject.TrackedArray, "no array behind register $outerRegister; got $outer")
         assertEquals(outerLength, (outer as HeapObject.TrackedArray).length, "outer array length")
         val stored = outer.element(index)
@@ -1560,7 +1561,7 @@ class APutOpTest {
             innerRef is HeapRef,
             "a stored array must be a HeapRef and never a live host array (spec §4.1): $innerRef",
         )
-        val inner = trusted.terminatingHeapObject(innerRef as HeapRef)
+        val inner = trusted.terminatingHeapObject(innerRef as HeapRef).agreed()
         assertTrue(inner is HeapObject.TrackedArray, "no array behind element $index; got $inner")
         assertEquals(expectedInnerElements, (inner as HeapObject.TrackedArray).elements())
     }
@@ -1597,7 +1598,7 @@ class APutOpTest {
         // [Laput_test; whose element 0 is the round-tripped ref.
         val arrayConsensus = trusted!!.terminatingConsensus(0)
         assertTrue(arrayConsensus is Value.Known && (arrayConsensus as Value.Known).raw is HeapRef)
-        val array = trusted.terminatingHeapObject((arrayConsensus as Value.Known).raw as HeapRef)
+        val array = trusted.terminatingHeapObject((arrayConsensus as Value.Known).raw as HeapRef).agreed()
         assertTrue(array is HeapObject.TrackedArray, "no array behind r0; got $array")
         val element = (array as HeapObject.TrackedArray).element(0)
         assertTrue(
@@ -1608,7 +1609,7 @@ class APutOpTest {
             VirtualType.of(CLASS_NAME), (element as Value.Known).type,
             "the stored element's declared type comes from the array's component, as every store's does",
         )
-        val stored = trusted.terminatingHeapObject(element.raw as HeapRef)
+        val stored = trusted.terminatingHeapObject(element.raw as HeapRef).agreed()
         assertTrue(
             stored is HeapObject.TrackedObject && stored.type == VirtualType.of(CLASS_NAME),
             "the object behind the round trip is the allocation itself: $stored",

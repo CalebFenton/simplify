@@ -54,7 +54,7 @@ class HostExceptionBoundaryBehaviorTest {
 
             val graph = execute(vm, "identityRoundTrip()I")
 
-            assertEquals(effect, graph.addresses().maxOf(graph::sideEffectLevel))
+            assertEquals(effect, graph.addresses().maxOf(graph.explored::sideEffectLevel))
         }
     }
 
@@ -144,7 +144,7 @@ class HostExceptionBoundaryBehaviorTest {
             branching.outcomes.filterIsInstance<Outcome.Returned>().mapNotNull(Outcome.Returned::value),
         )
         assertEquals(1, branching.outcomes.count { it == Outcome.Aborted(AbortReason.HOST_FAILURE) })
-        assertEquals(SideEffectLevel.WEAK, branching.addresses().maxOf(branching::sideEffectLevel))
+        assertEquals(SideEffectLevel.WEAK, branching.addresses().maxOf(branching.explored::sideEffectLevel))
 
         val caught = execute(vm, "catchTarget()I")
         assertEquals(CompletionStatus.Partial(setOf(AbortReason.HOST_FAILURE)), caught.completion())
