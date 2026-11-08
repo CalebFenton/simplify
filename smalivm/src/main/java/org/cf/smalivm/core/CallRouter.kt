@@ -26,10 +26,10 @@ internal class CallRouter(
         // An aborted callee path leaves its call incomplete; so does a routing abort below.
         if (aborted.isNotEmpty()) activation.raiseCallSiteEffect(SideEffectLevel.STRONG)
         val classInitContext = activation.classInitContext
-        if (classInitContext == null) {
-            if (returned.isNotEmpty()) invokeNode.observeNormalContinuation()
-            if (threw.isNotEmpty() || aborted.isNotEmpty()) invokeNode.observeExceptionalContinuation()
-        } else if (threw.isNotEmpty()) {
+        // A return continues the call, or reruns an initializer's trigger; a throw or abort leaves it exceptionally.
+        if (returned.isNotEmpty()) invokeNode.observeNormalContinuation()
+        if (threw.isNotEmpty() || aborted.isNotEmpty()) invokeNode.observeExceptionalContinuation()
+        if (classInitContext != null && threw.isNotEmpty()) {
             val transformed = transformInitializerThrows(classInitContext, threw)
             threw = transformed.filterIsInstance<ActivationExit.Threw>()
             aborted += transformed.filterIsInstance<ActivationExit.Aborted>()

@@ -13,7 +13,12 @@ import com.android.tools.smali.dexlib2.iface.reference.CallSiteReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodProtoReference
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 
-/** Static-CFG liveness with exceptional edges retaining the pre-instruction register state. */
+/**
+ * Removes unreachable code, no-op jumps and `nop`s. When every reachable instruction ran, it also removes ops with no
+ * effect that continued normally on every execution (dead assignments by static-CFG liveness, with exceptional edges
+ * retaining the pre-instruction register state; unused call results; void calls other than constructors), and the
+ * unobserved allocations [DeadAllocations] finds.
+ */
 class DeadRemovalStrategy : OptimizationStrategy {
     override val optimizationCategories: Set<String> = setOf(
         DEAD_OPS_REMOVED, DEAD_ASSIGNMENTS_REMOVED, DEAD_RESULTS_REMOVED, USELESS_GOTOS_REMOVED, NOPS_REMOVED,
@@ -57,9 +62,16 @@ class DeadRemovalStrategy : OptimizationStrategy {
                 remove(address, if (opcode in MOVE_RESULTS) DEAD_RESULTS_REMOVED else DEAD_ASSIGNMENTS_REMOVED)
             }
             val returnType = invokeReturnType(instruction)
+            // A constructor call goes only with its allocation: the object it would leave uninitialized may be used.
+            if (returnType == "V" && invokedMethod(instruction)?.name != "<init>") remove(address, DEAD_OPS_REMOVED)
             if (returnType != null && returnType != "V" && !isClassForName(instruction) &&
                 moveResultAfter(method, address) == null) {
                 remove(address, DEAD_RESULTS_REMOVED)
+            }
+        }
+        if (livenessComplete) {
+            for (index in DeadAllocations(graph, flow).removableInstructions()) {
+                remove(flow.addressAt(index), DEAD_OPS_REMOVED)
             }
         }
         if (removals.isNotEmpty()) input.transaction.removeInstructions(removals)

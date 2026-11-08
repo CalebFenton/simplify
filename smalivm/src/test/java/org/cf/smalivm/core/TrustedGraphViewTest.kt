@@ -1,6 +1,8 @@
 package org.cf.smalivm.core
 
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.MethodReference
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Test
@@ -44,6 +46,33 @@ class TrustedGraphViewTest {
         }
         assertFalse(partial.explored.didEveryExecutionContinueNormally(stoppedAddress))
         assertNull(partial.trusted())
+    }
+
+    @Test
+    fun aClassInitializationTriggerContinuesNormallyOnlyWhenItsInitializationSettles() {
+        fun driver(descriptor: String): ExecutionGraph =
+            vm.newSession(classIndex.requireMethodView("Linit_trigger/driver;", descriptor)).run()
+        // Object has no initializer to run; quiet's initializer runs and returns. Either way the op runs again.
+        for (descriptor in listOf("allocateObject()V", "allocateQuiet()V")) {
+            assertTrue(driver(descriptor).trusted()!!.didEveryExecutionContinueNormally(0), descriptor)
+        }
+        assertFalse(driver("allocateThrowing()V").trusted()!!.didEveryExecutionContinueNormally(0))
+        val dependent = driver("allocateDependentAfterFailure()V")
+        val afterFailure = dependent.addresses().last { dependent.methodView.opcodeAt(it) == Opcode.NEW_INSTANCE }
+        assertFalse(dependent.trusted()!!.didEveryExecutionContinueNormally(afterFailure))
+    }
+
+    @Test
+    fun onlyAPolicyAuthorizedHostCallCountsAsAHostMethod() {
+        val view = classIndex.requireMethodView("Lhost_calls/caller;", "calls()V")
+        val trusted = vm.newSession(view).run().trusted()!!
+        val ranHost = view.instructionAddresses.toList().mapNotNull { address ->
+            val called = ((view.instructionAt(address) as? ReferenceInstruction)?.reference as? MethodReference)?.name
+            called?.let { it to trusted.didEveryExecutionRunHostMethod(address) }
+        }.toMap()
+        // append and the StringBuilder constructor run on the host; guest() runs as bytecode; policy denies gc().
+        assertEquals(mapOf("<init>" to true, "append" to true, "guest" to false, "gc" to false), ranHost)
+        assertFalse(trusted.didEveryExecutionRunHostMethod(0), "new-instance runs no call")
     }
 
     /** Trust is all-or-nothing: no abort reason is treated as harmless. */

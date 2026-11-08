@@ -73,6 +73,13 @@ public class ExecutionNode internal constructor(
         internal set
 
     /**
+     * True when [op]'s call ran in the reflection backend: a host method the reflection policy authorized, which
+     * changes nothing outside the objects reachable from its receiver and arguments.
+     */
+    internal var ranHostMethod: Boolean = false
+        internal set
+
+    /**
      * Frames deep this node sits, 0-based: 0 in the run's own entry activation, 1 inside a method it called.
      * [Limits.maxCallDepth] bounds the 1-based [Activation.frameCount] instead.
      */
@@ -109,7 +116,10 @@ public class ExecutionNode internal constructor(
         progress = OpProgress.Failed
     }
 
-    /** The scheduler continued this node's path at a following instruction. */
+    /**
+     * The scheduler continued this node's path at a following instruction, or, for a class-initialization trigger,
+     * ran its op again once initialization settled.
+     */
     internal fun observeNormalContinuation() {
         executed().continuedNormally = true
     }

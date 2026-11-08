@@ -78,7 +78,7 @@ class DeadRemovalStrategyTest {
 
     @Test fun payloadAlignmentNopAndAMoveFeedingAnEffectfulCallRemain() {
         val services = services()
-        val padded = OWNER + "payloadAlignmentNop()V"
+        val padded = OWNER + "payloadAlignmentNop()[B"
         val moves = OWNER + "liveMoveFeedsCallDeadMoveDoesNot(I)V"
         optimize(services, padded)
         optimize(services, moves)
@@ -138,14 +138,66 @@ class DeadRemovalStrategyTest {
         assertEquals(3, returned(services, OWNER + "volatileReadCallMustRemain()I", 0).raw)
     }
 
-    @Test fun constructorsAndSelfInitializationRemain() {
+    @Test fun aConstructorsSelfInitializationRemains() {
         val services = services()
-        for (name in listOf("constructorCall()Ljava/lang/Object;", "unusedConstructor()V", "<init>()V")) {
-            val method = OWNER + name
+        val method = OWNER + "<init>()V"
+        optimize(services, method)
+        assertTrue(has(view(services, method), Opcode.INVOKE_DIRECT))
+    }
+
+    @Test fun aVoidCallWithNoEffectIsRemoved() {
+        val services = services()
+        val method = ALLOCATIONS + "voidCallWithNoEffect()V"
+        optimize(services, method)
+        assertEquals(listOf(Opcode.RETURN_VOID), opcodes(view(services, method)))
+    }
+
+    @Test fun anUnobservedAllocationGoesWithItsInitializationAndTheCallsConfinedToIt() {
+        val services = services()
+        val returning = listOf(Opcode.INVOKE_STATIC, Opcode.MOVE_RESULT_OBJECT, Opcode.RETURN_OBJECT)
+        val cases = listOf(
+            Dropped(OWNER + "unusedConstructor()V", listOf(Opcode.RETURN_VOID), null),
+            Dropped(ALLOCATIONS + "unusedInteger()Ljava/lang/Integer;", listOf(Opcode.CONST_4) + returning, 7),
+            Dropped(ALLOCATIONS + "unusedStrings()Ljava/lang/String;", listOf(Opcode.CONST_16) + returning, "42"),
+            Dropped(
+                ALLOCATIONS + "droppedBuilderChain()Ljava/lang/String;",
+                listOf(Opcode.NEW_INSTANCE, Opcode.CONST_STRING, Opcode.INVOKE_DIRECT, Opcode.INVOKE_VIRTUAL,
+                    Opcode.MOVE_RESULT_OBJECT, Opcode.RETURN_OBJECT),
+                "k",
+            ),
+        )
+        for ((method, kept, value) in cases) {
+            if (value != null) assertEquals(value, returned(services, method, 0).raw, method)
             optimize(services, method)
-            assertTrue(has(view(services, method), Opcode.INVOKE_DIRECT), name)
-            if (name != "<init>()V") assertTrue(has(view(services, method), Opcode.NEW_INSTANCE), name)
+            assertEquals(kept, opcodes(view(services, method)), method)
+            assertTrue(view(services, method).payloadAddresses.isEmpty(), method)
         }
+        val reloaded = reload(services)
+        for ((method, _, value) in cases) {
+            if (value != null) assertEquals(value, returned(reloaded, method, 0).raw, method)
+        }
+    }
+
+    @Test fun anAllocationThatEscapesOrWhoseCallsReachOtherStateRemains() {
+        val services = services()
+        assertEquals(3, returned(services, ALLOCATIONS + "constructorWritesStatic()I", 0).raw)
+        assertEquals("d", returned(services, ALLOCATIONS + "appendedToAnotherBuilder()Ljava/lang/String;", 0).raw)
+        for ((method, keptCall) in listOf(
+            OWNER + "constructorCall()Ljava/lang/Object;" to "<init>",
+            ALLOCATIONS + "storedToField()I" to "<init>",
+            ALLOCATIONS + "storedToArray([Ljava/lang/Object;)V" to "<init>",
+            ALLOCATIONS + "passedToOpaqueCall()I" to "<init>",
+            ALLOCATIONS + "comparedByReference(Ljava/lang/Object;)I" to "<init>",
+            ALLOCATIONS + "constructorWritesStatic()I" to "<init>",
+            ALLOCATIONS + "allocationTriggersInitializer()V" to "<init>",
+            ALLOCATIONS + "appendedToAnotherBuilder()Ljava/lang/String;" to "append",
+        )) {
+            optimize(services, method)
+            assertTrue(has(view(services, method), Opcode.NEW_INSTANCE), method)
+            assertTrue(hasCall(view(services, method), keptCall), method)
+        }
+        assertEquals(3, returned(services, ALLOCATIONS + "constructorWritesStatic()I", 0).raw)
+        assertEquals("d", returned(services, ALLOCATIONS + "appendedToAnotherBuilder()Ljava/lang/String;", 0).raw)
     }
 
     @Test fun structurallyUnreachableStrongCallIsRemoved() {
@@ -304,6 +356,7 @@ class DeadRemovalStrategyTest {
     }
 
     private data class UnusedResult(val name: String, val call: Opcode, val result: Opcode, val expected: Any)
+    private data class Dropped(val method: String, val kept: List<Opcode>, val returned: Any?)
     private fun optimize(services: VmServices, method: String) =
         Optimizer(services, LIMITS, 10, listOf(DeadRemovalStrategy())).optimize(method)
     /** The strategies `Launcher` runs by default, in its order. */
@@ -327,6 +380,7 @@ class DeadRemovalStrategyTest {
     }
     private fun has(view: MethodView, opcode: Opcode) = count(view, opcode) != 0
     private fun count(view: MethodView, opcode: Opcode) = view.instructionAddresses.count { view.opcodeAt(it) == opcode }
+    private fun opcodes(view: MethodView) = view.instructionAddresses.map(view::opcodeAt)
     private fun hasCall(view: MethodView, name: String) = view.instructionAddresses.any {
         ((view.instructionAt(it) as? ReferenceInstruction)?.reference as? MethodReference)?.name == name
     }
@@ -337,6 +391,7 @@ class DeadRemovalStrategyTest {
     }
     companion object {
         private const val OWNER = "Ldeadcode/DeadCode;->"
+        private const val ALLOCATIONS = "Ldeadcode/Allocations;->"
         private const val GUARDS = "LDeadRemovalGuards;->"
         private val LIMITS = Limits(500, 1_000_000, 0, 20)
         private const val WORST = "LWorst;->run()I"

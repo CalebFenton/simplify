@@ -385,18 +385,26 @@ public class ExecutionSession internal constructor(
         }
     }
 
-    /** Ends a malformed path, fails on a failed ancestor, schedules an initializer, or applies settled marks. */
+    /**
+     * Ends a malformed path, fails on a failed ancestor, schedules an initializer, or applies settled marks. The
+     * trigger continues normally when the plan settles and its op runs again, and exceptionally when initialization
+     * aborts or throws; a scheduled initializer records which when it drains.
+     */
     private fun ClassInitPlan.classInitPreludeOrRetry(node: ExecutionNode): Committable {
-        if (malformedInitializer != null) return abortedTransition(node.frame, AbortReason.MALFORMED_INPUT)
+        if (malformedInitializer != null) {
+            node.observeExceptionalContinuation()
+            return abortedTransition(node.frame, AbortReason.MALFORMED_INPUT)
+        }
         dependencyFailure?.let { failure ->
             node.frame.applyClassInit(this)
             val path = normalizeThrow(ThrowEvidence.Fresh(failure.recipe), node.frame, hierarchy)
             node.frame.failClassInitDependency(failure, path.subject, hierarchy)
-            return planThrow(node, path)
+            return planThrow(node, path).also { node.observeExceptionalContinuation() }
         }
         return initializerPrelude(node) ?: run {
             declareSkippedInitializerEffect(node, this)
             continueAt(node, node.address) { frame -> frame.applyClassInit(this) }
+                .also { node.observeNormalContinuation() }
         }
     }
 
@@ -526,6 +534,7 @@ public class ExecutionSession internal constructor(
     /** Records an accepted backend's effect, runs it on this path, then applies its direct result. */
     private fun executeSynchronous(node: ExecutionNode, plan: InvocationPlan.Execute): Committable {
         raiseEffect(node, plan.effect)
+        node.ranHostMethod = plan.runsHostMethod
         val selected = hostBoundary({ return hostFailureArm(node, it) }) {
             plan.select(node.frame, resolver.classLoader, node.activation.suspendedCallerRoots())
         }
