@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- div-float (JVM counterpart fdiv). (-1.0f) / (-0.0f).
+# Div-float (JVM counterpart fdiv). (-1.0f) / (-0.0f).
 # [JVMS] fdiv (IEEE-754): both operands negative -> the two sign flips cancel -> +Infinity.
 # Expected: java.lang.Float(Infinity).
 .class public LFx_DivFloatNegByNegZero;

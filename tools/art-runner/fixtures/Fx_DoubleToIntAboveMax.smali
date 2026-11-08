@@ -1,4 +1,4 @@
-# WORKLIST ROW 3 -- Double->Int narrowing, genuinely D-tagged. Source is a FINITE value above the
+# Double->Int narrowing, genuinely D-tagged. Source is a FINITE value above the
 # Int range: 2^32 = 4294967296.0, built exactly via long-to-double so no bit pattern is hand-derived.
 # [JLS] 5.1.3: a narrowing double->int saturates; a finite value > Integer.MAX_VALUE -> MAX_VALUE.
 # Expected: java.lang.Integer(2147483647).

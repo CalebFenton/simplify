@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- div-float (JVM counterpart fdiv). (+0.0f) / (+0.0f).
+# Div-float (JVM counterpart fdiv). (+0.0f) / (+0.0f).
 # [JVMS] fdiv (IEEE-754): zero divided by zero is the invalid operation -> NaN (not an exception).
 # Expected: java.lang.Float(NaN).
 .class public LFx_DivFloatZeroByPosZero;

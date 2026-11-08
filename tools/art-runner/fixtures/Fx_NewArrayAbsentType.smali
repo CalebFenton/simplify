@@ -1,4 +1,4 @@
-# WORKLIST ROW 7 (exception-type half) -- new-array whose COMPONENT type is ABSENT.
+# New-array whose COMPONENT type is ABSENT.
 # Lcom/example/DefinitelyMissing; resolves against nothing on the boot classpath. Allocating
 # [Lcom/example/DefinitelyMissing; forces resolution of the component type, which fails. The
 # resolution-failure family's shared question: Error or Exception, and which type? Left to propagate.

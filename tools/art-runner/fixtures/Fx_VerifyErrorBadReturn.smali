@@ -1,5 +1,4 @@
-# CAPABILITY PROBE, not a worklist row -- and for an ambiguity-first engine it is the
-# highest-value output this oracle produces at all.
+# Capability probe: Tier A reports ART's own verifier verdict.
 #
 # WHAT IT PROVES: a VERIFIER-INVALID class does NOT abort the VM. ART sets the whole class
 # to `kErrorResolved`, `Class.forName` throws a CATCHABLE `java.lang.VerifyError`, and the
@@ -9,7 +8,7 @@
 #   java.lang.Object Fx_VerifyErrorBadReturn.run() failed to verify: ...
 #   [0x2] unexpected non-category 1 return type Reference: java.lang.Object
 #
-# That means the oracle can answer "WOULD THE VERIFIER EVEN ACCEPT THIS?" -- and answer it
+# That means Tier A can answer "WOULD THE VERIFIER EVEN ACCEPT THIS?" -- and answer it
 # with ART's reason, at the offending bytecode offset -- rather than only "what does this
 # valid program compute?". Every VERIFIER-tier row in `DALVIK-SEMANTICS.md` is a row where
 # the engine had to invent a design choice under spec 2.2 because no measurement was

@@ -18,15 +18,19 @@ import org.cf.smalivm.core.VirtualType
 import org.cf.smalivm.core.VmServices
 import org.cf.smalivm.core.requireMethodView
 
-/** Projects immutable method snapshots and explored execution evidence for regression/device tests. */
-class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTest {
-    override val name: String = "new-core"
-
+/**
+ * Runs a [Fixture] on the current core and projects the explored graph into a [NormalizedResult].
+ *
+ * Registers are the consensus over returning entry paths: UNKNOWN is a typed unknown, ABSENT means no returning
+ * path held the register, CONFLICTED means held values have no joined value. Reprs erase object identity but keep
+ * array contents, cycles, and uninitialized state. Exceptions are `binary.Name:message`, with `null` for no message.
+ * A truncated exploration is reported as aborted.
+ */
+class CoreProjection(classPath: String = "src/test/resources/smali") {
     private val classIndex = ClassIndex.open(File(classPath))
     private val vmServices = VmServices(classIndex)
 
-    override fun run(fixture: Fixture): NormalizedResult {
-
+    fun run(fixture: Fixture): NormalizedResult {
         val view = classIndex.requireMethodView(fixture.className, fixture.methodDescriptor)
         val frame = Frame.entryFrame(view)
         val seeds = fixture.seededRegisters.entries.toList()
@@ -58,7 +62,6 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
     private fun normalize(register: Int, graph: ExecutionGraph): NormalizedValue {
         val value = graph.explored.terminatingConsensus(register)
         return when {
-
             value is Value.Top -> when (graph.explored.terminatingRegisterOccupancy(register)) {
                 RegisterOccupancy.HELD -> NormalizedValue(ValueKind.CONFLICTED, null, null)
                 RegisterOccupancy.NEVER_ASSIGNED, RegisterOccupancy.NO_PATH ->
@@ -103,13 +106,12 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
         return values.singleOrNull() ?: NormalizedValue(ValueKind.CONFLICTED, null, null)
     }
 
-    internal fun heapRepr(graph: ExecutionGraph, ref: HeapRef, visiting: MutableSet<Int>): String {
+    private fun heapRepr(graph: ExecutionGraph, ref: HeapRef, visiting: MutableSet<Int>): String {
         if (!visiting.add(ref.id)) return "[...]"
         try {
             return when (val obj = agreedHeapObject(graph, ref)) {
                 null -> "<absent $ref>"
                 is HeapObject.TrackedField -> "<instance java.lang.reflect.Field>"
-
                 is HeapObject.TrackedObject ->
                     if (obj.uninitialized) {
                         "Uninitialized ${obj.type.descriptor}"
@@ -119,17 +121,15 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
                 is HeapObject.GuestThrowable, is HeapObject.HostObject ->
                     CoreTester.terminatingHostObject(graph, ref)?.let(ResultProjection::reprOf)
                         ?: "<unknown ${obj.type}>"
-                is HeapObject.TrackedArray -> ResultProjection.listRepr(
-                    obj.elements().map { element ->
-                        val raw = (element as? Value.Known)?.raw
-                        when {
-                            element !is Value.Known -> "?"
-                            raw == null -> "null"
-                            raw is HeapRef -> heapRepr(graph, raw, visiting)
-                            else -> ResultProjection.reprOf(raw)
-                        }
-                    },
-                )
+                is HeapObject.TrackedArray -> obj.elements().map { element ->
+                    val raw = (element as? Value.Known)?.raw
+                    when {
+                        element !is Value.Known -> "?"
+                        raw == null -> "null"
+                        raw is HeapRef -> heapRepr(graph, raw, visiting)
+                        else -> ResultProjection.reprOf(raw)
+                    }
+                }.toString()
             }
         } finally {
             visiting.remove(ref.id)
@@ -168,7 +168,6 @@ class NewCoreVm(classPath: String = "src/test/resources/smali") : SmaliVmUnderTe
             ?: "unknown"
 
     private companion object {
-
         private val LIMITS = Limits(maxAddressVisits = 500, maxSteps = 1_000_000, maxExecutionTimeMillis = 0)
     }
 }

@@ -1,14 +1,7 @@
-# PLAN 9 TASK 15 / ADJUDICATION 7b -- THE ORDERING: missing METHOD vs NULL RECEIVER.
-# Both conditions hold at once: the receiver is null AND the method does not exist on the (present)
-# class. Whichever throw arrives names the order, and the order is observable to a guest handler --
-# `catch (NullPointerException)` and `catch (NoSuchMethodError)` are on opposite sides of the
-# Exception/Error split, so this decides which one a deobfuscator believes is reachable.
-# The old engine could not answer it: adjudication 2 gives the new core the null-receiver NPE the
-# oracle never had, and the oracle crashes the host on the missing method before executing anything,
-# so the two never composed there. Left to propagate; the dispatcher reports whichever came first.
-# Read WITH Fx_InvokeMissingMethod (same missing method, no receiver at all -> NoSuchMethodError).
-# Expected: THREW java.lang.NoSuchMethodError if resolution precedes the null check, which is what
-# the resolution-before-null-check ordering already measured for check-cast/instance-of predicts.
+# Ordering: a missing method AND a null receiver on one invoke. The throw that arrives names the
+# order, and it decides which handler is reachable: NullPointerException is an Exception,
+# NoSuchMethodError an Error. Read with Fx_InvokeMissingMethod (no receiver).
+# Expected: THREW java.lang.NoSuchMethodError if resolution precedes the null check.
 .class public LFx_InvokeMissingMethodNullReceiver;
 .super Ljava/lang/Object;
 

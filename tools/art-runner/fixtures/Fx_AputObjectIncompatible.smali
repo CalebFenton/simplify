@@ -1,4 +1,4 @@
-# WORKLIST ROWS 1 AND 13 -- the runtime `ArrayStoreException` check is over the OBJECT'S
+# The runtime `ArrayStoreException` check is over the OBJECT'S
 # ACTUAL TYPE (never the register tag), and `aput-object` is the only `aput` that can
 # raise it.
 #
@@ -48,8 +48,7 @@
     invoke-direct {v4}, Ljava/lang/Object;-><init>()V
 
     # THE OPCODE UNDER TEST. Verifier-valid: `Object` into a `String[]`-typed register is
-    # legal to ASSEMBLE and legal to LINK -- assignability is a runtime question, which is
-    # the whole content of row 1.
+    # legal to ASSEMBLE and legal to LINK -- assignability is a runtime question.
     aput-object v4, v1, v3
 
     # Only reachable if the store wrongly succeeded.

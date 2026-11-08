@@ -1,8 +1,8 @@
-# ROW 24 subtype matrix cell: StringArr check-cast Object -> expected 1 (cast succeeds).
+# Subtype matrix cell: StringArr check-cast Object -> expected 1 (cast succeeds).
 # [JLS] Every array is a reference type and Object is the supertype of all reference types (JLS 4.10.3: 'Object >1 P[]' for a primitive component P, and the reference-component row likewise).
 # check-cast is observed by CATCHING ClassCastException: success falls through and returns boxed 1,
 # a caught CCE returns boxed 0 -- the same 1/0 grammar as the instance-of cells, so the two ops are
-# directly comparable. (Boxing runs on the device and the oracle, not the clean core.)
+# directly comparable.
 # Cited: Tier A, -Xint, art_standalone 0_git20251009-r2.
 .class public LFx_Subtype_CheckCast_StringArr_Object;
 .super Ljava/lang/Object;

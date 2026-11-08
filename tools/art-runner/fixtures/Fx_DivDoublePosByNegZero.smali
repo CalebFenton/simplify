@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- div-double (JVM counterpart ddiv). (+1.0) / (-0.0). The IEEE sign crux at double width.
+# Div-double (JVM counterpart ddiv). (+1.0) / (-0.0). The IEEE sign crux at double width.
 # [JVMS] ddiv (IEEE-754): a positive dividend over NEGATIVE zero -> -Infinity.
 # Expected: java.lang.Double(-Infinity).
 .class public LFx_DivDoublePosByNegZero;

@@ -1,4 +1,4 @@
-# WORKLIST ROW 6 -- fresh-array default value for double[], read as RAW bits.
+# Fresh-array default value for double[], read as RAW bits.
 # Allocates double[1] and reads element 0's raw bits with Double.doubleToRawLongBits (NOT the
 # canonicalizing doubleToLongBits -- the sign bit is the whole question). The falsifiable claim is
 # that the default is POSITIVE zero (0x0000000000000000), not negative zero (0x8000000000000000).

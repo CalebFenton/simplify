@@ -1,4 +1,4 @@
-# WORKLIST ROW 12, THIRD CELL -- "NPE strictly precedes ASE", proved DIRECTLY rather than by
+# Ordering: NPE strictly precedes ASE, proved directly rather than by
 # transitivity. `Fx_AputNullArrayBadIndex` pins NPE-over-AIOOBE and `Fx_AputBadIndexIncompatibleValue`
 # pins AIOOBE-over-ASE, so NPE-over-ASE already follows through the chain -- but a strict three-way
 # order deserves its direct edge too, and this is the one cell where a null array and an
@@ -19,7 +19,7 @@
 # verifier-valid -- the reasoning `Fx_AputNullArrayBadIndex` documents at length.
 #
 # WHY THE VALUE COMES OUT OF `new-instance` + `invoke-direct`: an `Object` stored into a `String[]` is
-# verifier-valid to assemble and to link (covariance is a runtime question, worklist row 1), and it is
+# verifier-valid to assemble and to link (covariance is a runtime question), and it is
 # the `Fx_AputObjectIncompatible` pattern for building an unassignable value in bytecode.
 #
 # SELF-CONTAINED: the helper builds the (null) array and the value is a fresh `java.lang.Object`.

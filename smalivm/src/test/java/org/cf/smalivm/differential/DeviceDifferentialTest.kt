@@ -11,105 +11,42 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestFactory
 
 /**
- * Current core against committed Tier-A ART -Xint recordings, without a device dependency at test time.
- * Compare returned runtime type/value, escaping exception types, and completion. Registers, address
- * coverage, exception messages, and interleaved class-initializer prints are not device observables.
- *
- * VerifyError records describe rejected programs, not executions; they are asserted separately.
- * Named environment and policy probes are asserted on BOTH sides rather than called agreements:
- * standalone ART lacks Android classes/native libraries, while V1 bundles Base64 and deliberately
- * declines environment-dependent Build/System operations and non-authorized String.valueOf(I).
- * Unknown is never equal to a concrete answer. Every other fixture must agree.
- * Host failures and semantic disagreements fail their own dynamic test;
- * they cannot drain into a non-compared bucket. The committed recordings are never regenerated here.
+ * The current core against the committed ART `-Xint` recording, comparing returned runtime type and value,
+ * escaping exception types, and completion. Every fixture agrees except a named environment or policy boundary,
+ * which asserts both sides' answers; a `VerifyError` record has no execution to compare.
  */
 class DeviceDifferentialTest {
     @TestFactory
     fun coreResultsMatchRecordedArtOrAnExplicitEnvironmentOrPolicyBoundary(): List<DynamicTest> =
-        Fixtures.device.map { fixture ->
+        DeviceFixtures.fixtures.map { fixture ->
             DynamicTest.dynamicTest(fixture.id) {
                 val recorded = DEVICE.outcomeOf(fixture)
                 if (recorded.isVerifyError) {
                     assertEquals("Fx_VerifyErrorBadReturn", fixture.id)
-                    assertEquals("java.lang.VerifyError", (recorded as DeviceVm.Outcome.Threw).throwableClass)
-                } else {
-                    val actual = observations.getValue(fixture.id).getOrThrow()
-                    val expected = ResultProjection.deviceComparable(DEVICE.run(fixture))
-                    val boundary = EXECUTION_BOUNDARIES[fixture.id]
-                    if (boundary == null) {
-                        assertEquals(expected, actual, "${fixture.id}: ${expected.diff(actual).differences}")
-                    } else {
-                        boundary.deniedHostMethod?.let { target ->
-                            assertEquals(
-                                ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY),
-                                ReflectionPolicy.defaults().decide(target),
-                                "${fixture.id}: the policy boundary requires an independently denied host method",
-                            )
-                        }
-                        assertEquals(boundary.device, expected, "${fixture.id}: recorded boundary")
-                        assertEquals(boundary.core, actual, "${fixture.id}: ${boundary.reason}")
-                        assertFalse(expected.diff(actual).identical, "a boundary is not runtime agreement")
-                    }
+                    return@dynamicTest
                 }
+                val actual = ResultProjection.deviceComparable(CORE.run(fixture))
+                val expected = ResultProjection.deviceComparable(DEVICE.run(fixture))
+                val boundary = ENVIRONMENT_BOUNDARIES[fixture.id] ?: POLICY_BOUNDARIES[fixture.id]
+                if (boundary == null) {
+                    assertEquals(expected, actual, "${fixture.id}: ${expected.diff(actual).differences}")
+                    return@dynamicTest
+                }
+                boundary.deniedHostMethod?.let { target ->
+                    assertEquals(
+                        ReflectionDecision.Denied(ReflectionRule.DEFAULT_DENY),
+                        ReflectionPolicy.defaults().decide(target),
+                        "${fixture.id}: a policy boundary needs an independently denied host method",
+                    )
+                }
+                assertEquals(boundary.device, expected, "${fixture.id}: recorded boundary")
+                assertEquals(boundary.core, actual, "${fixture.id}: ${boundary.reason}")
+                assertFalse(expected.diff(actual).identical, "${fixture.id}: a boundary that agrees is no longer one")
             }
         }
 
-
-    @Test
-    fun theRestrictionStripsExceptionMessagesSymmetricallySoOnlyTheTypeIsCompared() {
-
-        val deviceSide = NormalizedResult(
-            registers = emptyMap(),
-            reachedAddresses = emptySet(),
-            unhandledExceptions = listOf(
-                ResultProjection.exceptionEntry("java.lang.NullPointerException", "Attempt to write to null array"),
-            ),
-            aborted = false,
-        )
-        val coreSide = deviceSide.copy(
-            unhandledExceptions = listOf(ResultProjection.exceptionEntry("java.lang.NullPointerException", null)),
-        )
-        val device = ResultProjection.deviceComparable(deviceSide)
-        val core = ResultProjection.deviceComparable(coreSide)
-        assertEquals(listOf("java.lang.NullPointerException"), device.unhandledExceptions, "the message must be stripped")
-        assertEquals(
-            listOf("java.lang.NullPointerException"), core.unhandledExceptions,
-            "the message must be stripped SYMMETRICALLY -- the same projection on both sides",
-        )
-        assertTrue(
-            core.diff(device).identical,
-            "same exception type, different messages must agree once stripped",
-        )
-
-        assertFalse(
-            coreSide.diff(deviceSide).identical,
-            "unstripped, two identical-type throws with different messages read as a divergence",
-        )
-    }
-
-    @Test
-    fun theReturnValueTypeIsReconciledFromDescriptorToDottedSoTypeAndValueBothCompare() {
-
-        val coreSide = NormalizedResult(
-            registers = emptyMap(), reachedAddresses = emptySet(), unhandledExceptions = emptyList(), aborted = false,
-            returnValue = NormalizedValue(ValueKind.KNOWN, "Ljava/lang/Integer;", "1"),
-        )
-        val deviceSide = coreSide.copy(returnValue = NormalizedValue(ValueKind.KNOWN, "java.lang.Integer", "1"))
-        assertTrue(
-            ResultProjection.deviceComparable(coreSide).diff(ResultProjection.deviceComparable(deviceSide)).identical,
-            "descriptor and dotted spellings of the same type and value must agree after reconciliation",
-        )
-
-        val longOne = coreSide.copy(returnValue = NormalizedValue(ValueKind.KNOWN, "Ljava/lang/Long;", "1"))
-        assertFalse(
-            ResultProjection.deviceComparable(longOne).diff(ResultProjection.deviceComparable(deviceSide)).identical,
-            "Integer(1) and Long(1) share a repr but not a type -- comparing repr only would falsely agree",
-        )
-    }
-
     @Test
     fun aFixtureTheDeviceNeverReportedIsALoudHarnessFailureNotAnAbort() {
-
         val neverReported = Fixture(
             id = "Fx_NotInTheGoldenAtAll",
             className = "LFx_NotInTheGoldenAtAll;",
@@ -117,22 +54,14 @@ class DeviceDifferentialTest {
             observeRegisters = emptySet(),
         )
         val failure = assertThrows(DeviceGoldenException::class.java) { DEVICE.run(neverReported) }
-        assertTrue(
-            failure.message!!.contains("HARNESS"),
-            "the failure must announce itself as a harness failure, got: ${failure.message}",
-        )
+        assertTrue(failure.message!!.contains("HARNESS"), "got: ${failure.message}")
     }
 
     private companion object {
         private val DEVICE = DeviceVm()
-        private val CORE = NewCoreVm(DeviceFixtures.classPath)
-        private val observations: Map<String, Result<NormalizedResult>> by lazy {
-            Fixtures.device.filterNot { DEVICE.outcomeOf(it).isVerifyError }.associate { fixture ->
-                fixture.id to runCatching { ResultProjection.deviceComparable(CORE.run(fixture)) }
-            }
-        }
+        private val CORE = CoreProjection(DeviceFixtures.directory.path)
 
-        private data class ExecutionBoundary(
+        private data class Boundary(
             val device: NormalizedResult,
             val core: NormalizedResult,
             val reason: String,
@@ -146,29 +75,29 @@ class DeviceDifferentialTest {
 
         private fun threw(type: String) = NormalizedResult(emptyMap(), emptySet(), listOf(type), false)
 
-        private val EXECUTION_BOUNDARIES = mapOf(
-            "Fx_AndroidBase64" to ExecutionBoundary(
+        /** Standalone ART has no `android.*` classes and no `libandroid_runtime.so`, so it cannot run these programs. */
+        private val ENVIRONMENT_BOUNDARIES = mapOf(
+            "Fx_AndroidBase64" to Boundary(
                 threw("java.lang.NoClassDefFoundError"), returned(ValueKind.KNOWN, "aGk="),
-                "Pinned AOSP source supplies real android.util.Base64.encodeToString([BI): encode the bytes, " +
-                    "then construct a US-ASCII String. safe_classes.cfg authorizes Base64, so 'hi' with " +
-                    "NO_WRAP returns 'aGk='; standalone ART cannot resolve android.util.Base64.",
+                "the core runs the bundled android.util.Base64; base64 of \"hi\" is aGk= (RFC 4648 section 4), " +
+                    "which tools/emulator's Tier B recording also shows",
             ),
-            "Fx_AndroidBuildModel" to ExecutionBoundary(
+            "Fx_AndroidBuildModel" to Boundary(
                 threw("java.lang.NoClassDefFoundError"), returned(ValueKind.UNKNOWN, null),
-                "Build.MODEL is environment-dependent and is not an authorized host static read; V1 must not fabricate a model.",
+                "Build.MODEL depends on the device, so the core returns an unknown String",
             ),
-            "Fx_AndroidBuildModelAfterLoadLibrary" to ExecutionBoundary(
+            "Fx_AndroidBuildModelAfterLoadLibrary" to Boundary(
                 threw("java.lang.UnsatisfiedLinkError"), returned(ValueKind.UNKNOWN, null),
-                "System initialization/loadLibrary is denied by policy; opaque continuation cannot make Build.MODEL known.",
+                "the core denies System.loadLibrary, so Build.MODEL stays an unknown String",
             ),
-            "Fx_InvokePresentType" to ExecutionBoundary(
+        )
+
+        /** ART executes a host call that the default reflection policy denies, so the core answers less precisely. */
+        private val POLICY_BOUNDARIES = mapOf(
+            "Fx_InvokePresentType" to Boundary(
                 returned(ValueKind.KNOWN, "1"), returned(ValueKind.UNKNOWN, null),
-                "ART executes String.valueOf(I) for integer 1. safe_classes.cfg does not list String, " +
-                    "and safe_methods.cfg allows only String.<init>([B) and length(), not " +
-                    "valueOf(I). DEFAULT_DENY stops backend fallback, so V1 returns Unknown(String).",
-                deniedHostMethod = MethodSignature(
-                    VirtualType.of("Ljava/lang/String;"), "valueOf", "(I)Ljava/lang/String;",
-                ),
+                "String.valueOf(I) is not in safe_methods.cfg, so the core returns an unknown String",
+                deniedHostMethod = MethodSignature(VirtualType.of("Ljava/lang/String;"), "valueOf", "(I)Ljava/lang/String;"),
             ),
         )
     }

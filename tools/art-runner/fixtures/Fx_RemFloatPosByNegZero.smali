@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- rem-float (JVM counterpart frem). (+1.0f) rem (-0.0f).
+# Rem-float (JVM counterpart frem). (+1.0f) rem (-0.0f).
 # [JVMS] frem (IEEE-754 remainder): remainder by zero is NaN regardless of the zero's sign -- unlike
 # div, rem does not encode the divisor sign in its result.
 # Expected: java.lang.Float(NaN).

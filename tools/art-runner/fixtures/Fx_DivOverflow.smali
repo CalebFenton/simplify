@@ -1,14 +1,9 @@
-# SANITY FIXTURE. Not a worklist row -- this is the canary that says "the oracle is
-# wired up and executing real bytecode", so it belongs in every batch.
+# Sanity fixture: proves the runner executes real bytecode.
 #
-# `Integer.MIN_VALUE / -1` overflows: the mathematical answer 2147483648 is not
-# representable, and [BC]'s `div-int` row inherits [JVMS] `idiv`'s rule that the result
-# is the dividend itself. Anything that constant-folds this in Java arithmetic without
-# the overflow case gets 2147483648 or throws; a real Dalvik gives -2147483648.
+# `Integer.MIN_VALUE / -1` overflows, and [BC]'s `div-int` inherits [JVMS] `idiv`'s rule that the
+# result is the dividend: -2147483648. Java arithmetic without the overflow case gets 2147483648.
 #
-# SELF-CONTAINED: builds both operands with `const`. A device cannot seed registers, so
-# every fixture here must, and roughly half of this repo's in-JVM fixtures cannot be
-# ported for exactly that reason.
+# Self-contained: a device cannot seed registers, so every fixture builds its operands with `const`.
 
 .class public LFx_DivOverflow;
 .super Ljava/lang/Object;

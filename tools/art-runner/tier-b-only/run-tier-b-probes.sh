@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Task 9's crash-tolerant runner for the tier-B register-read probes.
+# Crash-tolerant runner for the tier-B register-read probes.
 #
 # THIS IS THE OPPOSITE OF run-batch.sh's DESIGN, DELIBERATELY. run-batch.sh runs a whole
 # batch inside ONE dalvikvm and gates on a sentinel, because there a lost batch is cheap to
@@ -9,9 +9,9 @@
 # RECORDED OUTCOME rather than a harness failure. The script exits 0 as long as it recorded
 # each probe's fate; only infrastructure failures (container down, assembly failed) are errors.
 #
-# GLOBAL CONSTRAINT 1 (the -Xint mandate) IS DELIBERATELY SUSPENDED for the `default`/`nojit`
-# modes. That is the entire point: -Xint selects the SWITCH interpreter, and this task must
-# reach nterp, which is ONLY the default. The `xint` mode is the switch-tier comparison.
+# The -Xint mandate is suspended for the `default`/`nojit` modes on purpose: -Xint selects the
+# switch interpreter, and these probes must reach nterp, which only the default selects. The `xint`
+# mode is the switch-tier comparison.
 #
 # All three modes add -Xverify:none, because the probes are VERIFIER-INVALID by construction
 # (a non-reference register in a type op is VERIFY_ERROR_BAD_CLASS_HARD, which rejects the whole

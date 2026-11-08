@@ -1,4 +1,4 @@
-# WORKLIST ROW 6 -- fresh-array default value for float[], read as RAW bits.
+# Fresh-array default value for float[], read as RAW bits.
 # Allocates float[1] and reads element 0's raw bits with Float.floatToRawIntBits (NOT the
 # canonicalizing floatToIntBits -- the sign bit is the whole question). The falsifiable claim is
 # that the default is POSITIVE zero (0x00000000), not negative zero (0x80000000).

@@ -1,21 +1,18 @@
-# WORKLIST ROW 11 + ROW 12 -- a NEGATIVE index is `ArrayIndexOutOfBoundsException`, not a distinct
-# exception, and it is the bounds exception the row-12 chain names.
+# A negative index is `ArrayIndexOutOfBoundsException`, not a distinct exception.
 #
 # THIS FIXTURE'S CELL: a valid, non-null `String[1]`, an index of -1, and a perfectly assignable
 # value. Only the index is wrong, so exactly one outcome is possible:
 #
 #   AIOOBE -> a negative index is out of range like any other. [ART] compares UNSIGNED
 #             (`Array::CheckIsValidIndex`), so `index < 0` and `index >= length` are ONE check and -1
-#             is not a `NegativeArraySizeException` or any other distinct exception (worklist row 11).
+#             is not a `NegativeArraySizeException` or any other distinct exception.
 #   anything else -> the unsigned-compare reading is wrong.
 #
 # Read with `Fx_AputBadIndexIncompatibleValue` (index 5): the two together show the bounds check does
 # not care WHICH way the index leaves the range.
 #
-# SELF-CONTAINED, and built from only `new-array` + `const` + `const-string` + `aput-object` +
-# `return-object` -- no `invoke`, `new-instance` or `sget`. Those are all inside the clean core's
-# current opcode set, so unlike the other `aput` cells this one is core-runnable (see `DeviceFixtures`);
-# the throw makes its `return-object` tail unreachable, which is why the tail exists only to verify.
+# SELF-CONTAINED: built from `new-array`, `const`, `const-string`, `aput-object` and `return-object`.
+# The throw makes the `return-object` tail unreachable; the tail exists only to verify.
 
 .class public LFx_AputNegativeIndex;
 .super Ljava/lang/Object;

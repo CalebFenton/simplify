@@ -1,4 +1,4 @@
-# WORKLIST ROW 4 -- rem-double (JVM counterpart drem). (+1.0) rem (-0.0).
+# Rem-double (JVM counterpart drem). (+1.0) rem (-0.0).
 # [JVMS] drem (IEEE-754 remainder): remainder by zero is NaN regardless of the zero's sign.
 # Expected: java.lang.Double(NaN).
 .class public LFx_RemDoublePosByNegZero;

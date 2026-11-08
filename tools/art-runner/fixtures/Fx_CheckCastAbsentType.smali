@@ -1,4 +1,4 @@
-# WORKLIST ROW 22 -- check-cast naming an ABSENT type. Lcom/example/DefinitelyMissing; resolves
+# Check-cast naming an ABSENT type. Lcom/example/DefinitelyMissing; resolves
 # against nothing. Per ART's CHECK_CAST handler the type is resolved BEFORE the null-source shortcut,
 # so even a null source drives resolution, which fails. Source is null to prove the throw comes from
 # resolution and not from a genuine ClassCastException. Left to propagate.

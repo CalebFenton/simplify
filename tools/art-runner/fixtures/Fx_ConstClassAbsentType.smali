@@ -1,4 +1,4 @@
-# WORKLIST ROW 23 -- const-class naming an ABSENT type (the resolution-failure family).
+# Const-class naming an ABSENT type (the resolution-failure family).
 # Lcom/example/DefinitelyMissing; resolves against nothing on the boot classpath. The question
 # this measures is the handler-reachability one: is the failure an Error or an Exception, and
 # which type? A device that raises java.lang.Error-family (NoClassDefFoundError, via LinkageError)
