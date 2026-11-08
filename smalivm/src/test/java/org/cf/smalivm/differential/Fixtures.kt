@@ -42,7 +42,7 @@ object Fixtures {
         Fixture("spine-return-wide", "Lspine/spine;", "returnWide()J"),
         Fixture("spine-return-string", "Lspine/spine;", "returnString()Ljava/lang/String;"),
         Fixture("spine-instance-wide-params", "Lspine/spine;", "instanceWideParams(JLjava/lang/String;I)I", setOf(0, 3, 4, 5, 6, 7)),
-        Fixture("spine-add-int", "Lspine/spine;", "unsupportedOpcode()I", setOf(0, 1)),
+        Fixture("spine-add-int", "Lspine/spine;", "addIntOfKnownConstants()I", setOf(0, 1)),
         Fixture("branch-disagreeing-arms", "Ldifferential/branch;", "disagreeingArms(I)V", setOf(0, 1, 2)),
         Fixture("branch-returns-different-constants", "Ldifferential/branch;", "returnsDifferentConstants(I)I"),
         Fixture("branch-known-falls-through", "Ldifferential/branch;", "knownBranchFallsThrough()I"),

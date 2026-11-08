@@ -459,7 +459,7 @@ object CoreTester {
      * **Total over the lattice, which the copies were NOT.** Each copy read
      * `(it.exception as? Value.Known)?.type?.descriptor` through `mapNotNull`, so a genuinely thrown
      * [Value.Unknown] or [Value.Top] -- which `core/op/ThrowOp` escapes TODAY, demonstrated by
-     * `ThrowRoutingTest.anUnknownPrimitiveTypedThrowStillForksBecauseNothingIsPROVED` -- rendered as
+     * `ThrowRoutingTest.anUnprovableThrowReachesEveryFeasibleHandlerAndTheEscape` -- rendered as
      * NOTHING and the helper answered `[]` for a run that genuinely threw. The trap that made it worth
      * fixing was not a live wrong assertion (all 36 call sites throw a `Known`) but the next author writing
      * a vacuous `.isEmpty()` beside a `throw` of a parameter.
@@ -470,7 +470,7 @@ object CoreTester {
      * escape is both VISIBLE (an `.isEmpty()` beside one is now false) and DISTINCT from a definite type of
      * the same name. Reverting the `when` to the old `mapNotNull { (it.exception as? Value.Known)... }` drops
      * the non-`Known` rows again and fails
-     * `ThrowRoutingTest.anUnknownPrimitiveTypedThrowStillForksBecauseNothingIsPROVED`, which is the totality pin.
+     * `ThrowRoutingTest.anUnprovableThrowReachesEveryFeasibleHandlerAndTheEscape`, which is the totality pin.
      */
     fun escapingTypes(graph: ExecutionGraph): List<String> =
         graph.outcomes.filterIsInstance<Outcome.Threw>().map { threw ->

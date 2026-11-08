@@ -64,26 +64,15 @@
     .end sparse-switch
 .end method
 
-# ------------------------------------------------------------------------------------------------
-# Added by Plan 8 Task 6, which lands `packed-switch`/`sparse-switch` in the clean core. Every method
-# below keeps the two above's convention of NOT putting the switch at address 0 -- their own comment
-# says why, and it is a real trap: with the switch at 0, "offset relative to the switch opcode"
-# (which is what [BC] specifies) is indistinguishable from "offset relative to the method start".
-#
-# Addresses are NOT commented inline here. The two methods above do carry inline `# @n` comments and
-# `packedSwitch()V`'s DISAGREE WITH THE ASSEMBLED CODE -- its `nop # for alignment` at "@8" does not
-# survive assembly (the payload is 4-byte aligned at @8 already, three `return-void`s after the
-# switch), so the payload is at 8 and the nop is not there at all. `sparseSwitch()V`'s comments are
-# correct because it needs its nop. Rather than add more comments that can rot, every address this
-# task depends on is asserted from the assembled `MethodView` in
-# `core/op/SwitchOpTest.theseFixturesHaveTheAddressesEveryExpectationInThisFileIsWrittenAgainst`.
-# ------------------------------------------------------------------------------------------------
+# Every method below keeps the convention of not putting the switch at address 0: there, "offset
+# relative to the switch opcode" ([BC]) is indistinguishable from "offset relative to the method start".
+# Addresses are not commented inline; `SwitchOpTest.theseFixturesHaveTheAddressesEveryExpectationInThisFileIsWrittenAgainst`
+# asserts them from the assembled code. The inline `# @8` alignment nop in `packedSwitch()V` above does
+# not survive assembly.
 
-# A table containing KEY 0, which neither method above has (`packedSwitch()V` starts at 0x1,
-# `sparseSwitch()V` uses 0x1/0x2). Without it a definitely-NULL selector is unobservable: [BC]'s
-# *"In terms of bitwise representation, `(Object) null == (int) 0`"* makes a null selector's bits
-# provably 0, so it must DISPATCH to case 0 -- and against a table with no key 0 that answer and the
-# wrong one ("a null is a reference, so no case matches") both fall through.
+# A table containing key 0, which neither method above has. [BC]: "(Object) null == (int) 0", so a
+# definitely-null selector dispatches to case 0; without key 0 that answer and "no case matches" both
+# fall through.
 .method public static packedSwitchIncludingKeyZero()V
     .locals 1
 
@@ -106,11 +95,10 @@
     .end packed-switch
 .end method
 
-# A case whose target IS the fall-through, i.e. an offset of +3 (`31t` is three code units). Legal,
-# and an obfuscator emits it as an opaque predicate. It is the switch's version of the same-address
-# fork `CommitTest.aBranchWhoseTargetIsItsFallThroughBuildsTwoNodesAtThatOneAddress` covers for `if`:
-# without dedup against the plain fall-through an unprovable selector yields TWO SuccessorSpecs at one
-# address, so two nodes, two Outcomes and double that address's visit budget.
+# A case whose target is the fall-through (offset +3; `31t` is three code units), an opaque-predicate
+# emission. Without dedup against the plain fall-through an unprovable selector would yield two
+# successors at one address. `IfOpTest.aBranchWhoseTargetIsItsFallThroughBuildsTwoNodesAtThatOneAddress`
+# covers the `if` version.
 .method public static packedSwitchWhoseCaseTargetsItsFallThrough()V
     .locals 1
 
@@ -131,10 +119,10 @@
     .end packed-switch
 .end method
 
-# A sparse table whose keys DESCEND, which is the input that separates ART's binary search from a map
+# A sparse table whose keys descend, which is the input that separates ART's binary search from a map
 # lookup. [CON] A8 requires *"The corresponding table must be consistent and sorted low-to-high"* and
 # [ART] is stricter still (`if (UNLIKELY(key <= last_key))` in `CheckAndMarkSwitchTargets`), so this
-# method is VERIFIER-invalid by construction -- which is exactly why it needs a fixture: no verified
+# method is verifier-invalid by construction -- which is exactly why it needs a fixture: no verified
 # input can reach the disagreement, and obfuscated input is not verified.
 #
 # For selector 1 the search reads `keys[0] == 2`, goes left, and finds nothing, so [ART] falls
@@ -162,12 +150,8 @@
     .end sparse-switch
 .end method
 
-# `size == 0`, which the payload layout permits -- the field is a `ushort` and [BC] does not forbid 0 --
-# and which [ART] handles explicitly in both dispatch functions
-# (`// Empty packed switch, move forward by 3 (size of PACKED_SWITCH).` and
-# `// Return length of SPARSE_SWITCH if size is 0.`). That it is assemblable from smali at all was
-# MEASURED rather than assumed: `.packed-switch 0x1` with no labels produces a four-code-unit payload
-# whose element list is empty.
+# `size == 0`: the payload layout permits it and [ART] handles it explicitly in both dispatch
+# functions. `.packed-switch 0x1` with no labels assembles to a four-code-unit payload.
 .method public static packedSwitchWithEmptyTable()V
     .locals 1
 
@@ -182,9 +166,9 @@
     .end packed-switch
 .end method
 
-# DUPLICATE KEYS, which [ART] rejects harder than [CON] A8 does (`if (UNLIKELY(key <= last_key))` in
+# Duplicate keys, which [ART] rejects harder than [CON] A8 does (`if (UNLIKELY(key <= last_key))` in
 # `CheckAndMarkSwitchTargets` fails on `<=`, not just on `<`) and which obfuscated input can still
-# contain. It is the input a `Map<Int, Int>` CANNOT represent: a map keeps one entry per key, so one of
+# contain. It is the input a `Map<Int, Int>` cannot represent: a map keeps one entry per key, so one of
 # these two arms disappears silently -- which is half of why `SwitchOp` carries an ordered `List<Case>`.
 # ART's binary search finds key 1 on its first probe, so the fall-through is not a successor; both arms
 # are, because a linear-scan runtime would take the first and the search takes whichever it lands on.
@@ -259,7 +243,7 @@
     .end packed-switch
 .end method
 
-# Strictly ascending in SIGNED order, which is not ascending in unsigned order: 0x7fffffff sorts below
+# Strictly ascending in signed order, which is not ascending in unsigned order: 0x7fffffff sorts below
 # the negative keys unsigned, so a binary search that compares keys unsigned cannot find it.
 .method public static sparseSwitchWithNegativeKeys()V
     .locals 1

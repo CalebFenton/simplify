@@ -1,11 +1,6 @@
-# Plan 9 Task 19: the `iget*` corpus. This file was an EMPTY SHELL until Task 19 -- the old engine
-# modeled instance fields not at all (`opcode/IGetOp.kt:25-31` always answered Unknown and its only
-# test was a mockk change-detector), so there was no behavioral corpus to inherit and every method
-# here is new (adjudication 6).
-#
-# Receivers are built with `new-instance` and NO `<init>` call, deliberately: `invoke-direct` is Task
-# 20's opcode, and the engine does not enforce the verifier's uninitialized-use rule (unverified input
-# is in scope, spec §2.2). The uninitialized flag stays set and stays irrelevant to field storage.
+# Receivers are built with `new-instance` and no `<init>` call: the engine does not enforce the
+# verifier's uninitialized-use rule (unverified input is in scope), and the uninitialized flag does not
+# affect field storage.
 .class public Liget_test;
 .super Ljava/lang/Object;
 
@@ -14,7 +9,7 @@
 .field public myString:Ljava/lang/String;
 .field public static staticOnly:I
 
-# A fresh object's unwritten field is its type DEFAULT -- a provable fact (JLS §12.5), not an unknown.
+# A fresh object's unwritten field is its type default -- a provable fact (JLS §12.5), not an unknown.
 .method public static getIntFromFreshObject()I
     .locals 2
     new-instance v0, Liget_test;
@@ -72,7 +67,7 @@
     return v1
 .end method
 
-# A NON-ZERO primitive under the receiver register -- reads as null (VERIFIER-tier row of
+# A non-zero primitive under the receiver register -- reads as null (verifier-tier row of
 # readsAsNullReference; ART's two interpreter tiers contradict each other on it). Same addresses.
 .method public static getIntFromPrimitiveTaggedReceiver()I
     .locals 2
@@ -81,8 +76,8 @@
     return v1
 .end method
 
-# Resolution PRECEDES the receiver read: an absent field class on a NULL receiver still throws the
-# resolution error, never the NPE (the invoke/field family's measured ordering, adjudication 7b(b)).
+# Resolution precedes the receiver read: an absent field class on a null receiver throws the resolution
+# error, never the NPE (the invoke/field family's measured ordering).
 .method public static getFieldOfUnknownClassOnNullReceiver()I
     .locals 2
     const/4 v0, 0x0
@@ -107,7 +102,7 @@
     return v1
 .end method
 
-# An UNPROVABLE receiver: the field value is unknown AND the NPE is feasible (both paths must run).
+# An unprovable receiver: the field value is unknown and the NPE is feasible (both paths must run).
 .method public static getIntThroughUnknownReceiver(Liget_test;)I
     .locals 1
     iget v0, p0, Liget_test;->myInt:I
@@ -131,8 +126,8 @@
     .catch Ljava/lang/NullPointerException; {:try_start .. :try_end} :catch_npe
 .end method
 
-# An inherited instance field: written through the CHILD's name, read through the PARENT's -- legal
-# dex javac never emits, and one cell only if resolution walks the superclass chain to the DECLARING
+# An inherited instance field: written through the child's name, read through the parent's -- legal
+# dex javac never emits, and one cell only if resolution walks the superclass chain to the declaring
 # class both times.
 .method public static putInheritedThroughChildGetThroughParent()I
     .locals 3
@@ -143,10 +138,9 @@
     return v2
 .end method
 
-# Same NAME, different TYPE, two classes: `shadow:I` on the parent, `shadow:J` on the child. The
-# reference `Lifield_child_test;->shadow:I` must walk PAST the child's J to the parent's I (keyed on
-# name AND type), and the child's own J cell must stay untouched -- the oracle's name-only lookup
-# collapses these into one cell (`type/VirtualClass.java:83-98`, `type-and-dex.md:116`).
+# Same name, different type, two classes: `shadow:I` on the parent, `shadow:J` on the child. The
+# reference `Lifield_child_test;->shadow:I` must walk past the child's J to the parent's I (fields are
+# keyed on name and type), and the child's own J cell must stay untouched.
 .method public static putShadowedIntReadsParentsCellNotChildsLong()I
     .locals 4
     new-instance v0, Lifield_child_test;
