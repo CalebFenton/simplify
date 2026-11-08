@@ -16,5 +16,5 @@ sealed interface MethodEditCommitResult {
 
     data object Unchanged : MethodEditCommitResult
 
-    class Rejected(val reason: MethodEditRejectionReason) : MethodEditCommitResult
+    data class Rejected(val reason: MethodEditRejectionReason) : MethodEditCommitResult
 }

@@ -33,7 +33,7 @@ object OptimizerTester {
             strategy.perform(input)
             input.transaction.commit()
         } finally {
-            if (input.transaction.state == MethodEditTransactionState.OPEN) input.transaction.discard()
+            if (input.transaction.isOpen) input.transaction.discard()
         }
         return Optimization(services, signature, graph, input, result, reflectionPolicy)
     }

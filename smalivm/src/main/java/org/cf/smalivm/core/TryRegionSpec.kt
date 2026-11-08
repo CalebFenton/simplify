@@ -8,6 +8,4 @@ class TryRegionSpec(
 ) {
     val catchHandlers: List<CatchHandlerSpec> =
         java.util.Collections.unmodifiableList(catchHandlers.toList())
-
-    internal fun detachedCopy(): TryRegionSpec = TryRegionSpec(start, end, catchHandlers)
 }

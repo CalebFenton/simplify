@@ -1,275 +1,21 @@
 package org.cf.smalivm.core
 
 import kotlinx.collections.immutable.toPersistentList
-import com.android.tools.smali.dexlib2.Opcode
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-
-internal data class BaselineDraftInstruction(
-    val id: BaselineInstructionId?,
-    val codeAddress: Int,
-    val position: LogicalCodePosition,
-    val instruction: Instruction,
-    val syntheticPayloadPadding: Boolean,
-)
-
-internal data class DraftSwitchCase(
-    val key: Int,
-    val target: PendingCodeAnchor,
-)
 
 internal data class DraftInstructionTemplate(
     val instruction: Instruction,
     val target: PendingCodeAnchor? = null,
-    val switchCases: List<DraftSwitchCase> = emptyList(),
+    val switchCases: List<InstructionTemplate.Switch.Case> = emptyList(),
     val logicalRegisters: List<LogicalRegister>? = null,
     val referenceOperands: List<DexReferenceOperand> = emptyList(),
 )
 
+/** Instructions inserted before one baseline instruction, with one anchor per inserted instruction. */
 internal data class DraftInsertion(
     val instructions: List<DraftInstructionTemplate>,
     val anchors: List<PendingCodeAnchor>,
-    val commandSequence: Int,
 )
-
-internal data class DraftCatchHandlerSpec(
-    val exceptionType: String?,
-    val target: PendingCodeAnchor,
-)
-
-internal data class DraftTryRegionSpec(
-    val start: PendingCodeAnchor,
-    val end: PendingCodeAnchor,
-    val handlers: List<DraftCatchHandlerSpec>,
-)
-
-/** One private logical body built from all indexed commands in one forward pass. */
-internal class MethodBodyDraft private constructor(
-    private val body: MethodBody,
-) {
-    val instructionCount: Int get() = body.instructions.count { it.instruction.opcode !in OpcodeGroups.PAYLOAD }
-
-    fun toLogicalBody(): MethodBody = body
-
-    private data class DraftRecord(
-        val template: DraftInstructionTemplate,
-        val baselinePosition: LogicalCodePosition?,
-    )
-
-    companion object {
-        fun resolve(
-            baselineBody: MethodBody,
-            baseline: List<BaselineDraftInstruction>,
-            insertionsByInstruction: Map<BaselineInstructionId, List<DraftInsertion>>,
-            replacementsByInstruction: Map<BaselineInstructionId, List<DraftInstructionTemplate>>,
-            removedInstructions: Set<BaselineInstructionId>,
-            anchorsByPosition: Map<LogicalCodePosition, List<PendingCodeAnchor>>,
-            submittedTryRegions: List<DraftTryRegionSpec>?,
-        ): ResolvedMethodBodyEdit {
-            val records = ArrayList<DraftRecord>(baseline.size)
-            val transferOrdinals = LinkedHashMap<LogicalCodePosition, Int>(baseline.size + 1)
-            val survivingOrdinals = HashMap<LogicalCodePosition, Int>(baseline.size)
-            val anchorOrdinals = LinkedHashMap<PendingCodeAnchor, Int>()
-
-            for (baselineInstruction in baseline) {
-                val id = baselineInstruction.id
-                val insertions = if (id == null) emptyList() else insertionsByInstruction[id].orEmpty()
-                    .sortedBy(DraftInsertion::commandSequence)
-                val firstInsertedOrdinal = records.size.takeIf { insertions.isNotEmpty() }
-                for (insertion in insertions) {
-                    insertion.instructions.forEachIndexed { index, instruction ->
-                        anchorOrdinals[insertion.anchors[index]] = records.size
-                        records += DraftRecord(instruction, baselinePosition = null)
-                    }
-                }
-
-                val replacement = id?.let(replacementsByInstruction::get)
-                val firstReplacementOrdinal = records.size.takeIf { replacement != null }
-                if (replacement != null) {
-                    replacement.forEach { records += DraftRecord(it, baselinePosition = null) }
-                } else if ((id == null || id !in removedInstructions) && !baselineInstruction.syntheticPayloadPadding) {
-                    survivingOrdinals[baselineInstruction.position] = records.size
-                    records += DraftRecord(
-                        DraftInstructionTemplate(baselineInstruction.instruction),
-                        baselineInstruction.position,
-                    )
-                }
-
-                transferOrdinals[baselineInstruction.position] =
-                    firstInsertedOrdinal ?: firstReplacementOrdinal ?: survivingOrdinals[baselineInstruction.position] ?: records.size
-            }
-
-            val baselineEnd = requireNotNull(
-                baselineBody.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value,
-            )
-            transferOrdinals[baselineEnd] = records.size
-            anchorsByPosition.forEach { (position, anchors) ->
-                val ordinal = requireNotNull(transferOrdinals[position])
-                anchors.forEach { anchor -> anchorOrdinals[anchor] = ordinal }
-            }
-
-            val provisionalTargets = HashMap<Int, Int>()
-            val provisionalSwitchCases = HashMap<Int, List<Pair<Int, Int>>>()
-            baselineBody.controlTargets.forEach { (source, target) ->
-                val sourceOrdinal = survivingOrdinals[source] ?: return@forEach
-                provisionalTargets[sourceOrdinal] = requireNotNull(transferOrdinals[target])
-                baselineBody.switchCases[source]?.let { cases ->
-                    provisionalSwitchCases[sourceOrdinal] = cases.map { case ->
-                        case.key to requireNotNull(transferOrdinals[case.target])
-                    }
-                }
-            }
-            records.forEachIndexed { ordinal, record ->
-                val target = record.template.target ?: return@forEachIndexed
-                provisionalTargets[ordinal] = requireNotNull(anchorOrdinals[target])
-                if (record.template.instruction.opcode in OpcodeGroups.SWITCH) {
-                    provisionalSwitchCases[ordinal] = record.template.switchCases.map { case ->
-                        case.key to requireNotNull(anchorOrdinals[case.target])
-                    }
-                }
-            }
-
-            val baselineOpcodesByPosition = baseline.associate { it.position to it.instruction.opcode }
-            val baselinePayloadOwners = baselineBody.controlTargets.entries
-                .filter { (source) ->
-                    baselineOpcodesByPosition[source] in OpcodeGroups.PAYLOAD_OWNER
-                }
-                .groupBy(keySelector = Map.Entry<LogicalCodePosition, LogicalCodePosition>::value)
-            val targetedPayloadOrdinals = provisionalTargets.entries.mapNotNullTo(hashSetOf()) { (source, target) ->
-                target.takeIf { records[source].template.instruction.opcode in OpcodeGroups.PAYLOAD_OWNER }
-            }
-            val removedPayloadOrdinals = records.mapIndexedNotNullTo(hashSetOf()) { ordinal, record ->
-                val position = record.baselinePosition ?: return@mapIndexedNotNullTo null
-                if (
-                    record.template.instruction.opcode in OpcodeGroups.PAYLOAD &&
-                    baselinePayloadOwners[position].orEmpty().isNotEmpty() &&
-                    ordinal !in targetedPayloadOrdinals
-                ) {
-                    ordinal
-                } else {
-                    null
-                }
-            }
-
-            val finalOrdinalByProvisional = IntArray(records.size) { -1 }
-            val retainedRecords = ArrayList<DraftRecord>(records.size - removedPayloadOrdinals.size)
-            records.forEachIndexed { ordinal, record ->
-                if (ordinal !in removedPayloadOrdinals) {
-                    finalOrdinalByProvisional[ordinal] = retainedRecords.size
-                    retainedRecords += record
-                }
-            }
-            val finalOrdinalAtOrAfter = IntArray(records.size + 1)
-            var nextOrdinal = retainedRecords.size
-            finalOrdinalAtOrAfter[records.size] = nextOrdinal
-            for (ordinal in records.indices.reversed()) {
-                val finalOrdinal = finalOrdinalByProvisional[ordinal]
-                if (finalOrdinal >= 0) nextOrdinal = finalOrdinal
-                finalOrdinalAtOrAfter[ordinal] = nextOrdinal
-            }
-
-            val positions = LogicalCodePosition.forBody(retainedRecords.size + 1)
-            fun positionAt(provisionalOrdinal: Int): LogicalCodePosition =
-                positions[finalOrdinalAtOrAfter[provisionalOrdinal]]
-
-            val encoded = ArrayList<EncodedInstruction>(retainedRecords.size)
-            val positionsByCodeAddress = LinkedHashMap<Int, LogicalCodePosition>(retainedRecords.size + 1)
-            var codeAddress = 0
-            retainedRecords.forEachIndexed { ordinal, record ->
-                val position = positions[ordinal]
-                positionsByCodeAddress[codeAddress] = position
-                encoded += EncodedInstruction(position, codeAddress, record.template.instruction)
-                codeAddress += record.template.instruction.codeUnits
-            }
-            positionsByCodeAddress[codeAddress] = positions.last()
-
-            val controlTargets = LinkedHashMap<LogicalCodePosition, LogicalCodePosition>()
-            val switchCases = LinkedHashMap<LogicalCodePosition, List<ImportedSwitchCase>>()
-            val logicalRegisters = LinkedHashMap<LogicalCodePosition, List<LogicalRegister>>()
-            val referenceOperands = LinkedHashMap<LogicalCodePosition, List<DexReferenceOperand>>()
-            retainedRecords.forEachIndexed { ordinal, record ->
-                record.template.logicalRegisters?.let { logicalRegisters[positions[ordinal]] = it }
-                if (record.template.referenceOperands.isNotEmpty()) {
-                    referenceOperands[positions[ordinal]] = record.template.referenceOperands
-                }
-            }
-            provisionalTargets.forEach { (source, target) ->
-                val finalSource = finalOrdinalByProvisional[source]
-                if (finalSource < 0) return@forEach
-                val sourcePosition = positions[finalSource]
-                controlTargets[sourcePosition] = positionAt(target)
-                provisionalSwitchCases[source]?.let { cases ->
-                    switchCases[sourcePosition] = cases.map { (key, caseTarget) ->
-                        ImportedSwitchCase(key, positionAt(caseTarget))
-                    }
-                }
-            }
-
-            val tryRegions = if (submittedTryRegions == null) {
-                baselineBody.tryRegions.mapNotNull { region ->
-                    val start = positionAt(requireNotNull(transferOrdinals[region.start]))
-                    val end = positionAt(requireNotNull(transferOrdinals[region.end]))
-                    if (start == end) {
-                        null
-                    } else {
-                        ImportedTryRegion(
-                            start,
-                            end,
-                            region.handlers.map { handler ->
-                                ImportedExceptionHandler(
-                                    handler.exceptionType,
-                                    positionAt(requireNotNull(transferOrdinals[handler.target])),
-                                )
-                            }.toPersistentList(),
-                        )
-                    }
-                }
-            } else {
-                submittedTryRegions.mapNotNull { region ->
-                    val start = positionAt(requireNotNull(anchorOrdinals[region.start]))
-                    val end = positionAt(requireNotNull(anchorOrdinals[region.end]))
-                    if (start == end) {
-                        null
-                    } else {
-                        ImportedTryRegion(
-                            start,
-                            end,
-                            region.handlers.map { handler ->
-                                ImportedExceptionHandler(
-                                    handler.exceptionType,
-                                    positionAt(requireNotNull(anchorOrdinals[handler.target])),
-                                )
-                            }.toPersistentList(),
-                        )
-                    }
-                }
-            }
-            val debugItems = baselineBody.debugItems.map { item ->
-                ImportedDebugItem(
-                    positionAt(requireNotNull(transferOrdinals[item.position])),
-                    item.item,
-                )
-            }
-            val logicalBody = MethodBody.logical(
-                baselineBody.registerCount,
-                encoded,
-                positionsByCodeAddress,
-                controlTargets,
-                switchCases,
-                tryRegions,
-                debugItems,
-                logicalRegisters,
-                referenceOperands,
-            )
-            val resolvedAnchors = anchorOrdinals.mapValues { (_, ordinal) -> positionAt(ordinal) }
-            return ResolvedMethodBodyEdit(logicalBody, resolvedAnchors)
-        }
-
-        fun build(resolved: ResolvedMethodBodyEdit): MethodBodyDraftConstruction = MethodBodyDraftConstruction(
-            MethodBodyDraft(resolved.body),
-            resolved.positionsByPendingAnchor,
-        )
-    }
-}
 
 /** Logical instructions and metadata after every transaction anchor has been resolved. */
 internal data class ResolvedMethodBodyEdit(
@@ -277,8 +23,229 @@ internal data class ResolvedMethodBodyEdit(
     val positionsByPendingAnchor: Map<PendingCodeAnchor, LogicalCodePosition>,
 )
 
-/** A draft plus transaction-owned anchors resolved before the draft is constructed. */
-internal data class MethodBodyDraftConstruction(
-    val draft: MethodBodyDraft,
-    val positionsByPendingAnchor: Map<PendingCodeAnchor, LogicalCodePosition>,
-)
+/**
+ * Applies indexed commands to a baseline body. Commands are keyed by baseline code address; insertions for one
+ * address are in submission order. Labels, try ranges and debug items on an edited instruction move to the first
+ * instruction that replaces or precedes it.
+ */
+internal object MethodBodyDraft {
+    private class DraftRecord(val template: DraftInstructionTemplate, val baselinePosition: LogicalCodePosition?)
+
+    /** Edited instructions in order, indexed by provisional ordinal, and where each old position now points. */
+    private class Ordering(
+        val records: List<DraftRecord>,
+        val transferOrdinals: Map<LogicalCodePosition, Int>,
+        val survivingOrdinals: Map<LogicalCodePosition, Int>,
+        val anchorOrdinals: Map<PendingCodeAnchor, Int>,
+    )
+
+    /** Provisional ordinal to the ordinal of the next retained record, after unowned baseline payloads go. */
+    private class Compaction(
+        val retained: List<DraftRecord>,
+        val finalOrdinalByProvisional: IntArray,
+        val finalOrdinalAtOrAfter: IntArray,
+    )
+
+    fun resolve(
+        baselineBody: MethodBody,
+        insertions: Map<Int, List<DraftInsertion>>,
+        replacements: Map<Int, List<DraftInstructionTemplate>>,
+        removals: Set<Int>,
+        anchorsByPosition: Map<LogicalCodePosition, List<PendingCodeAnchor>>,
+        submittedTryRegions: List<TryRegionSpec>?,
+    ): ResolvedMethodBodyEdit {
+        val ordering = order(baselineBody, insertions, replacements, removals, anchorsByPosition)
+        val targets = HashMap<Int, Int>()
+        val switchCases = HashMap<Int, List<Pair<Int, Int>>>()
+        resolveControl(baselineBody, ordering, targets, switchCases)
+        val compaction = compact(ordering.records, unownedBaselinePayloads(baselineBody, ordering.records, targets))
+
+        val positions = LogicalCodePosition.forBody(compaction.retained.size + 1)
+        fun positionAt(provisionalOrdinal: Int): LogicalCodePosition =
+            positions[compaction.finalOrdinalAtOrAfter[provisionalOrdinal]]
+        fun transferred(position: LogicalCodePosition): Int = ordering.transferOrdinals.getValue(position)
+        fun anchored(anchor: PendingCodeAnchor): Int = ordering.anchorOrdinals.getValue(anchor)
+
+        val encoded = ArrayList<EncodedInstruction>(compaction.retained.size)
+        val positionsByCodeAddress = LinkedHashMap<Int, LogicalCodePosition>(compaction.retained.size + 1)
+        val logicalRegisters = LinkedHashMap<LogicalCodePosition, List<LogicalRegister>>()
+        val referenceOperands = LinkedHashMap<LogicalCodePosition, List<DexReferenceOperand>>()
+        var codeAddress = 0
+        compaction.retained.forEachIndexed { ordinal, record ->
+            val position = positions[ordinal]
+            val template = record.template
+            positionsByCodeAddress[codeAddress] = position
+            encoded += EncodedInstruction(position, codeAddress, template.instruction)
+            codeAddress += template.instruction.codeUnits
+            template.logicalRegisters?.let { logicalRegisters[position] = it }
+            if (template.referenceOperands.isNotEmpty()) referenceOperands[position] = template.referenceOperands
+        }
+        positionsByCodeAddress[codeAddress] = positions.last()
+
+        val controlTargets = LinkedHashMap<LogicalCodePosition, LogicalCodePosition>()
+        val logicalSwitchCases = LinkedHashMap<LogicalCodePosition, List<ImportedSwitchCase>>()
+        targets.forEach { (source, target) ->
+            val finalSource = compaction.finalOrdinalByProvisional[source]
+            if (finalSource < 0) return@forEach
+            val sourcePosition = positions[finalSource]
+            controlTargets[sourcePosition] = positionAt(target)
+            switchCases[source]?.let { cases ->
+                logicalSwitchCases[sourcePosition] = cases.map { (key, caseTarget) ->
+                    ImportedSwitchCase(key, positionAt(caseTarget))
+                }
+            }
+        }
+
+        fun tryRegion(start: Int, end: Int, handlers: List<Pair<String?, Int>>): ImportedTryRegion? {
+            val startPosition = positionAt(start)
+            val endPosition = positionAt(end)
+            if (startPosition == endPosition) return null
+            val translatedHandlers = handlers.map { (exceptionType, target) ->
+                ImportedExceptionHandler(exceptionType, positionAt(target))
+            }
+            return ImportedTryRegion(startPosition, endPosition, translatedHandlers.toPersistentList())
+        }
+        val tryRegions = submittedTryRegions?.mapNotNull { region ->
+            tryRegion(
+                anchored(region.start),
+                anchored(region.end),
+                region.catchHandlers.map { handler ->
+                    (handler as? CatchHandlerSpec.Typed)?.exceptionType?.descriptor to anchored(handler.target)
+                },
+            )
+        } ?: baselineBody.tryRegions.mapNotNull { region ->
+            tryRegion(
+                transferred(region.start),
+                transferred(region.end),
+                region.handlers.map { handler -> handler.exceptionType to transferred(handler.target) },
+            )
+        }
+        val debugItems = baselineBody.debugItems.map { item ->
+            ImportedDebugItem(positionAt(transferred(item.position)), item.item)
+        }
+        val logicalBody = MethodBody.logical(
+            baselineBody.registerCount,
+            encoded,
+            positionsByCodeAddress,
+            controlTargets,
+            logicalSwitchCases,
+            tryRegions,
+            debugItems,
+            logicalRegisters,
+            referenceOperands,
+        )
+        return ResolvedMethodBodyEdit(logicalBody, ordering.anchorOrdinals.mapValues { (_, ordinal) -> positionAt(ordinal) })
+    }
+
+    private fun order(
+        baselineBody: MethodBody,
+        insertions: Map<Int, List<DraftInsertion>>,
+        replacements: Map<Int, List<DraftInstructionTemplate>>,
+        removals: Set<Int>,
+        anchorsByPosition: Map<LogicalCodePosition, List<PendingCodeAnchor>>,
+    ): Ordering {
+        val baseline = baselineBody.instructions
+        val records = ArrayList<DraftRecord>(baseline.size)
+        val transferOrdinals = HashMap<LogicalCodePosition, Int>(baseline.size + 1)
+        val survivingOrdinals = HashMap<LogicalCodePosition, Int>(baseline.size)
+        val anchorOrdinals = LinkedHashMap<PendingCodeAnchor, Int>()
+
+        for (baselineRecord in baseline) {
+            val address = baselineRecord.codeAddress
+            val position = baselineRecord.position
+            val inserted = insertions[address].orEmpty()
+            val firstInsertedOrdinal = records.size.takeIf { inserted.isNotEmpty() }
+            for (insertion in inserted) {
+                insertion.instructions.forEachIndexed { index, instruction ->
+                    anchorOrdinals[insertion.anchors[index]] = records.size
+                    records += DraftRecord(instruction, baselinePosition = null)
+                }
+            }
+
+            val replacement = replacements[address]
+            val firstReplacementOrdinal = records.size.takeIf { replacement != null }
+            if (replacement != null) {
+                replacement.forEach { records += DraftRecord(it, baselinePosition = null) }
+            } else if (address !in removals && position !in baselineBody.syntheticPayloadPaddingPositions) {
+                survivingOrdinals[position] = records.size
+                records += DraftRecord(DraftInstructionTemplate(baselineRecord.instruction), position)
+            }
+
+            transferOrdinals[position] =
+                firstInsertedOrdinal ?: firstReplacementOrdinal ?: survivingOrdinals[position] ?: records.size
+        }
+        transferOrdinals[baselineBody.endPosition] = records.size
+        anchorsByPosition.forEach { (position, anchors) ->
+            val ordinal = transferOrdinals.getValue(position)
+            anchors.forEach { anchor -> anchorOrdinals[anchor] = ordinal }
+        }
+        return Ordering(records, transferOrdinals, survivingOrdinals, anchorOrdinals)
+    }
+
+    /** Fills provisional control targets and switch cases: surviving baseline owners, then submitted templates. */
+    private fun resolveControl(
+        baselineBody: MethodBody,
+        ordering: Ordering,
+        targets: MutableMap<Int, Int>,
+        switchCases: MutableMap<Int, List<Pair<Int, Int>>>,
+    ) {
+        baselineBody.controlTargets.forEach { (source, target) ->
+            val sourceOrdinal = ordering.survivingOrdinals[source] ?: return@forEach
+            targets[sourceOrdinal] = ordering.transferOrdinals.getValue(target)
+            baselineBody.switchCases[source]?.let { cases ->
+                switchCases[sourceOrdinal] = cases.map { case -> case.key to ordering.transferOrdinals.getValue(case.target) }
+            }
+        }
+        ordering.records.forEachIndexed { ordinal, record ->
+            val target = record.template.target ?: return@forEachIndexed
+            targets[ordinal] = ordering.anchorOrdinals.getValue(target)
+            if (record.template.instruction.opcode in OpcodeGroups.SWITCH) {
+                switchCases[ordinal] = record.template.switchCases.map { case ->
+                    case.key to ordering.anchorOrdinals.getValue(case.target)
+                }
+            }
+        }
+    }
+
+    /** Baseline payloads whose every baseline owner was edited away; nothing can reach them any more. */
+    private fun unownedBaselinePayloads(
+        baselineBody: MethodBody,
+        records: List<DraftRecord>,
+        targets: Map<Int, Int>,
+    ): Set<Int> {
+        val baselineOpcodes = baselineBody.instructions.associate { it.position to it.instruction.opcode }
+        val ownedBaselinePayloads = baselineBody.controlTargets
+            .filterKeys { baselineOpcodes[it] in OpcodeGroups.PAYLOAD_OWNER }
+            .values
+            .toSet()
+        val targetedPayloadOrdinals = targets.entries.mapNotNullTo(hashSetOf()) { (source, target) ->
+            target.takeIf { records[source].template.instruction.opcode in OpcodeGroups.PAYLOAD_OWNER }
+        }
+        return records.indices.filterTo(hashSetOf()) { ordinal ->
+            val record = records[ordinal]
+            record.template.instruction.opcode in OpcodeGroups.PAYLOAD &&
+                record.baselinePosition in ownedBaselinePayloads &&
+                ordinal !in targetedPayloadOrdinals
+        }
+    }
+
+    private fun compact(records: List<DraftRecord>, removedOrdinals: Set<Int>): Compaction {
+        val finalOrdinalByProvisional = IntArray(records.size) { -1 }
+        val retained = ArrayList<DraftRecord>(records.size - removedOrdinals.size)
+        records.forEachIndexed { ordinal, record ->
+            if (ordinal !in removedOrdinals) {
+                finalOrdinalByProvisional[ordinal] = retained.size
+                retained += record
+            }
+        }
+        val finalOrdinalAtOrAfter = IntArray(records.size + 1)
+        var nextOrdinal = retained.size
+        finalOrdinalAtOrAfter[records.size] = nextOrdinal
+        for (ordinal in records.indices.reversed()) {
+            val finalOrdinal = finalOrdinalByProvisional[ordinal]
+            if (finalOrdinal >= 0) nextOrdinal = finalOrdinal
+            finalOrdinalAtOrAfter[ordinal] = nextOrdinal
+        }
+        return Compaction(retained, finalOrdinalByProvisional, finalOrdinalAtOrAfter)
+    }
+}

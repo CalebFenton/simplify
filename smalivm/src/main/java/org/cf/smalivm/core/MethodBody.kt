@@ -129,6 +129,10 @@ class MethodBody private constructor(
 
     val registerCount: Int get() = implementation.registerCount
 
+    /** The position after the last instruction, where try ranges and debug items can end. */
+    internal val endPosition: LogicalCodePosition =
+        positionsByCodeAddress.getValue(positionsByCodeAddress.keys.max())
+
     internal val instructionsByCodeAddress: Map<Int, Instruction> =
         instructions.associate { it.codeAddress to it.instruction }
 

@@ -157,7 +157,7 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidTryRegion)
+        assertEquals(MethodEditRejectionReason.CatchAllNotLast, result.reason)
         assertSame(snapshot, index.currentSnapshot)
         assertArrayEquals(output, ProgramDexWriter().writeToBytes(index.currentSnapshot))
     }
@@ -187,12 +187,12 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidTryRegion)
+        assertEquals(MethodEditRejectionReason.OverlappingTryRanges, result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 
     @Test
-    fun handlerTargetsMustStartWithExecutableMoveException() {
+    fun moveExceptionThatNoHandlerTargetsRejects() {
         val index = index()
         val snapshot = index.currentSnapshot
         val view = requireNotNull(index.methodView(METHOD))
@@ -210,7 +210,8 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidTryRegion)
+        // The only handler now targets the normal return; the first move-exception, at 5, starts no handler.
+        assertEquals(MethodEditRejectionReason.MoveExceptionOutsideHandler(5), result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 
@@ -236,13 +237,13 @@ class MethodTryRegionEditTest {
 
         val foreignResult = local.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(foreignResult.reason is MethodEditRejectionReason.InvalidTryRegion)
+        assertEquals(MethodEditRejectionReason.ForeignAnchor, foreignResult.reason)
         foreign.discard()
 
         val malformed = editor.beginEdit(view)
         malformed.stageType("[V")
         val malformedResult = malformed.commit() as MethodEditCommitResult.Rejected
-        assertTrue(malformedResult.reason is MethodEditRejectionReason.InvalidDexReference)
+        assertEquals(MethodEditRejectionReason.MalformedDescriptor("[V"), malformedResult.reason)
 
         val arrayCatch = editor.beginEdit(view)
         val arrayCatchAnchors = anchors(arrayCatch, view)
@@ -257,7 +258,7 @@ class MethodTryRegionEditTest {
             ),
         )
         val arrayCatchResult = arrayCatch.commit() as MethodEditCommitResult.Rejected
-        assertTrue(arrayCatchResult.reason is MethodEditRejectionReason.InvalidTryRegion)
+        assertEquals(MethodEditRejectionReason.CatchTypeNotClass("[Ljava/lang/Exception;"), arrayCatchResult.reason)
 
         val nonThrowable = editor.beginEdit(view)
         val nonThrowableAnchors = anchors(nonThrowable, view)
@@ -272,7 +273,7 @@ class MethodTryRegionEditTest {
             ),
         )
         val nonThrowableResult = nonThrowable.commit() as MethodEditCommitResult.Rejected
-        assertTrue(nonThrowableResult.reason is MethodEditRejectionReason.InvalidTryRegion)
+        assertEquals(MethodEditRejectionReason.CatchTypeNotThrowable("Ljava/lang/String;"), nonThrowableResult.reason)
     }
 
     @Test
@@ -401,7 +402,8 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.InvalidControlTarget)
+        // The arithmetic handler's move-exception is at 5: const, const, div-int (2 units), return.
+        assertEquals(MethodEditRejectionReason.BranchIntoMoveException(5), result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 
@@ -427,7 +429,8 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(result.reason is MethodEditRejectionReason.StructuralValidationFailure)
+        // const/4 @0, div-int/lit8 @1 (2 units), return @3, move-exception @4, then `return v1` @5 reads v1.
+        assertEquals(MethodEditRejectionReason.ReadBeforeAssignment(codeAddress = 5, register = 1), result.reason)
         assertSame(snapshot, index.currentSnapshot)
     }
 
@@ -486,12 +489,7 @@ class MethodTryRegionEditTest {
 
         val result = edit.commit()
 
-        assertEquals(
-            MethodEditRejectionReason.InvalidTryRegion(
-                "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
-            ),
-            (result as? MethodEditCommitResult.Rejected)?.reason,
-        )
+        assertTrue((result as? MethodEditCommitResult.Rejected)?.reason is MethodEditRejectionReason.HandlerListOffsetOverflow)
         assertSame(snapshot, index.currentSnapshot)
         assertDoesNotThrow { ProgramDexWriter().writeToBytes(index.currentSnapshot) }
     }

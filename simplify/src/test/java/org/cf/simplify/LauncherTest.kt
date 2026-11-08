@@ -113,7 +113,7 @@ class LauncherTest {
         assertEquals(0, result.optimizedMethodCount)
         // The fixture's changed() is two code units long, so code address 99 names no instruction.
         assertTrue(errors.toString().contains("InvalidEdit"), errors.toString())
-        assertTrue(errors.toString().contains("${MethodEditRejectionReason.InvalidCodeAddress(99)}"), errors.toString())
+        assertTrue(errors.toString().contains(MethodEditRejectionReason.InvalidCodeAddress(99).describe()), errors.toString())
         assertEquals(1, Main.run(args, launcher, PrintStream(ByteArrayOutputStream())))
         assertEquals(0, Main.run(args + "--ignore-errors", launcher, PrintStream(ByteArrayOutputStream())))
     }

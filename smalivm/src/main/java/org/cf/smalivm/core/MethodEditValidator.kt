@@ -1,9 +1,7 @@
 package org.cf.smalivm.core
 
-import java.lang.reflect.Modifier
-import kotlinx.collections.immutable.PersistentList
-import kotlinx.collections.immutable.toPersistentList
 import com.android.tools.smali.dexlib2.Opcode
+import com.android.tools.smali.dexlib2.iface.debug.DebugItem
 import com.android.tools.smali.dexlib2.iface.debug.EndLocal
 import com.android.tools.smali.dexlib2.iface.debug.EpilogueBegin
 import com.android.tools.smali.dexlib2.iface.debug.LineNumber
@@ -13,19 +11,17 @@ import com.android.tools.smali.dexlib2.iface.debug.SetSourceFile
 import com.android.tools.smali.dexlib2.iface.debug.StartLocal
 import com.android.tools.smali.dexlib2.iface.instruction.FiveRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.Instruction
-import com.android.tools.smali.dexlib2.iface.instruction.NarrowLiteralInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OneRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.OffsetInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.RegisterRangeInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.ThreeRegisterInstruction
-import com.android.tools.smali.dexlib2.iface.instruction.TwoRegisterInstruction
+import com.android.tools.smali.dexlib2.iface.instruction.SwitchPayload
 import com.android.tools.smali.dexlib2.iface.instruction.VariableRegisterInstruction
 import com.android.tools.smali.dexlib2.iface.instruction.formats.ArrayPayload
 import com.android.tools.smali.dexlib2.iface.reference.MethodReference
+import org.cf.smalivm.core.MethodEditRejectionReason.*
 
-/** Expected structural validation for one edited method candidate. */
+/** The structural rules an edited method must satisfy before it is published. */
 internal object MethodEditValidator {
     /**
      * Rules on the logical body: control targets, payload ownership, move-exception entry, try regions and debug
@@ -33,8 +29,6 @@ internal object MethodEditValidator {
      */
     fun validateLogicalBody(body: MethodBody): MethodEditRejectionReason? {
         val recordsByPosition = body.instructions.associateBy(EncodedInstruction::position)
-        val endPosition = body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value
-            ?: return MethodEditRejectionReason.StructuralValidationFailure("The method has no end position")
         val payloadPositions = recordsByPosition.filterValues {
             it.instruction.opcode in OpcodeGroups.PAYLOAD
         }.keys
@@ -42,24 +36,14 @@ internal object MethodEditValidator {
 
         for (record in body.instructions) {
             val instruction = record.instruction
+            val address = record.codeAddress
             val target = body.controlTargets[record.position]
-            if (instruction is OffsetInstruction && target == null) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "${instruction.opcode} at ${record.codeAddress} has no logical target",
-                )
-            }
+            if (instruction is OffsetInstruction && target == null) return MissingControlTarget(address)
             if (target == null) continue
             val targetRecord = recordsByPosition[target]
             when (instruction.opcode) {
-                in OpcodeGroups.BRANCH -> if (targetRecord == null || target in payloadPositions) {
-                    return MethodEditRejectionReason.InvalidControlTarget(
-                        "${instruction.opcode} at ${record.codeAddress} does not target executable code",
-                    )
-                }
                 Opcode.FILL_ARRAY_DATA -> if (targetRecord?.instruction !is ArrayPayload) {
-                    return MethodEditRejectionReason.InvalidControlTarget(
-                        "fill-array-data at ${record.codeAddress} does not target an array payload",
-                    )
+                    return WrongPayloadTarget(address)
                 }
                 in OpcodeGroups.SWITCH -> {
                     val expectedPayload = if (instruction.opcode == Opcode.PACKED_SWITCH) {
@@ -67,33 +51,18 @@ internal object MethodEditValidator {
                     } else {
                         Opcode.SPARSE_SWITCH_PAYLOAD
                     }
-                    if (targetRecord?.instruction?.opcode != expectedPayload) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} targets the wrong payload kind",
-                        )
-                    }
-                    val cases = body.switchCases[record.position]
-                        ?: return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} has no owner-specific cases",
-                        )
+                    if (targetRecord?.instruction?.opcode != expectedPayload) return WrongPayloadTarget(address)
+                    val cases = body.switchCases[record.position].orEmpty()
                     val payloadKeys = (targetRecord.instruction as SwitchPayload).switchElements.map { it.key }
-                    if (cases.map(ImportedSwitchCase::key) != payloadKeys) {
-                        return MethodEditRejectionReason.InvalidControlTarget(
-                            "${instruction.opcode} at ${record.codeAddress} has cases that differ from its payload keys",
-                        )
-                    }
+                    if (cases.map(ImportedSwitchCase::key) != payloadKeys) return SwitchCasesMismatchPayload(address)
                     for (case in cases) {
-                        if (case.target == endPosition || case.target in payloadPositions || case.target !in recordsByPosition) {
-                            return MethodEditRejectionReason.InvalidControlTarget(
-                                "${instruction.opcode} case ${case.key} does not target executable code",
-                            )
+                        if (case.target in payloadPositions || case.target !in recordsByPosition) {
+                            return SwitchCaseTargetNotExecutable(address, case.key)
                         }
                     }
                 }
                 else -> if (targetRecord == null || target in payloadPositions) {
-                    return MethodEditRejectionReason.InvalidControlTarget(
-                        "${instruction.opcode} at ${record.codeAddress} has an invalid logical target",
-                    )
+                    return BranchTargetNotExecutable(address)
                 }
             }
             if (instruction.opcode in OpcodeGroups.PAYLOAD_OWNER) {
@@ -102,56 +71,42 @@ internal object MethodEditValidator {
         }
 
         for (payloadPosition in payloadPositions) {
-            if (payloadOwners[payloadPosition].isNullOrEmpty()) {
-                return MethodEditRejectionReason.InvalidControlTarget("Payload data has no owning instruction")
-            }
-            val payload = requireNotNull(recordsByPosition[payloadPosition]).instruction
+            val payload = recordsByPosition.getValue(payloadPosition)
+            if (payloadOwners[payloadPosition].isNullOrEmpty()) return UnownedPayload(payload.codeAddress)
             validatePayloadKeys(payload)?.let { return it }
         }
 
         val paddingFreeRecords = body.instructions.filter { it.position !in body.syntheticPayloadPaddingPositions }
-        if (paddingFreeRecords.firstOrNull()?.position in payloadPositions) {
-            return MethodEditRejectionReason.InvalidControlTarget("Method entry cannot contain payload data")
-        }
+        if (paddingFreeRecords.firstOrNull()?.position in payloadPositions) return PayloadAtMethodEntry
         paddingFreeRecords.zipWithNext().forEach { (previous, next) ->
             if (next.position in payloadPositions && previous.instruction.opcode.canContinue()) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "Ordinary control flow falls into payload data at ${next.codeAddress}",
-                )
+                return FallsIntoPayload(next.codeAddress)
             }
             if (next.instruction.opcode == Opcode.MOVE_EXCEPTION && previous.instruction.opcode.canContinue()) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "Ordinary control flow enters move-exception at ${next.codeAddress}",
-                )
+                return FallsIntoMoveException(next.codeAddress)
             }
         }
-        val moveExceptionPositions = body.instructions.filter {
-            it.instruction.opcode == Opcode.MOVE_EXCEPTION
-        }.mapTo(hashSetOf(), EncodedInstruction::position)
-        if (body.controlTargets.values.any { it in moveExceptionPositions } ||
-            body.switchCases.values.flatten().any { it.target in moveExceptionPositions }
-        ) {
-            return MethodEditRejectionReason.InvalidControlTarget("Ordinary branch enters move-exception")
-        }
+        val moveExceptionAddresses = body.instructions
+            .filter { it.instruction.opcode == Opcode.MOVE_EXCEPTION }
+            .associate { it.position to it.codeAddress }
+        val branchTargets = body.controlTargets.values.asSequence() +
+            body.switchCases.values.asSequence().flatten().map(ImportedSwitchCase::target)
+        branchTargets.firstNotNullOfOrNull(moveExceptionAddresses::get)?.let { return BranchIntoMoveException(it) }
 
         validateTryRegions(body, recordsByPosition, payloadPositions)?.let { return it }
         for (item in body.debugItems) {
-            if (item.position != endPosition && (item.position !in recordsByPosition || item.position in payloadPositions)) {
-                return MethodEditRejectionReason.StructuralValidationFailure(
-                    "Debug metadata does not target an executable boundary",
-                )
+            if (item.position != body.endPosition &&
+                (item.position !in recordsByPosition || item.position in payloadPositions)
+            ) {
+                return DebugItemNotAtInstruction
             }
             val register = debugRegister(item.item)
-            if (register != null && register !in 0 until body.registerCount) {
-                return MethodEditRejectionReason.RegisterOverflow(register)
-            }
+            if (register != null && register !in 0 until body.registerCount) return RegisterOverflow(register)
             if (item.item !is LineNumber && item.item !is StartLocal && item.item !is EndLocal &&
                 item.item !is RestartLocal && item.item !is PrologueEnd && item.item !is EpilogueBegin &&
                 item.item !is SetSourceFile
             ) {
-                return MethodEditRejectionReason.StructuralValidationFailure(
-                    "Unsupported debug item type: ${item.item.javaClass.name}",
-                )
+                return UnsupportedDebugItem(item.item.debugItemType)
             }
         }
         return null
@@ -166,50 +121,36 @@ internal object MethodEditValidator {
         snapshot: ProgramSnapshot,
         projectedReferences: DexReferenceClosure = snapshot.dexReferenceClosure,
     ): MethodEditRejectionReason? {
-        if (layout.registerCount > DexLimits.MAX_REGISTER_COUNT) {
-            return MethodEditRejectionReason.RegisterOverflow(layout.registerCount - 1)
-        }
+        if (layout.registerCount > DexLimits.MAX_REGISTER_COUNT) return RegisterOverflow(layout.registerCount - 1)
         val opcodes = snapshot.outputApiPolicy.opcodes()
         var codeUnits = 0L
         for (record in layout.instructions) {
             val instruction = record.instruction
             if (opcodes.getOpcodeValue(instruction.opcode) == null) {
-                return MethodEditRejectionReason.StructuralValidationFailure(
-                    "Opcode ${instruction.opcode.name} is unavailable at output API ${snapshot.outputApiPolicy.apiLevel}",
-                )
+                return OpcodeUnavailable(instruction.opcode, snapshot.outputApiPolicy.apiLevel)
             }
-            invalidRegister(instruction, layout.registerCount)?.let {
-                return MethodEditRejectionReason.RegisterOverflow(it)
-            }
-            invalidWideRegister(instruction, layout.registerCount)?.let {
-                return MethodEditRejectionReason.RegisterOverflow(it)
-            }
+            invalidRegister(instruction, layout.registerCount)?.let { return RegisterOverflow(it) }
+            invalidWideRegister(instruction, layout.registerCount)?.let { return RegisterOverflow(it) }
             codeUnits += instruction.codeUnits
-            if (codeUnits > Int.MAX_VALUE) return MethodEditRejectionReason.CodeSizeOverflow(codeUnits)
+            if (codeUnits > Int.MAX_VALUE) return CodeSizeOverflow(codeUnits)
         }
         val addresses = layout.instructions.mapTo(hashSetOf(), LaidOutInstruction::codeAddress)
         for (record in layout.instructions) {
             val instruction = record.instruction
             if (instruction.opcode in OpcodeGroups.PAYLOAD && record.codeAddress and 1 != 0) {
-                return MethodEditRejectionReason.StructuralValidationFailure(
-                    "Payload at ${record.codeAddress} is not aligned to an even code-unit address",
-                )
+                return MisalignedPayload(record.codeAddress)
             }
             if (instruction !is OffsetInstruction) continue
             if (record.codeAddress + instruction.codeOffset !in addresses) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "${instruction.opcode} at ${record.codeAddress} does not target an instruction boundary",
-                )
+                return BranchOffsetNotAtInstruction(record.codeAddress)
             }
-            if (instruction.opcode in OpcodeGroups.BRANCH && instruction.codeOffset == 0 && instruction.opcode != Opcode.GOTO_32) {
-                return MethodEditRejectionReason.InvalidControlTarget(
-                    "${instruction.opcode} at ${record.codeAddress} has an invalid zero offset",
-                )
+            if (instruction.opcode in OpcodeGroups.BRANCH && instruction.codeOffset == 0 &&
+                instruction.opcode != Opcode.GOTO_32
+            ) {
+                return ZeroBranchOffset(record.codeAddress)
             }
         }
-        if (layout.tryBlocks.any { it.codeUnitCount <= 0 }) {
-            return MethodEditRejectionReason.InvalidTryRegion("A protected range is empty or reversed")
-        }
+        if (layout.tryBlocks.any { it.codeUnitCount <= 0 }) return EmptyTryRange
         validateEncodedTryStructure(layout, projectedReferences)?.let { return it }
         return null
     }
@@ -221,87 +162,53 @@ internal object MethodEditValidator {
     ): MethodEditRejectionReason? {
         val body = candidate.body
         if (body.registerCount < candidate.baselineRegisterCount) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "An edit cannot reduce the method register count",
-            )
+            return RegisterCountReduced(candidate.baselineRegisterCount, body.registerCount)
         }
-        if (body.registerCount > DexLimits.MAX_REGISTER_COUNT) {
-            return MethodEditRejectionReason.RegisterOverflow(body.registerCount - 1)
-        }
+        if (body.registerCount > DexLimits.MAX_REGISTER_COUNT) return RegisterOverflow(body.registerCount - 1)
         val executableInstructions = body.instructions.filter {
             it.instruction.opcode !in OpcodeGroups.PAYLOAD &&
                 it.position !in body.syntheticPayloadPaddingPositions
         }
-        if (executableInstructions.isEmpty()) {
-            return MethodEditRejectionReason.StructuralValidationFailure("A concrete method needs executable code")
-        }
-        if (executableInstructions.last().instruction.opcode.canContinue()) {
-            return MethodEditRejectionReason.StructuralValidationFailure("Control flow falls past the method end")
-        }
+        if (executableInstructions.isEmpty()) return NoExecutableCode
+        if (executableInstructions.last().instruction.opcode.canContinue()) return FallsPastMethodEnd
         val handlerAddresses = body.implementation.tryBlocks.flatMap { block ->
             block.exceptionHandlers.map { it.handlerCodeAddress }
         }.toSet()
         body.instructions.forEachIndexed { index, record ->
             if (record.instruction.opcode in MOVE_RESULT_OPCODES) {
-                validateMoveResult(body.instructions.getOrNull(index - 1)?.instruction, record.instruction.opcode)
-                    ?.let { return it }
+                validateMoveResult(body.instructions.getOrNull(index - 1)?.instruction, record)?.let { return it }
             }
-            if (record.instruction.opcode == Opcode.MOVE_EXCEPTION) {
-                if (record.codeAddress !in handlerAddresses) {
-                    return MethodEditRejectionReason.InvalidTryRegion(
-                        "move-exception is not the first instruction of an exception handler",
-                    )
-                }
+            if (record.instruction.opcode == Opcode.MOVE_EXCEPTION && record.codeAddress !in handlerAddresses) {
+                return MoveExceptionOutsideHandler(record.codeAddress)
             }
-            validateInvoke(record.instruction)?.let { return it }
-            validateReturnOpcode(candidate.declaration.returnType, record.instruction.opcode)?.let { return it }
+            validateInvoke(record)?.let { return it }
+            validateReturnOpcode(candidate.declaration.returnType, record)?.let { return it }
         }
         validateRegisterFlow(candidate)?.let { return it }
         val allowedReferences = snapshot.dexReferenceClosure.plus(stagedReferences)
-        val candidateReferences = candidate.dexReferenceClosure
-        if (!allowedReferences.containsAll(candidateReferences)) {
-            return MethodEditRejectionReason.InvalidInstructionTemplate(
-                "This edit contains a reference that was not staged and is not reachable in the current snapshot",
-            )
-        }
+        if (!allowedReferences.containsAll(candidate.dexReferenceClosure)) return UnstagedReference
         return null
     }
 
     fun validateStagedReference(reference: StagedDexReference): MethodEditRejectionReason? = when (reference) {
-        is StagedDexReference.Type -> if (isValidReturnTypeDescriptor(reference.descriptor)) {
-            null
-        } else {
-            MethodEditRejectionReason.InvalidDexReference("A staged type has a malformed descriptor")
-        }
-        is StagedDexReference.String -> null
-        is StagedDexReference.Field -> when {
-            !isValidClassDescriptor(reference.definingClass) -> invalidReference("field owner")
-            !isValidMemberName(reference.name) -> invalidReference("field name")
-            !isValidNonVoidTypeDescriptor(reference.type) -> invalidReference("field type")
-            else -> null
-        }
-        is StagedDexReference.Method -> when {
-            !isValidReferenceTypeDescriptor(reference.definingClass) -> invalidReference("method owner")
-            !isValidMethodName(reference.name) -> invalidReference("method name")
-            reference.parameterTypes.any { !isValidNonVoidTypeDescriptor(it) } ->
-                invalidReference("method parameter type")
-            !isValidReturnTypeDescriptor(reference.returnType) -> invalidReference("method return type")
-            else -> null
-        }
-        is StagedDexReference.Prototype -> when {
-            reference.parameterTypes.any { !isValidNonVoidTypeDescriptor(it) } ->
-                invalidReference("prototype parameter type")
-            !isValidReturnTypeDescriptor(reference.returnType) -> invalidReference("prototype return type")
-            else -> null
-        }
+        is StagedDexReference.Type -> descriptor(reference.descriptor, ::isValidReturnTypeDescriptor)
+        is StagedDexReference.StringLiteral -> null
+        is StagedDexReference.Field ->
+            descriptor(reference.definingClass, ::isValidClassDescriptor)
+                ?: memberName(reference.name)
+                ?: descriptor(reference.type, ::isValidNonVoidTypeDescriptor)
+        is StagedDexReference.Method ->
+            descriptor(reference.definingClass, ::isValidReferenceTypeDescriptor)
+                ?: memberName(reference.name)
+                ?: reference.parameterTypes.firstNotNullOfOrNull { descriptor(it, ::isValidNonVoidTypeDescriptor) }
+                ?: descriptor(reference.returnType, ::isValidReturnTypeDescriptor)
+        is StagedDexReference.Prototype ->
+            reference.parameterTypes.firstNotNullOfOrNull { descriptor(it, ::isValidNonVoidTypeDescriptor) }
+                ?: descriptor(reference.returnType, ::isValidReturnTypeDescriptor)
     }
 
-    fun validateCatchTypeDescriptor(descriptor: String): MethodEditRejectionReason? {
-        if (!isValidClassDescriptor(descriptor)) {
-            return MethodEditRejectionReason.InvalidTryRegion("A typed catch requires a class descriptor")
-        }
-        return null
-    }
+    fun validateCatchTypeDescriptor(descriptor: String): MethodEditRejectionReason? =
+        if (isValidClassDescriptor(descriptor)) null else CatchTypeNotClass(descriptor)
 
     fun validateTypeOperand(opcode: Opcode, descriptor: String): MethodEditRejectionReason? {
         val valid = when (opcode) {
@@ -312,11 +219,14 @@ internal object MethodEditValidator {
             Opcode.CONST_CLASS -> isValidReturnTypeDescriptor(descriptor)
             else -> true
         }
-        return if (valid) null else invalidReference("type operand for ${opcode.name.lowercase()}")
+        return if (valid) null else InvalidTypeOperand(opcode, descriptor)
     }
 
-    private fun invalidReference(part: String): MethodEditRejectionReason =
-        MethodEditRejectionReason.InvalidDexReference("A staged $part is malformed")
+    private fun descriptor(descriptor: String, isValid: (String) -> Boolean): MethodEditRejectionReason? =
+        if (isValid(descriptor)) null else MalformedDescriptor(descriptor)
+
+    private fun memberName(name: String): MethodEditRejectionReason? =
+        if (isValidMemberName(name)) null else MalformedMemberName(name)
 
     private fun isValidReturnTypeDescriptor(descriptor: String): Boolean =
         descriptor == "V" || isValidNonVoidTypeDescriptor(descriptor)
@@ -342,8 +252,6 @@ internal object MethodEditValidator {
         return name.isNotEmpty() && name.split('/').all { it.isNotEmpty() && isValidSimpleName(it) }
     }
 
-    private fun isValidMethodName(name: String): Boolean = isValidMemberName(name)
-
     private fun isValidMemberName(name: String): Boolean = when {
         name.isEmpty() -> false
         isValidSimpleName(name) -> true
@@ -368,20 +276,12 @@ internal object MethodEditValidator {
         layout: MethodLayout,
         projectedReferences: DexReferenceClosure,
     ): MethodEditRejectionReason? {
-        if (layout.tryBlocks.size > DexLimits.MAX_TRY_ITEMS) {
-            return MethodEditRejectionReason.InvalidTryRegion("The method exceeds the DEX try-item limit")
-        }
+        if (layout.tryBlocks.size > DexLimits.MAX_TRY_ITEMS) return TooManyTryItems(layout.tryBlocks.size)
         if (layout.tryBlocks.isEmpty()) return null
         val typeIndexes = projectedReferences.types.sorted().withIndex().associate { (index, type) -> type to index }
         val lastOffset = ProgramDexWriter.lastHandlerListOffset(layout.tryBlocks, typeIndexes)
-            ?: return MethodEditRejectionReason.InvalidTryRegion(
-                "An exception handler type is absent from the projected DEX closure",
-            )
-        if (lastOffset > DexLimits.MAX_HANDLER_OFFSET) {
-            return MethodEditRejectionReason.InvalidTryRegion(
-                "An encoded exception-handler offset exceeds the DEX unsigned 16-bit limit",
-            )
-        }
+            ?: return HandlerTypeOutsideReferenceClosure
+        if (lastOffset > DexLimits.MAX_HANDLER_OFFSET) return HandlerListOffsetOverflow(lastOffset)
         return null
     }
 
@@ -399,80 +299,56 @@ internal object MethodEditValidator {
             val start = region.start.ordinal
             val end = region.end.ordinal
             val range = Range(start, end)
-            if (start > end) {
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range is reversed")
-            }
+            if (start > end) return ReversedTryRange
             if (start < end && (region.start !in recordsByPosition || region.start in payloadPositions)) {
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range starts outside executable code")
+                return TryRangeStartNotExecutable
             }
-            if (region.handlers.isEmpty()) {
-                return MethodEditRejectionReason.InvalidTryRegion("A protected range has no exception handler")
-            }
+            if (region.handlers.isEmpty()) return TryRangeWithoutHandler
             region.handlers.mapTo(handlerTypesByRange.getOrPut(range, ::mutableListOf)) { it.exceptionType }
             for (handler in region.handlers) {
-                val target = recordsByPosition[handler.target]
-                if (target == null || handler.target in payloadPositions) {
-                    return MethodEditRejectionReason.InvalidTryRegion(
-                        "An exception handler does not target executable code",
-                    )
+                if (handler.target !in recordsByPosition || handler.target in payloadPositions) {
+                    return HandlerTargetNotExecutable
                 }
             }
             if (start < end) ranges += range
         }
-        handlerTypesByRange.values.forEach { exceptionTypes ->
-            validateCatchAllOrder(exceptionTypes)?.let { return it }
+        for (exceptionTypes in handlerTypesByRange.values) {
+            val catchAllIndex = exceptionTypes.indexOf(null)
+            if (catchAllIndex >= 0 && (catchAllIndex != exceptionTypes.lastIndex || exceptionTypes.count { it == null } != 1)) {
+                return CatchAllNotLast
+            }
         }
         val distinctRanges = ranges.distinct().sortedWith(compareBy(Range::start, Range::end))
         distinctRanges.zipWithNext().forEach { (previous, next) ->
-            if (next.start < previous.end) {
-                return MethodEditRejectionReason.InvalidTryRegion("Distinct protected ranges overlap")
-            }
+            if (next.start < previous.end) return OverlappingTryRanges
         }
         return null
     }
 
-    private fun validateCatchAllOrder(exceptionTypes: List<String?>): MethodEditRejectionReason? {
-        val catchAllIndex = exceptionTypes.indexOfFirst { it == null }
-        if (catchAllIndex >= 0 && (catchAllIndex != exceptionTypes.lastIndex || exceptionTypes.count { it == null } != 1)) {
-            return MethodEditRejectionReason.InvalidTryRegion("A catch-all handler must be unique and last")
-        }
-        return null
-    }
-
-    private fun validatePayloadKeys(payload: Instruction): MethodEditRejectionReason? {
+    private fun validatePayloadKeys(record: EncodedInstruction): MethodEditRejectionReason? {
+        val payload = record.instruction
+        val address = record.codeAddress
         if (payload is ArrayPayload && payload.elementWidth !in setOf(1, 2, 4, 8)) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "Array payload element width ${payload.elementWidth} is invalid",
-            )
+            return InvalidArrayElementWidth(address, payload.elementWidth)
         }
         if (payload !is SwitchPayload) return null
         if (payload.switchElements.size > DexLimits.MAX_SWITCH_ELEMENTS) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "A switch payload cannot contain more than ${DexLimits.MAX_SWITCH_ELEMENTS} elements",
-            )
+            return SwitchPayloadTooLarge(address, payload.switchElements.size)
         }
         val keys = payload.switchElements.map { it.key }
         when (payload.opcode) {
             Opcode.PACKED_SWITCH_PAYLOAD -> keys.zipWithNext().forEach { (previous, next) ->
-                if (next.toLong() != previous.toLong() + 1L) {
-                    return MethodEditRejectionReason.StructuralValidationFailure(
-                        "Packed-switch keys are not consecutive",
-                    )
-                }
+                if (next.toLong() != previous.toLong() + 1L) return PackedSwitchKeysNotConsecutive(address)
             }
             Opcode.SPARSE_SWITCH_PAYLOAD -> keys.zipWithNext().forEach { (previous, next) ->
-                if (next <= previous) {
-                    return MethodEditRejectionReason.StructuralValidationFailure(
-                        "Sparse-switch keys are not unique and sorted",
-                    )
-                }
+                if (next <= previous) return SparseSwitchKeysNotSorted(address)
             }
             else -> Unit
         }
         return null
     }
 
-    private fun debugRegister(item: com.android.tools.smali.dexlib2.iface.debug.DebugItem): Int? = when (item) {
+    private fun debugRegister(item: DebugItem): Int? = when (item) {
         is StartLocal -> item.register
         is EndLocal -> item.register
         is RestartLocal -> item.register
@@ -490,35 +366,22 @@ internal object MethodEditValidator {
         for (record in body.instructions) {
             val state = flow.before(record.position) ?: continue
             for (register in readRegisters(record.instruction)) {
-                if (state[register] == RegisterValue.UNDEFINED) {
-                    return MethodEditRejectionReason.StructuralValidationFailure(
-                        "Register v$register is read before assignment",
-                    )
-                }
+                if (state[register] == RegisterValue.UNDEFINED) return ReadBeforeAssignment(record.codeAddress, register)
             }
-            validateReturnRegister(record.instruction, state)?.let { return it }
+            if (hasReturnCategoryMismatch(record.instruction, state)) {
+                return ReturnCategoryMismatch(record.codeAddress, (record.instruction as OneRegisterInstruction).registerA)
+            }
         }
         return null
     }
 
-    private fun validateReturnRegister(
-        instruction: Instruction,
-        state: RegisterFlow.State,
-    ): MethodEditRejectionReason? {
-        if (instruction.opcode != Opcode.RETURN && instruction.opcode != Opcode.RETURN_OBJECT) return null
-        val register = (instruction as OneRegisterInstruction).registerA
-        val value = state[register]
-        return when {
-            instruction.opcode == Opcode.RETURN_OBJECT && value == RegisterValue.NARROW ->
-                MethodEditRejectionReason.StructuralValidationFailure(
-                    "return-object reads a definitely non-reference value from v$register",
-                )
-            instruction.opcode == Opcode.RETURN && value == RegisterValue.REFERENCE ->
-                MethodEditRejectionReason.StructuralValidationFailure(
-                    "return reads a definitely reference value from v$register",
-                )
-            else -> null
+    private fun hasReturnCategoryMismatch(instruction: Instruction, state: RegisterFlow.State): Boolean {
+        val value = when (instruction.opcode) {
+            Opcode.RETURN, Opcode.RETURN_OBJECT -> state[(instruction as OneRegisterInstruction).registerA]
+            else -> return false
         }
+        return (instruction.opcode == Opcode.RETURN_OBJECT && value == RegisterValue.NARROW) ||
+            (instruction.opcode == Opcode.RETURN && value == RegisterValue.REFERENCE)
     }
 
     /** Every register word an instruction reads: both words of a wide operand and every argument word. */
@@ -557,65 +420,38 @@ internal object MethodEditValidator {
         return null
     }
 
-    private fun validateMoveResult(
-        previous: Instruction?,
-        moveResultOpcode: Opcode,
-    ): MethodEditRejectionReason? {
-        if (previous == null || !previous.opcode.setsResult()) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "$moveResultOpcode does not follow a result-producing instruction",
-            )
-        }
+    private fun validateMoveResult(previous: Instruction?, record: EncodedInstruction): MethodEditRejectionReason? {
+        if (previous == null || !previous.opcode.setsResult()) return MoveResultWithoutResult(record.codeAddress)
         val expected = when {
             previous.opcode == Opcode.FILLED_NEW_ARRAY || previous.opcode == Opcode.FILLED_NEW_ARRAY_RANGE ->
                 Opcode.MOVE_RESULT_OBJECT
             previous.opcode in ORDINARY_INVOKE_OPCODES &&
                 previous is ReferenceInstruction &&
-                previous.reference is MethodReference -> {
-                val returnType = (previous.reference as MethodReference).returnType
-                moveResultOpcodeFor(returnType) ?: return MethodEditRejectionReason.StructuralValidationFailure(
-                    "$moveResultOpcode follows an invocation with no result",
-                )
-            }
+                previous.reference is MethodReference ->
+                moveResultOpcodeFor((previous.reference as MethodReference).returnType)
+                    ?: return MoveResultWithoutResult(record.codeAddress)
             else -> return null
         }
-        if (moveResultOpcode != expected) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "$moveResultOpcode does not match ${previous.opcode}'s result type",
-            )
-        }
-        return null
+        return if (record.instruction.opcode == expected) null else MoveResultTypeMismatch(record.codeAddress, expected)
     }
 
-    private fun validateInvoke(instruction: Instruction): MethodEditRejectionReason? {
+    private fun validateInvoke(record: EncodedInstruction): MethodEditRejectionReason? {
+        val instruction = record.instruction
         if (instruction.opcode !in ORDINARY_INVOKE_OPCODES) return null
         val method = ((instruction as? ReferenceInstruction)?.reference as? MethodReference) ?: return null
-        val variable = instruction as? VariableRegisterInstruction
-            ?: return MethodEditRejectionReason.StructuralValidationFailure(
-                "${instruction.opcode} has no invocation register list",
-            )
         val hasReceiver = instruction.opcode !in STATIC_INVOKE_OPCODES
         val expectedWords = method.parameterTypes.sumOf { type -> if (isWideType(type)) 2 else 1 } +
             if (hasReceiver) 1 else 0
-        if (variable.registerCount != expectedWords) {
-            return MethodEditRejectionReason.StructuralValidationFailure(
-                "${instruction.opcode} uses ${variable.registerCount} register words for $expectedWords argument words",
-            )
+        val actualWords = (instruction as VariableRegisterInstruction).registerCount
+        if (actualWords != expectedWords) {
+            return InvokeArgumentWordMismatch(record.codeAddress, expectedWords, actualWords)
         }
         if (instruction is FiveRegisterInstruction) {
-            val registers = intArrayOf(
-                instruction.registerC,
-                instruction.registerD,
-                instruction.registerE,
-                instruction.registerF,
-                instruction.registerG,
-            )
+            val registers = instruction.registerOperands()
             var word = if (hasReceiver) 1 else 0
             for (type in method.parameterTypes) {
                 if (isWideType(type) && registers[word + 1] != registers[word] + 1) {
-                    return MethodEditRejectionReason.StructuralValidationFailure(
-                        "${instruction.opcode} has a non-adjacent wide argument",
-                    )
+                    return SplitWideArgument(record.codeAddress)
                 }
                 word += if (isWideType(type)) 2 else 1
             }
@@ -625,10 +461,8 @@ internal object MethodEditValidator {
 
     private fun isWideType(type: CharSequence): Boolean = type.length == 1 && (type[0] == 'J' || type[0] == 'D')
 
-    private fun validateReturnOpcode(
-        returnType: String,
-        opcode: Opcode,
-    ): MethodEditRejectionReason? {
+    private fun validateReturnOpcode(returnType: String, record: EncodedInstruction): MethodEditRejectionReason? {
+        val opcode = record.instruction.opcode
         if (opcode !in OpcodeGroups.RETURN) return null
         val expected = when {
             returnType == "V" -> Opcode.RETURN_VOID
@@ -636,13 +470,7 @@ internal object MethodEditValidator {
             returnType.startsWith('L') || returnType.startsWith('[') -> Opcode.RETURN_OBJECT
             else -> Opcode.RETURN
         }
-        return if (opcode == expected) {
-            null
-        } else {
-            MethodEditRejectionReason.StructuralValidationFailure(
-                "$opcode does not match method return type $returnType",
-            )
-        }
+        return if (opcode == expected) null else ReturnOpcodeMismatch(record.codeAddress, expected)
     }
 
     private fun moveResultOpcodeFor(returnType: String): Opcode? = when {

@@ -108,26 +108,35 @@ class MethodReferenceStagingTest {
         val snapshot = index.currentSnapshot
         val writer = ProgramDexWriter()
         val output = writer.writeToBytes(snapshot)
-        val invalidRequests = listOf<(MethodEditTransaction) -> Unit>(
-            { it.stageType("[V") },
-            { it.stageField("I", "field", "I") },
-            { it.stageField("Ltask59/References;", "bad/name", "I") },
-            { it.stageField("Ltask59/References;", "field", "V") },
-            { it.stageMethod("I", "method", emptyList(), "V") },
-            { it.stageMethod("Ltask59/References;", "bad/name", emptyList(), "V") },
-            { it.stageMethod("Ltask59/References;", "method", listOf("V"), "V") },
-            { it.stageMethod("Ltask59/References;", "method", emptyList(), "[V") },
-            { it.stagePrototype(listOf("Q"), "V") },
-            { it.stagePrototype(emptyList(), "[V") },
+        val invalidRequests = listOf<Pair<(MethodEditTransaction) -> StagedDexReference, MethodEditRejectionReason>>(
+            { edit: MethodEditTransaction -> edit.stageType("[V") } to MethodEditRejectionReason.MalformedDescriptor("[V"),
+            { edit: MethodEditTransaction -> edit.stageField("I", "field", "I") } to
+                MethodEditRejectionReason.MalformedDescriptor("I"),
+            { edit: MethodEditTransaction -> edit.stageField("Ltask59/References;", "bad/name", "I") } to
+                MethodEditRejectionReason.MalformedMemberName("bad/name"),
+            { edit: MethodEditTransaction -> edit.stageField("Ltask59/References;", "field", "V") } to
+                MethodEditRejectionReason.MalformedDescriptor("V"),
+            { edit: MethodEditTransaction -> edit.stageMethod("I", "method", emptyList(), "V") } to
+                MethodEditRejectionReason.MalformedDescriptor("I"),
+            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "bad/name", emptyList(), "V") } to
+                MethodEditRejectionReason.MalformedMemberName("bad/name"),
+            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "method", listOf("V"), "V") } to
+                MethodEditRejectionReason.MalformedDescriptor("V"),
+            { edit: MethodEditTransaction -> edit.stageMethod("Ltask59/References;", "method", emptyList(), "[V") } to
+                MethodEditRejectionReason.MalformedDescriptor("[V"),
+            { edit: MethodEditTransaction -> edit.stagePrototype(listOf("Q"), "V") } to
+                MethodEditRejectionReason.MalformedDescriptor("Q"),
+            { edit: MethodEditTransaction -> edit.stagePrototype(emptyList(), "[V") } to
+                MethodEditRejectionReason.MalformedDescriptor("[V"),
         )
 
-        for (request in invalidRequests) {
+        for ((request, expected) in invalidRequests) {
             val edit = VmServices(index).methodEditor.beginEdit(requireNotNull(index.methodView(TARGET)))
             request(edit)
 
             val result = edit.commit() as MethodEditCommitResult.Rejected
 
-            assertTrue(result.reason is MethodEditRejectionReason.InvalidDexReference)
+            assertEquals(expected, result.reason)
             assertSame(snapshot, index.currentSnapshot)
             assertArrayEquals(output, writer.writeToBytes(index.currentSnapshot))
         }
@@ -153,7 +162,7 @@ class MethodReferenceStagingTest {
 
         val foreignResult = local.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(foreignResult.reason is MethodEditRejectionReason.InvalidInstructionTemplate)
+        assertEquals(MethodEditRejectionReason.ForeignStagedReference, foreignResult.reason)
         foreign.discard()
 
         val wrongKind = editor.beginEdit(view)
@@ -170,7 +179,7 @@ class MethodReferenceStagingTest {
 
         val wrongKindResult = wrongKind.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(wrongKindResult.reason is MethodEditRejectionReason.InvalidInstructionTemplate)
+        assertEquals(MethodEditRejectionReason.ReferenceKindMismatch(Opcode.CONST_CLASS), wrongKindResult.reason)
 
         val invalidNewInstance = editor.beginEdit(view)
         val arrayType = invalidNewInstance.stageType("[I")
@@ -186,7 +195,10 @@ class MethodReferenceStagingTest {
 
         val invalidNewInstanceResult = invalidNewInstance.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(invalidNewInstanceResult.reason is MethodEditRejectionReason.InvalidDexReference)
+        assertEquals(
+            MethodEditRejectionReason.InvalidTypeOperand(Opcode.NEW_INSTANCE, "[I"),
+            invalidNewInstanceResult.reason,
+        )
 
         val unstagedOperand = editor.beginEdit(view)
         unstagedOperand.stageMethod("Ltask59/References;", "transitive-only", emptyList(), "V")
@@ -205,7 +217,7 @@ class MethodReferenceStagingTest {
 
         val unstagedResult = unstagedOperand.commit() as MethodEditCommitResult.Rejected
 
-        assertTrue(unstagedResult.reason is MethodEditRejectionReason.InvalidInstructionTemplate)
+        assertEquals(MethodEditRejectionReason.UnstagedReference, unstagedResult.reason)
     }
 
     @Test
@@ -233,7 +245,7 @@ class MethodReferenceStagingTest {
 
         val result = edit.commit() as MethodEditCommitResult.Rejected
 
-        assertEquals("field_ids", (result.reason as MethodEditRejectionReason.DexReferenceLimit).section)
+        assertEquals(MethodEditRejectionReason.DexReferenceLimit(DexSection.FIELD_IDS), result.reason)
         assertSame(snapshot, index.currentSnapshot)
         assertArrayEquals(output, writer.writeToBytes(index.currentSnapshot))
     }

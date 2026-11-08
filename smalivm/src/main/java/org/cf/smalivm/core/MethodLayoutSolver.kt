@@ -179,8 +179,7 @@ internal object MethodLayoutSolver {
                 address += instructionWidth(record, branchStates[record.position], stringEncoding)
             }
         }
-        val end = body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value
-        if (end != null) addresses[end] = address
+        addresses[body.endPosition] = address
         return AddressAssignment(addresses, payloadAddressesByOwner, payloadAddressesByGroup, address)
     }
 

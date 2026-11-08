@@ -146,9 +146,7 @@ internal object ScratchRegisterAllocator {
                 val allocation = logicalRegisters[index].allocation
                 if (allocation is LogicalRegister.Allocation.Scratch && allocation.offset + 1 >= scratchWordCount) {
                     return ScratchRegisterAllocation.Rejected(
-                        MethodEditRejectionReason.InvalidInstructionTemplate(
-                            "A wide scratch operand must fit completely inside its reserved scratch range",
-                        ),
+                        MethodEditRejectionReason.WideScratchPairOutsideReservation(allocation.offset),
                     )
                 }
             }
@@ -258,11 +256,8 @@ internal object ScratchRegisterAllocator {
             }
         }
         val positions = LogicalCodePosition.forBody(pending.size + 1)
-        val oldEnd = requireNotNull(
-            body.positionsByCodeAddress.maxByOrNull(Map.Entry<Int, LogicalCodePosition>::key)?.value,
-        )
         val incomingPositions = incomingIndexes.mapValues { (_, index) -> positions[index] }.toMutableMap()
-        incomingPositions[oldEnd] = positions.last()
+        incomingPositions[body.endPosition] = positions.last()
         val operationPositions = operationIndexes.mapValues { (_, index) -> positions[index] }
 
         val instructions = ArrayList<EncodedInstruction>(pending.size)
