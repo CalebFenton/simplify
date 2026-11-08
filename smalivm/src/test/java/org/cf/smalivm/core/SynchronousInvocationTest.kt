@@ -409,7 +409,7 @@ class SynchronousInvocationTest {
         val vm = VmServices(classIndex)
         var executions = 0
         vm.emulate(
-            MethodSignature(VirtualType.of("Lorg/cf/smalivm/core/BackendCorpusHostFixture;"), "arrayNeedsInit", "([I)I"),
+            MethodSignature(VirtualType.of("Lorg/cf/smalivm/core/BackendHostFixture;"), "arrayNeedsInit", "([I)I"),
         ) {
             executions++
             results.removeFirst()

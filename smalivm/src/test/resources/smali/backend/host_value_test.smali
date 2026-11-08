@@ -1,4 +1,4 @@
-.class public Lorg/cf/smalivm/core/BackendCorpusHostFixture;
+.class public Lorg/cf/smalivm/core/BackendHostFixture;
 .super Ljava/lang/Object;
 
 .method public static native mutate(Ljava/lang/StringBuilder;)V

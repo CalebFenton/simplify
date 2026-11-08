@@ -1,4 +1,4 @@
-# Guest callers of DirectHostObjectTest's host fixture methods. Every method's registers are exactly its
+# Guest callers of DirectHostCallsFixture's host methods. Every method's registers are exactly its
 # parameters, so p0 is v0 and a test seeds arguments by register number.
 .class Ldirect_host_calls;
 .super Ljava/lang/Object;
@@ -106,11 +106,4 @@
     .registers 1
     invoke-static {p0}, Lorg/cf/smalivm/core/DirectHostCallsFixture;->storeNewIntArray(Ljava/lang/Object;)V
     return-void
-.end method
-
-.method public static boxedZero()Ljava/lang/Object;
-    .registers 1
-    invoke-static {}, Lorg/cf/smalivm/core/DirectHostCallsFixture;->boxedZero()Ljava/lang/Object;
-    move-result-object v0
-    return-object v0
 .end method

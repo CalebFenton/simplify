@@ -204,7 +204,7 @@ class InvokeOpTest {
         assertTrackedObject(graph.trusted()!!.terminatingConsensus(0), graph, uninitialized = true)
     }
 
-    // Host-object and array-clone invocation cases live in BackendCorpusMigrationTest.
+    // Host-object and array-clone invocation cases live in BackendInvocationTest.
 
     @Test
     fun objectClassInitializationCreatesCorrectClass() {
