@@ -2817,8 +2817,8 @@ declaring class at every non-`<clinit>` callee entry (`b3abe32:docs/architecture
 `VirtualMachine.kt:189-209`). That ORACLE rule includes virtual, interface, super, and direct instance calls.
 ART's method predicate excludes those calls. Plan 11 therefore keeps static invocation, static-field, and
 allocation triggers, but removes the old engine's instance-entry trigger. The ART source above establishes
-the trigger family only. It does not establish exact ART fidelity for initialization failure, concurrency,
-transaction mode, or `Class.forName`; those remain separate work.
+the trigger family only. It does not establish exact ART fidelity for concurrency, transaction mode, or
+`Class.forName`; those remain separate work. Initialization failure is tiered in the lifecycle section below.
 
 > ✅ **`new-instance` initializes — MEASURED (Plan 9 Task 16 Step 0), and the measurement CONFIRMED the
 > source reading rather than overturning it.** A bare `new-instance LProbe_ClinitWitnessC;` with no
@@ -2865,9 +2865,25 @@ tiered separately, both **INHERITED** from [JLS] §12.4.2's initialization proce
 says it directly: [JLS] 12.4 / [JVMS] 5.5 specify the uninitialized/initializing/initialized/erroneous states
 and the abrupt-initialization behavior, but *"the repository has no recorded ART/Dalvik comparison
 establishing that every JVM detail is the intended target."* [BC] cannot help — `initiali*` occurs zero times
-in it. So the **states** are inherited and the **no-re-run invariant** is inherited, while the exact failure
-*identity* is deliberately out of scope (design decision 4 defers `ExceptionInInitializerError` and the
-cross-frame unwind to Plan 12; a `Failed` state that is merely recorded is an acceptable Plan 9 endpoint).
+in it. So the **states** and the **no-re-run invariant** are inherited. The failure identity is not: it is
+**[ART]**, read at AOSP ART `6484611fd45e69db9f33f98bfd6864014b030ecf` in `runtime/class_linker.cc`:
+
+- **First failure.** `WrapExceptionInInitializer` keeps an escaping `Error` as itself and wraps any other
+  throwable in a fresh `ExceptionInInitializerError`; `mirror::Class::SetStatus` (`runtime/mirror/class.cc`)
+  stores that pending exception as the class's erroneous-state error.
+- **Later trigger.** `InitializeClass` finds the class erroneous and calls `ThrowEarlierClassFailure`, which
+  throws a fresh `NoClassDefFoundError` whose message is `PrettyDescriptor()` (the binary name, `foo.Bar`) and
+  whose cause is the stored error.
+- **Failed superclass.** `InitializeClass` initializes the superclass first; when that fails, the subclass is
+  marked erroneous with the exception the superclass raised, so a subclass trigger throws the failed
+  superclass's `NoClassDefFoundError` (named after the superclass), which every waiting subclass then stores.
+
+`ClassInitFailureBehaviorTest` asserts the message for every trigger kind and for a failed superclass.
+
+**A static initializer with no code is malformed input**, also **[ART]**: `DexFileVerifier::CheckMethodAccessFlags`
+(`libdexfile/dex/dex_file_verifier.cc`, same revision) rejects a constructor marked `native` or `abstract` for every
+dex version that supports default methods, so no device initializes such a class. A trigger that reaches one
+ends its path as `MALFORMED_INPUT` (`ClassInitHostileInputTest`).
 
 The enum has exactly these four states (`core/StateContracts.kt`) and, since Plan 9 Task 16, an implementor:
 `ClassInitStore` in `core/ClassInit.kt` holds the state **per path** (resolved decision 9, over

@@ -48,7 +48,10 @@ drains.
 An escaping class-initializer throw is transformed before handler lookup. An `Error` keeps its identity; any
 other throwable becomes the cause of one fresh `ExceptionInInitializerError`. The active class and its waiting
 dependents store that outward failure before the shared resolver routes it. A later trigger does not rerun the
-initializer. It throws one fresh `NoClassDefFoundError` whose cause is the stored outward failure. Analyzer
-limits, unsupported operations, and host failures remain `Partial` and do not create failed-class state.
+initializer. It throws one fresh `NoClassDefFoundError` named by the class's binary name whose cause is the stored
+outward failure; a trigger whose superclass failed throws that superclass's error instead. `ClassInit.kt` owns this
+decision and builds the throwable for every trigger: ops, invocations, and emulators. A declared `<clinit>` with no
+code ends the trigger's path as `MALFORMED_INPUT`. Analyzer limits, unsupported operations, and host failures
+remain `Partial` and do not create failed-class state.
 
 There is no handler cache and no exception path cap.
