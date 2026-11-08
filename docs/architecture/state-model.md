@@ -31,17 +31,17 @@ between sessions. Internal activation and test construction keep refinements; sa
 
 Class initialization uses internal lifecycle records while `ClassInitState` remains the public projection.
 `Failed` stores the first outward `ThrownSubject`; this value participates in persistent copies, compatibility
-keys, guest-root retention, and host selection. `ClassInitStore` owns validated transitions. A
+keys, guest-root retention, and host selection. `ClassStore` owns validated transitions. A
 `ClassInitContext` identifies the active initializer and ordered dependents that wait for it. If the initializer
 fails, one outward failure is stored for the active class and every waiting dependent before routing continues.
 A later trigger allocates a fresh `NoClassDefFoundError` caused by the stored outward failure.
 
 ## Persistent state and host identity
 
-- `Frame.copy()`, `HeapStore.copy()`, and `ClassInitStore.copy()` create path-owned wrappers over
+- `Frame.copy()`, `HeapStore.copy()`, and `ClassStore.copy()` create path-owned wrappers over
   persistent roots without traversing live register, heap, class, or static entries. Later writes
   replace only the writing path's roots; an unchanged successor does not clone the heap.
-- Observations such as `Frame.peekFrameValue`, `heapObject`, `ClassInitStore.initState`, and
+- Observations such as `Frame.peek`, `heapObject`, `ClassStore.initState`, and
   `getStaticField` read existing state without creating execution-state versions or clone-on-read
   cache entries. Instruction read bookkeeping is distinct from debugger observation.
 - Mutable host objects belong behind `HeapRef` identities in one path-local `HostGraphState`.
