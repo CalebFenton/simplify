@@ -1,9 +1,0 @@
-payload
-smali
-dalvik
-thyroid
-unhandled
-refactor
-nerd
-bytecode
-gradle

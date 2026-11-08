@@ -40,7 +40,7 @@ tools/emulator/cross-validate.sh            # measure + print the agreement numb
 tools/emulator/cross-validate.sh --update   # re-record golden/tier-b-batch.txt
 ```
 
-Last recorded: the `nterp` default and `-Xint` agree 77 of 77 on this device, and Tier A `-Xint` vs Tier B default agree on type+value for **75 of 77** cells — **zero opcode/`java.*` semantic divergences across the ART-version gap**. The two exceptions are the `android.*` boundary probes below (a classpath difference, not a semantics one); everything else that differs is ART wording drift, which is compared away by type. `golden/tier-b-batch.txt` is the pinned capture and diffs directly against `tools/art-runner/golden/tier-a-batch.txt`.
+`cross-validate.sh` prints the agreement between this device's `nterp` default and `-Xint`, and between Tier A `-Xint` and this device's default, compared on throwable type and value so that ART wording drift does not count. The `android.*` boundary probes below differ by design: a classpath difference, not a semantics one. The header of `golden/tier-b-batch.txt` records whether `-Xint` matched the pinned default-mode capture; re-run `cross-validate.sh` for current numbers. `golden/tier-b-batch.txt` diffs directly against `tools/art-runner/golden/tier-a-batch.txt`.
 
 It also re-derives art-runner's `-Xint` mandate on real hardware: `Fx_AputObjectIncompatible` throws `ArrayStoreException` at the device default, matching Tier A `-Xint` and contradicting Tier A's AOT, which silently drops it. So Tier A's AOT is the outlier and `-Xint` is the oracle.
 

@@ -4,8 +4,9 @@
 
 SmaliVM separates method structure, execution evidence, and editing:
 
-- `ClassIndex.requireMethodView(signature)` returns the current immutable method for a `MethodSignature`, which
-  `MethodSignature.parse` reads from the smali spelling `Lpkg/Owner;->name(params)return`.
+- `ClassIndex.methodView(signature)` returns the current immutable method for a `MethodSignature`, or null
+  when the program has no such method. `MethodSignature.parse` reads a signature from the smali spelling
+  `Lpkg/Owner;->name(params)return`.
   `VmServices.newSession(view)` captures the entire program revision, including future callees and
   class initializers. A preexisting session does not switch revisions when an edit commits.
 - A default constructor session starts with a fresh uninitialized receiver and declared instance-field
@@ -41,8 +42,9 @@ SmaliVM separates method structure, execution evidence, and editing:
 
 ## Analysis query contract
 
-`ExecutionGraph` records the nodes each explored path produced. `ExecutionGraph.explored` and
-`ExecutionGraph.trusted()` expose the same `ExploredPaths` queries, and every rule below holds for both.
+`ExecutionGraph` records the nodes each explored path produced. `ExecutionGraph.trusted()` is the public query
+surface. Inside SmaliVM, `ExecutionGraph.explored` answers the same `ExploredPaths` queries without the
+completion gate, for the debugger and tests; every rule below holds for both.
 
 - **Completion-gated trust.** A consumer acts on an answer only from a `TrustedGraphView`. `trusted()`
   returns one only when `completion()` is `canTrustConsensus`: every path ran to an end and none aborted.
@@ -50,9 +52,10 @@ SmaliVM separates method structure, execution evidence, and editing:
   mid-run snapshot is `InProgress`; both answer null. `explored` answers with no gate and describes only
   the walked paths: sound to read for a debugger or a test, never a licence to rewrite.
 - **Dead code.** `TrustedGraphView.isDead(address)` is the only dead-code proof: true for an executable
-  instruction no path reached. `ExecutionGraph.wasReached` is ungated coverage; its `false` proves nothing.
+  instruction no path reached. The internal `ExecutionGraph.wasReached` is ungated coverage; its `false`
+  proves nothing.
 - **Payloads.** `.array-data`, `packed-switch-data` and `sparse-switch-data` are data that control flow
-  never reaches, so `wasReached` is false for them on every run and `isDead` is false for them.
+  never reaches, so they are never reached on any run and `isDead` is false for them.
 - **Post-op state.** The state at an address is the state after its op ran; consensus at an op's address
   is the value it produced. When the op destroys or never computes the needed value (a `check-cast`
   recast, an unemulated `Method.invoke`), read its parents through `parentAddresses` and the

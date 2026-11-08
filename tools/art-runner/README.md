@@ -65,9 +65,10 @@ docker image inspect simplify-art-runner:pinned \
   --format '{{index .Config.Labels "org.cf.simplify.art-standalone-version"}}'
 ```
 
-If the label differs, restore the matching pinned image or run
-`tools/art-runner/build-image.sh` to rebuild the existing pin. Do not change the Dockerfile
-or accept a new golden merely to accommodate a different image already on the host.
+If the label differs, restore the matching pinned image from a saved copy. `build-image.sh` can no longer
+rebuild this pin, because Alpine `edge/testing` no longer publishes it; moving to a new pin means changing
+`ARG ART_VER`, reading the full `check-golden.sh` diff, and re-recording. Do not change the Dockerfile or
+accept a new golden merely to accommodate a different image already on the host.
 
 ## Worth knowing
 

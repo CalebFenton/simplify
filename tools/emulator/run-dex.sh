@@ -106,7 +106,7 @@ for local_dex in "${LOCAL_DEXES[@]}"; do
     fi
     base="$(basename "$local_dex")"
     device_path="$DEVICE_DIR/$base"
-    # The >=17 character floor is art-runner's sharp edge #1: a size_t underflow in
+    # The >=17 character floor is invariant 2 in art-runner's run-batch.sh: a size_t underflow in
     # oat_file_assistant.cc's `framework-res.apk` suffix compare aborts on shorter paths.
     #
     # MEASURED: THAT BUG IS FIXED ON API 36. `/sdcard/d.dex` -- 13 characters, well under the

@@ -44,7 +44,7 @@ RUN mkdir -p /data /work
 # Bake boot.art/boot.oat into the image layer. Without this EVERY container start
 # pays ~5s of dex2oat over the boot classpath; with it, measured start is 0.65s.
 # `|| true` because the warmup program's own exit status is meaningless here (see
-# "Sharp edge 2" in README.md) -- the `test -f` on the next line is the real gate.
+# invariant 3 in run-batch.sh) -- the `test -f` on the next line is the real gate.
 COPY warmup/warmup_boot_image.dex /opt/warmup_boot_image.dex
 RUN dalvikvm -cp /opt/warmup_boot_image.dex Warm >/dev/null 2>&1 || true; \
     test -f /root/.cache/art/x86_64/*boot.art && echo "BOOT IMAGE BAKED OK"
